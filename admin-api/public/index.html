@@ -1964,13 +1964,21 @@ async function dismissNotification(event, id) {
 }
 
 async function clearAllNotifications() {
-  const alerts = allProducts.filter(p => p.lowestPriceText);
-  if (alerts.length === 0) return;
+  const oosProducts = allProducts.filter(p => p.outOfStock);
+  const hasPriceAlerts = allProducts.some(p => p.lowestPriceText);
+  if (!hasPriceAlerts && oosProducts.length === 0) return;
   try {
-    const resp = await apiFetch('/products/clear-lowest-prices', { method: 'POST' });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    allProducts.forEach(p => { if (p.lowestPriceText) p.lowestPriceText = null; });
+    const tasks = [];
+    if (hasPriceAlerts) {
+      tasks.push(apiFetch('/products/clear-lowest-prices', { method: 'POST' }).then(r => r.json()));
+    }
+    for (const p of oosProducts) {
+      tasks.push(apiFetch(`/products/${p.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ outOfStock: false }) }).then(r => r.json()));
+    }
+    const results = await Promise.all(tasks);
+    const failed = results.find(r => r.error);
+    if (failed) throw new Error(failed.error);
+    allProducts.forEach(p => { p.lowestPriceText = null; p.outOfStock = false; });
     updateStats(); renderList(); updateNotifications();
     document.getElementById('notificationDropdown').style.display = 'none';
   } catch (e) { alert('Failed to dismiss all alerts: ' + e.message); }

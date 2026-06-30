@@ -176,14 +176,48 @@ function asinImage(asin) {
 }
 
 // Used only by hourly badge-check cron (not sync)
-async function fetchLowestPriceBadge(asin) {
+// Returns { badge: string|null, highlights: string[] }
+async function fetchAmazonPageData(asin) {
   try {
     const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
-    if (!r.ok) return null;
+    if (!r.ok) return { badge: null, highlights: [] };
     const html = await r.text();
-    const m = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
-    return m ? m[1].trim() : null;
-  } catch { return null; }
+
+    const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
+    const badge = badgeM ? badgeM[1].trim() : null;
+
+    const highlights = [];
+    function extractBullets(sc) {
+      for (const mm of sc.matchAll(/class="a-list-item"[^>]*>([\s\S]*?)<\/span>/g)) {
+        const t = mm[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+          .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+        if (t.length > 15 && t.length < 250 && t.split(/\s+/).length >= 3 &&
+            !t.toLowerCase().startsWith('make sure') && !t.toLowerCase().startsWith('click') &&
+            !/^[\s\W]+$/.test(t)) {
+          highlights.push(t);
+        }
+        if (highlights.length >= 5) break;
+      }
+    }
+    const fbM = html.match(/id="feature-bullets"([\s\S]{0,6000})/);
+    if (fbM) extractBullets(fbM[1]);
+    if (!highlights.length) {
+      const abM = html.match(/id="apex_desktop_feature_bullets[\w-]*"([\s\S]{0,6000})/);
+      if (abM) extractBullets(abM[1]);
+    }
+    if (!highlights.length) {
+      const ovM = html.match(/id="productOverview_feature_div"([\s\S]{0,4000})/);
+      if (ovM) {
+        for (const mm of ovM[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)) {
+          const cells = [...mm[1].matchAll(/<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/g)]
+            .map(c => c[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+          if (cells.length >= 2) { highlights.push(`${cells[0]}: ${cells[1]}`); if (highlights.length >= 5) break; }
+        }
+      }
+    }
+
+    return { badge, highlights };
+  } catch { return { badge: null, highlights: [] }; }
 }
 
 // ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
@@ -493,13 +527,14 @@ async function checkAndCleanDeals(env) {
         const updated = productMap.get(p.id);
         const item = items.find(it => it.asin.toUpperCase() === p.asin.toUpperCase());
 
-        // Not returned by API or availability signals OOS
+        // Only mark OOS when API explicitly signals it — not on missing item or missing price
         const listing = item?.offersV2?.listings?.[0];
         const amPrice = listing?.price?.amount;
         const availability = listing?.availability;
-        const isOOS = !item || !amPrice || amPrice <= 0 ||
+        const isOOS = item && (
           ['OUT_OF_STOCK','UNAVAILABLE'].includes((availability?.type||'').toUpperCase()) ||
-          (availability?.message||'').toLowerCase().match(/out of stock|unavailable/);
+          !!(availability?.message||'').toLowerCase().match(/out of stock|unavailable/)
+        );
 
         if (isOOS) {
           if (!updated.outOfStock) {
@@ -562,37 +597,55 @@ async function checkAndCleanDeals(env) {
   };
 }
 
-// ── Lowest-price badge check (HTML, 8 products / hour) ───────────────────────
+// ── Lowest-price badge check + highlights fill (HTML, 8 products / hour) ─────
+
+function needsHighlights(p) {
+  return !p.highlights || p.highlights.length === 0 ||
+    (p.highlights.length === 1 && p.highlights[0] === 'Great deal on Amazon');
+}
 
 async function checkLowestPriceBadges(env) {
   const { products, sha } = await getProductsFile(env);
   if (!products.length) return { success: true, message: 'No products.' };
 
   const withAsin = products.filter(p => p.asin && !p.outOfStock);
-  const sorted = [...withAsin].sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
-  const toCheck = sorted.slice(0, 8);
+
+  // Products needing highlights go first, then sort by oldest badge check
+  const needHL = withAsin.filter(needsHighlights).sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
+  const hasHL  = withAsin.filter(p => !needsHighlights(p)).sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
+  const toCheck = [...needHL, ...hasHL].slice(0, 8);
 
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
   let changed = false;
+  let badgeCount = 0;
+  let highlightCount = 0;
 
   for (const p of toCheck) {
     const updated = productMap.get(p.id);
     if (!updated) continue;
     updated.lastBadgeCheck = Date.now();
-    const badge = await fetchLowestPriceBadge(p.asin);
+
+    const { badge, highlights } = await fetchAmazonPageData(p.asin);
+
     if (badge && updated.lowestPriceText !== badge) {
       updated.lowestPriceText = badge;
       changed = true;
+      badgeCount++;
+    }
+
+    if (highlights.length > 0 && needsHighlights(updated)) {
+      updated.highlights = highlights;
+      changed = true;
+      highlightCount++;
     }
   }
 
-  if (!changed) return { success: true, message: 'No new lowest price badges found.' };
+  if (!changed) return { success: true, message: 'No changes from badge/highlight check.' };
 
   const reordered = [...productMap.values()].sort((a, b) => (a.order || 0) - (b.order || 0));
-  await saveProductsFile(reordered, sha, 'Update lowest price badges', env);
+  await saveProductsFile(reordered, sha, `Badge/highlight check: ${badgeCount} badges, ${highlightCount} highlights`, env);
 
-  const newBadges = toCheck.filter(p => productMap.get(p.id)?.lowestPriceText);
-  return { success: true, count: newBadges.length, message: `Found ${newBadges.length} lowest price badges.` };
+  return { success: true, badgeCount, highlightCount, message: `${badgeCount} new badges, ${highlightCount} highlights filled.` };
 }
 
 // ── Amazon Deals page checker ─────────────────────────────────────────────────
