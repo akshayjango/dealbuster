@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(if\\(-not $?\\) { \"Directory empty or missing\" })",
+      "WebFetch(domain:www.dealsradar.in)",
+      "WebFetch(domain:dealbuster.in)",
+      "WebFetch(domain:www.amazon.in)",
+      "Bash(grep -n \"checkLowestPriceBadges\\\\|scheduled\\\\|cron\\\\|\\\\/check-badges\\\\|\\\\/sync-errors\" \"C:/Users/blaaz/OneDrive/Desktop/Dealbuster/admin-api/src/index.js\")"
+    ]
+  }
+}

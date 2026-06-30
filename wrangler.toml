@@ -1,0 +1,6 @@
+name = "dealbuster"
+compatibility_date = "2026-06-27"
+
+[assets]
+directory = "."
+exclude = [".git/**", "admin-api/**", "telegram-bot/**", ".claude/**", "node_modules/**", "*.log"]

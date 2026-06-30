@@ -1,0 +1,19 @@
+name = "dealbuster-admin-api"
+compatibility_date = "2025-01-01"
+main = "src/index.js"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "c67facdab9664a6189ecf536ddada140"
+
+[triggers]
+crons = [
+  "*/30 * * * *",
+  "0 * * * *",
+  "30 2 * * *",
+  "30 12 * * *"
+]
