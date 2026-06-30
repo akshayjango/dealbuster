@@ -547,6 +547,9 @@ async function checkAndCleanDeals(env) {
         // Back in stock
         if (updated.outOfStock) { updated.outOfStock = false; changed = true; }
 
+        // No price from API — don't overwrite with NaN, skip price update
+        if (!amPrice || amPrice <= 0) continue;
+
         const dbPrice = parsePrice(p.price);
         const amMrp = listing?.dealDetails?.originalPrice?.amount || listing?.price?.amount || dbPrice || amPrice;
         const newDisc = amPrice && amMrp && amMrp > amPrice ? Math.round((1 - amPrice / amMrp) * 100) : 0;
@@ -1235,6 +1238,52 @@ export default {
       // ── /clean-deals ─────────────────────────────────────────────────────────
       if (url.pathname === '/clean-deals' && request.method === 'GET') {
         try { return json(await checkAndCleanDeals(env)); } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── /repair-nan-prices ────────────────────────────────────────────────────
+      if (url.pathname === '/repair-nan-prices' && request.method === 'GET') {
+        try {
+          const { products, sha } = await getProductsFile(env);
+          const nanProducts = products.filter(p => p.asin && (String(p.price).includes('NaN') || String(p.mrp).includes('NaN')));
+          if (!nanProducts.length) return json({ success: true, fixed: 0, message: 'No NaN prices found.' });
+
+          const productMap = new Map(products.map(p => [p.id, { ...p }]));
+          let fixed = 0;
+
+          for (const p of nanProducts) {
+            try {
+              const r = await fetch(`https://www.amazon.in/dp/${p.asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
+              if (!r.ok) continue;
+              const html = await r.text();
+
+              // Extract price using corePriceDisplay section first, then full page
+              const priceSectionM = html.match(/id="corePriceDisplay_desktop_feature_div"([\s\S]{0,6000})/);
+              const apexSectionM  = html.match(/id="apex_desktop_newAccordionRow"([\s\S]{0,6000})/);
+              const priceSection  = (priceSectionM?.[1] || '') + (apexSectionM?.[1] || '');
+              let price = null;
+              if (priceSection) { const wM = priceSection.match(/class="[^"]*a-price-whole[^"]*"[^>]*>([\d,]+)/i); if (wM) price = parsePrice(wM[1]); }
+              if (!price) { const wM = html.match(/class="[^"]*a-price-whole[^"]*"[^>]*>([\d,]+)/i); if (wM) price = parsePrice(wM[1]); }
+              if (!price || price <= 0) continue;
+
+              // Extract MRP (strikethrough price)
+              let mrp = price;
+              const mrpM = html.match(/class="[^"]*a-text-price[^"]*"[^>]*>\s*<span[^>]*class="a-offscreen"[^>]*>₹\s*([\d,]+)/i);
+              if (mrpM) { const m = parsePrice(mrpM[1]); if (m && m > price) mrp = m; }
+
+              const disc = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
+              const updated = productMap.get(p.id);
+              updated.price = '₹' + price.toLocaleString('en-IN');
+              updated.mrp   = '₹' + mrp.toLocaleString('en-IN');
+              updated.disc  = disc > 0 ? `-${disc}%` : '0%';
+              fixed++;
+            } catch { continue; }
+          }
+
+          if (!fixed) return json({ success: true, fixed: 0, message: 'Could not fetch prices for NaN products.' });
+          const reordered = [...productMap.values()].sort((a, b) => (a.order || 0) - (b.order || 0));
+          await saveProductsFile(reordered, sha, `Repair ${fixed} NaN prices`, env);
+          return json({ success: true, fixed, message: `Repaired ${fixed} of ${nanProducts.length} NaN-priced products.` });
+        } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /check-badges ─────────────────────────────────────────────────────────

@@ -388,6 +388,7 @@
         <button class="btn btn-outline btn-sm" onclick="syncDealsRadar()" id="syncDealsRadarBtn" style="white-space:nowrap;font-size:.82rem;padding:7px 12px;">Sync DealsRadar</button>
         <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIfsBtn" style="white-space:nowrap;font-size:.82rem;padding:7px 12px;">Sync IndiaFreeStuff</button>
         <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="white-space:nowrap;font-size:.82rem;padding:7px 12px;border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
+        <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="white-space:nowrap;font-size:.82rem;padding:7px 12px;border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
         <button class="btn btn-sm toolbar-add-deal" onclick="switchTab('addDeal')" style="white-space:nowrap;">+ Add Deal</button>
       </div>
 
@@ -1818,6 +1819,25 @@ async function syncAmazonDeals() {
     await loadProducts();
   } catch (e) {
     alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function repairNaNPrices() {
+  const btn = document.getElementById('repairNaNBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Repairing…';
+  try {
+    const resp = await apiFetch('/repair-nan-prices');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Repair complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Repair failed: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;
