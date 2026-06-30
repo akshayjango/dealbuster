@@ -170,36 +170,39 @@ const AMZ_HEADERS = {
   'Accept': 'text/html',
 };
 
-async function fetchAmazonImage(asin) {
+// Single fetch returning both image and badge — saves 1 subrequest per new deal
+async function fetchAmazonProductData(asin) {
   try {
     const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
-    if (!r.ok) return '';
+    if (!r.ok) return { image: '', lowestPriceText: null };
     const html = await r.text();
+    let image = '';
     const imgTagM = html.match(/<img[^>]*id="(?:landingImage|imgBlkFront)"[^>]*>/i);
     if (imgTagM) {
       const tag = imgTagM[0];
       const dynM = tag.match(/data-a-dynamic-image="([^"]+)"/i);
-      if (dynM) { const urlM = dynM[1].match(/(https?:\/\/[^&"']+\.(?:jpg|png|jpeg))/i); if (urlM) return urlM[1]; }
-      const hiresM = tag.match(/data-old-hires="([^"]+)"/i); if (hiresM) return hiresM[1];
-      const srcM = tag.match(/src="([^"]+)"/i); if (srcM && !srcM[1].includes('transparent-pixel')) return srcM[1];
+      if (dynM) { const urlM = dynM[1].match(/(https?:\/\/[^&"']+\.(?:jpg|png|jpeg))/i); if (urlM) image = urlM[1]; }
+      if (!image) { const hiresM = tag.match(/data-old-hires="([^"]+)"/i); if (hiresM) image = hiresM[1]; }
+      if (!image) { const srcM = tag.match(/src="([^"]+)"/i); if (srcM && !srcM[1].includes('transparent-pixel')) image = srcM[1]; }
     }
-    const hiResM = html.match(/"hiRes"\s*:\s*"([^"]+)"/i); if (hiResM) return hiResM[1];
-    const largeM = html.match(/"large"\s*:\s*"([^"]+)"/i); if (largeM) return largeM[1];
-    return '';
-  } catch { return ''; }
+    if (!image) { const hiResM = html.match(/"hiRes"\s*:\s*"([^"]+)"/i); if (hiResM) image = hiResM[1]; }
+    if (!image) { const largeM = html.match(/"large"\s*:\s*"([^"]+)"/i); if (largeM) image = largeM[1]; }
+    const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
+    return { image, lowestPriceText: badgeM ? badgeM[1].trim() : null };
+  } catch { return { image: '', lowestPriceText: null }; }
+}
+
+async function fetchAmazonImage(asin) {
+  const { image } = await fetchAmazonProductData(asin);
+  return image;
 }
 
 async function fetchLowestPriceBadge(asin) {
-  try {
-    const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
-    if (!r.ok) return null;
-    const html = await r.text();
-    const m = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
-    return m ? m[1].trim() : null;
-  } catch { return null; }
+  const { lowestPriceText } = await fetchAmazonProductData(asin);
+  return lowestPriceText;
 }
 
-// ── DealsRadar sync (30 new deals / hour, 120 on manual) ──────────────────────
+// ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
 
 async function scrapeAndSyncDealsRadar(env, limit = 30) {
   let dealsJs;
@@ -269,10 +272,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
       updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
     } else {
       if (added.length >= limit) break;
-      // Fetch Amazon image
-      const image = await fetchAmazonImage(deal.asin);
-      // Also check lowest price badge while we have fresh page
-      const lowestPriceText = await fetchLowestPriceBadge(deal.asin);
+      const { image, lowestPriceText } = await fetchAmazonProductData(deal.asin);
 
       added.push({
         id: `dr_${Date.now()}_${added.length}`,
@@ -458,9 +458,9 @@ async function scrapeAndSyncDealOfTheDayIndia(env) {
       updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
     } else {
       if (isOld) continue;
-      // Use Amazon CDN image from card if available, else fetch separately
-      const image = cardImage || await fetchAmazonImage(asin);
-      const lowestPriceText = await fetchLowestPriceBadge(asin);
+      const amzData = cardImage ? { image: cardImage, lowestPriceText: null } : await fetchAmazonProductData(asin);
+      const image = amzData.image;
+      const lowestPriceText = amzData.lowestPriceText;
 
       added.push({
         id: `dotd_${Date.now()}_${added.length}`,
@@ -877,7 +877,8 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
       else if (tl.includes('face')||tl.includes('serum')||tl.includes('cream')||tl.includes('shampoo')||tl.includes('beauty')||tl.includes('perfume')) category = 'Beauty';
       else if (tl.includes('supplement')||tl.includes('health')||tl.includes('protein')||tl.includes('capsule')||tl.includes('tablet')) category = 'Health';
 
-      const lowestPriceText = await fetchLowestPriceBadge(asin);
+      const badgeM2 = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
+      const lowestPriceText = badgeM2 ? badgeM2[1].trim() : null;
 
       added.push({
         id: `amzdeal_${Date.now()}_${added.length}`,
@@ -1211,7 +1212,7 @@ export default {
 
       // ── /sync-dealsradar ─────────────────────────────────────────────────────
       if (url.pathname === '/sync-dealsradar' && request.method === 'GET') {
-        try { return json(await scrapeAndSyncDealsRadar(env, 120)); } catch (e) { return json({ error: e.message }, 502); }
+        try { return json(await scrapeAndSyncDealsRadar(env, 40)); } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /sync-dealofthedayindia ───────────────────────────────────────────────
