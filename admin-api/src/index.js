@@ -1478,8 +1478,8 @@ export default {
       );
     }
 
-    // 8 AM IST (2:30 UTC) — morning Amazon deals sweep
-    if (event.cron === '30 2 * * *') {
+    // 8 AM IST (2:31 UTC) — morning Amazon deals sweep
+    if (event.cron === '31 2 * * *') {
       ctx.waitUntil(
         (async () => {
           try {
@@ -1494,8 +1494,8 @@ export default {
       );
     }
 
-    // 6 PM IST (12:30 UTC) — evening Amazon deals sweep
-    if (event.cron === '30 12 * * *') {
+    // 6 PM IST (12:31 UTC) — evening Amazon deals sweep
+    if (event.cron === '31 12 * * *') {
       ctx.waitUntil(
         (async () => {
           try {
