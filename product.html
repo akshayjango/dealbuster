@@ -167,9 +167,6 @@
       border: 2.5px solid var(--text); box-shadow: 2px 2px 0px var(--text);
       transform: rotate(-3deg); z-index: 10;
     }
-    /* desktop: show outside pill, hide overlay */
-    .discount-pill--overlay { display: none; }
-    .discount-pill--outside { display: inline-block; }
     
     .updated-pill {
       background: #7194FF; border: 2px solid var(--text);
@@ -496,22 +493,6 @@
       }
       .footer-disclaimer { display: none !important; }
 
-      /* discount pill: move to top-right corner of image on mobile */
-      .discount-pill--outside { display: none !important; }
-      .discount-pill--overlay {
-        display: inline-block !important;
-        position: absolute;
-        top: 0; right: 0;
-        left: auto;
-        transform: none;
-        box-shadow: none;
-        border-top: none; border-right: none;
-        border-bottom: 2.5px solid var(--text);
-        border-left: 2.5px solid var(--text);
-        font-size: .9rem; padding: 5px 10px;
-        z-index: 10;
-      }
-
       /* updated tag: move inside image corner on mobile */
       .updated-pill--below   { display: none !important; }
       .updated-pill--overlay {
@@ -576,9 +557,8 @@
       </svg>
       <span class="img-placeholder-text">Product Image</span>
       <div class="updated-pill updated-pill--overlay"><span class="dot"></span> <span id="updatedText">Just Updated</span></div>
-      <span class="discount-pill discount-pill--overlay" id="discountPillOverlay">-75%</span>
     </div>
-    <span class="discount-pill discount-pill--outside" id="discountPill">-75%</span>
+    <span class="discount-pill" id="discountPill">-75%</span>
     <div class="updated-pill updated-pill--below"><span class="dot"></span> <span id="updatedText2">Just Updated</span></div>
   </div>
 
@@ -707,7 +687,6 @@
 
   // Discount pill
   document.getElementById('discountPill').textContent = discount;
-  document.getElementById('discountPillOverlay').textContent = discount;
 
   // Updated tag
   if (updated) {
