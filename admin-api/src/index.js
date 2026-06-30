@@ -162,7 +162,7 @@ async function getSyncErrors(env) {
   catch { return []; }
 }
 
-// ── Amazon HTML helpers ───────────────────────────────────────────────────────
+// ── Amazon helpers ────────────────────────────────────────────────────────────
 
 const AMZ_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -170,36 +170,20 @@ const AMZ_HEADERS = {
   'Accept': 'text/html',
 };
 
-// Single fetch returning both image and badge — saves 1 subrequest per new deal
-async function fetchAmazonProductData(asin) {
+// Derive product image from ASIN — no subrequest needed
+function asinImage(asin) {
+  return `https://m.media-amazon.com/images/P/${asin}.01._SL500_.jpg`;
+}
+
+// Used only by hourly badge-check cron (not sync)
+async function fetchLowestPriceBadge(asin) {
   try {
     const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
-    if (!r.ok) return { image: '', lowestPriceText: null };
+    if (!r.ok) return null;
     const html = await r.text();
-    let image = '';
-    const imgTagM = html.match(/<img[^>]*id="(?:landingImage|imgBlkFront)"[^>]*>/i);
-    if (imgTagM) {
-      const tag = imgTagM[0];
-      const dynM = tag.match(/data-a-dynamic-image="([^"]+)"/i);
-      if (dynM) { const urlM = dynM[1].match(/(https?:\/\/[^&"']+\.(?:jpg|png|jpeg))/i); if (urlM) image = urlM[1]; }
-      if (!image) { const hiresM = tag.match(/data-old-hires="([^"]+)"/i); if (hiresM) image = hiresM[1]; }
-      if (!image) { const srcM = tag.match(/src="([^"]+)"/i); if (srcM && !srcM[1].includes('transparent-pixel')) image = srcM[1]; }
-    }
-    if (!image) { const hiResM = html.match(/"hiRes"\s*:\s*"([^"]+)"/i); if (hiResM) image = hiResM[1]; }
-    if (!image) { const largeM = html.match(/"large"\s*:\s*"([^"]+)"/i); if (largeM) image = largeM[1]; }
-    const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
-    return { image, lowestPriceText: badgeM ? badgeM[1].trim() : null };
-  } catch { return { image: '', lowestPriceText: null }; }
-}
-
-async function fetchAmazonImage(asin) {
-  const { image } = await fetchAmazonProductData(asin);
-  return image;
-}
-
-async function fetchLowestPriceBadge(asin) {
-  const { lowestPriceText } = await fetchAmazonProductData(asin);
-  return lowestPriceText;
+    const m = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
+    return m ? m[1].trim() : null;
+  } catch { return null; }
 }
 
 // ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
@@ -272,12 +256,12 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
       updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
     } else {
       if (added.length >= limit) break;
-      const { image, lowestPriceText } = await fetchAmazonProductData(deal.asin);
+      const image = asinImage(deal.asin);
 
       added.push({
         id: `dr_${Date.now()}_${added.length}`,
         asin: deal.asin, title: deal.title || '', price: priceStr, mrp: mrpStr, disc: discStr,
-        image, link, category, highlights, lowestPriceText, featured: false, hidden: false, outOfStock: false,
+        image, link, category, highlights, lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
         order: 0, addedAt: new Date().toISOString(),
       });
     }
@@ -458,14 +442,12 @@ async function scrapeAndSyncDealOfTheDayIndia(env) {
       updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
     } else {
       if (isOld) continue;
-      const amzData = cardImage ? { image: cardImage, lowestPriceText: null } : await fetchAmazonProductData(asin);
-      const image = amzData.image;
-      const lowestPriceText = amzData.lowestPriceText;
+      const image = cardImage || asinImage(asin);
 
       added.push({
         id: `dotd_${Date.now()}_${added.length}`,
         asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
-        image, link, category, highlights, lowestPriceText, featured: false, hidden: false, outOfStock: false,
+        image, link, category, highlights, lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
         order: 0, addedAt: new Date(pubTime).toISOString(),
       });
     }
@@ -877,9 +859,6 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
       else if (tl.includes('face')||tl.includes('serum')||tl.includes('cream')||tl.includes('shampoo')||tl.includes('beauty')||tl.includes('perfume')) category = 'Beauty';
       else if (tl.includes('supplement')||tl.includes('health')||tl.includes('protein')||tl.includes('capsule')||tl.includes('tablet')) category = 'Health';
 
-      const badgeM2 = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
-      const lowestPriceText = badgeM2 ? badgeM2[1].trim() : null;
-
       added.push({
         id: `amzdeal_${Date.now()}_${added.length}`,
         asin, title,
@@ -888,7 +867,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
         disc: discNum > 0 ? `-${discNum}%` : '0%',
         image, link: `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
         category, highlights: highlights.length ? highlights : ['Great deal on Amazon'],
-        lowestPriceText, featured: false, hidden: false, outOfStock: false,
+        lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
         order: 0, addedAt: new Date().toISOString(),
       });
     } catch (e) {
