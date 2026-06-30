@@ -256,7 +256,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
       updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
     } else {
       if (added.length >= limit) break;
-      const image = asinImage(deal.asin);
+      const image = deal.image || asinImage(deal.asin);
 
       added.push({
         id: `dr_${Date.now()}_${added.length}`,
