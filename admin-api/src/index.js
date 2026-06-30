@@ -1392,6 +1392,15 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── POST /products/clear-all-notifications ────────────────────────────────
+      if (url.pathname === '/products/clear-all-notifications' && request.method === 'POST') {
+        try {
+          const { products, sha } = await getProductsFile(env);
+          await saveProductsFile(products.map(p=>({...p,lowestPriceText:null,outOfStock:false})), sha, 'Dismiss all notifications', env);
+          return json({ success: true });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── POST /products/reorder ───────────────────────────────────────────────
       if (url.pathname === '/products/reorder' && request.method === 'POST') {
         try {
