@@ -199,9 +199,9 @@ async function fetchLowestPriceBadge(asin) {
   } catch { return null; }
 }
 
-// ── DealsRadar sync (30 new deals / hour) ─────────────────────────────────────
+// ── DealsRadar sync (30 new deals / hour, 120 on manual) ──────────────────────
 
-async function scrapeAndSyncDealsRadar(env) {
+async function scrapeAndSyncDealsRadar(env, limit = 30) {
   let dealsJs;
   try {
     const r = await fetch('https://www.dealsradar.in/deals.js', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
@@ -268,8 +268,7 @@ async function scrapeAndSyncDealsRadar(env) {
       const existing = existingByAsin.get(asinUpper);
       updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
     } else {
-      // New deal — limit 30 per sync
-      if (added.length >= 30) break;
+      if (added.length >= limit) break;
       // Fetch Amazon image
       const image = await fetchAmazonImage(deal.asin);
       // Also check lowest price badge while we have fresh page
@@ -1212,7 +1211,7 @@ export default {
 
       // ── /sync-dealsradar ─────────────────────────────────────────────────────
       if (url.pathname === '/sync-dealsradar' && request.method === 'GET') {
-        try { return json(await scrapeAndSyncDealsRadar(env)); } catch (e) { return json({ error: e.message }, 502); }
+        try { return json(await scrapeAndSyncDealsRadar(env, 120)); } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /sync-dealofthedayindia ───────────────────────────────────────────────
