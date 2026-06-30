@@ -175,12 +175,33 @@ function asinImage(asin) {
   return `https://m.media-amazon.com/images/P/${asin}.01._SL500_.jpg`;
 }
 
+// Map Amazon breadcrumb text → our category
+function mapAmazonBreadcrumbCategory(text) {
+  const c = (text || '').toLowerCase();
+  if (/electron|computer|laptop|mobile|phone|camera|television|\btv\b|headphone|speaker|tablet|software|video game|gps|printer|projector|router|networking/.test(c)) return 'Electronics';
+  if (/cloth|fashion|shirt|shoe|jeans|kurta|saree|bag|wallet|jewel|watch|luggage|apparel|handbag|dress|skirt|sari|lehenga|kurti|ethnic/.test(c)) return 'Fashion';
+  if (/home|kitchen|garden|outdoor|tool|furniture|lighting|pet|lawn|automotive|industrial|storage|cookware|bedding|bath|curtain|mattress|lamp|fan|iron|mixer|grinder|cooker|utensil|cleaning|mop|broom|bucket/.test(c)) return 'Home';
+  if (/beauty|personal care|cosmetic|fragrance|perfume|makeup|skincare|haircare|shampoo|conditioner|lotion|serum|cream|face wash/.test(c)) return 'Beauty';
+  if (/health|sport|fitness|gym|baby|grocery|supplement|protein|vitamin|medicine|yoga|cycle|bicycle|cricket|football|badminton|toy|game/.test(c)) return 'Health';
+  return null;
+}
+
+// Detect category from product title (used at sync time)
+function detectCategoryFromTitle(title) {
+  const tl = (title || '').toLowerCase();
+  if (/\bshirt\b|\bshoe\b|\bjeans\b|\bkurta\b|\bsaree\b|\bsari\b|\bkurti\b|\bwallet\b|\bjewel|\bwatch\b|\bluggage\b|\bdress\b|\bskirt\b|\bblouse\b|\bsandal\b|\bhandbag\b|\bpurse\b|\bclutch\b|\bsunglasses\b/.test(tl)) return 'Fashion';
+  if (/\bserum\b|\bbeauty\b|\bperfume\b|\blotion\b|\bconditioner\b|\bfoundation\b|\blipstick\b|\beyeliner\b|\bmakeup\b|\bskincare\b|\bhaircare\b|\bface.?wash\b|\bmoisturi|\bshampoo\b/.test(tl)) return 'Beauty';
+  if (/\bsupplement\b|\bprotein\b|\bvitamin\b|\bcapsule\b|\bhealth\b|\bmedical\b|\bglucose\b|\bbp.?monitor|\bsports?\b|\bfitness\b|\bgym\b|\byoga\b|\bcycle\b|\bbicycle\b|\bcricket\b|\bfootball\b|\bbadminton\b|\btoy\b|\bpuzzle\b|\bbaby\b|\bdiaper\b/.test(tl)) return 'Health';
+  if (/\bkitchen\b|\bfurniture\b|\btowel\b|\bcurtain\b|\bbulb\b|\bmop\b|\bbroom\b|\bvacuum\b|\biron\b|\bmixer\b|\bgrinder\b|\bcooker\b|\bfan\b|\blamp\b|\bbucket\b|\bstorage\b|\bpillow\b|\bblanket\b|\bbedsheet\b|\bsofa\b|\bchair\b|\bwardrobe\b|\bshelf\b|\bgarden\b|\bplant\b|\bseed\b|\bdrill\b|\bhammer\b|\bwrench\b|\bsaw\b|\bmower\b|\bpruner\b|\bdetergent\b|\butensil\b|\bcookware\b/.test(tl)) return 'Home';
+  return 'Electronics';
+}
+
 // Used only by hourly badge-check cron (not sync)
-// Returns { badge: string|null, highlights: string[] }
+// Returns { badge: string|null, highlights: string[], category: string|null }
 async function fetchAmazonPageData(asin) {
   try {
     const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
-    if (!r.ok) return { badge: null, highlights: [] };
+    if (!r.ok) return { badge: null, highlights: [], category: null };
     const html = await r.text();
 
     const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
@@ -216,8 +237,19 @@ async function fetchAmazonPageData(asin) {
       }
     }
 
-    return { badge, highlights };
-  } catch { return { badge: null, highlights: [] }; }
+    // Extract category from breadcrumb
+    let category = null;
+    const bcM = html.match(/id="wayfinding-breadcrumbs[^"]*"([\s\S]{0,3000})/);
+    if (bcM) {
+      const links = [...bcM[1].matchAll(/<a[^>]*>([^<]+)<\/a>/g)].map(m => m[1].trim());
+      for (const link of links) {
+        const mapped = mapAmazonBreadcrumbCategory(link);
+        if (mapped) { category = mapped; break; }
+      }
+    }
+
+    return { badge, highlights, category };
+  } catch { return { badge: null, highlights: [], category: null }; }
 }
 
 // ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
@@ -275,12 +307,8 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
     const link = `https://www.amazon.in/dp/${deal.asin}?tag=${TAG}`;
 
-    const drCat = (deal.category || '').toLowerCase();
-    let category = 'Electronics';
-    if (drCat.includes('fashion') || drCat.includes('apparel') || drCat.includes('shoe') || drCat.includes('bag') || drCat.includes('wallet')) category = 'Fashion';
-    else if (drCat.includes('home') || drCat.includes('kitchen') || drCat.includes('furniture') || drCat.includes('garden')) category = 'Home';
-    else if (drCat.includes('beauty') || drCat.includes('cosmetic') || drCat.includes('skin') || drCat.includes('hair')) category = 'Beauty';
-    else if (drCat.includes('health') || drCat.includes('medicine') || drCat.includes('supplement') || drCat.includes('protein')) category = 'Health';
+    // Use DealsRadar's own category first, fall back to title-based detection
+    const category = mapAmazonBreadcrumbCategory(deal.category) || detectCategoryFromTitle(deal.title);
 
     const highlights = (deal.description || '').split('|').map(h => h.replace(/\s+/g,' ').trim()).filter(h => h.length > 10 && h.split(' ').length >= 3 && h.length < 300).slice(0, 5);
 
@@ -445,12 +473,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       continue;
     }
 
-    const tl = title.toLowerCase();
-    let category = 'Electronics';
-    if (tl.includes('shirt')||tl.includes('shoe')||tl.includes('jeans')||tl.includes('kurta')||tl.includes('saree')||tl.includes('bag')||tl.includes('wallet')) category = 'Fashion';
-    else if (tl.includes('home')||tl.includes('kitchen')||tl.includes('bottle')||tl.includes('furniture')||tl.includes('led')||tl.includes('towel')||tl.includes('bed')||tl.includes('curtain')||tl.includes('bulb')) category = 'Home';
-    else if (tl.includes('face')||tl.includes('serum')||tl.includes('cream')||tl.includes('shampoo')||tl.includes('beauty')||tl.includes('perfume')||tl.includes('lotion')||tl.includes('wash')) category = 'Beauty';
-    else if (tl.includes('supplement')||tl.includes('health')||tl.includes('protein')||tl.includes('capsule')||tl.includes('tablet')) category = 'Health';
+    const category = detectCategoryFromTitle(title);
 
     added.push({
       id: `ifs_${Date.now()}_${added.length}`,
@@ -628,7 +651,13 @@ async function checkLowestPriceBadges(env) {
     if (!updated) continue;
     updated.lastBadgeCheck = Date.now();
 
-    const { badge, highlights } = await fetchAmazonPageData(p.asin);
+    const { badge, highlights, category } = await fetchAmazonPageData(p.asin);
+
+    // Fix wrong category: if Amazon breadcrumb says something different, update
+    if (category && updated.category !== category) {
+      updated.category = category;
+      changed = true;
+    }
 
     if (badge && updated.lowestPriceText !== badge) {
       updated.lowestPriceText = badge;
@@ -881,13 +910,14 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
         if (t.length > 15 && t.length < 250 && highlights.length < 5) highlights.push(t);
       }
 
-      // Category
-      const tl = title.toLowerCase();
-      let category = 'Electronics';
-      if (tl.includes('shirt')||tl.includes('shoe')||tl.includes('jeans')||tl.includes('kurta')||tl.includes('saree')||tl.includes('bag')||tl.includes('wallet')) category = 'Fashion';
-      else if (tl.includes('home')||tl.includes('kitchen')||tl.includes('bottle')||tl.includes('furniture')||tl.includes('towel')||tl.includes('bed')) category = 'Home';
-      else if (tl.includes('face')||tl.includes('serum')||tl.includes('cream')||tl.includes('shampoo')||tl.includes('beauty')||tl.includes('perfume')) category = 'Beauty';
-      else if (tl.includes('supplement')||tl.includes('health')||tl.includes('protein')||tl.includes('capsule')||tl.includes('tablet')) category = 'Health';
+      // Category — from breadcrumb if available, else title keywords
+      const bcMa = html.match(/id="wayfinding-breadcrumbs[^"]*"([\s\S]{0,3000})/);
+      let category = null;
+      if (bcMa) {
+        const links = [...bcMa[1].matchAll(/<a[^>]*>([^<]+)<\/a>/g)].map(m => m[1].trim());
+        for (const link of links) { const mc = mapAmazonBreadcrumbCategory(link); if (mc) { category = mc; break; } }
+      }
+      if (!category) category = detectCategoryFromTitle(title);
 
       added.push({
         id: `amzdeal_${Date.now()}_${added.length}`,

@@ -145,6 +145,8 @@
     .product-row.dragging { opacity: .4; }
     .drag-handle { cursor: grab; color: #d1d5db; font-size: 1.1rem; flex-shrink: 0; padding: 4px; user-select: none; }
     .drag-handle:active { cursor: grabbing; }
+    .product-row-link-area { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+    .product-row-link-area:hover .product-row-title { color: var(--primary); text-decoration: underline; }
     .product-row-img { width: 52px; height: 52px; object-fit: contain; background: #f9f9f9; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
     .product-row-info { flex: 1; min-width: 0; }
     .product-row-title { font-size: .87rem; font-weight: 600; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -855,16 +857,19 @@ function buildProductRow(p, visualIndex) {
     ? (p.image.startsWith('http') ? p.image : `https://raw.githubusercontent.com/akshayjango/dealbuster/main/${p.image}`)
     : '';
 
+  const linkHref = p.link ? escHtml(p.link) : '#';
   row.innerHTML = `
     <span class="drag-handle" title="Drag to reorder">⠿</span>
-    <img class="product-row-img" src="${escHtml(imgSrc)}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2252%22 height=%2252%22%3E%3Crect width=%2252%22 height=%2252%22 fill=%22%23f3f4f6%22/%3E%3C/svg%3E'"/>
-    <div class="product-row-info">
-      <div class="product-row-title">${escHtml(p.title)}</div>
-      <div class="product-row-meta">
-        ${p.category ? `<span class="cat-badge">${escHtml(p.category)}</span>` : ''}
-        ${p.featured ? '<span class="featured-badge">★ Featured</span>' : ''}
+    <a class="product-row-link-area" href="${linkHref}" target="_blank" rel="noopener noreferrer" title="Open on Amazon" ${!p.link ? 'style="cursor:default;pointer-events:none;"' : ''}>
+      <img class="product-row-img" src="${escHtml(imgSrc)}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2252%22 height=%2252%22%3E%3Crect width=%2252%22 height=%2252%22 fill=%22%23f3f4f6%22/%3E%3C/svg%3E'"/>
+      <div class="product-row-info">
+        <div class="product-row-title">${escHtml(p.title)}</div>
+        <div class="product-row-meta">
+          ${p.category ? `<span class="cat-badge">${escHtml(p.category)}</span>` : ''}
+          ${p.featured ? '<span class="featured-badge">★ Featured</span>' : ''}
+        </div>
       </div>
-    </div>
+    </a>
     <div class="product-row-prices">
       <div class="row-price">${escHtml(p.price || '')}</div>
       ${p.mrp && p.mrp !== p.price ? `<div class="row-mrp">${escHtml(p.mrp)}</div>` : ''}
