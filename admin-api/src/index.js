@@ -307,63 +307,68 @@ function parseTimeAgo(text, baseTime) {
 }
 
 async function scrapeAndSyncDealOfTheDayIndia(env) {
-  // Site changed HTML structure — new: <div class="deal-card"> with inline ASIN, image, price
-  const sources = ['https://dealofthedayindia.com/store/amazon/', 'https://dealofthedayindia.com/'];
+  // Homepage is JS-rendered; fetch RSS → get latest post URL → parse that post (server-rendered)
   const matchesMap = new Map();
 
-  for (const url of sources) {
-    try {
-      const r = await fetch(url, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
-      if (!r.ok) continue;
-      const html = await r.text();
+  try {
+    // Step 1: get latest post URLs from RSS
+    const rssR = await fetch('https://dealofthedayindia.com/feed/', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    if (!rssR.ok) throw new Error(`RSS HTTP ${rssR.status}`);
+    const rssText = await rssR.text();
+    const postUrls = [];
+    const linkRe = /<link>([^<]+dealofthedayindia\.com\/[^<]+)<\/link>/gi;
+    let lm;
+    while ((lm = linkRe.exec(rssText)) !== null) postUrls.push(lm[1].trim());
+    if (postUrls.length === 0) throw new Error('no post links in RSS');
 
-      // New structure: split on <div class="deal-card">
-      const blocks = html.split(/<div class="deal-card[^"]*"/g);
-      for (let i = 1; i < blocks.length; i++) {
-        const block = blocks[i];
+    // Step 2: fetch each post page (max 2) and parse col_item offer_grid blocks
+    for (const postUrl of postUrls.slice(0, 2)) {
+      try {
+        const r = await fetch(postUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+        if (!r.ok) continue;
+        const html = await r.text();
 
-        // Extract ASIN from go.php link: go.php?https://amazon.in/dp/ASIN
-        const asinM = block.match(/go\.php\?https?:\/\/(?:www\.)?amazon\.in\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})/i);
-        if (!asinM) continue;
-        const asin = asinM[1].toUpperCase();
+        // Each deal is inside <div class="col_item offer_grid ...">
+        const blocks = html.split(/<div class="col_item offer_grid/g);
+        for (let i = 1; i < blocks.length; i++) {
+          const block = blocks[i];
 
-        // Extract image — prefer Amazon CDN img, skip amazon logo icon
-        const imgM = block.match(/<img[^>]+src="(https?:\/\/m\.media-amazon\.com\/images\/[^"]+)"[^>]*alt="([^"]+)"/i) ||
-                     block.match(/<img[^>]+src="(https?:\/\/[^"]+)"[^>]*alt="([^"]+)"/i);
-        const image = imgM ? imgM[1] : '';
-        let title = imgM && imgM[2] ? decodeHtmlEntities(imgM[2].trim()) : '';
+          // ASIN from go.php link
+          const asinM = block.match(/go\.php\?https?:\/\/(?:www\.)?amazon\.in\/dp\/([A-Z0-9]{10})/i);
+          if (!asinM) continue;
+          const asin = asinM[1].toUpperCase();
 
-        // Fallback: extract title from <h3> or <a> text
-        if (!title || title.toLowerCase().includes('amazon')) {
-          const h3M = block.match(/<h[123][^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/i);
-          if (h3M) title = decodeHtmlEntities(h3M[1].trim());
+          // Image from media-amazon CDN (skip amazon logo)
+          const imgM = block.match(/<img[^>]+src="(https?:\/\/m\.media-amazon\.com\/images\/I\/[^"]+)"[^>]*alt="([^"]+)"/i);
+          const image = imgM ? imgM[1] : asinImage(asin);
+          let title = imgM && imgM[2] ? decodeHtmlEntities(imgM[2].trim()) : '';
+
+          // Title fallback from anchor text
+          if (!title) {
+            const aM = block.match(/<p[^>]*><a[^>]+>([^<]{10,})<\/a><\/p>/i);
+            if (aM) title = decodeHtmlEntities(aM[1].trim());
+          }
+          if (!title) continue;
+
+          // Current price: <span class="rh_regular_price">NNN</span>
+          const priceM = block.match(/<span[^>]*class="rh_regular_price"[^>]*>\s*([0-9,]+)\s*<\/span>/i) ||
+                         block.match(/<span[^>]*class="[^"]*price[^"]*"[^>]*>\s*([0-9,]+)\s*<\/span>/i);
+          // MRP: <del>NNN</del>
+          const mrpM = block.match(/<del>\s*([0-9,]+)\s*<\/del>/i) ||
+                       block.match(/MRP[^0-9]*([0-9,]+)/i);
+          const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
+          const mrp = mrpM ? parseInt(mrpM[1].replace(/,/g,'')) : price;
+
+          if (!matchesMap.has(asin)) {
+            matchesMap.set(asin, { asin, title, image, price, mrp });
+          }
         }
-
-        // Extract price: <span class="price">77</span>
-        const priceM = block.match(/<span[^>]*class="[^"]*price[^"]*"[^>]*>([0-9,]+)<\/span>/i);
-        // Extract MRP: <span class="original-price">129</span>
-        const mrpM = block.match(/<span[^>]*class="[^"]*original[^"]*"[^>]*>([0-9,]+)<\/span>/i) ||
-                     block.match(/<del[^>]*>[\s\S]*?([0-9,]+)[\s\S]*?<\/del>/i);
-        const price = priceM ? parseInt(priceM[1].replace(/[^0-9]/g,'')) : 0;
-        const mrp = mrpM ? parseInt(mrpM[1].replace(/[^0-9]/g,'')) : price;
-
-        // Extract post link for highlights fetch
-        const postLinkM = block.match(/<h[123][^>]*>[\s\S]*?<a[^>]+href="([^"]+)"/i) ||
-                          block.match(/<a[^>]+href="(https?:\/\/dealofthedayindia\.com\/[^"]+)"/i);
-        const postLink = postLinkM ? postLinkM[1] : '';
-
-        // Extract time: <span class="time">31 minutes ago</span>
-        const timeM = block.match(/<span[^>]*class="[^"]*time[^"]*"[^>]*>([\s\S]*?)<\/span>/i) ||
-                      block.match(/<span[^>]*class="[^"]*date[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
-        const dateText = timeM ? timeM[1].replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim() : '';
-
-        if (!matchesMap.has(asin)) {
-          matchesMap.set(asin, { asin, title, image, price, mrp, postLink, dateText });
-        }
-      }
-    } catch (e) {
-      console.error(`DOTD source ${url} failed:`, e.message);
+      } catch (e) { console.error(`DOTD post fetch failed: ${e.message}`); }
     }
+  } catch (e) {
+    const msg = `DOTD: RSS/post fetch failed — ${e.message}`;
+    await saveSyncError('DealOfTheDayIndia', msg, env);
+    return { success: false, count: 0, message: msg };
   }
 
   if (matchesMap.size === 0) {
@@ -380,49 +385,10 @@ async function scrapeAndSyncDealOfTheDayIndia(env) {
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
   const updated = [];
-  const baseTime = Date.now();
 
-  const sortedMatches = [...matchesMap.values()].reverse();
-
-  for (const { asin, title, image: cardImage, price: cardPrice, mrp: cardMrp, postLink, dateText } of sortedMatches) {
-    if (added.length + updated.length >= 10) break;
+  for (const { asin, title, image, price, mrp } of matchesMap.values()) {
+    if (added.length + updated.length >= 20) break;
     if (deletedSet.has(asin)) continue;
-
-    const pubTime = parseTimeAgo(dateText, baseTime);
-    const isOld = baseTime - pubTime > 24 * 60 * 60 * 1000;
-
-    // Use prices from listing card directly (no need to visit post page for price/ASIN)
-    let price = cardPrice;
-    let mrp = cardMrp || cardPrice;
-    let highlights = [];
-
-    // Optionally visit post page only for highlights (best-effort, non-blocking)
-    if (postLink && !isOld && !existingByAsin.has(asin)) {
-      try {
-        const r = await fetch(postLink, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] }, signal: AbortSignal.timeout(8000) });
-        if (r.ok) {
-          const postHtml = await r.text();
-          // Try to get better price from post page
-          const priceM = postHtml.match(/<span[^>]*class="regular_price"[^>]*>([^<]+)<\/span>/i) ||
-                         postHtml.match(/<span[^>]*class="[^"]*price[^"]*"[^>]*>[\s₹]*([0-9,]+)/i);
-          const mrpM = postHtml.match(/<div[^>]*class="mrp-price"[^>]*>[\s\S]*?<del>[^0-9]*([0-9,.]+)/i) ||
-                       postHtml.match(/<span[^>]*class="[^"]*original[^"]*"[^>]*>([0-9,]+)/i);
-          if (priceM) price = parseInt(priceM[1].replace(/[^0-9]/g,'')) || price;
-          if (mrpM) mrp = parseInt(mrpM[1].replace(/[^0-9]/g,'')) || mrp;
-
-          const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
-          let pMatch, bestP = '';
-          while ((pMatch = pRegex.exec(postHtml)) !== null) {
-            const t = pMatch[1].replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
-            if (t.length > bestP.length && !pMatch[1].includes('<a href=')) bestP = t;
-          }
-          if (bestP.length > 50) {
-            highlights = bestP.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 15 && s.length < 250).slice(0,5);
-          }
-        }
-      } catch { /* non-fatal */ }
-    }
-    if (!highlights.length) highlights = ['High quality product with a great discount'];
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
@@ -430,25 +396,24 @@ async function scrapeAndSyncDealOfTheDayIndia(env) {
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
     const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
 
-    const titleLower = title.toLowerCase();
+    const tl = title.toLowerCase();
     let category = 'Electronics';
-    if (titleLower.includes('shirt')||titleLower.includes('shoe')||titleLower.includes('jeans')||titleLower.includes('kurta')||titleLower.includes('saree')||titleLower.includes('bag')||titleLower.includes('wallet')||titleLower.includes('fashion')) category = 'Fashion';
-    else if (titleLower.includes('home')||titleLower.includes('kitchen')||titleLower.includes('bottle')||titleLower.includes('furniture')||titleLower.includes('led')||titleLower.includes('towel')||titleLower.includes('bed')) category = 'Home';
-    else if (titleLower.includes('face')||titleLower.includes('serum')||titleLower.includes('cream')||titleLower.includes('shampoo')||titleLower.includes('beauty')||titleLower.includes('perfume')||titleLower.includes('makeup')) category = 'Beauty';
-    else if (titleLower.includes('supplement')||titleLower.includes('health')||titleLower.includes('protein')||titleLower.includes('capsule')||titleLower.includes('tablets')) category = 'Health';
+    if (tl.includes('shirt')||tl.includes('shoe')||tl.includes('jeans')||tl.includes('kurta')||tl.includes('saree')||tl.includes('bag')||tl.includes('wallet')) category = 'Fashion';
+    else if (tl.includes('home')||tl.includes('kitchen')||tl.includes('bottle')||tl.includes('furniture')||tl.includes('led')||tl.includes('towel')||tl.includes('bed')||tl.includes('curtain')) category = 'Home';
+    else if (tl.includes('face')||tl.includes('serum')||tl.includes('cream')||tl.includes('shampoo')||tl.includes('beauty')||tl.includes('perfume')||tl.includes('lotion')||tl.includes('wash')) category = 'Beauty';
+    else if (tl.includes('supplement')||tl.includes('health')||tl.includes('protein')||tl.includes('capsule')||tl.includes('tablet')) category = 'Health';
+
+    const highlights = ['Great deal on Amazon'];
 
     if (existingByAsin.has(asin)) {
       const existing = existingByAsin.get(asin);
       updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
     } else {
-      if (isOld) continue;
-      const image = cardImage || asinImage(asin);
-
       added.push({
         id: `dotd_${Date.now()}_${added.length}`,
         asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
         image, link, category, highlights, lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-        order: 0, addedAt: new Date(pubTime).toISOString(),
+        order: 0, addedAt: new Date().toISOString(),
       });
     }
   }
