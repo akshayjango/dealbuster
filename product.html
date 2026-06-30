@@ -178,6 +178,9 @@
       width: 8px; height: 8px; background: #D1FF00; border-radius: 50%;
       display: inline-block; animation: pulse 2s infinite;
     }
+    /* desktop: show below, hide overlay */
+    .updated-pill--overlay { display: none; }
+    .updated-pill--below   { display: inline-flex; }
     @keyframes pulse {
       0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(209, 255, 0, 0.7); }
       70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(209, 255, 0, 0); }
@@ -489,6 +492,20 @@
         box-shadow: none !important;
       }
       .footer-disclaimer { display: none !important; }
+
+      /* updated tag: move inside image corner on mobile */
+      .updated-pill--below   { display: none !important; }
+      .updated-pill--overlay {
+        display: inline-flex !important;
+        position: absolute;
+        bottom: 0; left: 0;
+        font-size: .7rem; padding: 6px 10px;
+        border-top: 2px solid var(--text);
+        border-right: 2px solid var(--text);
+        border-bottom: none;
+        border-left: none;
+        z-index: 10;
+      }
     }
 
     @media(max-width: 400px) {
@@ -539,9 +556,10 @@
         <path d="M21 15l-5-5L5 21"/>
       </svg>
       <span class="img-placeholder-text">Product Image</span>
+      <div class="updated-pill updated-pill--overlay"><span class="dot"></span> <span id="updatedText">Just Updated</span></div>
     </div>
     <span class="discount-pill" id="discountPill">-75%</span>
-    <div class="updated-pill"><span class="dot"></span> <span id="updatedText">Just Updated</span></div>
+    <div class="updated-pill updated-pill--below"><span class="dot"></span> <span id="updatedText2">Just Updated</span></div>
   </div>
 
   <!-- RIGHT -->
@@ -671,11 +689,12 @@
   document.getElementById('discountPill').textContent = discount;
 
   // Updated tag
-  const updatedPill = document.querySelector('.updated-pill');
   if (updated) {
-    document.getElementById('updatedText').textContent = getRelativeTime(updated);
-  } else if (updatedPill) {
-    updatedPill.style.display = 'none';
+    const t = getRelativeTime(updated);
+    document.getElementById('updatedText').textContent = t;
+    document.getElementById('updatedText2').textContent = t;
+  } else {
+    document.querySelectorAll('.updated-pill').forEach(el => el.style.display = 'none');
   }
 
   // Category
