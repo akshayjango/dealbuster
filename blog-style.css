@@ -343,3 +343,47 @@ footer {
   .blog-hero h1 { font-size: 1.2rem; }
   .article-body { padding: 20px 14px; }
 }
+
+/* ── Prime Day blog extras ────────────────────────────────────────────────── */
+
+/* Checklist — green ticks */
+ul.checklist { list-style: none; padding-left: 0; }
+ul.checklist li { padding-left: 28px; position: relative; }
+ul.checklist li::before { content: '✅'; position: absolute; left: 0; top: 1px; font-size: .9rem; }
+
+/* Category grid */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 18px 0 24px;
+}
+.category-grid span {
+  background: #f5f3ff;
+  border: 1.5px solid var(--text);
+  padding: 9px 12px;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
+
+/* Numbered tips */
+.tips-list { display: flex; flex-direction: column; gap: 14px; margin: 18px 0 24px; }
+.tip-item { display: flex; gap: 16px; align-items: flex-start; }
+.tip-num {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  background: var(--primary);
+  color: var(--text);
+  font-size: 1rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--text);
+}
+.tip-item div { flex: 1; }
+.tip-item div strong { display: block; font-size: .97rem; font-weight: 800; margin-bottom: 2px; }
+.tip-item div p { margin: 0; font-size: .9rem; }
+
+@media(max-width: 640px) {
+  .category-grid { grid-template-columns: repeat(2, 1fr); }
+}
