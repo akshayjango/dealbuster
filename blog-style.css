@@ -344,6 +344,16 @@ footer {
   .article-body { padding: 20px 14px; }
 }
 
+/* ── Inline site link ─────────────────────────────────────────────────────── */
+.inline-site-link {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.inline-site-link:hover { opacity: .8; }
+
 /* ── Prime Day blog extras ────────────────────────────────────────────────── */
 
 /* Checklist — green ticks */
