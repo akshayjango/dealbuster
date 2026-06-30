@@ -286,7 +286,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
   return { success: true, added: added.length, updated: updated.length, message: msg };
 }
 
-// ── DealOfTheDayIndia sync (10 deals / 30 min) ───────────────────────────────
+// ── IndiaFreeStuff sync (10 deals / 10 min, Amazon-only) ─────────────────────
 
 function decodeHtmlEntities(str) {
   return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&#124;/g,'|').replace(/&#8211;/g,'-').replace(/&#8217;/g,"'").replace(/&#8220;/g,'"').replace(/&#8221;/g,'"');
@@ -306,74 +306,69 @@ function parseTimeAgo(text, baseTime) {
   return isNaN(parsed.getTime()) ? now : parsed.getTime();
 }
 
-async function scrapeAndSyncDealOfTheDayIndia(env) {
-  // Homepage is JS-rendered; fetch RSS → get latest post URL → parse that post (server-rendered)
+async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
+  // Server-rendered. 1 fetch for /trending (40 deals) + 1 redirect-follow per NEW Amazon deal for ASIN.
+  // Filter: only blocks containing /stores/amazon link.
+  // Image: extract Amazon image hash from their thumbnail filename — no extra fetch.
   const matchesMap = new Map();
 
   try {
-    // Step 1: get latest post URLs from RSS
-    const rssR = await fetch('https://dealofthedayindia.com/feed/', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
-    if (!rssR.ok) throw new Error(`RSS HTTP ${rssR.status}`);
-    const rssText = await rssR.text();
-    const postUrls = [];
-    const linkRe = /<link>([^<]+dealofthedayindia\.com\/[^<]+)<\/link>/gi;
-    let lm;
-    while ((lm = linkRe.exec(rssText)) !== null) postUrls.push(lm[1].trim());
-    if (postUrls.length === 0) throw new Error('no post links in RSS');
+    const r = await fetch('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const html = await r.text();
 
-    // Step 2: fetch each post page (max 2) and parse col_item offer_grid blocks
-    for (const postUrl of postUrls.slice(0, 2)) {
-      try {
-        const r = await fetch(postUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
-        if (!r.ok) continue;
-        const html = await r.text();
+    const blocks = html.split(/<div class="product-item">/g);
+    for (let i = 1; i < blocks.length; i++) {
+      const block = blocks[i];
 
-        // Each deal is inside <div class="col_item offer_grid ...">
-        const blocks = html.split(/<div class="col_item offer_grid/g);
-        for (let i = 1; i < blocks.length; i++) {
-          const block = blocks[i];
+      // Amazon-only filter — block must link to /stores/amazon
+      if (!block.includes('/stores/amazon')) continue;
 
-          // ASIN from go.php link
-          const asinM = block.match(/go\.php\?https?:\/\/(?:www\.)?amazon\.in\/dp\/([A-Z0-9]{10})/i);
-          if (!asinM) continue;
-          const asin = asinM[1].toUpperCase();
+      // Title from item-title anchor
+      const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
+      if (!titleM) continue;
+      let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
+      // Strip trailing " Rs. NNN - Amazon" suffix sites append
+      title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Amazon\s*$/i, '').trim();
+      if (!title || title.length < 5) continue;
 
-          // Image from media-amazon CDN (skip amazon logo)
-          const imgM = block.match(/<img[^>]+src="(https?:\/\/m\.media-amazon\.com\/images\/I\/[^"]+)"[^>]*alt="([^"]+)"/i);
-          const image = imgM ? imgM[1] : asinImage(asin);
-          let title = imgM && imgM[2] ? decodeHtmlEntities(imgM[2].trim()) : '';
+      // Image: extract Amazon image hash from their thumbnail filename
+      // e.g. thumb_f8ec8aef_61NiiBDN0yL.SX522.jpg → 61NiiBDN0yL → Amazon CDN image
+      const thumbM = block.match(/data-original="([^"]+images\.indiafreestuff\.in[^"]+)"/i);
+      let image = '';
+      if (thumbM) {
+        const fname = thumbM[1].split('/').pop();
+        const hashM = fname.match(/thumb_[a-f0-9]+_([A-Za-z0-9]{11})\./);
+        image = hashM
+          ? `https://m.media-amazon.com/images/I/${hashM[1]}._SL500_.jpg`
+          : thumbM[1]; // fallback to their CDN thumbnail
+      }
 
-          // Title fallback from anchor text
-          if (!title) {
-            const aM = block.match(/<p[^>]*><a[^>]+>([^<]{10,})<\/a><\/p>/i);
-            if (aM) title = decodeHtmlEntities(aM[1].trim());
-          }
-          if (!title) continue;
+      // Prices
+      const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+      const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+      const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
+      const mrp   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : price;
 
-          // Current price: <span class="rh_regular_price">NNN</span>
-          const priceM = block.match(/<span[^>]*class="rh_regular_price"[^>]*>\s*([0-9,]+)\s*<\/span>/i) ||
-                         block.match(/<span[^>]*class="[^"]*price[^"]*"[^>]*>\s*([0-9,]+)\s*<\/span>/i);
-          // MRP: <del>NNN</del>
-          const mrpM = block.match(/<del>\s*([0-9,]+)\s*<\/del>/i) ||
-                       block.match(/MRP[^0-9]*([0-9,]+)/i);
-          const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
-          const mrp = mrpM ? parseInt(mrpM[1].replace(/,/g,'')) : price;
+      // rto redirect URL → will resolve to ASIN later for new deals only
+      const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
+      if (!rtoM) continue;
+      const rtoParam = rtoM[1];
 
-          if (!matchesMap.has(asin)) {
-            matchesMap.set(asin, { asin, title, image, price, mrp });
-          }
-        }
-      } catch (e) { console.error(`DOTD post fetch failed: ${e.message}`); }
+      const key = rtoParam; // dedupe by rto param until we have ASIN
+      if (!matchesMap.has(key)) {
+        matchesMap.set(key, { title, image, price, mrp, rtoParam });
+      }
     }
   } catch (e) {
-    const msg = `DOTD: RSS/post fetch failed — ${e.message}`;
-    await saveSyncError('DealOfTheDayIndia', msg, env);
+    const msg = `IndiaFreeStuff fetch failed: ${e.message}`;
+    await saveSyncError('IndiaFreeStuff', msg, env);
     return { success: false, count: 0, message: msg };
   }
 
   if (matchesMap.size === 0) {
-    const msg = 'DOTD: could not parse any deals from site (HTML structure may have changed)';
-    await saveSyncError('DealOfTheDayIndia', msg, env);
+    const msg = 'IndiaFreeStuff: no Amazon deals found (structure may have changed)';
+    await saveSyncError('IndiaFreeStuff', msg, env);
     return { success: false, count: 0, message: msg };
   }
 
@@ -386,40 +381,54 @@ async function scrapeAndSyncDealOfTheDayIndia(env) {
   const added = [];
   const updated = [];
 
-  for (const { asin, title, image, price, mrp } of matchesMap.values()) {
-    if (added.length + updated.length >= 20) break;
-    if (deletedSet.has(asin)) continue;
+  for (const { title, image, price, mrp, rtoParam } of matchesMap.values()) {
+    if (added.length >= limit) break;
+
+    // Follow redirect (manual) — 1 subrequest, gets Location header with Amazon URL → ASIN
+    let asin = '';
+    try {
+      const red = await fetch(`https://www.indiafreestuff.in/?rto=${rtoParam}`, {
+        redirect: 'manual',
+        headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
+      });
+      const loc = red.headers.get('location') || '';
+      if (!loc.includes('amazon.in')) continue; // skip non-Amazon redirects
+      const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
+      if (asinM) asin = asinM[1].toUpperCase();
+    } catch { continue; }
+
+    if (!asin || deletedSet.has(asin)) continue;
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
-    const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
-    const discStr = discNum > 0 ? `-${discNum}%` : '0%';
+    const mrpStr   = mrp   > 0 ? '₹' + mrp.toLocaleString('en-IN')   : priceStr;
+    const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
     const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+
+    if (existingByAsin.has(asin)) {
+      const existing = existingByAsin.get(asin);
+      updated.push({ ...existing, price: priceStr || existing.price, mrp: mrpStr || existing.mrp, disc: discStr, addedAt: new Date().toISOString(), outOfStock: false });
+      continue;
+    }
 
     const tl = title.toLowerCase();
     let category = 'Electronics';
     if (tl.includes('shirt')||tl.includes('shoe')||tl.includes('jeans')||tl.includes('kurta')||tl.includes('saree')||tl.includes('bag')||tl.includes('wallet')) category = 'Fashion';
-    else if (tl.includes('home')||tl.includes('kitchen')||tl.includes('bottle')||tl.includes('furniture')||tl.includes('led')||tl.includes('towel')||tl.includes('bed')||tl.includes('curtain')) category = 'Home';
+    else if (tl.includes('home')||tl.includes('kitchen')||tl.includes('bottle')||tl.includes('furniture')||tl.includes('led')||tl.includes('towel')||tl.includes('bed')||tl.includes('curtain')||tl.includes('bulb')) category = 'Home';
     else if (tl.includes('face')||tl.includes('serum')||tl.includes('cream')||tl.includes('shampoo')||tl.includes('beauty')||tl.includes('perfume')||tl.includes('lotion')||tl.includes('wash')) category = 'Beauty';
     else if (tl.includes('supplement')||tl.includes('health')||tl.includes('protein')||tl.includes('capsule')||tl.includes('tablet')) category = 'Health';
 
-    const highlights = ['Great deal on Amazon'];
-
-    if (existingByAsin.has(asin)) {
-      const existing = existingByAsin.get(asin);
-      updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
-    } else {
-      added.push({
-        id: `dotd_${Date.now()}_${added.length}`,
-        asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
-        image, link, category, highlights, lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-        order: 0, addedAt: new Date().toISOString(),
-      });
-    }
+    added.push({
+      id: `ifs_${Date.now()}_${added.length}`,
+      asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
+      image, link, category, highlights: ['Great deal on Amazon'],
+      lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
+      order: 0, addedAt: new Date().toISOString(),
+    });
   }
 
   if (added.length === 0 && updated.length === 0) {
-    return { success: true, count: 0, message: 'No new or updated DOTD deals.' };
+    return { success: true, count: 0, message: 'IndiaFreeStuff: no new Amazon deals.' };
   }
 
   const updatedAsinSet = new Set(updated.map(p => p.asin.toUpperCase()));
@@ -427,7 +436,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env) {
   let final = [...added, ...updated, ...base].map((p, i) => ({ ...p, order: i }));
   if (final.length > 270) final = final.slice(0, 270);
 
-  const msg = `DOTD sync: +${added.length} new, ${updated.length} updated`;
+  const msg = `IndiaFreeStuff sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
   return { success: true, added: added.length, updated: updated.length, message: msg };
 }
@@ -1159,15 +1168,15 @@ export default {
         try { return json(await scrapeAndSyncDealsRadar(env, 40)); } catch (e) { return json({ error: e.message }, 502); }
       }
 
-      // ── /sync-dealofthedayindia ───────────────────────────────────────────────
-      if (url.pathname === '/sync-dealofthedayindia' && request.method === 'GET') {
-        try { return json(await scrapeAndSyncDealOfTheDayIndia(env)); } catch (e) { return json({ error: e.message }, 502); }
+      // ── /sync-indiafreestuff ─────────────────────────────────────────────────
+      if (url.pathname === '/sync-indiafreestuff' && request.method === 'GET') {
+        try { return json(await scrapeAndSyncIndiaFreeStuff(env, 20)); } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /sync-all ────────────────────────────────────────────────────────────
       if (url.pathname === '/sync-all' && request.method === 'GET') {
-        const results = await Promise.allSettled([scrapeAndSyncDealsRadar(env), scrapeAndSyncDealOfTheDayIndia(env)]);
-        return json({ success: true, results: results.map((r,i) => ({ site: i===0?'DealsRadar':'DOTD', status: r.status, result: r.status==='fulfilled'?r.value:{error:r.reason.message} })) });
+        const results = await Promise.allSettled([scrapeAndSyncDealsRadar(env, 40), scrapeAndSyncIndiaFreeStuff(env, 20)]);
+        return json({ success: true, results: results.map((r,i) => ({ site: i===0?'DealsRadar':'IndiaFreeStuff', status: r.status, result: r.status==='fulfilled'?r.value:{error:r.reason.message} })) });
       }
 
       // ── /clean-deals ─────────────────────────────────────────────────────────
@@ -1304,17 +1313,17 @@ export default {
 
   // ── Cron jobs ─────────────────────────────────────────────────────────────
   async scheduled(event, env, ctx) {
-    // Every 30 min: sync DOTD (10 deals) + price/OOS check
-    if (event.cron === '*/30 * * * *') {
+    // Every 10 min: sync IndiaFreeStuff (10 new Amazon deals) + price/OOS check
+    if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(
         (async () => {
           try {
-            console.log('DOTD sync start');
-            const r = await scrapeAndSyncDealOfTheDayIndia(env);
-            console.log('DOTD sync:', r.message);
+            console.log('IndiaFreeStuff sync start');
+            const r = await scrapeAndSyncIndiaFreeStuff(env, 10);
+            console.log('IndiaFreeStuff sync:', r.message);
           } catch (e) {
-            console.error('DOTD sync error:', e.message);
-            await saveSyncError('DealOfTheDayIndia', e.message, env);
+            console.error('IndiaFreeStuff sync error:', e.message);
+            await saveSyncError('IndiaFreeStuff', e.message, env);
           }
           try {
             console.log('Price check start');

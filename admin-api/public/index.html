@@ -386,7 +386,7 @@
         </select>
         <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
         <button class="btn btn-outline btn-sm" onclick="syncDealsRadar()" id="syncDealsRadarBtn" style="white-space:nowrap;font-size:.82rem;padding:7px 12px;">Sync DealsRadar</button>
-        <button class="btn btn-outline btn-sm" onclick="syncDealOfTheDay()" id="syncDotdBtn" style="white-space:nowrap;font-size:.82rem;padding:7px 12px;">Sync DealOfTheDay</button>
+        <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIfsBtn" style="white-space:nowrap;font-size:.82rem;padding:7px 12px;">Sync IndiaFreeStuff</button>
         <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="white-space:nowrap;font-size:.82rem;padding:7px 12px;border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
         <button class="btn btn-sm toolbar-add-deal" onclick="switchTab('addDeal')" style="white-space:nowrap;">+ Add Deal</button>
       </div>
@@ -1786,13 +1786,13 @@ function copyAssocLink(asin) {
   });
 }
 
-async function syncDealOfTheDay() {
-  const btn = document.getElementById('syncDotdBtn');
+async function syncIndiaFreeStuff() {
+  const btn = document.getElementById('syncIfsBtn');
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Syncing…';
   try {
-    const resp = await apiFetch('/sync-dealofthedayindia');
+    const resp = await apiFetch('/sync-indiafreestuff');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     alert(data.message || 'Sync complete!');
