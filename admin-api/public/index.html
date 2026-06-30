@@ -1135,7 +1135,7 @@ function addHighlight(listId, text) {
 
 // ── Auto fetch title ──────────────────────────────────────────────────────────
 function isShortLink(urlVal) {
-  return /amzn\.to\//i.test(urlVal);
+  return /amzn\.to\/|amzn-to\.co\//i.test(urlVal);
 }
 
 async function autoFetchTitle(urlVal) {
