@@ -1446,6 +1446,18 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── POST /products/delete-all-oos ─────────────────────────────────────────
+      if (url.pathname === '/products/delete-all-oos' && request.method === 'POST') {
+        try {
+          const { products, sha } = await getProductsFile(env);
+          const oos = products.filter(p => p.outOfStock);
+          const remaining = products.filter(p => !p.outOfStock).map((p,i) => ({...p, order: i}));
+          for (const p of oos) { if (p.asin) await addDeletedAsin(p.asin, env); }
+          await saveProductsFile(remaining, sha, `Deleted ${oos.length} OOS products`, env);
+          return json({ success: true, deleted: oos.length });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── POST /products/reorder ───────────────────────────────────────────────
       if (url.pathname === '/products/reorder' && request.method === 'POST') {
         try {
