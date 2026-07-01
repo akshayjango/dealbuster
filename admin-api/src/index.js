@@ -95,14 +95,15 @@ async function getProductsFile(env) {
   return { products: Array.isArray(products) ? products : [], sha: file.sha };
 }
 
-// Cron lock — prevents concurrent invocations of the same cron from racing on products.json
-async function withCronLock(key, ttlSeconds, env, fn) {
+// Global cron lock — only ONE cron runs at a time to prevent products.json SHA conflicts
+const GLOBAL_CRON_LOCK = 'cron_global';
+async function withCronLock(cronName, ttlSeconds, env, fn) {
   if (!env.KV) return fn();
-  const held = await env.KV.get(key);
-  if (held) { console.log(`Cron lock held for ${key}, skipping invocation`); return null; }
-  await env.KV.put(key, '1', { expirationTtl: ttlSeconds });
+  const held = await env.KV.get(GLOBAL_CRON_LOCK);
+  if (held) { console.log(`Global cron lock held (by ${held}), skipping ${cronName}`); return null; }
+  await env.KV.put(GLOBAL_CRON_LOCK, cronName, { expirationTtl: ttlSeconds });
   try { return await fn(); }
-  finally { await env.KV.delete(key).catch(() => {}); }
+  finally { await env.KV.delete(GLOBAL_CRON_LOCK).catch(() => {}); }
 }
 
 async function saveProductsFile(products, sha, message, env) {
