@@ -391,6 +391,7 @@
             <option value="Beauty">Beauty</option>
             <option value="Health">Health</option>
           </select>
+          <button class="btn btn-ghost btn-sm" id="oosFilterBtn" onclick="toggleOOSFilter()" title="Show Out of Stock">⚠ OOS</button>
           <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
         </div>
         <!-- Row 2: sync buttons -->
@@ -801,6 +802,16 @@ function updateStats() {
   document.getElementById('statLive').textContent = live;
 }
 
+let oosFilterActive = false;
+function toggleOOSFilter() {
+  oosFilterActive = !oosFilterActive;
+  const btn = document.getElementById('oosFilterBtn');
+  btn.style.background = oosFilterActive ? '#fee2e2' : '';
+  btn.style.color = oosFilterActive ? '#dc2626' : '';
+  btn.style.borderColor = oosFilterActive ? '#dc2626' : '';
+  renderList();
+}
+
 function renderList() {
   const q = (document.getElementById('dashSearch')?.value || '').toLowerCase();
   const src = document.getElementById('dashSource')?.value || '';
@@ -810,7 +821,8 @@ function renderList() {
     const matchQ = !q || p.title.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q);
     const matchCat = !cat || p.category === cat;
     const matchSrc = !src || (src === 'dealsradar' ? (p.id || '').includes('_') : !(p.id || '').includes('_'));
-    return matchQ && matchCat && matchSrc;
+    const matchOOS = !oosFilterActive || p.outOfStock;
+    return matchQ && matchCat && matchSrc && matchOOS;
   });
 
   // Featured first, then by order
