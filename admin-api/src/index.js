@@ -324,9 +324,13 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
     const highlights = (deal.description || '').split('|').map(h => h.replace(/\s+/g,' ').trim()).filter(h => h.length > 10 && h.split(' ').length >= 3 && h.length < 300).slice(0, 5);
 
     if (existingByAsin.has(asinUpper)) {
-      // Update existing: refresh price, push to top later
       const existing = existingByAsin.get(asinUpper);
-      updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
+      const existingPrice = parsePrice(existing.price);
+      const newPrice = parsePrice(priceStr);
+      // Only push to top if price actually dropped
+      if (newPrice && existingPrice && newPrice < existingPrice) {
+        updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
+      }
     } else {
       if (added.length >= limit) break;
       const image = deal.image || asinImage(deal.asin);
