@@ -356,7 +356,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
   let final = [...added, ...updated, ...base].map((p, i) => ({ ...p, order: i }));
 
   // Trim to 360
-  if (final.length > 540) final = final.slice(0, 540);
+  if (final.length > 720) final = final.slice(0, 720);
 
   const msg = `DR sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -506,7 +506,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const updatedAsinSet = new Set(updated.map(p => p.asin.toUpperCase()));
   const base = products.filter(p => !p.asin || !updatedAsinSet.has(p.asin.toUpperCase()));
   let final = [...added, ...updated, ...base].map((p, i) => ({ ...p, order: i }));
-  if (final.length > 540) final = final.slice(0, 540);
+  if (final.length > 720) final = final.slice(0, 720);
 
   const msg = `IndiaFreeStuff sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -958,7 +958,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
   }
 
   const final = [...added, ...products].map((p, i) => ({ ...p, order: i }));
-  const trimmed = final.length > 540 ? final.slice(0, 540) : final;
+  const trimmed = final.length > 720 ? final.slice(0, 720) : final;
   await saveProductsFile(trimmed, sha, `Amazon deals sync: +${added.length}`, env);
   return { success: true, count: added.length, message: `Amazon Deals sync: added ${added.length} deal${added.length > 1 ? 's' : ''} from amazon.in/deals` };
 }
