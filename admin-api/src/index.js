@@ -1487,10 +1487,10 @@ export default {
       );
     }
 
-    // Every hour: sync DealsRadar (30 deals) + 1 Amazon deal + badge check
-    if (event.cron === '0 * * * *') {
+    // Every 30 min (at :05 and :35): sync DealsRadar + 1 Amazon deal + badge check
+    if (event.cron === '5,35 * * * *') {
       ctx.waitUntil(
-        withCronLock('cron_hourly', 3300, env, async () => {
+        withCronLock('cron_hourly', 1500, env, async () => {
           try {
             console.log('DealsRadar sync start');
             const r = await scrapeAndSyncDealsRadar(env);
