@@ -382,6 +382,7 @@
             <option value="">All Sources</option>
             <option value="manual">Manual</option>
             <option value="dealsradar">DealsRadar</option>
+            <option value="indiafree">IndiaFreeStuff</option>
           </select>
           <select id="dashCat" onchange="renderList()">
             <option value="">All Categories</option>
@@ -820,7 +821,11 @@ function renderList() {
   let filtered = allProducts.filter(p => {
     const matchQ = !q || p.title.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q);
     const matchCat = !cat || p.category === cat;
-    const matchSrc = !src || (src === 'dealsradar' ? (p.id || '').includes('_') : !(p.id || '').includes('_'));
+    const matchSrc = !src ||
+      (src === 'dealsradar' ? (p.id || '').startsWith('dr_') :
+      src === 'indiafree' ? (p.id || '').startsWith('ifs_') :
+      src === 'manual' ? (!(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('amzdeal_')) :
+      true);
     const matchOOS = !oosFilterActive || p.outOfStock;
     return matchQ && matchCat && matchSrc && matchOOS;
   });
