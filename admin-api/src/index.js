@@ -95,6 +95,16 @@ async function getProductsFile(env) {
   return { products: Array.isArray(products) ? products : [], sha: file.sha };
 }
 
+// Cron lock — prevents concurrent invocations of the same cron from racing on products.json
+async function withCronLock(key, ttlSeconds, env, fn) {
+  if (!env.KV) return fn();
+  const held = await env.KV.get(key);
+  if (held) { console.log(`Cron lock held for ${key}, skipping invocation`); return null; }
+  await env.KV.put(key, '1', { expirationTtl: ttlSeconds });
+  try { return await fn(); }
+  finally { await env.KV.delete(key).catch(() => {}); }
+}
+
 async function saveProductsFile(products, sha, message, env) {
   const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/products.json`;
   const body = { message, content: encodeBase64Unicode(JSON.stringify(products, null, 2)) };
@@ -1457,7 +1467,7 @@ export default {
     // Every 10 min: sync IndiaFreeStuff (10 new Amazon deals) + price/OOS check
     if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(
-        (async () => {
+        withCronLock('cron_10min', 540, env, async () => {
           try {
             console.log('IndiaFreeStuff sync start');
             const r = await scrapeAndSyncIndiaFreeStuff(env, 10);
@@ -1473,14 +1483,14 @@ export default {
           } catch (e) {
             console.error('Price check error:', e.message);
           }
-        })()
+        })
       );
     }
 
     // Every hour: sync DealsRadar (30 deals) + 1 Amazon deal + badge check
     if (event.cron === '0 * * * *') {
       ctx.waitUntil(
-        (async () => {
+        withCronLock('cron_hourly', 3300, env, async () => {
           try {
             console.log('DealsRadar sync start');
             const r = await scrapeAndSyncDealsRadar(env);
@@ -1504,7 +1514,7 @@ export default {
           } catch (e) {
             console.error('Badge check error:', e.message);
           }
-        })()
+        })
       );
     }
 
