@@ -393,7 +393,7 @@
             <option value="Health">Health</option>
           </select>
           <button class="btn btn-ghost btn-sm" id="oosFilterBtn" onclick="toggleOOSFilter()" title="Show Out of Stock">⚠ OOS</button>
-          <button class="btn btn-sm" id="deleteAllOOSBtn" onclick="deleteAllOOS()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">🗑 Delete All OOS</button>
+          <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
           <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
         </div>
         <!-- Row 2: sync buttons -->
@@ -811,21 +811,21 @@ function toggleOOSFilter() {
   btn.style.background = oosFilterActive ? '#fee2e2' : '';
   btn.style.color = oosFilterActive ? '#dc2626' : '';
   btn.style.borderColor = oosFilterActive ? '#dc2626' : '';
-  document.getElementById('deleteAllOOSBtn').style.display = oosFilterActive ? 'inline-flex' : 'none';
+  document.getElementById('pushOOSBottomBtn').style.display = oosFilterActive ? 'inline-flex' : 'none';
   renderList();
 }
 
-async function deleteAllOOS() {
+async function pushAllOOSToBottom() {
   const oosProducts = allProducts.filter(p => p.outOfStock);
   if (!oosProducts.length) { alert('No out-of-stock products found.'); return; }
-  if (!confirm(`Delete all ${oosProducts.length} out-of-stock products? This cannot be undone.`)) return;
+  if (!confirm(`Push ${oosProducts.length} out-of-stock products to bottom?`)) return;
   try {
-    const resp = await apiFetch('/products/delete-all-oos', { method: 'POST' });
+    const resp = await apiFetch('/products/push-oos-to-bottom', { method: 'POST' });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    allProducts = allProducts.filter(p => !p.outOfStock);
+    // Reorder locally: non-OOS first, OOS at bottom
+    allProducts = [...allProducts.filter(p => !p.outOfStock), ...allProducts.filter(p => p.outOfStock)];
     updateStats(); renderList(); updateNotifications();
-    alert(`Deleted ${data.deleted} out-of-stock products.`);
   } catch (e) { alert('Failed: ' + e.message); }
 }
 

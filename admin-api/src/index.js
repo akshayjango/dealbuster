@@ -1446,15 +1446,15 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
-      // ── POST /products/delete-all-oos ─────────────────────────────────────────
-      if (url.pathname === '/products/delete-all-oos' && request.method === 'POST') {
+      // ── POST /products/push-oos-to-bottom ────────────────────────────────────
+      if (url.pathname === '/products/push-oos-to-bottom' && request.method === 'POST') {
         try {
           const { products, sha } = await getProductsFile(env);
+          const inStock = products.filter(p => !p.outOfStock);
           const oos = products.filter(p => p.outOfStock);
-          const remaining = products.filter(p => !p.outOfStock).map((p,i) => ({...p, order: i}));
-          for (const p of oos) { if (p.asin) await addDeletedAsin(p.asin, env); }
-          await saveProductsFile(remaining, sha, `Deleted ${oos.length} OOS products`, env);
-          return json({ success: true, deleted: oos.length });
+          const reordered = [...inStock, ...oos].map((p, i) => ({ ...p, order: i }));
+          await saveProductsFile(reordered, sha, `Pushed ${oos.length} OOS products to bottom`, env);
+          return json({ success: true, moved: oos.length });
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
