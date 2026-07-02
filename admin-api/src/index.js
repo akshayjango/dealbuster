@@ -997,6 +997,9 @@ async function handlePublish(body, env) {
   const updated = [newProduct, ...filtered].map((p, i) => ({ ...p, order: i }));
   await saveProductsFile(updated, sha, `Add deal: ${product.title.slice(0,60)}`, env);
 
+  // Post new deal to Telegram channels (fire-and-forget)
+  postDealToChannels(newProduct, env).catch(e => console.error('TG post failed:', e.message));
+
   // Legacy: write card to index.html
   const params = new URLSearchParams({ title: product.title, cat: category, price: product.price, mrp: product.mrp, disc: product.disc, updated: today.slice(0,10), img: product.image, link: product.link, hl: (highlights||[]).join('|') });
   const cardHtml = `    <!-- Card added ${today.slice(0,10)} -->\n    <a class="product-card" data-cat="${category.toLowerCase()}" href="product.html?${params.toString()}">\n      <div class="card-img-wrap">\n        <img src="${product.image}" alt="${product.title}" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">\n        <span class="discount-badge">${product.disc}</span>\n        <span class="updated-tag">Updated today</span>\n      </div>\n      <div class="card-body">\n        <p class="card-title">${product.title}</p>\n        <div class="card-prices">\n          <div class="price-original">${product.mrp}</div>\n          <div class="price-current">${product.price}</div>\n        </div>\n        <span class="btn-view">View More</span>\n      </div>\n    </a>`;
@@ -1067,6 +1070,184 @@ async function handleDebug(env) {
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
+// ── Telegram Bot ──────────────────────────────────────────────────────────────
+
+const TG_CHANNELS = ['@dealbuster_in', '@dealsanddiscountsofficial'];
+const TG_ADMIN_ID = 715667303;
+
+async function tgSend(token, chatId, text, opts = {}) {
+  return fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'MarkdownV2', disable_web_page_preview: true, ...opts }),
+  });
+}
+
+async function tgSendPhoto(token, chatId, photo, caption, opts = {}) {
+  return fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, photo, caption, parse_mode: 'MarkdownV2', ...opts }),
+  });
+}
+
+function escTg(text) {
+  return (text || '').replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+}
+
+function formatDealMsg(product, tag) {
+  const link = product.asin
+    ? `https://www.amazon.in/dp/${product.asin}?tag=${tag}`
+    : product.link || '';
+  const title = escTg((product.title || '').slice(0, 200));
+  const price = escTg(product.price || 'Check price');
+  const mrp = product.mrp ? ` ~${escTg(product.mrp)}~` : '';
+  const disc = product.disc && product.disc !== '0%' ? `\n🏷️ *${escTg(product.disc)} OFF*` : '';
+  const badge = product.lowestPriceText ? `\n📉 _${escTg(product.lowestPriceText)}_` : '';
+  const escapedLink = link.replace(/\)/g, '\\)');
+  return `🔥 *${title}*\n\n💰 *${price}*${mrp}${disc}${badge}\n\n🛒 [Buy on Amazon →](${escapedLink})\n\n\\#deals \\#amazon \\#dealbuster`;
+}
+
+async function postDealToChannels(product, env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const msg = formatDealMsg(product, tag);
+  for (const ch of TG_CHANNELS) {
+    try {
+      if (product.image) {
+        const r = await tgSendPhoto(token, ch, product.image, msg);
+        if (!r.ok) await tgSend(token, ch, msg);
+      } else {
+        await tgSend(token, ch, msg);
+      }
+    } catch (e) {
+      console.error('Telegram post failed for', ch, e.message);
+    }
+  }
+}
+
+async function handleTelegramWebhook(request, env) {
+  let update;
+  try { update = await request.json(); } catch { return new Response('ok'); }
+
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return new Response('ok');
+
+  const msg = update.message;
+  if (!msg) return new Response('ok');
+
+  const fromId = msg.from?.id;
+  if (fromId !== TG_ADMIN_ID) {
+    await tgSend(token, msg.chat.id, '⛔ Unauthorized');
+    return new Response('ok');
+  }
+
+  const chatId = msg.chat.id;
+  const text = msg.text || msg.caption || '';
+
+  // Help command
+  if (text.trim() === '/start' || text.trim() === '/help') {
+    await tgSend(token, chatId, escTg('👋 DealBuster Bot\n\nSend me:\n• Any Amazon link → publishes to site + posts to channels\n• Forward any deal message with a link → I swap the link and repost\n\nCommands:\n/help — this message'));
+    return new Response('ok');
+  }
+
+  // Extract Amazon URL from message
+  const urlMatch = text.match(/https?:\/\/(?:(?:www\.)?amazon\.in|amzn\.in|amzn\.to)[^\s]*/i);
+
+  if (!urlMatch) {
+    await tgSend(token, chatId, escTg('❓ Send me an Amazon link or forward a deal message.'));
+    return new Response('ok');
+  }
+
+  const rawUrl = urlMatch[0];
+  await tgSend(token, chatId, escTg('⏳ Fetching product info...'));
+
+  try {
+    const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+
+    // Resolve URL → ASIN
+    const r = await fetch(rawUrl, { redirect: 'follow', headers: AMZ_HEADERS });
+    const finalUrl = r.url;
+    const html = await r.text();
+    const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
+               || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+    if (!asinM) {
+      await tgSend(token, chatId, escTg('❌ Could not find ASIN in this URL.'));
+      return new Response('ok');
+    }
+    const asin = asinM[1];
+    const affiliateLink = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+
+    // Feature 3: forwarded message — replace link and repost as-is
+    const isForward = !!(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
+    if (isForward) {
+      const newText = text.replace(rawUrl, affiliateLink);
+      for (const ch of TG_CHANNELS) {
+        if (msg.photo) {
+          const photoId = msg.photo[msg.photo.length - 1].file_id;
+          await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: newText }),
+          });
+        } else {
+          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, text: newText }),
+          });
+        }
+      }
+      await tgSend(token, chatId, escTg(`✅ Reposted to ${TG_CHANNELS.length} channels with affiliate link!`));
+      return new Response('ok');
+    }
+
+    // Feature 1: own link — fetch product data, publish to site, post to channels
+    const { badge, highlights, category } = await fetchAmazonPageData(asin);
+
+    const titleM = html.match(/id="productTitle"[^>]*>\s*([\s\S]*?)\s*<\/span>/);
+    let title = titleM ? titleM[1].replace(/\s+/g, ' ').trim() : asin;
+    title = title.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+
+    const priceM = html.match(/class="[^"]*a-price-whole[^"]*"[^>]*>([\d,]+)/i);
+    const priceNum = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
+    const price = priceNum ? '₹' + priceNum.toLocaleString('en-IN') : '';
+
+    const mrpM = html.match(/class="[^"]*a-text-price[^"]*"[^>]*>[^<]*<span[^>]*>(₹[\d,]+)/i);
+    const mrp = mrpM ? mrpM[1] : '';
+
+    let disc = '0%';
+    if (priceNum && mrp) {
+      const mrpNum = parseInt(mrp.replace(/[^\d]/g,''));
+      if (mrpNum > priceNum) disc = `-${Math.round((1 - priceNum/mrpNum)*100)}%`;
+    }
+
+    let image = '';
+    const imgTagM = html.match(/<img[^>]+id="landingImage"[^>]*>/i);
+    if (imgTagM) {
+      const dynM = imgTagM[0].match(/data-a-dynamic-image="([^"]+)"/i);
+      if (dynM) { const uM = dynM[1].match(/(https?:\/\/[^&"']+\.(?:jpg|png|jpeg))/i); if (uM) image = uM[1]; }
+      if (!image) { const hM = imgTagM[0].match(/data-old-hires="([^"]+)"/i); if (hM) image = hM[1]; }
+      if (!image) { const sM = imgTagM[0].match(/src="([^"]+)"/i); if (sM && !sM[1].startsWith('data:')) image = sM[1]; }
+    }
+
+    const product = { asin, title, price, mrp, disc, image, link: affiliateLink, lowestPriceText: badge || null };
+    const cat = category || detectCategoryFromTitle(title);
+
+    await handlePublish({ product, category: cat, highlights: highlights || [] }, env);
+    await postDealToChannels(product, env);
+
+    const confirmText = `✅ Published & posted!\n\n${title.slice(0,80)}\n${price} ${disc}\n\n→ ${TG_CHANNELS.length} channels notified`;
+    await tgSend(token, chatId, escTg(confirmText));
+
+  } catch (e) {
+    await tgSend(token, chatId, escTg(`❌ Error: ${e.message}`));
+  }
+
+  return new Response('ok');
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
@@ -1085,6 +1266,11 @@ export default {
       }
     }
 
+    // ── Telegram webhook (public — Telegram doesn't send admin password) ────────
+    if (url0.pathname === '/telegram-webhook' && request.method === 'POST') {
+      return handleTelegramWebhook(request, env);
+    }
+
     const password = request.headers.get('X-Admin-Password');
     if (password !== env.ADMIN_PASSWORD) return json({ error: 'Unauthorized' }, 401);
 
@@ -1092,6 +1278,20 @@ export default {
 
     try {
       if (url.pathname === '/ping' && request.method === 'GET') return json({ ok: true });
+
+      // ── POST /setup-telegram-webhook ─────────────────────────────────────────
+      if (url.pathname === '/setup-telegram-webhook' && request.method === 'POST') {
+        const token = env.TELEGRAM_BOT_TOKEN;
+        if (!token) return json({ error: 'TELEGRAM_BOT_TOKEN not set' }, 500);
+        const workerUrl = `${url.origin}/telegram-webhook`;
+        const r = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: workerUrl, allowed_updates: ['message'] }),
+        });
+        const data = await r.json();
+        return json({ success: data.ok, webhook_url: workerUrl, telegram_response: data });
+      }
 
       // ── /fetchtitle ──────────────────────────────────────────────────────────
       if (url.pathname === '/fetchtitle' && request.method === 'GET') {
