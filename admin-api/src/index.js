@@ -1181,23 +1181,28 @@ async function handleTelegramWebhook(request, env) {
     const asin = asinM[1];
     const affiliateLink = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
 
-    // Feature 3: forwarded message — replace link and repost as-is
+    // Feature 3: forwarded message — replace link with embedded Buy Now, no preview
     const isForward = !!(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
     if (isForward) {
-      const newText = text.replace(rawUrl, affiliateLink);
+      // Remove the raw URL from text, append embedded Buy Now link
+      const cleanText = text.replace(rawUrl, '').trim();
+      const escapedLink = affiliateLink.replace(/\)/g, '\\)');
+      const newText = cleanText
+        ? `${escTg(cleanText)}\n\n[Buy Now →](${escapedLink})`
+        : `[Buy Now →](${escapedLink})`;
       for (const ch of TG_CHANNELS) {
         if (msg.photo) {
           const photoId = msg.photo[msg.photo.length - 1].file_id;
           await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: newText }),
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: newText, parse_mode: 'MarkdownV2' }),
           });
         } else {
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: newText }),
+            body: JSON.stringify({ chat_id: ch, text: newText, parse_mode: 'MarkdownV2', disable_web_page_preview: true }),
           });
         }
       }
