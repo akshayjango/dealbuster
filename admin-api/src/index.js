@@ -1188,7 +1188,7 @@ async function handleTelegramWebhook(request, env) {
       const cleanText = text.replace(rawUrl, '').replace(/\n{2,}/g, '\n').trim();
       const escapedLink = affiliateLink.replace(/\)/g, '\\)');
       const newText = cleanText
-        ? `${escTg(cleanText)}\n[Buy Now →](${escapedLink})`
+        ? `${escTg(cleanText)}\n\n[Buy Now →](${escapedLink})`
         : `[Buy Now →](${escapedLink})`;
       for (const ch of TG_CHANNELS) {
         if (msg.photo) {
