@@ -669,7 +669,7 @@ async function checkLowestPriceBadges(env) {
   // Products needing highlights go first, then sort by oldest badge check
   const needHL = withAsin.filter(needsHighlights).sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
   const hasHL  = withAsin.filter(p => !needsHighlights(p)).sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
-  const toCheck = [...needHL, ...hasHL].slice(0, 20);
+  const toCheck = [...needHL, ...hasHL].slice(0, 15);
 
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
   let changed = false;
@@ -1527,8 +1527,8 @@ export default {
       );
     }
 
-    // Every 2 hours (at :05 of even hours): sync DealsRadar + 1 Amazon deal + badge check
-    if (event.cron === '5 */2 * * *') {
+    // Every 15 min (at :08,:23,:38,:53): sync DealsRadar + 1 Amazon deal + badge check (15 products)
+    if (event.cron === '8,23,38,53 * * * *') {
       ctx.waitUntil(
         withCronLock('cron_hourly', 300, env, async () => {
           try {
