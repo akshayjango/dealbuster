@@ -106,12 +106,22 @@ async function withCronLock(cronName, ttlSeconds, env, fn) {
   finally { await env.KV.delete(GLOBAL_CRON_LOCK).catch(() => {}); }
 }
 
-async function saveProductsFile(products, sha, message, env) {
+async function saveProductsFile(products, sha, message, env, _retry = true) {
   const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/products.json`;
   const body = { message, content: encodeBase64Unicode(JSON.stringify(products, null, 2)) };
   if (sha) body.sha = sha;
   const resp = await fetch(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.message || `GitHub write failed: ${resp.status}`); }
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    const msg = err.message || `GitHub write failed: ${resp.status}`;
+    // On SHA conflict, re-read fresh SHA and retry once
+    if (_retry && (resp.status === 409 || resp.status === 422) && msg.includes('does not match')) {
+      console.log('SHA conflict — retrying with fresh SHA');
+      const { sha: freshSha } = await getProductsFile(env);
+      return saveProductsFile(products, freshSha, message, env, false);
+    }
+    throw new Error(msg);
+  }
   return resp.json();
 }
 
