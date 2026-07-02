@@ -395,6 +395,7 @@
             <option value="Health">Health</option>
           </select>
           <button class="btn btn-ghost btn-sm" id="oosFilterBtn" onclick="toggleOOSFilter()" title="Show Out of Stock">⚠ OOS</button>
+          <button class="btn btn-ghost btn-sm" id="nopriceFilterBtn" onclick="toggleNoPriceFilter()" title="Show Price Unavailable">₹ N/A</button>
           <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
           <button class="btn btn-ghost btn-sm" id="sortPriceBtn" onclick="toggleSort('price')" title="Sort by Price">↑ Price</button>
           <button class="btn btn-ghost btn-sm" id="sortDiscBtn" onclick="toggleSort('disc')" title="Sort by Discount">% Discount</button>
@@ -810,6 +811,16 @@ function updateStats() {
 }
 
 let oosFilterActive = false;
+let noPriceFilterActive = false;
+
+function toggleNoPriceFilter() {
+  noPriceFilterActive = !noPriceFilterActive;
+  const btn = document.getElementById('nopriceFilterBtn');
+  btn.classList.toggle('btn-outline', noPriceFilterActive);
+  btn.style.borderColor = noPriceFilterActive ? '#d97706' : '';
+  btn.style.color = noPriceFilterActive ? '#d97706' : '';
+  renderList();
+}
 let sortMode = null; // null | 'price' | 'disc'
 
 function toggleSort(mode) {
@@ -856,7 +867,9 @@ function renderList() {
       src === 'manual' ? (!(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('amzdeal_')) :
       true);
     const matchOOS = !oosFilterActive || p.outOfStock;
-    return matchQ && matchCat && matchSrc && matchOOS;
+    const noPrice = !p.price || p.price === '₹0' || p.price === '₹';
+    const matchNoPrice = !noPriceFilterActive || noPrice;
+    return matchQ && matchCat && matchSrc && matchOOS && matchNoPrice;
   });
 
   if (sortMode === 'price') {
