@@ -1496,8 +1496,8 @@ export default {
 
   // ── Cron jobs ─────────────────────────────────────────────────────────────
   async scheduled(event, env, ctx) {
-    // Every 10 min: sync IndiaFreeStuff (10 new Amazon deals) + price/OOS check
-    if (event.cron === '*/10 * * * *') {
+    // Every 10 min at :02,:12,:22,:32,:42,:52 — never overlaps with 5,35 cron
+    if (event.cron === '2,12,22,32,42,52 * * * *') {
       ctx.waitUntil(
         withCronLock('cron_10min', 540, env, async () => {
           try {
