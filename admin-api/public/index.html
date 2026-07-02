@@ -293,7 +293,9 @@
     @media (max-width: 640px) {
       .app-body { padding: 16px; }
       .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-      .toolbar-filters select { flex: 1; min-width: 100px; }
+      .toolbar-filters { flex-wrap: wrap; }
+      .toolbar-filters #dashSearch { width: 100%; flex: none; }
+      .toolbar-filters select { flex: 1; min-width: 80px; }
       .two-col { grid-template-columns: 1fr; }
       .tab-nav button { padding: 8px 10px; font-size: .8rem; }
       .publish-actions { flex-direction: column; }
