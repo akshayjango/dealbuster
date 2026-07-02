@@ -394,6 +394,8 @@
           </select>
           <button class="btn btn-ghost btn-sm" id="oosFilterBtn" onclick="toggleOOSFilter()" title="Show Out of Stock">⚠ OOS</button>
           <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
+          <button class="btn btn-ghost btn-sm" id="sortPriceBtn" onclick="toggleSort('price')" title="Sort by Price">↑ Price</button>
+          <button class="btn btn-ghost btn-sm" id="sortDiscBtn" onclick="toggleSort('disc')" title="Sort by Discount">% Discount</button>
           <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
         </div>
         <!-- Row 2: sync buttons -->
@@ -806,6 +808,14 @@ function updateStats() {
 }
 
 let oosFilterActive = false;
+let sortMode = null; // null | 'price' | 'disc'
+
+function toggleSort(mode) {
+  sortMode = sortMode === mode ? null : mode;
+  document.getElementById('sortPriceBtn').classList.toggle('btn-outline', sortMode === 'price');
+  document.getElementById('sortDiscBtn').classList.toggle('btn-outline', sortMode === 'disc');
+  renderList();
+}
 function toggleOOSFilter() {
   oosFilterActive = !oosFilterActive;
   const btn = document.getElementById('oosFilterBtn');
@@ -847,11 +857,19 @@ function renderList() {
     return matchQ && matchCat && matchSrc && matchOOS;
   });
 
-  // Featured first, then by order
-  filtered = [
-    ...filtered.filter(p => p.featured),
-    ...filtered.filter(p => !p.featured),
-  ];
+  if (sortMode === 'price') {
+    const parseP = s => parseFloat((s || '').replace(/[^\d.]/g, '')) || Infinity;
+    filtered.sort((a, b) => parseP(a.price) - parseP(b.price));
+  } else if (sortMode === 'disc') {
+    const parseD = s => parseInt((s || '').replace(/[^\d]/g, '')) || 0;
+    filtered.sort((a, b) => parseD(b.disc) - parseD(a.disc));
+  } else {
+    // Featured first, then by order
+    filtered = [
+      ...filtered.filter(p => p.featured),
+      ...filtered.filter(p => !p.featured),
+    ];
+  }
 
   if (!filtered.length) {
     document.getElementById('productsList').innerHTML = '<div class="loading">No products found.</div>';
