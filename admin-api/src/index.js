@@ -1111,6 +1111,8 @@ function formatDealMsg(product, tag) {
 async function postDealToChannels(product, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
+  const noPrice = !product.price || product.price === '₹0' || product.price === '₹';
+  if (noPrice) return;
   const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const msg = formatDealMsg(product, tag);
   for (const ch of TG_CHANNELS) {
