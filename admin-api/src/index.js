@@ -1100,12 +1100,12 @@ function formatDealMsg(product, tag) {
     ? `https://www.amazon.in/dp/${product.asin}?tag=${tag}`
     : product.link || '';
   const title = escTg((product.title || '').slice(0, 200));
-  const price = escTg(product.price || 'Check price');
+  const price = escTg(product.price || '');
   const mrp = product.mrp ? ` ~${escTg(product.mrp)}~` : '';
-  const disc = product.disc && product.disc !== '0%' ? `\n🏷️ *${escTg(product.disc)} OFF*` : '';
-  const badge = product.lowestPriceText ? `\n📉 _${escTg(product.lowestPriceText)}_` : '';
+  const disc = product.disc && product.disc !== '0%' ? `  ${escTg(product.disc)} OFF` : '';
   const escapedLink = link.replace(/\)/g, '\\)');
-  return `🔥 *${title}*\n\n💰 *${price}*${mrp}${disc}${badge}\n\n🛒 [Buy on Amazon →](${escapedLink})\n\n\\#deals \\#amazon \\#dealbuster`;
+  const priceRow = price ? `${price}${mrp}${disc}` : '';
+  return `${title}\n${priceRow}\n[Buy Now →](${escapedLink})`;
 }
 
 async function postDealToChannels(product, env) {
