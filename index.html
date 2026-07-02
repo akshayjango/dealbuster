@@ -407,13 +407,13 @@
       position: absolute;
       top: -8px;
       left: -8px;
-      background: none;
-      color: #16a34a;
-      border: none;
-      font-size: .78rem;
-      font-weight: 900;
+      background: #D1FF00;
+      color: var(--text);
+      border: 1.5px solid var(--text);
+      font-size: .75rem;
+      font-weight: 800;
       padding: 3px 8px;
-      box-shadow: none;
+      box-shadow: 2px 2px 0px var(--text);
       z-index: 5;
     }
     .updated-tag {
@@ -468,32 +468,31 @@
       font-size: 1.15rem;
       font-weight: 900;
       color: var(--text);
-      background: #D1FF00;
-      border: 2px solid var(--text);
-      padding: 3px 8px;
+      background: #fff9db;
+      border: 1px solid var(--text);
+      padding: 2px 6px;
       display: inline-block;
-      box-shadow: 2px 2px 0px var(--text);
     }
     .btn-view {
       display: block;
       width: 100%;
-      background: none;
+      background: #ffffff;
       color: var(--text);
-      border: none;
+      border: 2px solid var(--text);
       padding: 10px 10px;
       font-size: 0.8rem;
-      font-weight: 700;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.03em;
       white-space: nowrap;
       cursor: pointer;
       text-align: center;
       text-decoration: none;
-      box-shadow: none;
-      transition: color 0.1s;
+      box-shadow: 2px 2px 0px var(--text);
+      transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
     }
     .product-card:hover .btn-view {
-      color: #6c47ff;
+      background: #f0f0f4;
     }
     .btn-view:active {
       transform: translate(1px, 1px);
