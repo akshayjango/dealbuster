@@ -114,11 +114,16 @@ async function saveProductsFile(products, sha, message, env, _retry = true) {
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
     const msg = err.message || `GitHub write failed: ${resp.status}`;
-    // On SHA conflict, re-read fresh SHA and retry once
+    // On SHA conflict, re-read fresh SHA and retry once silently
     if (_retry && (resp.status === 409 || resp.status === 422) && msg.includes('does not match')) {
       console.log('SHA conflict — retrying with fresh SHA');
       const { sha: freshSha } = await getProductsFile(env);
-      return saveProductsFile(products, freshSha, message, env, false);
+      try {
+        return await saveProductsFile(products, freshSha, message, env, false);
+      } catch (retryErr) {
+        // Retry also failed — throw a clear message for notification
+        throw new Error(`SHA conflict — retry also failed: ${retryErr.message}`);
+      }
     }
     throw new Error(msg);
   }
