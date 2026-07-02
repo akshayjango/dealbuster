@@ -1452,6 +1452,14 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── POST /clear-cron-lock ─────────────────────────────────────────────────
+      if (url.pathname === '/clear-cron-lock' && request.method === 'POST') {
+        try {
+          await env.KV.delete(GLOBAL_CRON_LOCK);
+          return json({ success: true, message: 'Cron lock cleared' });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── POST /products/clear-all-notifications ────────────────────────────────
       if (url.pathname === '/products/clear-all-notifications' && request.method === 'POST') {
         try {
@@ -1499,7 +1507,7 @@ export default {
     // Every 10 min at :02,:12,:22,:32,:42,:52 — never overlaps with 5,35 cron
     if (event.cron === '2,12,22,32,42,52 * * * *') {
       ctx.waitUntil(
-        withCronLock('cron_10min', 540, env, async () => {
+        withCronLock('cron_10min', 180, env, async () => {
           try {
             console.log('IndiaFreeStuff sync start');
             const r = await scrapeAndSyncIndiaFreeStuff(env, 10);
@@ -1522,7 +1530,7 @@ export default {
     // Every 2 hours (at :05 of even hours): sync DealsRadar + 1 Amazon deal + badge check
     if (event.cron === '5 */2 * * *') {
       ctx.waitUntil(
-        withCronLock('cron_hourly', 3300, env, async () => {
+        withCronLock('cron_hourly', 300, env, async () => {
           try {
             console.log('DealsRadar sync start');
             const r = await scrapeAndSyncDealsRadar(env);
