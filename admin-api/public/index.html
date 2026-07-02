@@ -2026,7 +2026,10 @@ async function updateNotifications() {
   ` : '';
 
   const oosSect = oosAlerts.length ? `
-    <div style="padding:6px 12px 4px;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;">📦 Out of Stock (${oosAlerts.length})</div>
+    <div style="padding:6px 12px 4px;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;display:flex;align-items:center;justify-content:space-between;">
+      <span>📦 Out of Stock (${oosAlerts.length})</span>
+      <span onclick="pushAllOOSToBottomFromNotif()" style="cursor:pointer;color:#dc2626;font-size:.68rem;font-weight:600;">⬇ Push All to Bottom</span>
+    </div>
     ${oosAlerts.map(p => `
       <div onclick="goToProduct('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;margin:0 4px 2px;cursor:pointer;transition:background .15s;" onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''">
         <img src="${escHtml(p.image||'')}" alt="" style="width:36px;height:36px;object-fit:contain;background:#f9fafb;border-radius:6px;flex-shrink:0;border:1px solid #e5e7eb;" onerror="this.style.display='none'"/>
@@ -2124,6 +2127,29 @@ async function dismissOOS(event, id) {
     if (idx !== -1) allProducts[idx].outOfStock = false;
     updateStats(); renderList(); updateNotifications();
   } catch (e) { alert('Failed to dismiss: ' + e.message); }
+}
+
+async function pushAllOOSToBottomFromNotif() {
+  const oosIds = allProducts.filter(p => p.outOfStock).map(p => p.id);
+  if (!oosIds.length) return;
+  // Move all OOS to end, preserving relative order of non-OOS
+  allProducts = [
+    ...allProducts.filter(p => !p.outOfStock),
+    ...allProducts.filter(p => p.outOfStock),
+  ].map((p, i) => ({ ...p, order: i }));
+  renderList();
+  const orderedIds = allProducts.map(p => p.id);
+  try {
+    const resp = await apiFetch('/products/reorder', { method: 'POST', body: { orderedIds } });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    // Dismiss all OOS notifications
+    await apiFetch('/products/clear-oos-notifications', { method: 'POST' });
+    updateNotifications();
+  } catch (e) {
+    alert('Failed: ' + e.message);
+    loadProducts();
+  }
 }
 
 async function clearSyncErrors() {

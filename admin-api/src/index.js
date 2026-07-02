@@ -1481,6 +1481,16 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── POST /products/clear-oos-notifications ───────────────────────────────
+      if (url.pathname === '/products/clear-oos-notifications' && request.method === 'POST') {
+        try {
+          const { products, sha } = await getProductsFile(env);
+          const updated = products.map(p => p.outOfStock ? { ...p, outOfStock: false } : p);
+          await saveProductsFile(updated, sha, 'Cleared OOS notifications', env);
+          return json({ success: true });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── POST /products/reorder ───────────────────────────────────────────────
       if (url.pathname === '/products/reorder' && request.method === 'POST') {
         try {
