@@ -1185,10 +1185,10 @@ async function handleTelegramWebhook(request, env) {
     const isForward = !!(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
     if (isForward) {
       // Remove the raw URL from text, append embedded Buy Now link
-      const cleanText = text.replace(rawUrl, '').trim();
+      const cleanText = text.replace(rawUrl, '').replace(/\n{2,}/g, '\n').trim();
       const escapedLink = affiliateLink.replace(/\)/g, '\\)');
       const newText = cleanText
-        ? `${escTg(cleanText)}\n\n[Buy Now →](${escapedLink})`
+        ? `${escTg(cleanText)}\n[Buy Now →](${escapedLink})`
         : `[Buy Now →](${escapedLink})`;
       for (const ch of TG_CHANNELS) {
         if (msg.photo) {
