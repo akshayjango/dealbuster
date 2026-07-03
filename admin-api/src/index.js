@@ -1118,23 +1118,29 @@ async function postNewDealsToTelegram(env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
 
-  const lastPostedAt = await env.KV.get('tg_last_posted_at') || '1970-01-01T00:00:00.000Z';
-  const cutoff = new Date(lastPostedAt).getTime();
+  // Tracks which product IDs have already been posted, instead of an addedAt cutoff.
+  // addedAt gets re-stamped on EXISTING products by the price-check/sync jobs whenever
+  // a price drop pushes them back to the top of the site listing — a cutoff based on
+  // addedAt would treat that as "newly added" and repost the same deals forever.
+  const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
 
   const { products } = await getProductsFile(env);
   const fresh = products
     .filter(p => !p.hidden && !p.outOfStock)
-    .filter(p => p.addedAt && new Date(p.addedAt).getTime() > cutoff)
-    .sort((a, b) => new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime())
+    .filter(p => !postedIds.has(p.id))
+    .sort((a, b) => new Date(a.addedAt || 0).getTime() - new Date(b.addedAt || 0).getTime())
     .slice(0, 5);
 
   if (!fresh.length) { console.log('TG cron: no new deals to post'); return; }
 
   for (const p of fresh) {
     await postDealToChannels(p, env).catch(e => console.error('TG cron post failed:', e.message));
+    postedIds.add(p.id);
   }
 
-  await env.KV.put('tg_last_posted_at', new Date().toISOString());
+  // Cap so KV doesn't grow unbounded — ids are time-based so oldest are safe to drop
+  const capped = Array.from(postedIds).slice(-2000);
+  await env.KV.put('tg_posted_ids', JSON.stringify(capped));
   console.log(`TG cron: posted ${fresh.length} deals`);
 }
 
