@@ -1138,6 +1138,23 @@ async function postNewDealsToTelegram(env) {
   console.log(`TG cron: posted ${fresh.length} deals`);
 }
 
+// Scoped lock (not the shared GLOBAL_CRON_LOCK — TG posting doesn't touch products.json
+// and shouldn't contend with the heavy sync jobs) so the internal cron and an external
+// pinger can't both post the same batch if they overlap.
+async function postNewDealsToTelegramLocked(env) {
+  const lockKey = 'tg_post_inflight';
+  if (env.KV) {
+    const held = await env.KV.get(lockKey);
+    if (held) { console.log('TG post already in flight, skipping'); return; }
+    await env.KV.put(lockKey, '1', { expirationTtl: 60 });
+  }
+  try {
+    await postNewDealsToTelegram(env);
+  } finally {
+    if (env.KV) await env.KV.delete(lockKey).catch(() => {});
+  }
+}
+
 async function postDealToChannels(product, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
@@ -1184,39 +1201,48 @@ async function handleTelegramWebhook(request, env) {
     return new Response('ok');
   }
 
-  // Extract Amazon URL from message
-  const urlMatch = text.match(/https?:\/\/(?:(?:www\.)?amazon\.in|amzn\.in|amzn\.to)[^\s]*/i);
+  // Extract Amazon URL(s) from message — a forwarded deal can contain many
+  const urlMatches = [...text.matchAll(/https?:\/\/(?:(?:www\.)?amazon\.in|amzn\.in|amzn\.to)[^\s]*/gi)].map(m => m[0]);
 
-  if (!urlMatch) {
+  if (!urlMatches.length) {
     await tgSend(token, chatId, escTg('❓ Send me an Amazon link or forward a deal message.'));
     return new Response('ok');
   }
 
-  const rawUrl = urlMatch[0];
   await tgSend(token, chatId, escTg('⏳ Fetching product info...'));
 
   try {
     const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
-
-    // Resolve URL → ASIN
-    const r = await fetch(rawUrl, { redirect: 'follow', headers: AMZ_HEADERS });
-    const finalUrl = r.url;
-    const html = await r.text();
-    const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
-               || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-    if (!asinM) {
-      await tgSend(token, chatId, escTg('❌ Could not find ASIN in this URL.'));
-      return new Response('ok');
-    }
-    const asin = asinM[1];
-    const affiliateLink = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+    const resolveAsin = async (rawUrl) => {
+      const r = await fetch(rawUrl, { redirect: 'follow', headers: AMZ_HEADERS });
+      const finalUrl = r.url;
+      const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
+                 || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+      return { asinM, finalUrl, html: asinM ? await r.text() : null };
+    };
 
     // Feature 3: forwarded message — replace link with embedded Buy Now, no preview
     const isForward = !!(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
     if (isForward) {
-      // Remove the raw URL from text, append plain affiliate URL
-      const cleanText = text.replace(rawUrl, '').replace(/\n{3,}/g, '\n\n').trim();
-      const newText = cleanText ? `${cleanText}\n\n${affiliateLink}` : affiliateLink;
+      // Resolve every Amazon link independently — one bad/expired link shouldn't sink the rest
+      let newText = text;
+      let resolved = 0;
+      for (const rawUrl of urlMatches) {
+        try {
+          const { asinM } = await resolveAsin(rawUrl);
+          if (!asinM) continue;
+          const affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
+          newText = newText.split(rawUrl).join(affiliateLink);
+          resolved++;
+        } catch (e) {
+          console.error('ASIN resolve failed for', rawUrl, e.message);
+        }
+      }
+      if (!resolved) {
+        await tgSend(token, chatId, escTg('❌ Could not find ASIN in any URL.'));
+        return new Response('ok');
+      }
+      newText = newText.replace(/\n{3,}/g, '\n\n').trim();
       for (const ch of TG_CHANNELS) {
         if (msg.photo) {
           const photoId = msg.photo[msg.photo.length - 1].file_id;
@@ -1233,11 +1259,22 @@ async function handleTelegramWebhook(request, env) {
           });
         }
       }
-      await tgSend(token, chatId, escTg(`✅ Reposted to ${TG_CHANNELS.length} channels with affiliate link!`));
+      const skipped = urlMatches.length - resolved;
+      const suffix = skipped > 0 ? ` (${skipped} link${skipped > 1 ? 's' : ''} skipped)` : '';
+      await tgSend(token, chatId, escTg(`✅ Reposted to ${TG_CHANNELS.length} channels with ${resolved} affiliate link${resolved > 1 ? 's' : ''}!${suffix}`));
       return new Response('ok');
     }
 
     // Feature 1: own link — fetch product data, publish to site, post to channels
+    const rawUrl = urlMatches[0];
+    const { asinM, html } = await resolveAsin(rawUrl);
+    if (!asinM) {
+      await tgSend(token, chatId, escTg('❌ Could not find ASIN in this URL.'));
+      return new Response('ok');
+    }
+    const asin = asinM[1];
+    const affiliateLink = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+
     const { badge, highlights, category } = await fetchAmazonPageData(asin);
 
     const titleM = html.match(/id="productTitle"[^>]*>\s*([\s\S]*?)\s*<\/span>/);
@@ -1303,6 +1340,19 @@ export default {
     // ── Telegram webhook (public — Telegram doesn't send admin password) ────────
     if (url0.pathname === '/telegram-webhook' && request.method === 'POST') {
       return handleTelegramWebhook(request, env);
+    }
+
+    // ── External cron ping (Cloudflare's own Cron Triggers are unreliable on this
+    // account — this lets an outside scheduler drive Telegram posting instead) ───
+    if (url0.pathname === '/cron-post-deals' && request.method === 'GET') {
+      if (!env.CRON_SECRET) return json({ error: 'Unauthorized', reason: 'secret_not_set' }, 401);
+      if (url0.searchParams.get('key') !== env.CRON_SECRET) return json({ error: 'Unauthorized', reason: 'key_mismatch', gotLen: (url0.searchParams.get('key')||'').length, wantLen: env.CRON_SECRET.length }, 401);
+      try {
+        await postNewDealsToTelegramLocked(env);
+        return json({ ok: true });
+      } catch (e) {
+        return json({ error: e.message }, 500);
+      }
     }
 
     const password = request.headers.get('X-Admin-Password');
@@ -1820,42 +1870,27 @@ export default {
       );
     }
 
-    // 8 AM IST (2:31 UTC) — morning Amazon deals sweep
-    if (event.cron === '31 2 * * *') {
+    // 8 AM & 6 PM IST (2:31 & 12:31 UTC) — Amazon deals sweep, merged into one trigger slot
+    if (event.cron === '31 2,12 * * *') {
       ctx.waitUntil(
         (async () => {
           try {
-            console.log('Amazon Deals morning check start');
+            console.log('Amazon Deals check start');
             const r = await checkAmazonDeals(env);
-            console.log('Amazon Deals morning:', r.message);
+            console.log('Amazon Deals check:', r.message);
           } catch (e) {
-            console.error('Amazon Deals morning error:', e.message);
+            console.error('Amazon Deals check error:', e.message);
             await saveSyncError('AmazonDeals', e.message, env);
           }
         })()
       );
     }
 
-    // 6 PM IST (12:31 UTC) — evening Amazon deals sweep
-    if (event.cron === '31 12 * * *') {
+    // Dedicated slot for Telegram posting — no other job shares this invocation,
+    // so it can't get starved by the price-check job's subrequest/429 storms
+    if (event.cron === '0,5,10,15,20,25,30,35,40,45,50,55 * * * *') {
       ctx.waitUntil(
-        (async () => {
-          try {
-            console.log('Amazon Deals evening check start');
-            const r = await checkAmazonDeals(env);
-            console.log('Amazon Deals evening:', r.message);
-          } catch (e) {
-            console.error('Amazon Deals evening error:', e.message);
-            await saveSyncError('AmazonDeals', e.message, env);
-          }
-        })()
-      );
-    }
-
-    // Every 15 min — post new deals to Telegram (reads products.json, ~11 subrequests)
-    if (event.cron === '5,20,35,50 * * * *') {
-      ctx.waitUntil(
-        postNewDealsToTelegram(env).catch(e => console.error('TG cron error:', e.message))
+        postNewDealsToTelegramLocked(env).catch(e => console.error('TG cron error:', e.message))
       );
     }
   },
