@@ -1202,7 +1202,7 @@ async function handleTelegramWebhook(request, env) {
   }
 
   // Extract Amazon URL(s) from message — a forwarded deal can contain many
-  const urlMatches = [...text.matchAll(/https?:\/\/(?:(?:www\.)?amazon\.in|amzn\.in|amzn\.to)[^\s]*/gi)].map(m => m[0]);
+  const urlMatches = [...text.matchAll(/https?:\/\/(?:(?:www\.)?amazon\.in|amzn\.in|amzn\.to|amazn\.lt)[^\s]*/gi)].map(m => m[0]);
 
   if (!urlMatches.length) {
     await tgSend(token, chatId, escTg('❓ Send me an Amazon link or forward a deal message.'));
