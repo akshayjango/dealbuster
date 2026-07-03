@@ -375,7 +375,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
 
   const msg = `DR sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
-  return { success: true, added: added.length, updated: updated.length, message: msg };
+  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
 // ── IndiaFreeStuff sync (10 deals / 10 min, Amazon-only) ─────────────────────
@@ -525,7 +525,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   const msg = `IndiaFreeStuff sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
-  return { success: true, added: added.length, updated: updated.length, message: msg };
+  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
 // ── Price check + OOS detection (Creators API) ────────────────────────────────
@@ -975,7 +975,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
   const final = [...added, ...products].map((p, i) => ({ ...p, order: i }));
   const trimmed = final.length > 720 ? final.slice(0, 720) : final;
   await saveProductsFile(trimmed, sha, `Amazon deals sync: +${added.length}`, env);
-  return { success: true, count: added.length, message: `Amazon Deals sync: added ${added.length} deal${added.length > 1 ? 's' : ''} from amazon.in/deals` };
+  return { success: true, count: added.length, message: `Amazon Deals sync: added ${added.length} deal${added.length > 1 ? 's' : ''} from amazon.in/deals`, addedProducts: added };
 }
 
 // ── handlePublish ─────────────────────────────────────────────────────────────
@@ -1095,16 +1095,47 @@ function escTg(text) {
   return (text || '').replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
 }
 
+function escHtml(text) {
+  return (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function formatDealMsg(product, tag) {
   const link = product.asin
     ? `https://www.amazon.in/dp/${product.asin}?tag=${tag}`
     : product.link || '';
-  const title = (product.title || '').slice(0, 200);
+  let rawTitle = (product.title || '').slice(0, 200);
+  const pipeIdx = rawTitle.indexOf(' | ');
+  const commaIdx = rawTitle.indexOf(',');
+  const cutIdx = [pipeIdx, commaIdx].filter(i => i > 0).sort((a, b) => a - b)[0];
+  if (cutIdx) rawTitle = rawTitle.slice(0, cutIdx).trim();
+  const title = escHtml(rawTitle);
   const price = product.price || '';
-  const mrp = product.mrp ? ` ${product.mrp}` : '';
-  const disc = product.disc && product.disc !== '0%' ? `  ${product.disc} OFF` : '';
-  const priceRow = price ? `${price}${mrp}${disc}` : '';
-  return `${title}\n${priceRow}\n${link}`;
+  const priceRow = price ? `Deal Price @ <b>${escHtml(price)}</b>` : '';
+  return priceRow ? `${title}\n${priceRow}\n\n${link}` : `${title}\n\n${link}`;
+}
+
+async function postNewDealsToTelegram(env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  const lastPostedAt = await env.KV.get('tg_last_posted_at') || '1970-01-01T00:00:00.000Z';
+  const cutoff = new Date(lastPostedAt).getTime();
+
+  const { products } = await getProductsFile(env);
+  const fresh = products
+    .filter(p => !p.hidden && !p.outOfStock)
+    .filter(p => p.addedAt && new Date(p.addedAt).getTime() > cutoff)
+    .sort((a, b) => new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime())
+    .slice(0, 5);
+
+  if (!fresh.length) { console.log('TG cron: no new deals to post'); return; }
+
+  for (const p of fresh) {
+    await postDealToChannels(p, env).catch(e => console.error('TG cron post failed:', e.message));
+  }
+
+  await env.KV.put('tg_last_posted_at', new Date().toISOString());
+  console.log(`TG cron: posted ${fresh.length} deals`);
 }
 
 async function postDealToChannels(product, env) {
@@ -1117,10 +1148,10 @@ async function postDealToChannels(product, env) {
   for (const ch of TG_CHANNELS) {
     try {
       if (product.image) {
-        const r = await tgSendPhoto(token, ch, product.image, msg);
-        if (!r.ok) await tgSend(token, ch, msg);
+        const r = await tgSendPhoto(token, ch, product.image, msg, { parse_mode: 'HTML' });
+        if (!r.ok) await tgSend(token, ch, msg, { parse_mode: 'HTML' });
       } else {
-        await tgSend(token, ch, msg);
+        await tgSend(token, ch, msg, { parse_mode: 'HTML' });
       }
     } catch (e) {
       console.error('Telegram post failed for', ch, e.message);
@@ -1487,9 +1518,27 @@ export default {
         try { return json(await scrapeAndSyncDealsRadar(env, 40)); } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── /telegram-post-now ───────────────────────────────────────────────────
+      if (url.pathname === '/telegram-post-now' && request.method === 'POST') {
+        try {
+          await env.KV.delete('tg_last_posted_at');
+          await postNewDealsToTelegram(env);
+          const lastPostedAt = await env.KV.get('tg_last_posted_at');
+          return json({ success: true, posted: lastPostedAt ? 5 : 0 });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── /sync-indiafreestuff ─────────────────────────────────────────────────
       if (url.pathname === '/sync-indiafreestuff' && request.method === 'GET') {
-        try { return json(await scrapeAndSyncIndiaFreeStuff(env, 20)); } catch (e) { return json({ error: e.message }, 502); }
+        try {
+          const r = await scrapeAndSyncIndiaFreeStuff(env, 20);
+          if (r.addedProducts?.length) {
+            for (const p of r.addedProducts.slice(0, 5)) {
+              await postDealToChannels(p, env).catch(e => console.error('TG post IFS manual:', e.message));
+            }
+          }
+          return json(r);
+        } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /sync-all ────────────────────────────────────────────────────────────
@@ -1723,7 +1772,7 @@ export default {
         withCronLock('cron_10min', 180, env, async () => {
           try {
             console.log('IndiaFreeStuff sync start');
-            const r = await scrapeAndSyncIndiaFreeStuff(env, 10);
+            const r = await scrapeAndSyncIndiaFreeStuff(env, 20);
             console.log('IndiaFreeStuff sync:', r.message);
           } catch (e) {
             console.error('IndiaFreeStuff sync error:', e.message);
@@ -1800,6 +1849,13 @@ export default {
             await saveSyncError('AmazonDeals', e.message, env);
           }
         })()
+      );
+    }
+
+    // Every 15 min — post new deals to Telegram (reads products.json, ~11 subrequests)
+    if (event.cron === '5,20,35,50 * * * *') {
+      ctx.waitUntil(
+        postNewDealsToTelegram(env).catch(e => console.error('TG cron error:', e.message))
       );
     }
   },
