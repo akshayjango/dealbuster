@@ -1224,22 +1224,30 @@ async function handleTelegramWebhook(request, env) {
     // Feature 3: forwarded message — replace link with embedded Buy Now, no preview
     const isForward = !!(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
     if (isForward) {
-      // Resolve every Amazon link independently — one bad/expired link shouldn't sink the rest
+      // Resolve every Amazon link independently — one bad/expired link shouldn't sink the rest.
+      // Category/search links (no ASIN) still earn affiliate commission with the tag param,
+      // so fall back to tagging the resolved URL directly instead of dropping the link.
       let newText = text;
       let resolved = 0;
       for (const rawUrl of urlMatches) {
         try {
-          const { asinM } = await resolveAsin(rawUrl);
-          if (!asinM) continue;
-          const affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
+          const { asinM, finalUrl } = await resolveAsin(rawUrl);
+          let affiliateLink;
+          if (asinM) {
+            affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
+          } else {
+            const u = new URL(finalUrl);
+            u.searchParams.set('tag', TAG);
+            affiliateLink = u.toString();
+          }
           newText = newText.split(rawUrl).join(affiliateLink);
           resolved++;
         } catch (e) {
-          console.error('ASIN resolve failed for', rawUrl, e.message);
+          console.error('Link resolve failed for', rawUrl, e.message);
         }
       }
       if (!resolved) {
-        await tgSend(token, chatId, escTg('❌ Could not find ASIN in any URL.'));
+        await tgSend(token, chatId, escTg('❌ Could not resolve any links in this message.'));
         return new Response('ok');
       }
       newText = newText.replace(/\n{3,}/g, '\n\n').trim();
