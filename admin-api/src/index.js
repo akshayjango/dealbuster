@@ -312,6 +312,10 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
 
   // Build ASIN → product index
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
+  // DealsRadar's own feed sometimes lists the same ASIN more than once in a single
+  // fetch — without this, existingByAsin (built once, above) never sees it, so every
+  // occurrence after the first also looks "new" and gets its own duplicate entry.
+  const seenThisRun = new Set();
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
@@ -324,6 +328,8 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
     if (!deal.asin) continue;
     const asinUpper = deal.asin.toUpperCase();
     if (deletedSet.has(asinUpper)) continue;
+    if (seenThisRun.has(asinUpper)) continue;
+    seenThisRun.add(asinUpper);
 
     const price = deal.currentPrice || 0;
     const mrp = deal.originalPrice || price;
@@ -468,6 +474,11 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
+  // Same product can show up under multiple rto tracking params on the trending
+  // page — existingByAsin (built once, above) never sees ASINs added earlier in
+  // THIS run, so without this guard every repeat also looks "new" and gets its
+  // own duplicate entry.
+  const seenThisRun = new Set();
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
@@ -490,6 +501,8 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     } catch { continue; }
 
     if (!asin || deletedSet.has(asin)) continue;
+    if (seenThisRun.has(asin)) continue;
+    seenThisRun.add(asin);
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
@@ -499,7 +512,14 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
     if (existingByAsin.has(asin)) {
       const existing = existingByAsin.get(asin);
-      updated.push({ ...existing, price: priceStr || existing.price, mrp: mrpStr || existing.mrp, disc: discStr, addedAt: new Date().toISOString(), outOfStock: false });
+      const existingPrice = parsePrice(existing.price);
+      const newPrice = parsePrice(priceStr);
+      // Only bump to top on an actual price drop — the trending page mostly re-shows
+      // the same deals every cycle, so bumping on every re-sight buries genuinely new
+      // deals under reshuffled old ones.
+      if (newPrice && existingPrice && newPrice < existingPrice) {
+        updated.push({ ...existing, price: priceStr, mrp: mrpStr || existing.mrp, disc: discStr, addedAt: new Date().toISOString(), outOfStock: false });
+      }
       continue;
     }
 
