@@ -107,8 +107,23 @@ async function withCronLock(cronName, ttlSeconds, env, fn) {
 }
 
 async function saveProductsFile(products, sha, message, env, _retry = true) {
+  // Safety net: whichever code path built this array, never persist two entries
+  // with the same ASIN. Keeps the first occurrence — the array is newest-first, so
+  // that's the most relevant one — and re-indexes `order` to stay contiguous.
+  const seenAsins = new Set();
+  const deduped = products.filter(p => {
+    if (!p.asin) return true;
+    const key = p.asin.toUpperCase();
+    if (seenAsins.has(key)) return false;
+    seenAsins.add(key);
+    return true;
+  }).map((p, i) => ({ ...p, order: i }));
+  if (deduped.length !== products.length) {
+    console.log(`saveProductsFile: dropped ${products.length - deduped.length} duplicate-ASIN entries`);
+  }
+
   const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/products.json`;
-  const body = { message, content: encodeBase64Unicode(JSON.stringify(products, null, 2)) };
+  const body = { message, content: encodeBase64Unicode(JSON.stringify(deduped, null, 2)) };
   if (sha) body.sha = sha;
   const resp = await fetch(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!resp.ok) {
