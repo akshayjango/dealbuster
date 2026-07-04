@@ -1110,8 +1110,13 @@ function formatDealMsg(product, tag) {
   if (cutIdx) rawTitle = rawTitle.slice(0, cutIdx).trim();
   const title = escHtml(rawTitle);
   const price = product.price || '';
-  const priceRow = price ? `Deal Price @ <b>${escHtml(price)}</b>` : '';
-  return priceRow ? `${title}\n${priceRow}\n\n${link}` : `${title}\n\n${link}`;
+  const mrp = product.mrp || '';
+  const disc = product.disc || '';
+  const priceRow = price ? `✅Deal Price: <b>${escHtml(price)}</b>` : '';
+  const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
+  const discRow = disc ? `Discount: ${escHtml(disc)}` : '';
+  const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
+  return detailsBlock ? `${title}\n${detailsBlock}\n\n👉 ${link}` : `${title}\n\n👉 ${link}`;
 }
 
 async function postNewDealsToTelegram(env) {
