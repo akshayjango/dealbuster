@@ -1130,14 +1130,16 @@ async function postNewDealsToTelegram(env) {
   const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
 
   const { products } = await getProductsFile(env);
-  // Strict FIFO by addedAt — oldest unposted deal goes out first, newest last.
-  // Whatever doesn't fit in this batch of 5 carries over to the next cron run,
-  // still oldest-first.
-  const fresh = products
-    .filter(p => !p.hidden && !p.outOfStock)
-    .filter(p => !postedIds.has(p.id))
-    .sort((a, b) => new Date(a.addedAt || 0).getTime() - new Date(b.addedAt || 0).getTime())
-    .slice(0, 5);
+  // products[] is already newest-first — that IS the site's recency ranking.
+  // addedAt is not reliable for ordering: sync jobs stamp it while looping over
+  // a batch (in source-feed order) and then prepend the whole batch, so within a
+  // single batch addedAt increases while true recency decreases. Array position
+  // is the only trustworthy signal.
+  const unposted = products.filter(p => !p.hidden && !p.outOfStock && !postedIds.has(p.id));
+  // Oldest unposted deals sit at the end of the array — send oldest-of-batch
+  // first, newest last. Whatever doesn't fit in this batch of 5 carries over to
+  // the next cron run, still oldest-first.
+  const fresh = unposted.slice(-5).reverse();
 
   if (!fresh.length) { console.log('TG cron: no new deals to post'); return; }
 
