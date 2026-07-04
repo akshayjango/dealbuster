@@ -1125,6 +1125,9 @@ async function postNewDealsToTelegram(env) {
   const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
 
   const { products } = await getProductsFile(env);
+  // Strict FIFO by addedAt — oldest unposted deal goes out first, newest last.
+  // Whatever doesn't fit in this batch of 5 carries over to the next cron run,
+  // still oldest-first.
   const fresh = products
     .filter(p => !p.hidden && !p.outOfStock)
     .filter(p => !postedIds.has(p.id))
