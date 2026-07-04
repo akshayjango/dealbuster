@@ -2026,6 +2026,7 @@ async function updateNotifications() {
   ` : '';
 
   const oosSect = oosAlerts.length ? `
+    <div id="oosNotifSection" style="transition:opacity .25s ease, max-height .25s ease;">
     <div style="padding:6px 12px 4px;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;display:flex;align-items:center;justify-content:space-between;">
       <span>📦 Out of Stock (${oosAlerts.length})</span>
       <span onclick="pushAllOOSToBottomFromNotif()" style="cursor:pointer;color:#dc2626;font-size:.68rem;font-weight:600;">⬇ Push All to Bottom</span>
@@ -2040,6 +2041,7 @@ async function updateNotifications() {
         <button onclick="dismissOOS(event,'${p.id}')" title="Mark resolved" style="border:none;background:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:50%;display:flex;">${xBtn}</button>
       </div>
     `).join('')}
+    </div>
   ` : '';
 
   const amzSect = amazonAlerts.length ? `
@@ -2145,11 +2147,26 @@ async function pushAllOOSToBottomFromNotif() {
     if (data.error) throw new Error(data.error);
     // Dismiss all OOS notifications
     await apiFetch('/products/clear-oos-notifications', { method: 'POST' });
-    updateNotifications();
+    // Server flag is cleared, but allProducts is local state — clear it here too,
+    // otherwise the notif panel keeps showing these until a full page reload.
+    allProducts.forEach(p => { if (oosIds.includes(p.id)) p.outOfStock = false; });
+    fadeOutOOSSection();
   } catch (e) {
     alert('Failed: ' + e.message);
     loadProducts();
   }
+}
+
+function fadeOutOOSSection() {
+  const sect = document.getElementById('oosNotifSection');
+  if (!sect) { updateNotifications(); return; }
+  sect.style.overflow = 'hidden';
+  sect.style.maxHeight = sect.scrollHeight + 'px';
+  requestAnimationFrame(() => {
+    sect.style.opacity = '0';
+    sect.style.maxHeight = '0px';
+  });
+  setTimeout(updateNotifications, 250);
 }
 
 async function clearSyncErrors() {
