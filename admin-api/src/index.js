@@ -525,18 +525,13 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
     const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
 
-    if (existingByAsin.has(asin)) {
-      const existing = existingByAsin.get(asin);
-      const existingPrice = parsePrice(existing.price);
-      const newPrice = parsePrice(priceStr);
-      // Only bump to top on an actual price drop — the trending page mostly re-shows
-      // the same deals every cycle, so bumping on every re-sight buries genuinely new
-      // deals under reshuffled old ones.
-      if (newPrice && existingPrice && newPrice < existingPrice) {
-        updated.push({ ...existing, price: priceStr, mrp: mrpStr || existing.mrp, disc: discStr, addedAt: new Date().toISOString(), outOfStock: false });
-      }
-      continue;
-    }
+    // Already on site — leave it completely alone. No position bump, no addedAt
+    // refresh, ever. The trending page mostly re-shows the same deals every cycle,
+    // so touching it here (even just on a price drop) repeatedly resurfaces old
+    // deals and re-floods Telegram/subscribers. checkAndCleanDeals (same 10-min
+    // cron, runs right after this) independently refreshes prices from Amazon's
+    // own API, so price freshness isn't lost by skipping it here.
+    if (existingByAsin.has(asin)) continue;
 
     const category = detectCategoryFromTitle(title);
 
@@ -1154,33 +1149,44 @@ function formatDealMsg(product, tag) {
   return detailsBlock ? `${title}\n${detailsBlock}\n\n👉 ${link}` : `${title}\n\n👉 ${link}`;
 }
 
-async function postNewDealsToTelegram(env) {
-  const token = env.TELEGRAM_BOT_TOKEN;
-  if (!token) return;
+// Tracks which products have already been posted — by id AND by ASIN. ASIN is the
+// durable key: if a product's id ever changes (cap eviction, a sync re-adding it,
+// any future bug) but the ASIN is the same, this still recognizes it as already
+// posted. id-only tracking couldn't survive that and would repost it as "new".
+function isAlreadyPosted(p, postedIds) {
+  return postedIds.has(p.id) || (p.asin && postedIds.has(p.asin.toUpperCase()));
+}
+function markPosted(p, postedIds) {
+  postedIds.add(p.id);
+  if (p.asin) postedIds.add(p.asin.toUpperCase());
+}
 
-  // Tracks which product IDs have already been posted, instead of an addedAt cutoff.
-  // addedAt gets re-stamped on EXISTING products by the price-check/sync jobs whenever
-  // a price drop pushes them back to the top of the site listing — a cutoff based on
-  // addedAt would treat that as "newly added" and repost the same deals forever.
+async function getUnpostedTgFresh(env) {
   const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
-
   const { products } = await getProductsFile(env);
   // products[] is already newest-first — that IS the site's recency ranking.
   // addedAt is not reliable for ordering: sync jobs stamp it while looping over
   // a batch (in source-feed order) and then prepend the whole batch, so within a
   // single batch addedAt increases while true recency decreases. Array position
   // is the only trustworthy signal.
-  const unposted = products.filter(p => !p.hidden && !p.outOfStock && !postedIds.has(p.id));
+  const unposted = products.filter(p => !p.hidden && !p.outOfStock && !isAlreadyPosted(p, postedIds));
   // Oldest unposted deals sit at the end of the array — send oldest-of-batch
   // first, newest last. Whatever doesn't fit in this batch of 5 carries over to
   // the next cron run, still oldest-first.
   const fresh = unposted.slice(-5).reverse();
+  return { postedIds, fresh };
+}
 
+async function postNewDealsToTelegram(env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  const { postedIds, fresh } = await getUnpostedTgFresh(env);
   if (!fresh.length) { console.log('TG cron: no new deals to post'); return; }
 
   for (const p of fresh) {
     await postDealToChannels(p, env).catch(e => console.error('TG cron post failed:', e.message));
-    postedIds.add(p.id);
+    markPosted(p, postedIds);
   }
 
   // Cap so KV doesn't grow unbounded — ids are time-based so oldest are safe to drop
@@ -1197,8 +1203,15 @@ async function postNewDealsToTelegramLocked(env) {
   if (env.KV) {
     const held = await env.KV.get(lockKey);
     if (held) { console.log('TG post already in flight, skipping'); return; }
-    await env.KV.put(lockKey, '1', { expirationTtl: 60 });
   }
+  // Cheap read-only check first (KV.get + a GitHub fetch, no KV write) — skip
+  // acquiring the lock entirely when there's nothing to post. This cron fires
+  // every 5 min; without this it was writing a lock KV key ~288 times/day even
+  // on cycles with zero actual work, which is most of the daily 1000-put budget.
+  const { fresh } = await getUnpostedTgFresh(env);
+  if (!fresh.length) { console.log('TG cron: nothing to post, skipping lock'); return; }
+
+  if (env.KV) await env.KV.put(lockKey, '1', { expirationTtl: 60 });
   try {
     await postNewDealsToTelegram(env);
   } finally {
