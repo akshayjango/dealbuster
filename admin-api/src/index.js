@@ -1166,49 +1166,119 @@ function markPosted(p, postedIds) {
 }
 
 // Single choke point for posting to Telegram. Every call site (manual publish,
-// bot webhook, IFS manual sync, the cron) MUST go through this — it's the only
-// place that both sends and records tg_posted_ids, in the same lock. A caller
-// that posts without recording is exactly what caused the duplicate-post bug:
-// the tracked cron would see the product as "unposted" and send it again.
+// bot webhook, IFS manual sync, the cron, the external cron pinger) MUST go
+// through this. All work is delegated to the TgPoster Durable Object — a single
+// strongly-consistent instance that serializes every post batch globally. KV
+// locks cannot do this job: KV is eventually consistent across data centers, so
+// the internal cron and the external /cron-post-deals pinger (or a pinger retry)
+// running in different colos could both read "not posted yet" and send the same
+// batch twice. A DO has exactly one live instance worldwide, so that race is
+// structurally impossible.
 async function postDealsAndTrack(products, env) {
   const list = (products || []).filter(Boolean);
   if (!list.length) return;
 
-  const lockKey = 'tg_post_inflight';
-  let haveLock = !env.KV;
-  if (env.KV) {
-    const deadline = Date.now() + 3000;
-    while (Date.now() < deadline) {
-      const held = await env.KV.get(lockKey);
-      if (!held) { await env.KV.put(lockKey, '1', { expirationTtl: 60 }); haveLock = true; break; }
-      await new Promise(r => setTimeout(r, 250));
+  if (env.TG_POSTER) {
+    const stub = env.TG_POSTER.get(env.TG_POSTER.idFromName('tg'));
+    const r = await stub.fetch('https://tg-poster/post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ products: list }),
+    });
+    if (!r.ok) console.error('TgPoster DO failed:', r.status, await r.text().catch(() => ''));
+    return;
+  }
+
+  // Fallback if the DO binding is missing (should not happen once deployed):
+  // best-effort KV claim-before-send. Weaker than the DO — eventually-consistent
+  // — but keeps posting alive rather than going silent.
+  console.error('TG_POSTER binding missing — using weaker KV fallback');
+  const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+  const toSend = list.filter(p => !isAlreadyPosted(p, postedIds));
+  if (!toSend.length) return;
+  toSend.forEach(p => markPosted(p, postedIds));
+  await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(postedIds).slice(-20000)));
+  for (const p of toSend) {
+    await postDealToChannels(p, env).catch(e => console.error('TG post failed:', e.message));
+  }
+}
+
+// ── TgPoster Durable Object ───────────────────────────────────────────────────
+// One instance globally (idFromName('tg')). Every Telegram post batch flows
+// through here, strictly one at a time via the promise chain, with the
+// posted-ids ledger in DO storage (strongly consistent, unlike KV). Ids are
+// stored one-per-key ("posted:<id>") because a single 20k-entry JSON value
+// would blow the DO's 128 KiB per-value limit.
+export class TgPoster {
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.env = env;
+    this.chain = Promise.resolve(); // serializes concurrent post requests
+  }
+
+  async fetch(request) {
+    let body;
+    try { body = await request.json(); } catch { return new Response('bad request', { status: 400 }); }
+    const run = this.chain.then(() => this.postBatch(body.products || []));
+    this.chain = run.then(() => {}, () => {});
+    try {
+      const posted = await run;
+      return new Response(JSON.stringify({ ok: true, posted }), { headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+      return new Response(JSON.stringify({ ok: false, error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
   }
 
-  try {
-    const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
-    const toSend = list.filter(p => !isAlreadyPosted(p, postedIds));
-    if (!toSend.length) return;
+  keysFor(p) {
+    const keys = [`posted:${p.id}`];
+    if (p.asin) keys.push(`posted:${p.asin.toUpperCase()}`);
+    return keys;
+  }
 
-    // Claim BEFORE sending. Writing tg_posted_ids first (not after the Telegram
-    // calls) shrinks the duplicate-post race window from "however long it takes
-    // to send N messages to 2 channels" down to a single KV round trip — a
-    // concurrent second call now sees the claim almost immediately instead of
-    // only after both requests already sent.
-    toSend.forEach(p => markPosted(p, postedIds));
-    // Cap well above the live product pool (products.json itself caps at 720 —
-    // see the `final.length > 720` slice in the sync functions). At 2000 this
-    // was evicting real ASINs within a couple of days at current sync volume,
-    // which made the tracked cron see an already-posted deal as "unposted"
-    // again and repost it. 20000 covers ~2 months of turnover at this volume.
-    const capped = Array.from(postedIds).slice(-20000);
-    await env.KV.put('tg_posted_ids', JSON.stringify(capped));
+  // One-time import of the existing KV ledger so nothing already posted gets
+  // re-sent when the DO takes over.
+  async migrateFromKV() {
+    if (await this.ctx.storage.get('migrated_from_kv')) return;
+    const old = JSON.parse(await this.env.KV.get('tg_posted_ids') || '[]');
+    for (let i = 0; i < old.length; i += 128) {
+      const batch = {};
+      for (const id of old.slice(i, i + 128)) batch[`posted:${id}`] = 1;
+      await this.ctx.storage.put(batch);
+    }
+    await this.ctx.storage.put('migrated_from_kv', 1);
+  }
+
+  async postBatch(list) {
+    await this.migrateFromKV();
+
+    const toSend = [];
+    for (const p of list) {
+      const found = await this.ctx.storage.get(this.keysFor(p));
+      if (![...found.values()].some(Boolean)) toSend.push(p);
+    }
+    if (!toSend.length) return 0;
+
+    // Claim in DO storage before sending — any request that arrives during the
+    // send sees the claim (strong consistency + serialized chain).
+    const claim = {};
+    for (const p of toSend) for (const k of this.keysFor(p)) claim[k] = 1;
+    await this.ctx.storage.put(claim);
 
     for (const p of toSend) {
-      await postDealToChannels(p, env).catch(e => console.error('TG post failed:', e.message));
+      await postDealToChannels(p, this.env).catch(e => console.error('TG post failed:', e.message));
     }
-  } finally {
-    if (env.KV && haveLock) await env.KV.delete(lockKey).catch(() => {});
+
+    // Mirror into KV — only the cron's cheap "anything new?" pre-check reads
+    // this (getUnpostedTgFresh). Advisory only; the DO ledger is authoritative.
+    try {
+      const ids = new Set(JSON.parse(await this.env.KV.get('tg_posted_ids') || '[]'));
+      toSend.forEach(p => markPosted(p, ids));
+      await this.env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
+    } catch (e) {
+      console.error('KV mirror failed:', e.message);
+    }
+
+    return toSend.length;
   }
 }
 

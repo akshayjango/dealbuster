@@ -13,6 +13,14 @@ id = "c67facdab9664a6189ecf536ddada140"
 [vars]
 TELEGRAM_ADMIN_ID = "715667303"
 
+[[durable_objects.bindings]]
+name = "TG_POSTER"
+class_name = "TgPoster"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TgPoster"]
+
 [triggers]
 crons = [
   "2,12,22,32,42,52 * * * *",
