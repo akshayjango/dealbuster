@@ -650,8 +650,11 @@ async function checkAndCleanDeals(env) {
           changed = true;
         }
 
+        // Bump to top on a price drop (surfaces it as a "top deal now"), but never
+        // touch addedAt here — that's the deal's true first-seen time. Refreshing
+        // it on every minor price flicker is what made days/weeks-old deals show
+        // "Updated 1hr ago" and look brand new again.
         if (priceDrop) {
-          updated.addedAt = new Date().toISOString();
           toPushTop.push(p.id);
           changed = true;
         }
@@ -1193,7 +1196,12 @@ async function postDealsAndTrack(products, env) {
     // concurrent second call now sees the claim almost immediately instead of
     // only after both requests already sent.
     toSend.forEach(p => markPosted(p, postedIds));
-    const capped = Array.from(postedIds).slice(-2000);
+    // Cap well above the live product pool (products.json itself caps at 720 —
+    // see the `final.length > 720` slice in the sync functions). At 2000 this
+    // was evicting real ASINs within a couple of days at current sync volume,
+    // which made the tracked cron see an already-posted deal as "unposted"
+    // again and repost it. 20000 covers ~2 months of turnover at this volume.
+    const capped = Array.from(postedIds).slice(-20000);
     await env.KV.put('tg_posted_ids', JSON.stringify(capped));
 
     for (const p of toSend) {
