@@ -408,6 +408,7 @@
           <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
           <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
           <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
+          <button class="btn btn-outline btn-sm" onclick="openBlockedBrandsModal()" id="blockedBrandsBtn" style="border-color:#7c3aed;color:#7c3aed;">🚫 Blocked Brands</button>
           <button class="btn btn-sm toolbar-add-deal" onclick="switchTab('addDeal')">+ Add Deal</button>
         </div>
       </div>
@@ -692,6 +693,25 @@
       <button class="btn" id="saveEditBtn" onclick="saveEdit()">Save Changes</button>
     </div>
     <div id="editStatus" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="blockedBrandsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Blocked Brands</h2>
+      <button class="modal-close" onclick="closeBlockedBrandsModal()">✕</button>
+    </div>
+    <p style="font-size:.82rem;color:var(--muted);margin:-4px 0 14px;">Deals whose title contains a blocked brand are skipped during autosync and never posted to Telegram. Products already on the site aren't removed automatically — delete those manually.</p>
+    <div class="field" style="display:flex;gap:8px;align-items:flex-end;">
+      <div style="flex:1;">
+        <label>Brand name</label>
+        <input type="text" id="newBlockedBrand" placeholder="e.g. Xiaomi" onkeydown="if(event.key==='Enter'){event.preventDefault();addBlockedBrand();}"/>
+      </div>
+      <button class="btn btn-sm" onclick="addBlockedBrand()">+ Add</button>
+    </div>
+    <ul class="highlights-list" id="blockedBrandsList" style="margin-top:16px;"></ul>
+    <div id="blockedBrandsStatus" style="margin-top:8px;"></div>
   </div>
 </div>
 
@@ -1189,6 +1209,69 @@ function openEdit(id) {
 function closeModal() {
   document.getElementById('editModal').classList.remove('open');
   editingId = null;
+}
+
+// ── Blocked Brands ────────────────────────────────────────────────────────────
+async function openBlockedBrandsModal() {
+  document.getElementById('blockedBrandsModal').classList.add('open');
+  document.getElementById('blockedBrandsStatus').innerHTML = '';
+  await loadBlockedBrands();
+}
+
+function closeBlockedBrandsModal() {
+  document.getElementById('blockedBrandsModal').classList.remove('open');
+}
+
+function renderBlockedBrands(brands) {
+  const list = document.getElementById('blockedBrandsList');
+  list.innerHTML = '';
+  if (!brands.length) {
+    list.innerHTML = '<li style="color:var(--muted);font-size:.85rem;list-style:none;">No brands blocked yet.</li>';
+    return;
+  }
+  brands.forEach(b => {
+    const li = document.createElement('li');
+    li.className = 'highlight-item';
+    li.innerHTML = `<input type="text" value="${escHtml(b)}" readonly style="background:var(--bg);color:var(--text);"/><button class="remove-hl" onclick="removeBlockedBrand('${escHtml(b).replace(/'/g,"\\'")}')">✕</button>`;
+    list.appendChild(li);
+  });
+}
+
+async function loadBlockedBrands() {
+  try {
+    const resp = await apiFetch('/blocked-brands');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    renderBlockedBrands(data.brands || []);
+  } catch (e) {
+    document.getElementById('blockedBrandsStatus').innerHTML = `<div class="error-msg">${escHtml(e.message)}</div>`;
+  }
+}
+
+async function addBlockedBrand() {
+  const input = document.getElementById('newBlockedBrand');
+  const brand = input.value.trim();
+  if (!brand) return;
+  try {
+    const resp = await apiFetch('/blocked-brands', { method: 'POST', body: { brand } });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Failed to add brand');
+    input.value = '';
+    renderBlockedBrands(data.brands || []);
+  } catch (e) {
+    document.getElementById('blockedBrandsStatus').innerHTML = `<div class="error-msg">${escHtml(e.message)}</div>`;
+  }
+}
+
+async function removeBlockedBrand(brand) {
+  try {
+    const resp = await apiFetch(`/blocked-brands/${encodeURIComponent(brand)}`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Failed to remove brand');
+    renderBlockedBrands(data.brands || []);
+  } catch (e) {
+    document.getElementById('blockedBrandsStatus').innerHTML = `<div class="error-msg">${escHtml(e.message)}</div>`;
+  }
 }
 
 async function saveEdit() {
@@ -2204,6 +2287,9 @@ function escHtml(str) {
 // Close modal on overlay click
 document.getElementById('editModal').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
+});
+document.getElementById('blockedBrandsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeBlockedBrandsModal();
 });
 </script>
 </body>

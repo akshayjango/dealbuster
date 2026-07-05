@@ -186,6 +186,27 @@ async function restoreAsinIfDeleted(asin, env) {
   } catch (e) { console.error('Failed to restore ASIN:', e.message); }
 }
 
+// ── KV-based blocked brands (autosync + Telegram filter) ─────────────────────
+
+async function getBlockedBrands(env) {
+  if (!env.KV) return [];
+  const list = await env.KV.get('blocked_brands', 'json');
+  return Array.isArray(list) ? list : [];
+}
+
+async function setBlockedBrands(brands, env) {
+  if (!env.KV) throw new Error('KV not configured');
+  await env.KV.put('blocked_brands', JSON.stringify(brands));
+}
+
+// Blocklist matches by substring against the product title — there's no
+// structured brand field, titles just start with the brand name (e.g. "Xiaomi ...").
+function isBrandBlocked(title, blockedBrands) {
+  if (!title || !blockedBrands.length) return false;
+  const t = title.toLowerCase();
+  return blockedBrands.some(b => t.includes(b.toLowerCase()));
+}
+
 // ── KV-based sync error notifications ────────────────────────────────────────
 
 async function saveSyncError(source, message, env) {
@@ -324,6 +345,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
   const { products, sha } = await getProductsFile(env);
   let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
+  const blockedBrands = await getBlockedBrands(env);
 
   // Build ASIN → product index
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
@@ -345,6 +367,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
     if (deletedSet.has(asinUpper)) continue;
     if (seenThisRun.has(asinUpper)) continue;
     seenThisRun.add(asinUpper);
+    if (isBrandBlocked(deal.title, blockedBrands)) continue;
 
     const price = deal.currentPrice || 0;
     const mrp = deal.originalPrice || price;
@@ -424,6 +447,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   // Filter: only blocks containing /stores/amazon link.
   // Image: extract Amazon image hash from their thumbnail filename — no extra fetch.
   const matchesMap = new Map();
+  const blockedBrands = await getBlockedBrands(env);
 
   try {
     const r = await fetch('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
@@ -444,6 +468,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       // Strip trailing " Rs. NNN - Amazon" suffix sites append
       title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Amazon\s*$/i, '').trim();
       if (!title || title.length < 5) continue;
+      if (isBrandBlocked(title, blockedBrands)) continue;
 
       // Image: extract Amazon image hash from their thumbnail filename
       // e.g. thumb_f8ec8aef_61NiiBDN0yL.SX522.jpg → 61NiiBDN0yL → Amazon CDN image
@@ -873,6 +898,7 @@ async function checkAmazonDeals(env) {
 
 async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const blockedBrands = await getBlockedBrands(env);
 
   // Load existing queue
   let queue = env.KV ? (await env.KV.get('amazonDealsQueue', 'json') || []) : [];
@@ -941,6 +967,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
       let title = titleM ? titleM[1].replace(/\s+/g,' ').trim() : '';
       title = decodeHtmlEntities(title);
       if (!title || title.length < 5) continue;
+      if (isBrandBlocked(title, blockedBrands)) continue;
 
       // Price
       const priceM = html.match(/class="[^"]*a-price-whole[^"]*"[^>]*>([\d,]+)/i);
@@ -1855,6 +1882,32 @@ export default {
           await env.KV.put('amazonDealsAlerts', JSON.stringify(alerts.filter(a => a.id !== amzAlertMatch[1])));
         }
         return json({ success: true });
+      }
+
+      // ── GET /blocked-brands ───────────────────────────────────────────────────
+      if (url.pathname === '/blocked-brands' && request.method === 'GET') {
+        return json({ brands: await getBlockedBrands(env) });
+      }
+
+      // ── POST /blocked-brands (add) ────────────────────────────────────────────
+      if (url.pathname === '/blocked-brands' && request.method === 'POST') {
+        const { brand } = await request.json();
+        const clean = (brand || '').trim();
+        if (!clean) return json({ error: 'Missing brand' }, 400);
+        const brands = await getBlockedBrands(env);
+        if (!brands.some(b => b.toLowerCase() === clean.toLowerCase())) brands.push(clean);
+        await setBlockedBrands(brands, env);
+        return json({ success: true, brands });
+      }
+
+      // ── DELETE /blocked-brands/:brand (remove) ────────────────────────────────
+      const blockedBrandMatch = url.pathname.match(/^\/blocked-brands\/([^/]+)$/);
+      if (blockedBrandMatch && request.method === 'DELETE') {
+        const target = decodeURIComponent(blockedBrandMatch[1]).toLowerCase();
+        const brands = await getBlockedBrands(env);
+        const remaining = brands.filter(b => b.toLowerCase() !== target);
+        await setBlockedBrands(remaining, env);
+        return json({ success: true, brands: remaining });
       }
 
       // ── GET /sync-errors ─────────────────────────────────────────────────────
