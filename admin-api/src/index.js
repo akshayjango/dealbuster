@@ -1185,7 +1185,9 @@ async function postDealsAndTrack(products, env) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ products: list }),
     });
-    if (!r.ok) console.error('TgPoster DO failed:', r.status, await r.text().catch(() => ''));
+    if (!r.ok) { console.error('TgPoster DO failed:', r.status, await r.text().catch(() => '')); return; }
+    const { posted } = await r.json().catch(() => ({ posted: '?' }));
+    console.log(`TgPoster: sent ${posted} of ${list.length} requested (rest already posted)`);
     return;
   }
 
