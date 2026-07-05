@@ -1789,6 +1789,7 @@ async function publishFromSearch() {
 
 async function doPublish(product, category, highlights, btnId, statusId) {
   const btn = document.getElementById(btnId);
+  if (btn.disabled) return; // already publishing — ignore double-click / duplicate submit
   const statusEl = document.getElementById(statusId);
   btn.disabled = true;
   btn.textContent = 'Publishing…';

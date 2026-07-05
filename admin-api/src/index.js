@@ -1027,8 +1027,9 @@ async function handlePublish(body, env) {
   const updated = [newProduct, ...filtered].map((p, i) => ({ ...p, order: i }));
   await saveProductsFile(updated, sha, `Add deal: ${product.title.slice(0,60)}`, env);
 
-  // Post new deal to Telegram channels (fire-and-forget)
-  postDealToChannels(newProduct, env).catch(e => console.error('TG post failed:', e.message));
+  // Post new deal to Telegram channels (fire-and-forget) — tracked, so the
+  // 5-min cron won't see it as "unposted" and send it again.
+  postDealsAndTrack([newProduct], env).catch(e => console.error('TG post failed:', e.message));
 
   // Legacy: write card to index.html
   const params = new URLSearchParams({ title: product.title, cat: category, price: product.price, mrp: product.mrp, disc: product.disc, updated: today.slice(0,10), img: product.image, link: product.link, hl: (highlights||[]).join('|') });
@@ -1161,6 +1162,48 @@ function markPosted(p, postedIds) {
   if (p.asin) postedIds.add(p.asin.toUpperCase());
 }
 
+// Single choke point for posting to Telegram. Every call site (manual publish,
+// bot webhook, IFS manual sync, the cron) MUST go through this — it's the only
+// place that both sends and records tg_posted_ids, in the same lock. A caller
+// that posts without recording is exactly what caused the duplicate-post bug:
+// the tracked cron would see the product as "unposted" and send it again.
+async function postDealsAndTrack(products, env) {
+  const list = (products || []).filter(Boolean);
+  if (!list.length) return;
+
+  const lockKey = 'tg_post_inflight';
+  let haveLock = !env.KV;
+  if (env.KV) {
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      const held = await env.KV.get(lockKey);
+      if (!held) { await env.KV.put(lockKey, '1', { expirationTtl: 60 }); haveLock = true; break; }
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
+
+  try {
+    const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+    const toSend = list.filter(p => !isAlreadyPosted(p, postedIds));
+    if (!toSend.length) return;
+
+    // Claim BEFORE sending. Writing tg_posted_ids first (not after the Telegram
+    // calls) shrinks the duplicate-post race window from "however long it takes
+    // to send N messages to 2 channels" down to a single KV round trip — a
+    // concurrent second call now sees the claim almost immediately instead of
+    // only after both requests already sent.
+    toSend.forEach(p => markPosted(p, postedIds));
+    const capped = Array.from(postedIds).slice(-2000);
+    await env.KV.put('tg_posted_ids', JSON.stringify(capped));
+
+    for (const p of toSend) {
+      await postDealToChannels(p, env).catch(e => console.error('TG post failed:', e.message));
+    }
+  } finally {
+    if (env.KV && haveLock) await env.KV.delete(lockKey).catch(() => {});
+  }
+}
+
 async function getUnpostedTgFresh(env) {
   const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
   const { products } = await getProductsFile(env);
@@ -1181,42 +1224,20 @@ async function postNewDealsToTelegram(env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
 
-  const { postedIds, fresh } = await getUnpostedTgFresh(env);
+  const { fresh } = await getUnpostedTgFresh(env);
   if (!fresh.length) { console.log('TG cron: no new deals to post'); return; }
 
-  for (const p of fresh) {
-    await postDealToChannels(p, env).catch(e => console.error('TG cron post failed:', e.message));
-    markPosted(p, postedIds);
-  }
-
-  // Cap so KV doesn't grow unbounded — ids are time-based so oldest are safe to drop
-  const capped = Array.from(postedIds).slice(-2000);
-  await env.KV.put('tg_posted_ids', JSON.stringify(capped));
+  await postDealsAndTrack(fresh, env);
   console.log(`TG cron: posted ${fresh.length} deals`);
 }
 
-// Scoped lock (not the shared GLOBAL_CRON_LOCK — TG posting doesn't touch products.json
-// and shouldn't contend with the heavy sync jobs) so the internal cron and an external
-// pinger can't both post the same batch if they overlap.
+// The actual send+track locking lives in postDealsAndTrack now. This wrapper is
+// just a cheap pre-check (KV.get + a GitHub fetch, no KV write) so the 5-min
+// cron doesn't touch GitHub/lock at all when there's nothing to post.
 async function postNewDealsToTelegramLocked(env) {
-  const lockKey = 'tg_post_inflight';
-  if (env.KV) {
-    const held = await env.KV.get(lockKey);
-    if (held) { console.log('TG post already in flight, skipping'); return; }
-  }
-  // Cheap read-only check first (KV.get + a GitHub fetch, no KV write) — skip
-  // acquiring the lock entirely when there's nothing to post. This cron fires
-  // every 5 min; without this it was writing a lock KV key ~288 times/day even
-  // on cycles with zero actual work, which is most of the daily 1000-put budget.
   const { fresh } = await getUnpostedTgFresh(env);
-  if (!fresh.length) { console.log('TG cron: nothing to post, skipping lock'); return; }
-
-  if (env.KV) await env.KV.put(lockKey, '1', { expirationTtl: 60 });
-  try {
-    await postNewDealsToTelegram(env);
-  } finally {
-    if (env.KV) await env.KV.delete(lockKey).catch(() => {});
-  }
+  if (!fresh.length) { console.log('TG cron: nothing to post, skipping'); return; }
+  await postNewDealsToTelegram(env);
 }
 
 async function postDealToChannels(product, env) {
@@ -1378,8 +1399,9 @@ async function handleTelegramWebhook(request, env) {
     const product = { asin, title, price, mrp, disc, image, link: affiliateLink, lowestPriceText: badge || null };
     const cat = category || detectCategoryFromTitle(title);
 
+    // handlePublish already posts to Telegram internally — do not post again here,
+    // that was sending every bot-published deal to the channels twice.
     await handlePublish({ product, category: cat, highlights: highlights || [] }, env);
-    await postDealToChannels(product, env);
 
     const confirmText = `✅ Published & posted!\n\n${title.slice(0,80)}\n${price} ${disc}\n\n→ ${TG_CHANNELS.length} channels notified`;
     await tgSend(token, chatId, escTg(confirmText));
@@ -1655,9 +1677,7 @@ export default {
         try {
           const r = await scrapeAndSyncIndiaFreeStuff(env, 20);
           if (r.addedProducts?.length) {
-            for (const p of r.addedProducts.slice(0, 5)) {
-              await postDealToChannels(p, env).catch(e => console.error('TG post IFS manual:', e.message));
-            }
+            await postDealsAndTrack(r.addedProducts.slice(0, 5), env).catch(e => console.error('TG post IFS manual:', e.message));
           }
           return json(r);
         } catch (e) { return json({ error: e.message }, 502); }
