@@ -689,17 +689,20 @@ async function checkAndCleanDeals(env) {
     }
   }
 
-  // Keep zero-price products pinned to the bottom every cycle — same rule as the
-  // dashboard's manual "Push ₹0 to Bottom" button, just applied automatically.
+  // Keep OOS and zero-price products pinned to the bottom every cycle — same
+  // rules as the dashboard's manual "Push OOS/₹0 to Bottom" buttons, just
+  // applied automatically. OOS takes priority over zero-price when a product
+  // is somehow both, so it isn't double-bucketed.
   const pushSet = new Set(toPushTop);
-  const top = [], mid = [], zeroPrice = [];
+  const top = [], mid = [], oos = [], zeroPrice = [];
   for (const p of products) {
     const updated = productMap.get(p.id) || p;
     if (pushSet.has(p.id)) top.push(updated);
+    else if (updated.outOfStock) oos.push(updated);
     else if (isZeroPrice(updated)) zeroPrice.push(updated);
     else mid.push(updated);
   }
-  const finalOrder = [...top, ...mid, ...zeroPrice];
+  const finalOrder = [...top, ...mid, ...oos, ...zeroPrice];
   const orderChanged = finalOrder.some((p, i) => p.id !== products[i]?.id);
 
   if (!changed && !orderChanged) {
@@ -707,13 +710,13 @@ async function checkAndCleanDeals(env) {
   }
 
   const reordered = finalOrder.map((p, i) => ({ ...p, order: i }));
-  const msg = `Price sync: ${toPushTop.length} price drops, ${zeroPrice.length} zero-price at bottom, updated remaining`;
+  const msg = `Price sync: ${toPushTop.length} price drops, ${oos.length} OOS + ${zeroPrice.length} zero-price at bottom, updated remaining`;
   await saveProductsFile(reordered, sha, msg, env);
 
   return {
-    success: true, priceDrops: toPushTop.length, zeroPriceAtBottom: zeroPrice.length,
+    success: true, priceDrops: toPushTop.length, oosAtBottom: oos.length, zeroPriceAtBottom: zeroPrice.length,
     oosCount: [...productMap.values()].filter(p => p.outOfStock).length,
-    message: `Price sync done. ${toPushTop.length} drops pushed to top, ${zeroPrice.length} zero-price at bottom.`,
+    message: `Price sync done. ${toPushTop.length} drops pushed to top, ${oos.length} OOS + ${zeroPrice.length} zero-price at bottom.`,
   };
 }
 
