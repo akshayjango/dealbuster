@@ -1227,7 +1227,16 @@ const APPROVAL_TTL_MS = 4 * 60 * 60 * 1000; // 4h
 
 async function getPendingApprovals(env) {
   if (!env.KV) return [];
-  return (await env.KV.get('tg_pending_approvals', 'json')) || [];
+  const list = (await env.KV.get('tg_pending_approvals', 'json')) || [];
+  // Collapse duplicate entries per product (pre-claim-fix queues had repeats) —
+  // keep the first so its Approve/Reject buttons stay live.
+  const seen = new Set();
+  return list.filter(e => {
+    const id = e.product?.id;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
 async function savePendingApprovals(pending, env) {
@@ -1245,7 +1254,25 @@ async function queueForApproval(products, env) {
   const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const now = Date.now();
 
-  for (const p of products) {
+  // Claim in tg_posted_ids BEFORE DMing — the 5-min cron picks candidates from
+  // this ledger, so an unclaimed queued deal gets re-queued on every cron tick
+  // (this shipped once: the admin DM filled up with the same 5 deals repeating).
+  // Claiming also covers reject/expire: those must never resurface either.
+  // Approve is unaffected — the DO keeps its own authoritative ledger.
+  const queued = [];
+  try {
+    const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+    const fresh = products.filter(p => !isAlreadyPosted(p, ids));
+    if (!fresh.length) return;
+    fresh.forEach(p => markPosted(p, ids));
+    await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
+    queued.push(...fresh);
+  } catch (e) {
+    console.error('Approval claim failed — not queueing to avoid repeats:', e.message);
+    return;
+  }
+
+  for (const p of queued) {
     const text = formatDealMsg(p, tag) + '\n\n🕐 Awaiting approval — expires in 4h';
     const keyboard = { inline_keyboard: [[
       { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
