@@ -1397,7 +1397,7 @@ async function handleTelegramWebhook(request, env) {
 
   // Help command
   if (text.trim() === '/start' || text.trim() === '/help') {
-    await tgSend(token, chatId, escTg('👋 DealBuster Bot\n\nSend me:\n• Any Amazon link → publishes to site + posts to channels\n• Forward any deal message with a link → I swap the link and repost\n\nCommands:\n/help — this message'));
+    await tgSend(token, chatId, escTg('👋 DealBuster Bot\n\nSend me:\n• Forward any deal message with a link → I swap the link and repost\n\nCommands:\n/help — this message'));
     return new Response('ok');
   }
 
@@ -1473,53 +1473,9 @@ async function handleTelegramWebhook(request, env) {
       return new Response('ok');
     }
 
-    // Feature 1: own link — fetch product data, publish to site, post to channels
-    const rawUrl = urlMatches[0];
-    const { asinM, html } = await resolveAsin(rawUrl);
-    if (!asinM) {
-      await tgSend(token, chatId, escTg('❌ Could not find ASIN in this URL.'));
-      return new Response('ok');
-    }
-    const asin = asinM[1];
-    const affiliateLink = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
-
-    const { badge, highlights, category } = await fetchAmazonPageData(asin);
-
-    const titleM = html.match(/id="productTitle"[^>]*>\s*([\s\S]*?)\s*<\/span>/);
-    let title = titleM ? titleM[1].replace(/\s+/g, ' ').trim() : asin;
-    title = title.replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
-
-    const priceM = html.match(/class="[^"]*a-price-whole[^"]*"[^>]*>([\d,]+)/i);
-    const priceNum = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
-    const price = priceNum ? '₹' + priceNum.toLocaleString('en-IN') : '';
-
-    const mrpM = html.match(/class="[^"]*a-text-price[^"]*"[^>]*>[^<]*<span[^>]*>(₹[\d,]+)/i);
-    const mrp = mrpM ? mrpM[1] : '';
-
-    let disc = '0%';
-    if (priceNum && mrp) {
-      const mrpNum = parseInt(mrp.replace(/[^\d]/g,''));
-      if (mrpNum > priceNum) disc = `-${Math.round((1 - priceNum/mrpNum)*100)}%`;
-    }
-
-    let image = '';
-    const imgTagM = html.match(/<img[^>]+id="landingImage"[^>]*>/i);
-    if (imgTagM) {
-      const dynM = imgTagM[0].match(/data-a-dynamic-image="([^"]+)"/i);
-      if (dynM) { const uM = dynM[1].match(/(https?:\/\/[^&"']+\.(?:jpg|png|jpeg))/i); if (uM) image = uM[1]; }
-      if (!image) { const hM = imgTagM[0].match(/data-old-hires="([^"]+)"/i); if (hM) image = hM[1]; }
-      if (!image) { const sM = imgTagM[0].match(/src="([^"]+)"/i); if (sM && !sM[1].startsWith('data:')) image = sM[1]; }
-    }
-
-    const product = { asin, title, price, mrp, disc, image, link: affiliateLink, lowestPriceText: badge || null };
-    const cat = category || detectCategoryFromTitle(title);
-
-    // handlePublish already posts to Telegram internally — do not post again here,
-    // that was sending every bot-published deal to the channels twice.
-    await handlePublish({ product, category: cat, highlights: highlights || [] }, env);
-
-    const confirmText = `✅ Published & posted!\n\n${title.slice(0,80)}\n${price} ${disc}\n\n→ ${TG_CHANNELS.length} channels notified`;
-    await tgSend(token, chatId, escTg(confirmText));
+    // Direct-link publish removed — the bot only reposts forwarded deal messages now.
+    await tgSend(token, chatId, escTg('❌ Direct link publishing is disabled. Forward a deal message instead.'));
+    return new Response('ok');
 
   } catch (e) {
     await tgSend(token, chatId, escTg(`❌ Error: ${e.message}`));
