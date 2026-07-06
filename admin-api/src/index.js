@@ -1139,7 +1139,7 @@ async function handleDebug(env) {
 
 // ── Telegram Bot ──────────────────────────────────────────────────────────────
 
-const TG_CHANNELS = ['@dealbuster_in', '@dealsanddiscountsofficial'];
+const TG_CHANNELS = ['@dealbusterindia'];
 const TG_ADMIN_ID = 715667303;
 
 async function tgSend(token, chatId, text, opts = {}) {
@@ -1203,6 +1203,154 @@ function isZeroPrice(p) {
   return !p.price || p.price === '₹0' || p.price === '₹';
 }
 
+// ── Autopost toggle + manual-approval queue ───────────────────────────────────
+// When autopost is OFF, deals that would normally hit the channels are instead
+// DM'd to the admin with Approve/Reject buttons. Approving sends that one deal
+// through sendToChannels() directly — same DO, same choke point, just a manual
+// trigger instead of the cron's automatic one.
+
+async function isAutopostEnabled(env) {
+  if (!env.KV) return true;
+  const v = await env.KV.get('autopost_enabled');
+  return v !== 'false'; // unset (fresh KV) === ON
+}
+
+async function setAutopostEnabled(enabled, env) {
+  if (!env.KV) throw new Error('KV not configured');
+  await env.KV.put('autopost_enabled', enabled ? 'true' : 'false');
+}
+
+const APPROVAL_TTL_MS = 4 * 60 * 60 * 1000; // 4h
+
+async function getPendingApprovals(env) {
+  if (!env.KV) return [];
+  return (await env.KV.get('tg_pending_approvals', 'json')) || [];
+}
+
+async function savePendingApprovals(pending, env) {
+  if (!env.KV) return;
+  await env.KV.put('tg_pending_approvals', JSON.stringify(pending));
+}
+
+// One KV read + one KV write per batch, no matter how many deals are in it —
+// keeps this cheap against the 1,000 writes/day KV budget.
+async function queueForApproval(products, env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) { console.error('Cannot queue for approval — TELEGRAM_BOT_TOKEN missing'); return; }
+
+  const pending = await getPendingApprovals(env);
+  const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const now = Date.now();
+
+  for (const p of products) {
+    const text = formatDealMsg(p, tag) + '\n\n🕐 Awaiting approval — expires in 4h';
+    const keyboard = { inline_keyboard: [[
+      { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
+      { text: '❌ Reject', callback_data: `tgappr_r_${p.id}` },
+    ]] };
+    try {
+      let messageId = null;
+      if (p.image) {
+        const r = await tgSendPhoto(token, TG_ADMIN_ID, p.image, text, { parse_mode: 'HTML', reply_markup: keyboard });
+        const data = await r.json().catch(() => null);
+        messageId = data?.result?.message_id ?? null;
+        if (!r.ok) {
+          const r2 = await tgSend(token, TG_ADMIN_ID, text, { parse_mode: 'HTML', reply_markup: keyboard });
+          const d2 = await r2.json().catch(() => null);
+          messageId = d2?.result?.message_id ?? null;
+        }
+      } else {
+        const r = await tgSend(token, TG_ADMIN_ID, text, { parse_mode: 'HTML', reply_markup: keyboard });
+        const data = await r.json().catch(() => null);
+        messageId = data?.result?.message_id ?? null;
+      }
+      pending.push({ product: p, queuedAt: now, messageId });
+    } catch (e) {
+      console.error('Failed to queue deal for approval:', e.message);
+    }
+  }
+
+  await savePendingApprovals(pending, env);
+}
+
+async function tgAnswerCallback(token, id, text) {
+  return fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: id, text: text || '', show_alert: false }),
+  });
+}
+
+async function tgClearKeyboard(token, chatId, messageId) {
+  return fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } }),
+  });
+}
+
+async function handleApprovalCallback(cq, env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return new Response('ok');
+  if (cq.from?.id !== TG_ADMIN_ID) {
+    await tgAnswerCallback(token, cq.id, '⛔ Unauthorized');
+    return new Response('ok');
+  }
+
+  const m = (cq.data || '').match(/^tgappr_(a|r)_(.+)$/);
+  if (!m) { await tgAnswerCallback(token, cq.id, ''); return new Response('ok'); }
+  const [, action, productId] = m;
+
+  const pending = await getPendingApprovals(env);
+  const idx = pending.findIndex(e => e.product.id === productId);
+  if (idx === -1) {
+    await tgAnswerCallback(token, cq.id, 'Already handled or expired');
+    return new Response('ok');
+  }
+  const entry = pending[idx];
+  pending.splice(idx, 1);
+  await savePendingApprovals(pending, env);
+
+  if (entry.messageId) await tgClearKeyboard(token, TG_ADMIN_ID, entry.messageId).catch(() => {});
+
+  if (action === 'a') {
+    await sendToChannels([entry.product], env);
+    await tgAnswerCallback(token, cq.id, '✅ Posted to channel');
+    await tgSend(token, TG_ADMIN_ID, escTg(`✅ Approved & posted: ${entry.product.title.slice(0,60)}`));
+  } else {
+    await tgAnswerCallback(token, cq.id, '❌ Rejected');
+    await tgSend(token, TG_ADMIN_ID, escTg(`❌ Rejected: ${entry.product.title.slice(0,60)}`));
+  }
+  return new Response('ok');
+}
+
+// Drops queued deals older than 4h — piggybacks on the existing 5-min TG cron
+// so this needs no extra Cron Trigger and no extra KV writes beyond the normal
+// batch write (only writes back if something actually expired).
+async function sweepExpiredApprovals(env) {
+  const pending = await getPendingApprovals(env);
+  if (!pending.length) return;
+
+  const now = Date.now();
+  const expired = pending.filter(e => now - e.queuedAt > APPROVAL_TTL_MS);
+  if (!expired.length) return;
+
+  const remaining = pending.filter(e => now - e.queuedAt <= APPROVAL_TTL_MS);
+  await savePendingApprovals(remaining, env);
+
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  for (const e of expired) {
+    try {
+      if (e.messageId) await tgClearKeyboard(token, TG_ADMIN_ID, e.messageId).catch(() => {});
+      await tgSend(token, TG_ADMIN_ID, escTg(`⏱ Expired (4h, no response): ${e.product.title.slice(0,60)}`));
+    } catch (err) {
+      console.error('Failed to notify expired approval:', err.message);
+    }
+  }
+  console.log(`Swept ${expired.length} expired approval(s)`);
+}
+
 // Single choke point for posting to Telegram. Every call site (manual publish,
 // bot webhook, IFS manual sync, the cron, the external cron pinger) MUST go
 // through this. All work is delegated to the TgPoster Durable Object — a single
@@ -1217,6 +1365,21 @@ async function postDealsAndTrack(products, env) {
     if (isZeroPrice(p)) { console.log(`Skipping TG post (₹0/no price): ${p.title || p.id}`); return false; }
     return true;
   });
+  if (!list.length) return;
+
+  if (!(await isAutopostEnabled(env))) {
+    await queueForApproval(list, env);
+    return;
+  }
+  await sendToChannels(list, env);
+}
+
+// Does the actual send — talks to the DO (or the KV fallback). Called by
+// postDealsAndTrack's autopost path above, and directly by the approval
+// callback once a queued deal is approved. Both routes end here, so the DO
+// stays the single serialization point no matter which path a deal took.
+async function sendToChannels(products, env) {
+  const list = (products || []).filter(Boolean);
   if (!list.length) return;
 
   if (env.TG_POSTER) {
@@ -1356,6 +1519,7 @@ async function postNewDealsToTelegram(env) {
 // just a cheap pre-check (KV.get + a GitHub fetch, no KV write) so the 5-min
 // cron doesn't touch GitHub/lock at all when there's nothing to post.
 async function postNewDealsToTelegramLocked(env) {
+  await sweepExpiredApprovals(env).catch(e => console.error('Approval sweep failed:', e.message));
   const { fresh } = await getUnpostedTgFresh(env);
   if (!fresh.length) { console.log('TG cron: nothing to post, skipping'); return; }
   await postNewDealsToTelegram(env);
@@ -1388,6 +1552,10 @@ async function handleTelegramWebhook(request, env) {
 
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return new Response('ok');
+
+  if (update.callback_query) {
+    return handleApprovalCallback(update.callback_query, env);
+  }
 
   const msg = update.message;
   if (!msg) return new Response('ok');
@@ -1456,6 +1624,8 @@ async function handleTelegramWebhook(request, env) {
         await tgSend(token, chatId, escTg('❌ Could not resolve any links in this message.'));
         return new Response('ok');
       }
+      // Swap the source channel's own "Join @theirhandle for more deals" footer for ours.
+      newText = newText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join @DealBuster for more deals! https://t.me/dealbusterindia');
       newText = newText.replace(/\n{3,}/g, '\n\n').trim();
       for (const ch of TG_CHANNELS) {
         if (msg.photo) {
@@ -1542,7 +1712,7 @@ export default {
         const r = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: workerUrl, allowed_updates: ['message'] }),
+          body: JSON.stringify({ url: workerUrl, allowed_updates: ['message', 'callback_query'] }),
         });
         const data = await r.json();
         return json({ success: data.ok, webhook_url: workerUrl, telegram_response: data });
@@ -1852,6 +2022,18 @@ export default {
           await env.KV.put('amazonDealsAlerts', JSON.stringify(alerts.filter(a => a.id !== amzAlertMatch[1])));
         }
         return json({ success: true });
+      }
+
+      // ── GET /autopost ─────────────────────────────────────────────────────────
+      if (url.pathname === '/autopost' && request.method === 'GET') {
+        return json({ enabled: await isAutopostEnabled(env), pending: (await getPendingApprovals(env)).length });
+      }
+
+      // ── POST /autopost ────────────────────────────────────────────────────────
+      if (url.pathname === '/autopost' && request.method === 'POST') {
+        const { enabled } = await request.json();
+        await setAutopostEnabled(!!enabled, env);
+        return json({ success: true, enabled: !!enabled });
       }
 
       // ── GET /blocked-brands ───────────────────────────────────────────────────

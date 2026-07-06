@@ -1,6 +1,6 @@
 # DealBuster
 
-Amazon India deal-aggregator site + Telegram channels (@dealbuster_in, @dealsanddiscountsofficial).
+Amazon India deal-aggregator site + Telegram channel (@dealbusterindia, https://t.me/dealbusterindia).
 
 ## Architecture
 
@@ -13,11 +13,12 @@ Amazon India deal-aggregator site + Telegram channels (@dealbuster_in, @dealsand
 
 History: duplicate posts repeatedly flooded the channel and lost subscribers. Root causes fixed July 2026. Do not regress:
 
-1. **Every Telegram post MUST go through `postDealsAndTrack()`** → which delegates to the `TgPoster` Durable Object. NEVER call `postDealToChannels()` or `tgSend`-to-channel directly from new code. The DO is the single global serialization point; bypassing it reintroduces duplicates.
+1. **Every Telegram post MUST go through `postDealsAndTrack()`** → which either sends immediately via `sendToChannels()` (delegates to the `TgPoster` Durable Object) or, when the autopost toggle is off, hands off to `queueForApproval()` instead. NEVER call `postDealToChannels()`, `sendToChannels()`, or `tgSend`-to-channel directly from new code — always go through `postDealsAndTrack()`. The DO is the single global serialization point; bypassing it reintroduces duplicates.
 2. **KV locks cannot serialize posting** — KV is eventually consistent across colos. TWO schedulers fire the posting path every 5 min (internal CF cron + external pinger hitting `/cron-post-deals`, added because CF crons were unreliable on this account). Only the DO handles this correctly.
 3. **Claim-before-send**: the DO marks products posted in its storage BEFORE sending. Preferred failure mode is a missed post, never a duplicate. Keep it that way.
 4. Dedup is by product `id` AND `asin` (uppercased). The DO ledger is authoritative; KV `tg_posted_ids` is only an advisory mirror for the cron's cheap pre-check.
 5. Never refresh `addedAt` on existing products (price drops, syncs) — it drives the site's "Updated Xhr ago" badge and previously made old deals look new. Bump array position instead.
+6. **Autopost toggle** (KV `autopost_enabled`, default ON, dashboard switch calls `POST /autopost`): when OFF, new deals are DM'd to the admin (`TG_ADMIN_ID`) with Approve/Reject inline buttons instead of hitting the channel. Pending items live in KV `tg_pending_approvals` (one read+write per batch, not per deal). `sweepExpiredApprovals()` piggybacks on the 5-min TG cron to drop anything unapproved after 4h — no separate cron needed. Turning autopost back ON does not flush the backlog; only new deals from that point auto-post, old pending ones still need a manual tap.
 
 ## Gotchas
 

@@ -409,7 +409,13 @@
           <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
           <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
           <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
+          <button class="btn btn-outline btn-sm" onclick="reregisterWebhook()" title="Re-register Telegram webhook (needed once after bot update)" style="border-color:#6b7280;color:#6b7280;">🔗 Re-register Webhook</button>
           <button class="btn btn-outline btn-sm" onclick="openBlockedBrandsModal()" id="blockedBrandsBtn" style="border-color:#7c3aed;color:#7c3aed;">🚫 Blocked Brands</button>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:var(--muted);margin:0 4px;white-space:nowrap;">
+            <span class="toggle-switch"><input type="checkbox" id="autopostToggle" checked onchange="toggleAutopost()"/><span class="toggle-slider"></span></span>
+            Auto-Post
+          </label>
+          <span id="pendingApprovalBadge" style="font-size:.78rem;color:#d97706;display:none;"></span>
           <button class="btn btn-sm toolbar-add-deal" onclick="switchTab('addDeal')">+ Add Deal</button>
         </div>
       </div>
@@ -743,6 +749,7 @@ async function login() {
     sessionStorage.setItem('db_admin_pwd', pwd);
     showScreen('screenApp');
     loadProducts();
+    loadAutopostState();
   } catch (e) {
     errEl.textContent = 'Connection failed: ' + e.message;
   }
@@ -766,6 +773,7 @@ function logout() {
     password = saved;
     showScreen('screenApp');
     loadProducts();
+    loadAutopostState();
   } catch {}
 })();
 
@@ -1225,6 +1233,39 @@ function openEdit(id) {
 function closeModal() {
   document.getElementById('editModal').classList.remove('open');
   editingId = null;
+}
+
+// ── Autopost toggle ───────────────────────────────────────────────────────────
+async function loadAutopostState() {
+  try {
+    const resp = await apiFetch('/autopost');
+    const data = await resp.json();
+    document.getElementById('autopostToggle').checked = !!data.enabled;
+    const badge = document.getElementById('pendingApprovalBadge');
+    if (data.pending > 0) {
+      badge.textContent = `⏳ ${data.pending} awaiting approval in bot`;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (e) { console.error('Failed to load autopost state:', e.message); }
+}
+
+async function toggleAutopost() {
+  const checkbox = document.getElementById('autopostToggle');
+  const enabled = checkbox.checked;
+  checkbox.disabled = true;
+  try {
+    const resp = await apiFetch('/autopost', { method: 'POST', body: { enabled } });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    await loadAutopostState();
+  } catch (e) {
+    checkbox.checked = !enabled;
+    alert('Failed to update auto-post: ' + e.message);
+  } finally {
+    checkbox.disabled = false;
+  }
 }
 
 // ── Blocked Brands ────────────────────────────────────────────────────────────
@@ -2040,6 +2081,15 @@ async function clearCronLock() {
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     alert('Cron lock cleared. Auto-sync will resume on next tick.');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+async function reregisterWebhook() {
+  try {
+    const resp = await apiFetch('/setup-telegram-webhook', { method: 'POST' });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.telegram_response?.description || 'Telegram rejected the webhook');
+    alert('Webhook re-registered — bot now receives message + button-tap updates.');
   } catch (e) { alert('Failed: ' + e.message); }
 }
 
