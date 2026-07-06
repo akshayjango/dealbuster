@@ -1972,6 +1972,18 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── POST /products/push-zero-price-to-bottom ─────────────────────────────
+      if (url.pathname === '/products/push-zero-price-to-bottom' && request.method === 'POST') {
+        try {
+          const { products, sha } = await getProductsFile(env);
+          const priced = products.filter(p => !isZeroPrice(p));
+          const zeroPrice = products.filter(p => isZeroPrice(p));
+          const reordered = [...priced, ...zeroPrice].map((p, i) => ({ ...p, order: i }));
+          await saveProductsFile(reordered, sha, `Pushed ${zeroPrice.length} zero-price products to bottom`, env);
+          return json({ success: true, moved: zeroPrice.length });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── POST /products/clear-oos-notifications ───────────────────────────────
       if (url.pathname === '/products/clear-oos-notifications' && request.method === 'POST') {
         try {

@@ -397,6 +397,7 @@
           <button class="btn btn-ghost btn-sm" id="oosFilterBtn" onclick="toggleOOSFilter()" title="Show Out of Stock">⚠ OOS</button>
           <button class="btn btn-ghost btn-sm" id="nopriceFilterBtn" onclick="toggleNoPriceFilter()" title="Show Price Unavailable">₹ N/A</button>
           <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
+          <button class="btn btn-outline btn-sm" onclick="pushZeroPriceToBottom()" id="pushZeroPriceBtn" style="border-color:#d97706;color:#d97706;">⬇ Push ₹0 to Bottom</button>
           <button class="btn btn-ghost btn-sm" id="sortPriceBtn" onclick="toggleSort('price')" title="Sort by Price">↑ Price</button>
           <button class="btn btn-ghost btn-sm" id="sortDiscBtn" onclick="toggleSort('disc')" title="Sort by Discount">% Discount</button>
           <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
@@ -869,6 +870,21 @@ async function pushAllOOSToBottom() {
     if (data.error) throw new Error(data.error);
     // Reorder locally: non-OOS first, OOS at bottom
     allProducts = [...allProducts.filter(p => !p.outOfStock), ...allProducts.filter(p => p.outOfStock)];
+    updateStats(); renderList(); updateNotifications();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+function isZeroPrice(p) { return !p.price || p.price === '₹0' || p.price === '₹'; }
+
+async function pushZeroPriceToBottom() {
+  const zeroPriceProducts = allProducts.filter(isZeroPrice);
+  if (!zeroPriceProducts.length) { alert('No zero-price products found.'); return; }
+  if (!confirm(`Push ${zeroPriceProducts.length} zero-price products to bottom?`)) return;
+  try {
+    const resp = await apiFetch('/products/push-zero-price-to-bottom', { method: 'POST' });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    allProducts = [...allProducts.filter(p => !isZeroPrice(p)), ...allProducts.filter(isZeroPrice)];
     updateStats(); renderList(); updateNotifications();
   } catch (e) { alert('Failed: ' + e.message); }
 }
