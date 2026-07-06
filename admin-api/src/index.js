@@ -689,25 +689,31 @@ async function checkAndCleanDeals(env) {
     }
   }
 
-  if (!changed && toPushTop.length === 0) {
-    return { success: true, message: 'Prices up to date. No changes.' };
-  }
-
+  // Keep zero-price products pinned to the bottom every cycle — same rule as the
+  // dashboard's manual "Push ₹0 to Bottom" button, just applied automatically.
   const pushSet = new Set(toPushTop);
-  const top = [], rest = [];
+  const top = [], mid = [], zeroPrice = [];
   for (const p of products) {
     const updated = productMap.get(p.id) || p;
     if (pushSet.has(p.id)) top.push(updated);
-    else rest.push(updated);
+    else if (isZeroPrice(updated)) zeroPrice.push(updated);
+    else mid.push(updated);
+  }
+  const finalOrder = [...top, ...mid, ...zeroPrice];
+  const orderChanged = finalOrder.some((p, i) => p.id !== products[i]?.id);
+
+  if (!changed && !orderChanged) {
+    return { success: true, message: 'Prices up to date. No changes.' };
   }
 
-  const reordered = [...top, ...rest].map((p, i) => ({ ...p, order: i }));
-  await saveProductsFile(reordered, sha, `Price sync: ${toPushTop.length} price drops, updated remaining`, env);
+  const reordered = finalOrder.map((p, i) => ({ ...p, order: i }));
+  const msg = `Price sync: ${toPushTop.length} price drops, ${zeroPrice.length} zero-price at bottom, updated remaining`;
+  await saveProductsFile(reordered, sha, msg, env);
 
   return {
-    success: true, priceDrops: toPushTop.length,
+    success: true, priceDrops: toPushTop.length, zeroPriceAtBottom: zeroPrice.length,
     oosCount: [...productMap.values()].filter(p => p.outOfStock).length,
-    message: `Price sync done. ${toPushTop.length} drops pushed to top.`,
+    message: `Price sync done. ${toPushTop.length} drops pushed to top, ${zeroPrice.length} zero-price at bottom.`,
   };
 }
 
