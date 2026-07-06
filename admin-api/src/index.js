@@ -1192,6 +1192,11 @@ function markPosted(p, postedIds) {
   if (p.asin) postedIds.add(p.asin.toUpperCase());
 }
 
+// Same "no price" definition as the admin dashboard's ₹ N/A filter — keep in sync.
+function isZeroPrice(p) {
+  return !p.price || p.price === '₹0' || p.price === '₹';
+}
+
 // Single choke point for posting to Telegram. Every call site (manual publish,
 // bot webhook, IFS manual sync, the cron, the external cron pinger) MUST go
 // through this. All work is delegated to the TgPoster Durable Object — a single
@@ -1202,7 +1207,10 @@ function markPosted(p, postedIds) {
 // batch twice. A DO has exactly one live instance worldwide, so that race is
 // structurally impossible.
 async function postDealsAndTrack(products, env) {
-  const list = (products || []).filter(Boolean);
+  const list = (products || []).filter(Boolean).filter(p => {
+    if (isZeroPrice(p)) { console.log(`Skipping TG post (₹0/no price): ${p.title || p.id}`); return false; }
+    return true;
+  });
   if (!list.length) return;
 
   if (env.TG_POSTER) {
