@@ -1654,22 +1654,26 @@ async function handleTelegramWebhook(request, env) {
         await tgSend(token, chatId, escTg('❌ Could not resolve any links in this message.'));
         return new Response('ok');
       }
-      // Swap the source channel's own "Join @theirhandle for more deals" footer for ours.
-      newText = newText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join @DealBuster for more deals! https://t.me/dealbusterindia');
       newText = newText.replace(/\n{3,}/g, '\n\n').trim();
+      // Swap the source channel's own "Join @theirhandle for more deals" footer for
+      // a clickable "Deal Buster" link. The anchor requires parse_mode HTML, so the
+      // whole message is escaped first — swapping before escaping would mangle the
+      // anchor tag itself.
+      let htmlText = escHtml(newText);
+      htmlText = htmlText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!');
       for (const ch of TG_CHANNELS) {
         if (msg.photo) {
           const photoId = msg.photo[msg.photo.length - 1].file_id;
           await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: newText }),
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML' }),
           });
         } else {
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: newText, disable_web_page_preview: true }),
+            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true }),
           });
         }
       }
