@@ -1354,29 +1354,51 @@ async function handleApprovalCallback(cq, env) {
   return new Response('ok');
 }
 
-// Drops queued deals older than 4h — piggybacks on the existing 5-min TG cron
-// so this needs no extra Cron Trigger and no extra KV writes beyond the normal
-// batch write (only writes back if something actually expired).
+// Most recent 2:00 AM IST as a UTC timestamp — the daily cutoff below which
+// pending approvals don't survive, so overnight backlogs don't greet the admin
+// in the morning. Workers run on UTC; IST is UTC+5:30.
+function lastDailyCutoff(now) {
+  const IST_OFFSET = 330 * 60 * 1000;
+  const DAY = 24 * 60 * 60 * 1000;
+  const istNow = now + IST_OFFSET;
+  let cutoffIst = Math.floor(istNow / DAY) * DAY + 2 * 60 * 60 * 1000;
+  if (cutoffIst > istNow) cutoffIst -= DAY;
+  return cutoffIst - IST_OFFSET;
+}
+
+// Drops queued deals older than 4h OR queued before the last 2 AM IST daily
+// cutoff — piggybacks on the existing 5-min TG cron so this needs no extra
+// Cron Trigger and no extra KV writes beyond the normal batch write (only
+// writes back if something actually expired).
 async function sweepExpiredApprovals(env) {
   const pending = await getPendingApprovals(env);
   if (!pending.length) return;
 
   const now = Date.now();
-  const expired = pending.filter(e => now - e.queuedAt > APPROVAL_TTL_MS);
+  const cutoff = lastDailyCutoff(now);
+  const isExpired = e => now - e.queuedAt > APPROVAL_TTL_MS || e.queuedAt < cutoff;
+  const expired = pending.filter(isExpired);
   if (!expired.length) return;
 
-  const remaining = pending.filter(e => now - e.queuedAt <= APPROVAL_TTL_MS);
+  const remaining = pending.filter(e => !isExpired(e));
   await savePendingApprovals(remaining, env);
 
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
   for (const e of expired) {
-    try {
-      if (e.messageId) await tgClearKeyboard(token, TG_ADMIN_ID, e.messageId).catch(() => {});
-      await tgSend(token, TG_ADMIN_ID, escTg(`⏱ Expired (4h, no response): ${e.product.title.slice(0,60)}`));
-    } catch (err) {
-      console.error('Failed to notify expired approval:', err.message);
+    if (e.messageId) await tgClearKeyboard(token, TG_ADMIN_ID, e.messageId).catch(() => {});
+  }
+  // One summary DM for bulk expiry (daily cutoff), per-deal DMs for the odd 4h timeout.
+  try {
+    if (expired.length > 3) {
+      await tgSend(token, TG_ADMIN_ID, escTg(`⏱ ${expired.length} pending deals expired (daily 2 AM cleanup / 4h timeout).`));
+    } else {
+      for (const e of expired) {
+        await tgSend(token, TG_ADMIN_ID, escTg(`⏱ Expired (no response): ${e.product.title.slice(0,60)}`));
+      }
     }
+  } catch (err) {
+    console.error('Failed to notify expired approval:', err.message);
   }
   console.log(`Swept ${expired.length} expired approval(s)`);
 }
