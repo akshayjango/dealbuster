@@ -1,6 +1,11 @@
 name = "dealbuster"
 compatibility_date = "2026-06-27"
 
+routes = [
+  { pattern = "dealbuster.in", custom_domain = true },
+  { pattern = "www.dealbuster.in", custom_domain = true },
+]
+
 [assets]
 directory = "."
 exclude = [".git/**", "admin-api/**", "telegram-bot/**", ".claude/**", "node_modules/**", "*.log"]
