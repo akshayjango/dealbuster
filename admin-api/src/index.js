@@ -1225,32 +1225,30 @@ async function setAutopostEnabled(enabled, env) {
 
 const APPROVAL_TTL_MS = 4 * 60 * 60 * 1000; // 4h
 
-async function getPendingApprovals(env) {
-  if (!env.KV) return [];
-  const list = (await env.KV.get('tg_pending_approvals', 'json')) || [];
-  // Collapse duplicate entries per product (pre-claim-fix queues had repeats) —
-  // keep the first so its Approve/Reject buttons stay live.
-  const seen = new Set();
-  return list.filter(e => {
-    const id = e.product?.id;
-    if (!id || seen.has(id)) return false;
-    seen.add(id);
-    return true;
+// Pending approvals live in the TgPoster DO, NOT in KV. They used to be one
+// shared KV JSON list, but three writers rewrite that list every few minutes
+// (both 5-min schedulers queueing/sweeping, plus the Approve tap) and KV is
+// last-write-wins across colos — a cron write that read the list before a deal
+// was queued would write it back without that deal, leaving a DM in the admin
+// chat whose buttons answered "Already handled or expired" minutes after it
+// arrived. The DO serializes every mutation, so an entry only disappears when
+// it is actually approved, rejected, or expired.
+async function pendingApprovalsDO(env, path, body) {
+  if (!env.TG_POSTER) throw new Error('TG_POSTER binding missing');
+  const stub = env.TG_POSTER.get(env.TG_POSTER.idFromName('tg'));
+  const r = await stub.fetch(`https://tg-poster${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
   });
+  if (!r.ok) throw new Error(`TgPoster ${path}: ${r.status} ${await r.text().catch(() => '')}`);
+  return r.json();
 }
 
-async function savePendingApprovals(pending, env) {
-  if (!env.KV) return;
-  await env.KV.put('tg_pending_approvals', JSON.stringify(pending));
-}
-
-// One KV read + one KV write per batch, no matter how many deals are in it —
-// keeps this cheap against the 1,000 writes/day KV budget.
 async function queueForApproval(products, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) { console.error('Cannot queue for approval — TELEGRAM_BOT_TOKEN missing'); return; }
 
-  const pending = await getPendingApprovals(env);
   const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const now = Date.now();
 
@@ -1272,6 +1270,7 @@ async function queueForApproval(products, env) {
     return;
   }
 
+  const entries = [];
   for (const p of queued) {
     const text = formatDealMsg(p, tag) + '\n\n🕐 Awaiting approval — expires in 4h';
     const keyboard = { inline_keyboard: [[
@@ -1294,13 +1293,18 @@ async function queueForApproval(products, env) {
         const data = await r.json().catch(() => null);
         messageId = data?.result?.message_id ?? null;
       }
-      pending.push({ product: p, queuedAt: now, messageId });
+      entries.push({ product: p, queuedAt: now, messageId });
     } catch (e) {
       console.error('Failed to queue deal for approval:', e.message);
     }
   }
 
-  await savePendingApprovals(pending, env);
+  if (!entries.length) return;
+  try {
+    await pendingApprovalsDO(env, '/pending/put', { entries });
+  } catch (e) {
+    console.error('Failed to store pending approvals — Approve buttons for this batch will be dead:', e.message);
+  }
 }
 
 async function tgAnswerCallback(token, id, text) {
@@ -1331,15 +1335,18 @@ async function handleApprovalCallback(cq, env) {
   if (!m) { await tgAnswerCallback(token, cq.id, ''); return new Response('ok'); }
   const [, action, productId] = m;
 
-  const pending = await getPendingApprovals(env);
-  const idx = pending.findIndex(e => e.product.id === productId);
-  if (idx === -1) {
+  // Atomic take from the DO — a second tap on the same button (or a concurrent
+  // sweep) finds nothing and gets "already handled" instead of double-posting.
+  let entry = null;
+  try {
+    ({ entry } = await pendingApprovalsDO(env, '/pending/take', { productId }));
+  } catch (e) {
+    console.error('Pending take failed:', e.message);
+  }
+  if (!entry) {
     await tgAnswerCallback(token, cq.id, 'Already handled or expired');
     return new Response('ok');
   }
-  const entry = pending[idx];
-  pending.splice(idx, 1);
-  await savePendingApprovals(pending, env);
 
   if (entry.messageId) await tgClearKeyboard(token, TG_ADMIN_ID, entry.messageId).catch(() => {});
 
@@ -1368,20 +1375,13 @@ function lastDailyCutoff(now) {
 
 // Drops queued deals older than 4h OR queued before the last 2 AM IST daily
 // cutoff — piggybacks on the existing 5-min TG cron so this needs no extra
-// Cron Trigger and no extra KV writes beyond the normal batch write (only
-// writes back if something actually expired).
+// Cron Trigger. The expiry itself happens inside the DO.
 async function sweepExpiredApprovals(env) {
-  const pending = await getPendingApprovals(env);
-  if (!pending.length) return;
-
   const now = Date.now();
-  const cutoff = lastDailyCutoff(now);
-  const isExpired = e => now - e.queuedAt > APPROVAL_TTL_MS || e.queuedAt < cutoff;
-  const expired = pending.filter(isExpired);
+  const { expired } = await pendingApprovalsDO(env, '/pending/sweep', {
+    now, ttlMs: APPROVAL_TTL_MS, cutoff: lastDailyCutoff(now),
+  });
   if (!expired.length) return;
-
-  const remaining = pending.filter(e => !isExpired(e));
-  await savePendingApprovals(remaining, env);
 
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
@@ -1477,14 +1477,83 @@ export class TgPoster {
   async fetch(request) {
     let body;
     try { body = await request.json(); } catch { return new Response('bad request', { status: 400 }); }
-    const run = this.chain.then(() => this.postBatch(body.products || []));
+    const path = new URL(request.url).pathname;
+    // Everything — posts and pending-approval mutations — runs through the one
+    // promise chain, so no two requests ever interleave.
+    const run = this.chain.then(() => this.dispatch(path, body));
     this.chain = run.then(() => {}, () => {});
     try {
-      const posted = await run;
-      return new Response(JSON.stringify({ ok: true, posted }), { headers: { 'Content-Type': 'application/json' } });
+      const result = await run;
+      return new Response(JSON.stringify(result), { headers: { 'Content-Type': 'application/json' } });
     } catch (e) {
       return new Response(JSON.stringify({ ok: false, error: e.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
+  }
+
+  async dispatch(path, body) {
+    switch (path) {
+      case '/post': return { ok: true, posted: await this.postBatch(body.products || []) };
+      case '/pending/put': return this.pendingPut(body.entries || []);
+      case '/pending/take': return this.pendingTake(body.productId);
+      case '/pending/sweep': return this.pendingSweep(body);
+      case '/pending/count': return this.pendingCount();
+      default: throw new Error(`unknown path: ${path}`);
+    }
+  }
+
+  // ── Pending approvals (autopost OFF) ──────────────────────────────────────
+  // Stored one-per-key ("pending:<productId>") in DO storage. Previously a
+  // single KV JSON list, which the two 5-min schedulers and the Approve tap
+  // all rewrote wholesale — last-write-wins races silently dropped entries and
+  // made live Approve buttons answer "Already handled or expired".
+
+  // One-time import of any approvals still queued in the old KV list.
+  async migratePendingFromKV() {
+    if (await this.ctx.storage.get('pending_migrated')) return;
+    try {
+      const old = (await this.env.KV.get('tg_pending_approvals', 'json')) || [];
+      const batch = {};
+      for (const e of old) if (e.product?.id) batch[`pending:${e.product.id}`] = e;
+      if (Object.keys(batch).length) await this.ctx.storage.put(batch);
+      await this.env.KV.delete('tg_pending_approvals');
+    } catch (e) {
+      console.error('Pending-approvals KV migration failed:', e.message);
+    }
+    await this.ctx.storage.put('pending_migrated', 1);
+  }
+
+  async pendingPut(entries) {
+    await this.migratePendingFromKV();
+    const batch = {};
+    for (const e of entries) if (e.product?.id) batch[`pending:${e.product.id}`] = e;
+    if (Object.keys(batch).length) await this.ctx.storage.put(batch);
+    return { ok: true };
+  }
+
+  // Atomic get+delete — the caller either owns the entry exclusively or gets null.
+  async pendingTake(productId) {
+    await this.migratePendingFromKV();
+    const key = `pending:${productId}`;
+    const entry = await this.ctx.storage.get(key);
+    if (entry) await this.ctx.storage.delete(key);
+    return { ok: true, entry: entry ?? null };
+  }
+
+  async pendingSweep({ now, ttlMs, cutoff }) {
+    await this.migratePendingFromKV();
+    const expired = [];
+    for (const [key, e] of await this.ctx.storage.list({ prefix: 'pending:' })) {
+      if (now - e.queuedAt > ttlMs || e.queuedAt < cutoff) {
+        expired.push(e);
+        await this.ctx.storage.delete(key);
+      }
+    }
+    return { ok: true, expired };
+  }
+
+  async pendingCount() {
+    await this.migratePendingFromKV();
+    return { ok: true, count: (await this.ctx.storage.list({ prefix: 'pending:' })).size };
   }
 
   keysFor(p) {
@@ -2082,7 +2151,8 @@ export default {
 
       // ── GET /autopost ─────────────────────────────────────────────────────────
       if (url.pathname === '/autopost' && request.method === 'GET') {
-        return json({ enabled: await isAutopostEnabled(env), pending: (await getPendingApprovals(env)).length });
+        const pendingCount = await pendingApprovalsDO(env, '/pending/count').then(r => r.count).catch(() => 0);
+        return json({ enabled: await isAutopostEnabled(env), pending: pendingCount });
       }
 
       // ── POST /autopost ────────────────────────────────────────────────────────
