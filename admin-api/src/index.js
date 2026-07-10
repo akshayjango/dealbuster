@@ -1430,21 +1430,24 @@ async function postDealsAndTrack(products, env) {
 // postDealsAndTrack's autopost path above, and directly by the approval
 // callback once a queued deal is approved. Both routes end here, so the DO
 // stays the single serialization point no matter which path a deal took.
-async function sendToChannels(products, env) {
+// Returns how many actually went out (the DO skips already-posted ones unless
+// force is set — force still claims before sending, it only bypasses the
+// "seen before" check for deliberate manual re-posts).
+async function sendToChannels(products, env, { force = false } = {}) {
   const list = (products || []).filter(Boolean);
-  if (!list.length) return;
+  if (!list.length) return 0;
 
   if (env.TG_POSTER) {
     const stub = env.TG_POSTER.get(env.TG_POSTER.idFromName('tg'));
     const r = await stub.fetch('https://tg-poster/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ products: list }),
+      body: JSON.stringify({ products: list, force }),
     });
-    if (!r.ok) { console.error('TgPoster DO failed:', r.status, await r.text().catch(() => '')); return; }
-    const { posted } = await r.json().catch(() => ({ posted: '?' }));
+    if (!r.ok) { console.error('TgPoster DO failed:', r.status, await r.text().catch(() => '')); return 0; }
+    const { posted } = await r.json().catch(() => ({ posted: 0 }));
     console.log(`TgPoster: sent ${posted} of ${list.length} requested (rest already posted)`);
-    return;
+    return posted;
   }
 
   // Fallback if the DO binding is missing (should not happen once deployed):
@@ -1452,13 +1455,14 @@ async function sendToChannels(products, env) {
   // — but keeps posting alive rather than going silent.
   console.error('TG_POSTER binding missing — using weaker KV fallback');
   const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
-  const toSend = list.filter(p => !isAlreadyPosted(p, postedIds));
-  if (!toSend.length) return;
+  const toSend = force ? list : list.filter(p => !isAlreadyPosted(p, postedIds));
+  if (!toSend.length) return 0;
   toSend.forEach(p => markPosted(p, postedIds));
   await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(postedIds).slice(-20000)));
   for (const p of toSend) {
     await postDealToChannels(p, env).catch(e => console.error('TG post failed:', e.message));
   }
+  return toSend.length;
 }
 
 // ── TgPoster Durable Object ───────────────────────────────────────────────────
@@ -1492,7 +1496,7 @@ export class TgPoster {
 
   async dispatch(path, body) {
     switch (path) {
-      case '/post': return { ok: true, posted: await this.postBatch(body.products || []) };
+      case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force) };
       case '/pending/put': return this.pendingPut(body.entries || []);
       case '/pending/take': return this.pendingTake(body.productId);
       case '/pending/sweep': return this.pendingSweep(body);
@@ -1575,11 +1579,14 @@ export class TgPoster {
     await this.ctx.storage.put('migrated_from_kv', 1);
   }
 
-  async postBatch(list) {
+  // force skips the already-posted check (deliberate manual re-post from the
+  // dashboard) but still claims before sending, like every other post.
+  async postBatch(list, force = false) {
     await this.migrateFromKV();
 
     const toSend = [];
     for (const p of list) {
+      if (force) { toSend.push(p); continue; }
       const found = await this.ctx.storage.get(this.keysFor(p));
       if (![...found.values()].some(Boolean)) toSend.push(p);
     }
@@ -1953,6 +1960,22 @@ export default {
 
       // ── /publish ─────────────────────────────────────────────────────────────
       if (url.pathname === '/publish' && request.method === 'POST') return await handlePublish(await request.json(), env);
+
+      // ── POST /post-to-telegram (per-product button in the dashboard menu) ─────
+      // An explicit admin tap is its own approval, so like the bot's Approve
+      // button this goes straight to sendToChannels — still serialized and
+      // deduped by the TgPoster DO. posted=0 means the DO skipped it as already
+      // posted; the dashboard then offers a force re-post.
+      if (url.pathname === '/post-to-telegram' && request.method === 'POST') {
+        const { id, force } = await request.json();
+        if (!id) return json({ error: 'Missing id' }, 400);
+        const { products } = await getProductsFile(env);
+        const product = products.find(p => p.id === id);
+        if (!product) return json({ error: 'Product not found' }, 404);
+        if (isZeroPrice(product)) return json({ error: 'Product has no price — refusing to post' }, 400);
+        const posted = await sendToChannels([product], env, { force: !!force });
+        return json({ success: true, posted, alreadyPosted: posted === 0 });
+      }
 
       // ── /upload ──────────────────────────────────────────────────────────────
       if (url.pathname === '/upload' && request.method === 'POST') return await handleUpload(await request.json(), env);

@@ -1019,6 +1019,10 @@ function buildProductRow(p, visualIndex) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           Copy Associate Link
         </button>
+        <button class="drop-item" onclick="closeMenus();postToTelegram('${p.id}')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Post to TG Channel
+        </button>
         <div class="drop-divider"></div>
         <button class="drop-item" onclick="closeMenus();openEdit('${p.id}')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#374151" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1031,6 +1035,33 @@ function buildProductRow(p, visualIndex) {
       </div>
     </div>`;
   return row;
+}
+
+// In-flight guard: same reason doPublish has its double-click guard — two
+// concurrent posts of the same product must never race.
+let tgPostBusy = false;
+async function postToTelegram(id, force = false) {
+  if (tgPostBusy) return;
+  tgPostBusy = true;
+  try {
+    const r = await apiFetch('/post-to-telegram', { method: 'POST', body: { id, force } });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+    if (data.posted > 0) {
+      alert('✅ Posted to Telegram channel');
+    } else if (!force) {
+      tgPostBusy = false;
+      if (confirm('This product was already posted to the channel before. Post it again?')) {
+        return postToTelegram(id, true);
+      }
+    } else {
+      alert('Nothing was posted — check worker logs.');
+    }
+  } catch (e) {
+    alert('Failed to post: ' + e.message);
+  } finally {
+    tgPostBusy = false;
+  }
 }
 
 async function toggleFeatured(id) {
