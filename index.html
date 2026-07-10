@@ -432,6 +432,42 @@
       transform: rotate(-3deg);
       white-space: nowrap;
     }
+
+    /* Scroll-to-top button — appears after scrolling past the fold */
+    .scroll-top-btn {
+      position: fixed;
+      right: 20px;
+      bottom: 24px;
+      z-index: 950;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #d6ff00;
+      border: var(--border);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(14px);
+      transition: opacity .25s ease, transform .25s ease, visibility .25s;
+    }
+    .scroll-top-btn.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .scroll-top-btn:hover { background: var(--accent); }
+    .scroll-top-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px var(--text);
+    }
+    @media(max-width: 768px) {
+      .scroll-top-btn { right: 14px; bottom: 18px; width: 44px; height: 44px; }
+    }
     .products-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2035,6 +2071,25 @@
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
+</script>
+
+<button id="scrollTopBtn" class="scroll-top-btn" aria-label="Scroll to top" title="Back to top">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
+<script>
+(() => {
+  const btn = document.getElementById('scrollTopBtn');
+  // Sentinel at the 400px mark: the button shows once it scrolls above the
+  // viewport. IntersectionObserver fires on every kind of scroll (touch,
+  // keyboard, programmatic) without the cost of a scroll listener.
+  const sentinel = document.createElement('div');
+  sentinel.style.cssText = 'position:absolute;top:400px;left:0;width:1px;height:1px;pointer-events:none;';
+  document.body.prepend(sentinel);
+  new IntersectionObserver(([e]) => {
+    btn.classList.toggle('show', !e.isIntersecting && e.boundingClientRect.top < 0);
+  }).observe(sentinel);
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+})();
 </script>
 
 </body>
