@@ -1272,7 +1272,7 @@ async function queueForApproval(products, env) {
 
   const entries = [];
   for (const p of queued) {
-    const text = formatDealMsg(p, tag) + '\n\n🕐 Awaiting approval — expires in 4h';
+    const text = formatDealMsg(p, tag);
     const keyboard = { inline_keyboard: [[
       { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
       { text: '❌ Reject', callback_data: `tgappr_r_${p.id}` },
