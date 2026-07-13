@@ -1971,16 +1971,28 @@
       soGrid.appendChild(frag);
     }
 
+    let openedAt = 0;
     function openOverlay() {
       overlay.classList.add('open');
       document.body.style.overflow = 'hidden';
+      openedAt = Date.now();
       renderResults();
       setTimeout(() => soInput.focus(), 60);
     }
     function closeOverlay() {
       overlay.classList.remove('open');
       document.body.style.overflow = '';
+      // Start fresh next time — a stale query with stale result cards under
+      // the finger is what caused accidental taps on reopen.
+      soInput.value = '';
+      renderResults();
     }
+    // Swallow the ghost click: on touch devices the tap that opened the
+    // overlay fires a click ~300ms later at the same spot, which would land
+    // on whatever the overlay put there (back button, an old result card).
+    overlay.addEventListener('click', e => {
+      if (Date.now() - openedAt < 450) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
 
     // Intercept before the native input gets focus so the keyboard opens on
     // the overlay's field, not the trigger.
