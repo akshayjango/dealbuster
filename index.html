@@ -2053,8 +2053,12 @@
       if (window.innerWidth > 640) return;
       const y = window.scrollY;
 
-      // Infinite loop: append when within 500px of bottom
-      if (!appendLock && filteredCards.length) {
+      // Infinite loop: append when within 500px of bottom.
+      // Only for the big unfiltered feed — never while a search query is
+      // active, and never for small result sets, where wrapping around just
+      // shows the same few cards duplicated forever.
+      const looping = !searchInput.value.trim() && filteredCards.length >= 30;
+      if (!appendLock && looping) {
         const distBottom = document.documentElement.scrollHeight - (y + window.innerHeight);
         if (distBottom < 500) {
           appendLock = true;
