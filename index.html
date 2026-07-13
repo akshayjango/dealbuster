@@ -1177,6 +1177,10 @@
     }
 
     /* ── SHIMMER SKELETON ── */
+    /* Static fallback cards are hidden behind this while products.json loads,
+       so the whole grid shimmers instead of showing stale baked-in cards.
+       !important so applyFilters' inline display can't reveal them early. */
+    .preload-hidden { display: none !important; }
     @keyframes shimmer {
       0% { background-position: -600px 0; }
       100% { background-position: 600px 0; }
@@ -1922,19 +1926,23 @@
 
   // Load dynamic products from products.json (admin-published)
   (async () => {
-    // Show shimmer skeletons while fetching
+    // Show shimmer skeletons while fetching — and hide the static fallback
+    // cards so the WHOLE grid shimmers, not just a prepended strip with stale
+    // cards visible below it. They come back if the fetch fails (offline).
     const grid = document.getElementById('productsGrid');
-    const SKELETON_COUNT = 12;
+    const SKELETON_COUNT = 18;
     const skeletonHtml = `<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>`;
     const skeletonWrap = document.createElement('div');
     skeletonWrap.id = 'skeletonWrap';
     skeletonWrap.style.cssText = 'display:contents';
     skeletonWrap.innerHTML = skeletonHtml.repeat(SKELETON_COUNT);
+    grid.querySelectorAll('.product-card').forEach(c => c.classList.add('preload-hidden'));
     grid.prepend(skeletonWrap);
+    const unhideStatic = () => grid.querySelectorAll('.preload-hidden').forEach(c => c.classList.remove('preload-hidden'));
 
     try {
       const resp = await fetch('https://dealbuster-admin-api.vakshay083.workers.dev/public/products.json', { cache: 'no-cache' });
-      if (!resp.ok) return;
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       const products = (Array.isArray(data) ? data : (data.products || []))
         .filter(p => !p.hidden)
@@ -1992,11 +2000,15 @@
         fragment.appendChild(el);
       });
       document.getElementById('skeletonWrap')?.remove();
+      unhideStatic();
       grid.insertBefore(fragment, grid.firstChild);
       // Re-init filter with new cards included
       applyFilters();
     } catch (_) {
+      // Offline / fetch failed — fall back to the static cards
       document.getElementById('skeletonWrap')?.remove();
+      unhideStatic();
+      applyFilters();
     }
   })();
 
