@@ -1172,6 +1172,55 @@
       box-shadow: 2px 2px 0px var(--text);
     }
 
+    /* ── MOBILE FULL-SCREEN SEARCH OVERLAY ── */
+    #searchOverlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 1200;
+      background-color: var(--bg);
+      background-image: radial-gradient(rgba(26, 26, 46, 0.12) 1px, transparent 1px);
+      background-size: 16px 16px;
+      flex-direction: column;
+    }
+    #searchOverlay.open { display: flex; }
+    .so-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      background: #fff; border-bottom: 2px solid var(--text);
+      flex-shrink: 0;
+    }
+    .so-back {
+      flex-shrink: 0; width: 42px; height: 42px;
+      display: flex; align-items: center; justify-content: center;
+      background: #d6ff00; border: 2px solid var(--text);
+      box-shadow: 2px 2px 0 var(--text); cursor: pointer; padding: 0;
+    }
+    .so-back:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--text); }
+    .so-box {
+      flex: 1; min-width: 0; height: 42px;
+      display: flex; align-items: center; gap: 6px;
+      background: #fff; border: 2px solid var(--text);
+      box-shadow: 2px 2px 0 var(--text);
+      padding: 0 6px 0 12px;
+    }
+    .so-box input {
+      flex: 1; min-width: 0; border: none; outline: none;
+      font-family: inherit; font-size: 1rem; font-weight: 600;
+      color: var(--text); background: transparent;
+    }
+    .so-clear {
+      flex-shrink: 0; width: 30px; height: 30px; display: none;
+      align-items: center; justify-content: center;
+      background: #fff; border: 2px solid var(--text);
+      cursor: pointer; padding: 0; font-weight: 900;
+    }
+    .so-clear:active { background: #f3f4f6; }
+    .so-results { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 14px 40px; }
+    .so-hint {
+      text-align: center; color: var(--muted); font-weight: 700;
+      padding: 48px 24px; font-size: .92rem; line-height: 1.6;
+    }
+    .so-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
     /* ── SHIMMER SKELETON ── */
     /* Static fallback cards are hidden behind this while products.json loads,
        so the whole grid shimmers instead of showing stale baked-in cards.
@@ -1397,6 +1446,25 @@
 </div>
 
 </div><!-- end #mobileSticky -->
+
+<!-- MOBILE FULL-SCREEN SEARCH (position:fixed — must sit before the scripts that wire it up) -->
+<div id="searchOverlay" role="dialog" aria-label="Search deals">
+  <div class="so-header">
+    <button class="so-back" id="soBack" aria-label="Close search">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="so-box">
+      <input id="soInput" type="text" placeholder="Search for products..." autocomplete="off" />
+      <button class="so-clear" id="soClear" aria-label="Clear search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="so-results">
+    <div class="so-hint" id="soHint">Type to search all live deals…</div>
+    <div class="so-grid" id="soGrid"></div>
+  </div>
+</div>
 
 <div class="mobile-banner-wrap">
   <a class="tg-banner" href="https://t.me/dealbusterindia" target="_blank" rel="noopener noreferrer" aria-label="Join our Telegram channel @dealbusterindia">
@@ -1859,6 +1927,80 @@
   searchInput.addEventListener('input', () => { visibleCount = ITEMS_PER_PAGE; applyFilters(); });
   searchBtn.addEventListener('click', () => { visibleCount = ITEMS_PER_PAGE; applyFilters(); });
   searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { visibleCount = ITEMS_PER_PAGE; applyFilters(); } });
+
+  // ── Mobile full-screen search overlay ──────────────────────────────────────
+  // On phones the inline search box acts as a trigger: tapping it opens a
+  // dedicated search page (back button + input + ✕, results as deal cards).
+  // The main grid underneath is left untouched.
+  (function() {
+    const overlay = document.getElementById('searchOverlay');
+    const soInput = document.getElementById('soInput');
+    const soClear = document.getElementById('soClear');
+    const soGrid  = document.getElementById('soGrid');
+    const soHint  = document.getElementById('soHint');
+
+    function renderResults() {
+      const q = soInput.value.trim().toLowerCase();
+      soClear.style.display = q ? 'flex' : 'none';
+      soGrid.innerHTML = '';
+      if (!q) {
+        soHint.textContent = 'Type to search all live deals…';
+        soHint.style.display = 'block';
+        return;
+      }
+      const matches = [];
+      const seen = new Set();
+      document.querySelectorAll('#productsGrid .product-card:not([data-clone])').forEach(c => {
+        if (matches.length >= 60) return;
+        const title = c.querySelector('.card-title')?.textContent || '';
+        const key = title.trim().toLowerCase();
+        if (key.includes(q) && !seen.has(key)) { seen.add(key); matches.push(c); }
+      });
+      if (!matches.length) {
+        soHint.textContent = `No deals found for "${soInput.value.trim()}"`;
+        soHint.style.display = 'block';
+        return;
+      }
+      soHint.style.display = 'none';
+      const frag = document.createDocumentFragment();
+      matches.forEach(c => {
+        const cl = c.cloneNode(true);
+        cl.style.display = 'flex';
+        frag.appendChild(cl);
+      });
+      soGrid.appendChild(frag);
+    }
+
+    function openOverlay() {
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      renderResults();
+      setTimeout(() => soInput.focus(), 60);
+    }
+    function closeOverlay() {
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    // Intercept before the native input gets focus so the keyboard opens on
+    // the overlay's field, not the trigger.
+    searchInput.addEventListener('pointerdown', e => {
+      if (window.innerWidth > 640) return;
+      e.preventDefault();
+      openOverlay();
+    });
+    searchInput.addEventListener('focus', () => {
+      if (window.innerWidth > 640) return;
+      searchInput.blur();
+      openOverlay();
+    });
+    soInput.addEventListener('input', renderResults);
+    soClear.addEventListener('click', () => { soInput.value = ''; renderResults(); soInput.focus(); });
+    document.getElementById('soBack').addEventListener('click', closeOverlay);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && overlay.classList.contains('open')) closeOverlay();
+    });
+  })();
 
   // Chip filter
   const chips = document.querySelectorAll('.chip');
