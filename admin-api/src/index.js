@@ -2172,6 +2172,15 @@ export default {
         return json({ success: true });
       }
 
+      // ── GET /tg-posted (ids/asins already sent to the TG channel) ────────────
+      // Reads the KV mirror the cron pre-check uses — advisory but plenty for
+      // highlighting rows in the dashboard. One KV read per dashboard load;
+      // reads are not the constrained quota (writes are).
+      if (url.pathname === '/tg-posted' && request.method === 'GET') {
+        const ids = JSON.parse(await env.KV.get('tg_posted_ids') || '[]');
+        return json({ ids });
+      }
+
       // ── GET /autopost ─────────────────────────────────────────────────────────
       if (url.pathname === '/autopost' && request.method === 'GET') {
         const pendingCount = await pendingApprovalsDO(env, '/pending/count').then(r => r.count).catch(() => 0);

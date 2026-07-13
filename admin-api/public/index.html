@@ -139,6 +139,8 @@
       transition: border .15s, opacity .15s, box-shadow .15s;
       cursor: default;
     }
+    /* already posted to the TG channel — featured-row below wins if both apply */
+    .product-row.tg-posted-row { border-color: rgba(42,171,238,.35); background: #eaf4fd; }
     .product-row.featured-row { border-color: rgba(217,119,6,.3); background: #fffbeb; }
     .product-row.hidden-row { opacity: .5; }
     .product-row.drag-over { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(108,71,255,.15); }
@@ -813,13 +815,27 @@ function switchSubtab(tab) {
 }
 
 // ── Products CRUD ─────────────────────────────────────────────────────────────
+let tgPostedSet = new Set();
+
+function isTgPosted(p) {
+  // Same matching as the worker's isAlreadyPosted: raw id, uppercased ASIN
+  return tgPostedSet.has(p.id) || (p.asin && tgPostedSet.has(p.asin.toUpperCase()));
+}
+
 async function loadProducts() {
   document.getElementById('productsList').innerHTML = '<div class="loading"><div class="spinner"></div>Loading products…</div>';
   try {
-    const resp = await apiFetch('/products');
+    const [resp, tgResp] = await Promise.all([
+      apiFetch('/products'),
+      apiFetch('/tg-posted').catch(() => null),
+    ]);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     allProducts = data.products || [];
+    if (tgResp && tgResp.ok) {
+      const t = await tgResp.json().catch(() => ({}));
+      tgPostedSet = new Set(t.ids || []);
+    }
     updateStats();
     renderList();
     updateNotifications();
@@ -944,7 +960,7 @@ function renderList() {
 
 function buildProductRow(p, visualIndex) {
   const row = document.createElement('div');
-  row.className = 'product-row' + (p.featured ? ' featured-row' : '') + (p.hidden ? ' hidden-row' : '');
+  row.className = 'product-row' + (p.featured ? ' featured-row' : '') + (p.hidden ? ' hidden-row' : '') + (isTgPosted(p) ? ' tg-posted-row' : '');
   row.dataset.id = p.id;
   row.draggable = true;
 
@@ -1048,6 +1064,10 @@ async function postToTelegram(id, force = false) {
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
     if (data.posted > 0) {
+      tgPostedSet.add(id);
+      const p = allProducts.find(x => x.id === id);
+      if (p?.asin) tgPostedSet.add(p.asin.toUpperCase());
+      renderList();
       alert('✅ Posted to Telegram channel');
     } else if (!force) {
       tgPostBusy = false;
