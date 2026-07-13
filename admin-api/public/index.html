@@ -825,17 +825,19 @@ function isTgPosted(p) {
 async function loadProducts() {
   document.getElementById('productsList').innerHTML = '<div class="loading"><div class="spinner"></div>Loading products…</div>';
   try {
-    const [resp, tgResp] = await Promise.all([
-      apiFetch('/products'),
-      apiFetch('/tg-posted').catch(() => null),
-    ]);
+    const resp = await apiFetch('/products');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     allProducts = data.products || [];
-    if (tgResp && tgResp.ok) {
-      const t = await tgResp.json().catch(() => ({}));
-      tgPostedSet = new Set(t.ids || []);
-    }
+    // Ask the TgPoster DO which of these actually reached the channel —
+    // only those rows go blue (queued-to-bot is not posted-to-channel).
+    try {
+      const keys = [];
+      allProducts.forEach(p => { keys.push(p.id); if (p.asin) keys.push(p.asin.toUpperCase()); });
+      const tgResp = await apiFetch('/tg-posted', { method: 'POST', body: { keys } });
+      const t = await tgResp.json();
+      tgPostedSet = new Set(t.posted || []);
+    } catch { tgPostedSet = new Set(); }
     updateStats();
     renderList();
     updateNotifications();

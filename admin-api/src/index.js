@@ -1504,12 +1504,26 @@ export class TgPoster {
   async dispatch(path, body) {
     switch (path) {
       case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force) };
+      case '/posted/check': return this.postedCheck(body.keys || []);
       case '/pending/put': return this.pendingPut(body.entries || []);
       case '/pending/take': return this.pendingTake(body.productId);
       case '/pending/sweep': return this.pendingSweep(body);
       case '/pending/count': return this.pendingCount();
       default: throw new Error(`unknown path: ${path}`);
     }
+  }
+
+  // Which of these ids/asins are in the posted-to-channel ledger. Batched
+  // storage.get (128 keys/call), so ~1500 keys is a dozen cheap lookups.
+  async postedCheck(keys) {
+    await this.migrateFromKV();
+    const posted = [];
+    for (let i = 0; i < keys.length; i += 128) {
+      const chunk = keys.slice(i, i + 128);
+      const found = await this.ctx.storage.get(chunk.map(k => `posted:${k}`));
+      for (const [k, v] of found) if (v) posted.push(k.slice('posted:'.length));
+    }
+    return { ok: true, posted };
   }
 
   // ── Pending approvals (autopost OFF) ──────────────────────────────────────
@@ -2179,13 +2193,16 @@ export default {
         return json({ success: true });
       }
 
-      // ── GET /tg-posted (ids/asins already sent to the TG channel) ────────────
-      // Reads the KV mirror the cron pre-check uses — advisory but plenty for
-      // highlighting rows in the dashboard. One KV read per dashboard load;
-      // reads are not the constrained quota (writes are).
-      if (url.pathname === '/tg-posted' && request.method === 'GET') {
-        const ids = JSON.parse(await env.KV.get('tg_posted_ids') || '[]');
-        return json({ ids });
+      // ── POST /tg-posted (which of these ids/asins reached the TG channel) ────
+      // Checks the TgPoster DO ledger — the authoritative record of what was
+      // actually SENT to the channel. The KV tg_posted_ids mirror is wrong for
+      // this: queueForApproval claims every deal there when it's queued to the
+      // approval bot, so it flags things the channel never saw. No KV usage.
+      if (url.pathname === '/tg-posted' && request.method === 'POST') {
+        const { keys } = await request.json();
+        if (!Array.isArray(keys)) return json({ error: 'keys must be an array' }, 400);
+        const r = await pendingApprovalsDO(env, '/posted/check', { keys: keys.slice(0, 4000) });
+        return json({ posted: r.posted });
       }
 
       // ── GET /autopost ─────────────────────────────────────────────────────────
