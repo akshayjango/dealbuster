@@ -1977,6 +1977,9 @@
       document.body.style.overflow = 'hidden';
       openedAt = Date.now();
       renderResults();
+      // History entry so the phone's hardware back button closes the overlay
+      // instead of leaving the site.
+      history.pushState({ dbSearch: true }, '');
       setTimeout(() => soInput.focus(), 60);
     }
     function closeOverlay() {
@@ -1986,6 +1989,16 @@
       // the finger is what caused accidental taps on reopen.
       soInput.value = '';
       renderResults();
+    }
+    // Hardware/browser back: pop our history entry → close just the overlay.
+    window.addEventListener('popstate', () => {
+      if (overlay.classList.contains('open')) closeOverlay();
+    });
+    // The in-page close paths go through history.back() so the history stack
+    // stays consistent with what's on screen.
+    function requestClose() {
+      if (history.state && history.state.dbSearch) history.back();
+      else closeOverlay();
     }
     // Swallow the ghost click: on touch devices the tap that opened the
     // overlay fires a click ~300ms later at the same spot, which would land
@@ -2008,9 +2021,9 @@
     });
     soInput.addEventListener('input', renderResults);
     soClear.addEventListener('click', () => { soInput.value = ''; renderResults(); soInput.focus(); });
-    document.getElementById('soBack').addEventListener('click', closeOverlay);
+    document.getElementById('soBack').addEventListener('click', requestClose);
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && overlay.classList.contains('open')) closeOverlay();
+      if (e.key === 'Escape' && overlay.classList.contains('open')) requestClose();
     });
   })();
 
