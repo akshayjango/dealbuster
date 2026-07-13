@@ -1892,8 +1892,9 @@
       let matchesTab = false;
       if (activeTab === 'all') { matchesTab = true; }
       else if (activeTab === 'deals') {
-        const dp = parseInt((card.querySelector('.discount-badge')?.textContent || '0').replace(/[^\d]/g,''));
-        matchesTab = dp >= 50;
+        // "UNDER 500" tab — deals priced below ₹500 (excludes no-price cards)
+        const price = parseFloat((card.querySelector('.price-current')?.textContent || '').replace(/[^\d.]/g, ''));
+        matchesTab = price > 0 && price < 500;
       } else { matchesTab = card.dataset.cat === activeTab; }
       const matchesSearch = query === '' || title.includes(query);
       card.style.display = 'none';
