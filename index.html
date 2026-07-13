@@ -2009,12 +2009,23 @@
     }, true);
 
     // Intercept before the native input gets focus so the keyboard opens on
-    // the overlay's field, not the trigger.
+    // the overlay's field, not the trigger. Open only on a real TAP — a
+    // swipe/pull-to-refresh that merely starts on the input must not open
+    // the overlay, so we wait for pointerup and check the finger barely moved.
+    // (pointercancel fires when the browser claims the gesture for scrolling.)
+    let soDown = null;
     searchInput.addEventListener('pointerdown', e => {
       if (window.innerWidth > 640) return;
       e.preventDefault();
-      openOverlay();
+      soDown = { x: e.clientX, y: e.clientY };
     });
+    searchInput.addEventListener('pointerup', e => {
+      if (window.innerWidth > 640 || !soDown) return;
+      const moved = Math.hypot(e.clientX - soDown.x, e.clientY - soDown.y);
+      soDown = null;
+      if (moved < 12) openOverlay();
+    });
+    searchInput.addEventListener('pointercancel', () => { soDown = null; });
     searchInput.addEventListener('focus', () => {
       if (window.innerWidth > 640) return;
       searchInput.blur();
