@@ -2183,6 +2183,7 @@ document.addEventListener('click', function(e) {
 
 async function updateNotifications() {
   const priceAlerts = allProducts.filter(p => p.lowestPriceText);
+  const dropAlerts  = allProducts.filter(p => p.priceDropText);
   const oosAlerts   = allProducts.filter(p => p.outOfStock);
 
   let syncErrors = [], amazonAlerts = [];
@@ -2197,7 +2198,7 @@ async function updateNotifications() {
 
   const badge = document.getElementById('notificationBadge');
   const list  = document.getElementById('notificationList');
-  const total = priceAlerts.length + oosAlerts.length + amazonAlerts.length + syncErrors.length;
+  const total = priceAlerts.length + dropAlerts.length + oosAlerts.length + amazonAlerts.length + syncErrors.length;
 
   badge.textContent = total;
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
@@ -2208,6 +2209,22 @@ async function updateNotifications() {
   }
 
   const xBtn = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+  const dropSect = dropAlerts.length ? `
+    <div style="padding:6px 12px 4px;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">⬇ Price Drops — pushed to top (${dropAlerts.length})</div>
+    ${dropAlerts.map(p => `
+      <div onclick="goToProduct('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;margin:0 4px 2px;cursor:pointer;transition:background .15s;" onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''">
+        <img src="${escHtml(p.image||'')}" alt="" style="width:36px;height:36px;object-fit:contain;background:#f9fafb;border-radius:6px;flex-shrink:0;border:1px solid #e5e7eb;" onerror="this.style.display='none'"/>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(p.title)}</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:2px;">
+            <span style="background:#eff6ff;color:#2563eb;font-size:.68rem;font-weight:700;padding:1px 5px;border-radius:8px;">${escHtml(p.priceDropText)}</span>
+          </div>
+        </div>
+        <button onclick="dismissPriceDrop(event,'${p.id}')" style="border:none;background:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:50%;display:flex;">${xBtn}</button>
+      </div>
+    `).join('')}
+  ` : '';
 
   const priceSect = priceAlerts.length ? `
     <div style="padding:6px 12px 4px;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">💰 Price Alerts (${priceAlerts.length})</div>
@@ -2280,7 +2297,25 @@ async function updateNotifications() {
     `).join('')}
   ` : '';
 
-  list.innerHTML = priceSect + oosSect + amzSect + errSect;
+  list.innerHTML = dropSect + priceSect + oosSect + amzSect + errSect;
+}
+
+async function dismissPriceDrop(event, id) {
+  event.stopPropagation();
+  try {
+    const resp = await apiFetch(`/products/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ priceDropText: null })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    const idx = allProducts.findIndex(p => p.id === id);
+    if (idx !== -1) allProducts[idx].priceDropText = null;
+    updateNotifications();
+  } catch (e) {
+    alert('Failed to dismiss alert: ' + e.message);
+  }
 }
 
 async function dismissNotification(event, id) {
@@ -2308,13 +2343,13 @@ async function dismissNotification(event, id) {
 }
 
 async function clearAllNotifications() {
-  const hasAny = allProducts.some(p => p.outOfStock || p.lowestPriceText);
+  const hasAny = allProducts.some(p => p.outOfStock || p.lowestPriceText || p.priceDropText);
   if (!hasAny) return;
   try {
     const resp = await apiFetch('/products/clear-all-notifications', { method: 'POST' });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-    allProducts.forEach(p => { p.lowestPriceText = null; p.outOfStock = false; });
+    allProducts.forEach(p => { p.lowestPriceText = null; p.outOfStock = false; p.priceDropText = null; });
     updateStats(); renderList(); updateNotifications();
     document.getElementById('notificationDropdown').style.display = 'none';
   } catch (e) { alert('Failed to dismiss all alerts: ' + e.message); }

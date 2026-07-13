@@ -680,7 +680,14 @@ async function checkAndCleanDeals(env) {
         // it on every minor price flicker is what made days/weeks-old deals show
         // "Updated 1hr ago" and look brand new again.
         if (priceDrop) {
+          // Dashboard bell alert — rides this products.json commit, zero KV cost.
+          // p.price is the pre-sync price (updated is a copy).
+          updated.priceDropText = `${p.price} → ${newPriceStr}`;
           toPushTop.push(p.id);
+          changed = true;
+        } else if (updated.priceDropText && dbPrice !== null && amPrice > dbPrice) {
+          // Price climbed back up — the drop alert is stale, retire it
+          delete updated.priceDropText;
           changed = true;
         }
       }
@@ -2301,7 +2308,7 @@ export default {
       if (url.pathname === '/products/clear-all-notifications' && request.method === 'POST') {
         try {
           const { products, sha } = await getProductsFile(env);
-          await saveProductsFile(products.map(p=>({...p,lowestPriceText:null,outOfStock:false})), sha, 'Dismiss all notifications', env);
+          await saveProductsFile(products.map(p=>({...p,lowestPriceText:null,outOfStock:false,priceDropText:null})), sha, 'Dismiss all notifications', env);
           return json({ success: true });
         } catch (e) { return json({ error: e.message }, 502); }
       }
