@@ -1199,9 +1199,58 @@
       border: 2px solid var(--text);
     }
 
+    /* ── PWA SPLASH (installed app only) ──
+       Chrome's native splash is static; this overlay takes over right after it,
+       matching its green so the hand-off is seamless, then animates the bolt. */
+    #pwaSplash { display: none; }
+    @media (display-mode: standalone) {
+      #pwaSplash {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: #C5FF00;
+        align-items: center;
+        justify-content: center;
+        transition: opacity .45s ease;
+      }
+    }
+    #pwaSplash.hide { opacity: 0; pointer-events: none; }
+    .splash-logo { position: relative; width: 172px; height: 172px; }
+    .splash-logo img { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .splash-bolt { animation: boltFlash 0.9s ease-in-out infinite; }
+    @keyframes boltFlash {
+      0%, 100% { filter: none; }
+      50% { filter: brightness(0) invert(1) drop-shadow(0 0 18px rgba(255,255,255,.95)); }
+    }
   </style>
 </head>
 <body>
+
+<div id="pwaSplash" aria-hidden="true">
+  <div class="splash-logo">
+    <img src="favicon.png" alt="">
+    <img class="splash-bolt" src="icons/bolt-overlay.png" alt="">
+  </div>
+</div>
+<script>
+  (function () {
+    var splash = document.getElementById('pwaSplash');
+    if (!splash) return;
+    function dismiss() {
+      splash.classList.add('hide');
+      setTimeout(function () { splash.remove(); }, 500);
+    }
+    // Hold ~1.2s so the bolt animation registers, but never block longer than 3s.
+    var minShow = new Promise(function (res) { setTimeout(res, 1200); });
+    var loaded = new Promise(function (res) {
+      if (document.readyState === 'complete') res();
+      else window.addEventListener('load', res, { once: true });
+    });
+    Promise.all([minShow, loaded]).then(dismiss);
+    setTimeout(dismiss, 3000);
+  })();
+</script>
 
 <!-- HEADER -->
 <header>
