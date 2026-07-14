@@ -1750,8 +1750,10 @@ async function handleTelegramWebhook(request, env) {
       // Resolve every Amazon link independently — one bad/expired link shouldn't sink the rest.
       // Category/search links (no ASIN) still earn affiliate commission with the tag param,
       // so fall back to tagging the resolved URL directly instead of dropping the link.
+      // Each link goes in as a placeholder (not the real URL) so escHtml below can't
+      // mangle it — placeholders are swapped for the final rendering afterward.
       let newText = text;
-      let resolved = 0;
+      const links = []; // { placeholder, affiliateLink }
       for (const rawUrl of urlMatches) {
         try {
           const { asinM, finalUrl } = await resolveAsin(rawUrl);
@@ -1763,12 +1765,14 @@ async function handleTelegramWebhook(request, env) {
             u.searchParams.set('tag', TAG);
             affiliateLink = u.toString();
           }
-          newText = newText.split(rawUrl).join(affiliateLink);
-          resolved++;
+          const placeholder = `%%DBLINK${links.length}%%`;
+          newText = newText.split(rawUrl).join(placeholder);
+          links.push({ placeholder, affiliateLink });
         } catch (e) {
           console.error('Link resolve failed for', rawUrl, e.message);
         }
       }
+      const resolved = links.length;
       if (!resolved) {
         await tgSend(token, chatId, escTg('❌ Could not resolve any links in this message.'));
         return new Response('ok');
@@ -1780,6 +1784,18 @@ async function handleTelegramWebhook(request, env) {
       // anchor tag itself.
       let htmlText = escHtml(newText);
       htmlText = htmlText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!');
+      // Multi-link messages (e.g. one product per brand/size) get compact
+      // "👉 Check Now" buttons instead of raw URLs — a wall of full Amazon
+      // links per line is what this is fixing. A lone link still renders as a
+      // button once it's long enough to wrap past ~3 lines on a phone screen;
+      // short single links stay as plain text (Telegram auto-links them anyway).
+      links.forEach(({ placeholder, affiliateLink }) => {
+        const useButton = resolved > 1 || affiliateLink.length > 60;
+        const rendered = useButton
+          ? `<a href="${escHtml(affiliateLink)}">👉 Check Now</a>`
+          : escHtml(affiliateLink);
+        htmlText = htmlText.split(placeholder).join(rendered);
+      });
       for (const ch of TG_CHANNELS) {
         if (msg.photo) {
           const photoId = msg.photo[msg.photo.length - 1].file_id;
