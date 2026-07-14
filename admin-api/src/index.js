@@ -310,8 +310,14 @@ async function fetchAmazonPageData(asin) {
       }
     }
 
-    return { badge, highlights, category };
-  } catch { return { badge: null, highlights: [], category: null }; }
+    // Star rating + review count — same page load, no extra request
+    const ratingM = html.match(/(\d(?:\.\d)?)\s+out of 5 stars/i);
+    const rating = ratingM ? parseFloat(ratingM[1]) : null;
+    const reviewM = html.match(/id="acrCustomerReviewText"[^>]*>([\d,]+)\s*ratings?/i);
+    const reviewCount = reviewM ? parseInt(reviewM[1].replace(/,/g, ''), 10) : null;
+
+    return { badge, highlights, category, rating, reviewCount };
+  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null }; }
 }
 
 // ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
@@ -755,7 +761,7 @@ async function checkLowestPriceBadges(env) {
     if (!updated) continue;
     updated.lastBadgeCheck = Date.now();
 
-    const { badge, highlights, category } = await fetchAmazonPageData(p.asin);
+    const { badge, highlights, category, rating, reviewCount } = await fetchAmazonPageData(p.asin);
 
     // Fix wrong category: if Amazon breadcrumb says something different, update
     if (category && updated.category !== category) {
@@ -773,6 +779,12 @@ async function checkLowestPriceBadges(env) {
       updated.highlights = highlights;
       changed = true;
       highlightCount++;
+    }
+
+    if (rating && (updated.rating !== rating || updated.reviewCount !== reviewCount)) {
+      updated.rating = rating;
+      updated.reviewCount = reviewCount;
+      changed = true;
     }
   }
 

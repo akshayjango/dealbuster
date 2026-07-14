@@ -994,7 +994,7 @@ function buildProductRow(p, visualIndex) {
       <div class="product-row-info">
         <div class="product-row-title">${escHtml(p.title)}</div>
         <div class="product-row-meta">
-          ${p.category ? `<span class="cat-badge">${escHtml(p.category)}</span>` : ''}
+          ${p.rating ? `<span class="cat-badge">★ ${p.rating}${p.reviewCount ? ` (${p.reviewCount.toLocaleString('en-IN')})` : ''}</span>` : ''}
           ${p.featured ? '<span class="featured-badge">★ Featured</span>' : ''}
         </div>
       </div>
