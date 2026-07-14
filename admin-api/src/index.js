@@ -1863,7 +1863,7 @@ async function handleTelegramWebhook(request, env) {
           });
         }
       }
-      const skipped = urlMatches.length - resolved;
+      const skipped = linkSpans.length - resolved;
       const suffix = skipped > 0 ? ` (${skipped} link${skipped > 1 ? 's' : ''} skipped)` : '';
       await tgSend(token, chatId, escTg(`✅ Reposted to ${TG_CHANNELS.length} channels with ${resolved} affiliate link${resolved > 1 ? 's' : ''}!${suffix}`));
       return new Response('ok');
