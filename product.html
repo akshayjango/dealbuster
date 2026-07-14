@@ -743,7 +743,7 @@
       if (!resp.ok) return;
       const data = await resp.json();
       const products = (Array.isArray(data) ? data : (data.products || []))
-        .filter(p => !p.hidden && p.title !== title);
+        .filter(p => !p.hidden && p.title !== title && p.price && p.price !== '₹0' && p.price !== '₹');
 
       // Get 4 random deals from the latest 20 products
       const latestPool = products.slice(0, 20);
