@@ -1724,10 +1724,54 @@ async function handleTelegramWebhook(request, env) {
     return new Response('ok');
   }
 
-  // Extract Amazon URL(s) from message — a forwarded deal can contain many
-  const urlMatches = [...text.matchAll(/https?:\/\/(?:(?:www\.)?amazon\.in|amzn\.in|amzn\.to|amazn\.lt)[^\s]*/gi)].map(m => m[0]);
+  // Find every Amazon link in the message, however it's encoded:
+  // - a bare URL sitting in the text (regex)
+  // - a link hidden behind styled anchor text, e.g. "👉 Click Here 🛍️" — some
+  //   source channels format links this way, and the destination URL isn't in
+  //   `text`/`caption` at all then, only in the message's `entities` metadata.
+  const AMZ_HOST_RE = /^(?:www\.)?(?:amazon\.in|amzn\.in|amzn\.to|amazn\.lt)$/i;
+  const isAmazonUrl = u => { try { return AMZ_HOST_RE.test(new URL(u).hostname); } catch { return false; } };
+  const entities = msg.entities || msg.caption_entities || [];
+  let linkSpans = []; // { start, end, url } — end is exclusive
+  for (const ent of entities) {
+    if (ent.type === 'text_link' && ent.url && isAmazonUrl(ent.url)) {
+      linkSpans.push({ start: ent.offset, end: ent.offset + ent.length, url: ent.url, isTextLink: true });
+    } else if (ent.type === 'url') {
+      const raw = text.slice(ent.offset, ent.offset + ent.length);
+      if (isAmazonUrl(raw)) linkSpans.push({ start: ent.offset, end: ent.offset + ent.length, url: raw });
+    }
+  }
+  // Regex fallback for bare URLs Telegram didn't tag as an entity, skipping
+  // any range an entity above already covers.
+  for (const m of text.matchAll(/https?:\/\/(?:(?:www\.)?amazon\.in|amzn\.in|amzn\.to|amazn\.lt)[^\s]*/gi)) {
+    const start = m.index, end = start + m[0].length;
+    if (!linkSpans.some(s => s.start < end && s.end > start)) linkSpans.push({ start, end, url: m[0] });
+  }
+  // A text_link anchor is often wrapped in decorative emoji the source channel
+  // added around it, e.g. "👉 Click Here 🛍️" — only "Click Here" is the actual
+  // hyperlink. Absorb an immediately-adjacent pointer/bag emoji into the span
+  // so it gets removed along with the anchor text, instead of doubling up next
+  // to our own "👉 Check Now" button.
+  const DECOR_BEFORE = ['👉', '👆', '☝️'];
+  const DECOR_AFTER = ['🛍️', '🛒', '🛍'];
+  linkSpans = linkSpans.map(span => {
+    if (!span.isTextLink) return span;
+    let { start, end } = span;
+    for (const d of DECOR_BEFORE) {
+      const withSpace = d + ' ';
+      if (text.slice(start - withSpace.length, start) === withSpace) { start -= withSpace.length; break; }
+      if (text.slice(start - d.length, start) === d) { start -= d.length; break; }
+    }
+    for (const d of DECOR_AFTER) {
+      const withSpace = ' ' + d;
+      if (text.slice(end, end + withSpace.length) === withSpace) { end += withSpace.length; break; }
+      if (text.slice(end, end + d.length) === d) { end += d.length; break; }
+    }
+    return { ...span, start, end };
+  });
+  linkSpans.sort((a, b) => a.start - b.start);
 
-  if (!urlMatches.length) {
+  if (!linkSpans.length) {
     await tgSend(token, chatId, escTg('❓ Send me an Amazon link or forward a deal message.'));
     return new Response('ok');
   }
@@ -1750,13 +1794,17 @@ async function handleTelegramWebhook(request, env) {
       // Resolve every Amazon link independently — one bad/expired link shouldn't sink the rest.
       // Category/search links (no ASIN) still earn affiliate commission with the tag param,
       // so fall back to tagging the resolved URL directly instead of dropping the link.
-      // Each link goes in as a placeholder (not the real URL) so escHtml below can't
-      // mangle it — placeholders are swapped for the final rendering afterward.
-      let newText = text;
+      // Rebuilt by offset (not string split/join) since a hidden text_link's
+      // destination URL doesn't appear in `text` at all — only its span does.
+      // Each resolved link goes in as a placeholder so escHtml below can't
+      // mangle it; a link that fails to resolve leaves its original display
+      // text (raw URL or anchor text like "Click Here") untouched in place.
       const links = []; // { placeholder, affiliateLink }
-      for (const rawUrl of urlMatches) {
+      const pieces = [];
+      let cursor = 0;
+      for (const span of linkSpans) {
         try {
-          const { asinM, finalUrl } = await resolveAsin(rawUrl);
+          const { asinM, finalUrl } = await resolveAsin(span.url);
           let affiliateLink;
           if (asinM) {
             affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
@@ -1766,12 +1814,15 @@ async function handleTelegramWebhook(request, env) {
             affiliateLink = u.toString();
           }
           const placeholder = `%%DBLINK${links.length}%%`;
-          newText = newText.split(rawUrl).join(placeholder);
+          pieces.push(text.slice(cursor, span.start), placeholder);
           links.push({ placeholder, affiliateLink });
+          cursor = span.end;
         } catch (e) {
-          console.error('Link resolve failed for', rawUrl, e.message);
+          console.error('Link resolve failed for', span.url, e.message);
         }
       }
+      pieces.push(text.slice(cursor));
+      let newText = pieces.join('');
       const resolved = links.length;
       if (!resolved) {
         await tgSend(token, chatId, escTg('❌ Could not resolve any links in this message.'));
