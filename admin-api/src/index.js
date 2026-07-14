@@ -1395,18 +1395,6 @@ async function sweepExpiredApprovals(env) {
   for (const e of expired) {
     if (e.messageId) await tgClearKeyboard(token, TG_ADMIN_ID, e.messageId).catch(() => {});
   }
-  // One summary DM for bulk expiry (daily cutoff), per-deal DMs for the odd 4h timeout.
-  try {
-    if (expired.length > 3) {
-      await tgSend(token, TG_ADMIN_ID, escTg(`⏱ ${expired.length} pending deals expired (daily 2 AM cleanup / 4h timeout).`));
-    } else {
-      for (const e of expired) {
-        await tgSend(token, TG_ADMIN_ID, escTg(`⏱ Expired (no response): ${e.product.title.slice(0,60)}`));
-      }
-    }
-  } catch (err) {
-    console.error('Failed to notify expired approval:', err.message);
-  }
   console.log(`Swept ${expired.length} expired approval(s)`);
 }
 
