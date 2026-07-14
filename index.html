@@ -332,6 +332,8 @@
     /* Tab icon: hidden on desktop, shown on mobile */
     .tab-icon { display: none; }
     .tab-label { display: inline; }
+    /* "Deals" tab is mobile-only (bottom nav); redundant on desktop web view */
+    .tab-btn[data-tab="deals"] { display: none; }
 
     /* ── PRODUCT GRID ── */
     .products-section {
