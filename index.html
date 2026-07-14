@@ -982,16 +982,20 @@
       .hero p { font-size: .9rem; margin-top: 16px; }
 
       .search-wrap { padding: 0 16px; margin: 16px 0 20px; }
-      /* Slimmer bar on phones: hairline stroke, no drop shadow, lighter
-         placeholder, and a compact square icon button instead of the wide
-         SEARCH text button. */
-      .search-box {
+      .search-box input { padding: 12px 16px; font-size: .93rem; }
+      .search-box button { padding: 12px 16px; font-size: .88rem; }
+
+      /* Slim variant — ONLY while the bar is actually pinned (scrolled past
+         the hero). At the top of the page it keeps the original bold look.
+         .stuck is toggled by a sentinel IntersectionObserver. */
+      #mobileSticky.stuck .search-box {
         border-width: 0.6px;
-        box-shadow: none;
+        box-shadow: none !important;
       }
-      .search-box input { padding: 12px 16px; font-size: .93rem; font-weight: 500; }
-      .search-box input::placeholder { font-weight: 400; }
-      .search-box button {
+      #mobileSticky.stuck .search-box:focus-within { box-shadow: none !important; }
+      #mobileSticky.stuck .search-box input { font-weight: 500; }
+      #mobileSticky.stuck .search-box input::placeholder { font-weight: 400; }
+      #mobileSticky.stuck .search-box button {
         padding: 0;
         width: 46px;
         align-self: stretch;
@@ -1000,8 +1004,8 @@
         justify-content: center;
         border-left-width: 0.6px;
       }
-      .search-btn-text { display: none; }
-      .search-btn-icon { display: block; }
+      #mobileSticky.stuck .search-btn-text { display: none; }
+      #mobileSticky.stuck .search-btn-icon { display: block; }
 
       .chips { padding: 0 12px; gap: 8px; margin-bottom: 24px; }
       .chip { font-size: .78rem; padding: 6px 14px; }
@@ -1022,8 +1026,8 @@
       .tab-btn:hover { background: none !important; }
       .tab-btn.active { background: none !important; }
       #mobileSticky .search-wrap { margin: 0 !important; padding: 8px 12px !important; }
-      #mobileSticky .search-box { max-width: 100% !important; box-shadow: none !important; }
-      #mobileSticky .search-box:focus-within { transform: none !important; box-shadow: none !important; }
+      #mobileSticky .search-box { max-width: 100% !important; box-shadow: 2px 2px 0px var(--text) !important; }
+      #mobileSticky .search-box:focus-within { transform: none !important; box-shadow: 2px 2px 0px var(--text) !important; }
 
       /* Tabs strip */
       .tabs-wrap { padding: 0 !important; }
@@ -2364,6 +2368,20 @@
     btn.classList.toggle('show', !e.isIntersecting && e.boundingClientRect.top < 0);
   }).observe(sentinel);
   btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+})();
+
+// Toggle the search bar's slim "pinned" style: a sentinel sits just above
+// #mobileSticky, so the moment the bar actually sticks to the viewport top
+// the sentinel is off-screen and .stuck switches the styling.
+(() => {
+  const sticky = document.getElementById('mobileSticky');
+  if (!sticky) return;
+  const sentinel = document.createElement('div');
+  sentinel.style.cssText = 'position:absolute;width:1px;height:1px;pointer-events:none;';
+  sticky.parentNode.insertBefore(sentinel, sticky);
+  new IntersectionObserver(([e]) => {
+    sticky.classList.toggle('stuck', !e.isIntersecting && e.boundingClientRect.top < 0);
+  }).observe(sentinel);
 })();
 </script>
 
