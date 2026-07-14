@@ -934,6 +934,9 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        /* On phones the logo + JOIN row scrolls away; the search/tabs bar
+           below is what stays pinned. */
+        position: static;
       }
       .logo-text { font-size: 1.15rem; }
       nav {
@@ -986,9 +989,14 @@
       /* Quick chips hidden on mobile */
       .chips { display: none !important; }
 
-      /* Mobile search/tabs wrapper */
+      /* Mobile search/tabs wrapper — pinned to the top while scrolling */
       #mobileSticky {
-        background: transparent;
+        position: sticky;
+        top: 0;
+        z-index: 500;
+        background-color: var(--bg);
+        background-image: radial-gradient(rgba(26, 26, 46, 0.12) 1px, transparent 1px);
+        background-size: 16px 16px;
         border-bottom: 0.6px solid var(--text);
       }
       .tab-btn:hover { background: none !important; }
