@@ -891,6 +891,7 @@
          .stuck is toggled by a sentinel IntersectionObserver. */
       #mobileSticky.stuck .search-box {
         border-width: 0.6px;
+        border-color: #DCDBE9;
         box-shadow: none !important;
       }
       #mobileSticky.stuck .search-box:focus-within { box-shadow: none !important; }
@@ -903,7 +904,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border-left-width: 0.6px;
+        border-left: none;
         background: transparent;
       }
       #mobileSticky.stuck .search-box button:hover {
@@ -964,6 +965,7 @@
 
       .products-section { padding: 20px 12px 40px; }
       .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .product-card { border-color: #DCDBE9; }
       
       .card-img-wrap { height: 130px; padding: 10px; }
       .discount-badge { font-size: .65rem; padding: 2px 6px; top: -6px; left: -6px; }
