@@ -528,8 +528,10 @@
       text-decoration: none;
       transition: background 0.1s;
     }
-    .product-card:hover .btn-view {
-      background: #DCDBE9;
+    @media (hover: hover) {
+      .product-card:hover .btn-view {
+        background: #DCDBE9;
+      }
     }
     .btn-view:active {
       transform: translate(1px, 1px);
@@ -1054,12 +1056,12 @@
       .search-box,
       .search-box:focus-within,
       .chip,
-      .btn-view,
       .section-title h2,
       .faq-container,
       .blog-card {
         box-shadow: 2px 2px 0px var(--text) !important;
       }
+      .btn-view, .btn-view:active { box-shadow: none !important; }
       nav a:hover { box-shadow: none !important; border-color: transparent !important; background: none !important; }
       .chip:hover { box-shadow: 2px 2px 0px var(--text) !important; }
       #loadMoreBtn:hover { box-shadow: 2px 2px 0px var(--text) !important; background: var(--accent) !important; }
