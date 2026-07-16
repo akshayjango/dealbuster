@@ -1232,7 +1232,7 @@ function formatFbCaption(product, tag) {
   const price = product.price || '';
   const link = dealLink(product, tag);
   const priceBlock = price ? `💥 Deal Price @ ${price} 👇\n${link}` : `👇\n${link}`;
-  return `🔥 ${title}\n\n${priceBlock}`;
+  return `🔥 ${title}\n${priceBlock}`;
 }
 
 // Tracks which products have already been posted — by id AND by ASIN. ASIN is the
