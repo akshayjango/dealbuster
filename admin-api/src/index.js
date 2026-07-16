@@ -392,9 +392,12 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
       const existing = existingByAsin.get(asinUpper);
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
-      // Only push to top if price actually dropped
+      // Price drop: refresh the price fields in place — no position bump, no
+      // addedAt refresh. The deal keeps aging normally and falls off the list
+      // on schedule; if a sync or manual add brings it back after eviction, it
+      // enters as a genuinely new deal then.
       if (newPrice && existingPrice && newPrice < existingPrice) {
-        updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, addedAt: new Date().toISOString(), outOfStock: false });
+        updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false });
       }
     } else {
       if (added.length >= limit) break;
@@ -413,12 +416,12 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
     return { success: true, count: 0, message: 'No new or updated DealsRadar deals.' };
   }
 
-  // Remove updated products from current list (we'll re-add them at top)
-  const updatedAsinSet = new Set(updated.map(p => p.asin.toUpperCase()));
-  const base = products.filter(p => !p.asin || !updatedAsinSet.has(p.asin.toUpperCase()));
+  // Updated products stay exactly where they are — swap in the refreshed copy
+  // at the same position. Only genuinely new deals go to the top.
+  const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
+  const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
-  // New and updated go to top
-  let final = [...added, ...updated, ...base].map((p, i) => ({ ...p, order: i }));
+  let final = [...added, ...base].map((p, i) => ({ ...p, order: i }));
 
   // Trim to 360
   if (final.length > 720) final = final.slice(0, 720);
@@ -611,7 +614,7 @@ async function checkAndCleanDeals(env) {
   const toCheck = sorted.slice(0, 100);
 
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
-  const toPushTop = [];
+  let priceDrops = 0;
   let changed = false;
 
   const CHUNK = 10;
@@ -681,15 +684,14 @@ async function checkAndCleanDeals(env) {
           changed = true;
         }
 
-        // Bump to top on a price drop (surfaces it as a "top deal now"), but never
-        // touch addedAt here — that's the deal's true first-seen time. Refreshing
-        // it on every minor price flicker is what made days/weeks-old deals show
-        // "Updated 1hr ago" and look brand new again.
+        // Price drop: update in place only — no position bump (deals age out
+        // normally by time) and never touch addedAt, that's the deal's true
+        // first-seen time. Refreshing either made old deals look brand new.
         if (priceDrop) {
           // Dashboard bell alert — rides this products.json commit, zero KV cost.
           // p.price is the pre-sync price (updated is a copy).
           updated.priceDropText = `${p.price} → ${newPriceStr}`;
-          toPushTop.push(p.id);
+          priceDrops++;
           changed = true;
         } else if (updated.priceDropText && dbPrice !== null && amPrice > dbPrice) {
           // Price climbed back up — the drop alert is stale, retire it
@@ -706,16 +708,14 @@ async function checkAndCleanDeals(env) {
   // rules as the dashboard's manual "Push OOS/₹0 to Bottom" buttons, just
   // applied automatically. OOS takes priority over zero-price when a product
   // is somehow both, so it isn't double-bucketed.
-  const pushSet = new Set(toPushTop);
-  const top = [], mid = [], oos = [], zeroPrice = [];
+  const mid = [], oos = [], zeroPrice = [];
   for (const p of products) {
     const updated = productMap.get(p.id) || p;
-    if (pushSet.has(p.id)) top.push(updated);
-    else if (updated.outOfStock) oos.push(updated);
+    if (updated.outOfStock) oos.push(updated);
     else if (isZeroPrice(updated)) zeroPrice.push(updated);
     else mid.push(updated);
   }
-  const finalOrder = [...top, ...mid, ...oos, ...zeroPrice];
+  const finalOrder = [...mid, ...oos, ...zeroPrice];
   const orderChanged = finalOrder.some((p, i) => p.id !== products[i]?.id);
 
   if (!changed && !orderChanged) {
@@ -723,13 +723,13 @@ async function checkAndCleanDeals(env) {
   }
 
   const reordered = finalOrder.map((p, i) => ({ ...p, order: i }));
-  const msg = `Price sync: ${toPushTop.length} price drops, ${oos.length} OOS + ${zeroPrice.length} zero-price at bottom, updated remaining`;
+  const msg = `Price sync: ${priceDrops} price drops (in place), ${oos.length} OOS + ${zeroPrice.length} zero-price at bottom, updated remaining`;
   await saveProductsFile(reordered, sha, msg, env);
 
   return {
-    success: true, priceDrops: toPushTop.length, oosAtBottom: oos.length, zeroPriceAtBottom: zeroPrice.length,
+    success: true, priceDrops, oosAtBottom: oos.length, zeroPriceAtBottom: zeroPrice.length,
     oosCount: [...productMap.values()].filter(p => p.outOfStock).length,
-    message: `Price sync done. ${toPushTop.length} drops pushed to top, ${oos.length} OOS + ${zeroPrice.length} zero-price at bottom.`,
+    message: `Price sync done. ${priceDrops} price drops updated in place, ${oos.length} OOS + ${zeroPrice.length} zero-price at bottom.`,
   };
 }
 
