@@ -1740,9 +1740,15 @@ async function postDealToChannels(product, env) {
   // hand-picked for the Facebook group. Best-effort — never blocks the channel post.
   try {
     const summary = [escHtml(trimTitle(product.title)), escHtml(product.price || '')].filter(Boolean).join('\n');
+    const row = [{ text: '📘 FB Caption', callback_data: `fbcap_${product.id}` }];
+    if (product.asin) {
+      // Keepa domain 10 = amazon.in; the page is buildable from ASIN alone.
+      // (pricehistory.app can't do this — its product URLs are non-derivable slugs.)
+      row.push({ text: '📈 Price History', url: `https://keepa.com/#!product/10-${product.asin.toUpperCase()}` });
+    }
     await tgSend(token, TG_ADMIN_ID, summary, {
       parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [[{ text: '📘 FB Caption', callback_data: `fbcap_${product.id}` }]] },
+      reply_markup: { inline_keyboard: [row] },
     });
   } catch (e) {
     console.error('FB-caption DM failed:', e.message);
