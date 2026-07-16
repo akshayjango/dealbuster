@@ -1221,15 +1221,9 @@ function formatDealMsg(product, tag) {
 function formatFbCaption(product, tag) {
   const title = trimTitle(product.title);
   const price = product.price || '';
-  const mrp = product.mrp || '';
-  const disc = (product.disc || '').replace(/^-/, ''); // stored as "-73%" → "73%"
-  let priceLine = '';
-  if (price) {
-    priceLine = disc && disc !== '0%' ? `💥 ${disc} OFF — ${price}` : `💥 ${price}`;
-    if (mrp) priceLine += ` (MRP ${mrp})`;
-  }
   const link = dealLink(product, tag);
-  return [`🔥 ${title}`, priceLine, `🛒 Buy Now 👉 ${link}`].filter(Boolean).join('\n\n');
+  const priceBlock = price ? `💥 Deal Price @ ${price} 👇\n${link}` : `👇\n${link}`;
+  return `🔥 ${title}\n\n${priceBlock}`;
 }
 
 // Tracks which products have already been posted — by id AND by ASIN. ASIN is the
