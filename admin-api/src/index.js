@@ -423,8 +423,11 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
 
   let final = [...added, ...base].map((p, i) => ({ ...p, order: i }));
 
-  // Trim to 360
-  if (final.length > 720) final = final.slice(0, 720);
+  // Trim to cap; evicted deals get their TG-posted marks erased so re-adds repost
+  if (final.length > 720) {
+    await clearTgPostedForEvicted(final.slice(720), env).catch(e => console.error('Evict clear failed:', e.message));
+    final = final.slice(0, 720);
+  }
 
   const msg = `DR sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -585,7 +588,10 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const updatedAsinSet = new Set(updated.map(p => p.asin.toUpperCase()));
   const base = products.filter(p => !p.asin || !updatedAsinSet.has(p.asin.toUpperCase()));
   let final = [...added, ...updated, ...base].map((p, i) => ({ ...p, order: i }));
-  if (final.length > 720) final = final.slice(0, 720);
+  if (final.length > 720) {
+    await clearTgPostedForEvicted(final.slice(720), env).catch(e => console.error('Evict clear failed:', e.message));
+    final = final.slice(0, 720);
+  }
 
   const msg = `IndiaFreeStuff sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -1061,6 +1067,9 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
   }
 
   const final = [...added, ...products].map((p, i) => ({ ...p, order: i }));
+  if (final.length > 720) {
+    await clearTgPostedForEvicted(final.slice(720), env).catch(e => console.error('Evict clear failed:', e.message));
+  }
   const trimmed = final.length > 720 ? final.slice(0, 720) : final;
   await saveProductsFile(trimmed, sha, `Amazon deals sync: +${added.length}`, env);
   return { success: true, count: added.length, message: `Amazon Deals sync: added ${added.length} deal${added.length > 1 ? 's' : ''} from amazon.in/deals`, addedProducts: added };
@@ -1280,6 +1289,34 @@ async function pendingApprovalsDO(env, path, body) {
   });
   if (!r.ok) throw new Error(`TgPoster ${path}: ${r.status} ${await r.text().catch(() => '')}`);
   return r.json();
+}
+
+// When deals are evicted at the 720 cap, erase them from the TG posted ledger
+// (DO authoritative + KV advisory mirror) so a future re-add — manual or from
+// any sync — goes to the channel again like a brand-new deal. Best-effort: if
+// either clear fails the deal just stays "posted" and a re-add is silently
+// skipped (missed post, never a duplicate — the preferred failure mode).
+async function clearTgPostedForEvicted(evicted, env) {
+  const keys = [];
+  for (const p of evicted || []) {
+    if (p.id) keys.push(p.id);
+    if (p.asin) keys.push(p.asin.toUpperCase());
+  }
+  if (!keys.length) return;
+  try {
+    await pendingApprovalsDO(env, '/posted/clear', { keys });
+  } catch (e) {
+    console.error('TG ledger clear (DO) failed:', e.message);
+    return; // don't clear the mirror if the authoritative ledger still blocks
+  }
+  try {
+    const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+    let changed = false;
+    for (const k of keys) if (ids.delete(k)) changed = true;
+    if (changed) await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids)));
+  } catch (e) {
+    console.error('TG ledger clear (KV mirror) failed:', e.message);
+  }
 }
 
 async function queueForApproval(products, env) {
@@ -1547,6 +1584,7 @@ export class TgPoster {
     switch (path) {
       case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force) };
       case '/posted/check': return this.postedCheck(body.keys || []);
+      case '/posted/clear': return this.postedClear(body.keys || []);
       case '/pending/put': return this.pendingPut(body.entries || []);
       case '/pending/take': return this.pendingTake(body.productId);
       case '/pending/sweep': return this.pendingSweep(body);
@@ -1566,6 +1604,17 @@ export class TgPoster {
       for (const [k, v] of found) if (v) posted.push(k.slice('posted:'.length));
     }
     return { ok: true, posted };
+  }
+
+  // Forget posted ids/asins — called when deals fall off the site's 720 cap,
+  // so a later re-add (sync or manual) posts to the channel again as new.
+  async postedClear(keys) {
+    await this.migrateFromKV();
+    const full = keys.map(k => `posted:${k}`);
+    for (let i = 0; i < full.length; i += 128) {
+      await this.ctx.storage.delete(full.slice(i, i + 128));
+    }
+    return { ok: true, cleared: keys.length };
   }
 
   // ── Pending approvals (autopost OFF) ──────────────────────────────────────
