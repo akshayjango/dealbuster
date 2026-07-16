@@ -1188,16 +1188,24 @@ function escHtml(text) {
   return (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function formatDealMsg(product, tag) {
-  const link = product.asin
-    ? `https://www.amazon.in/dp/${product.asin}?tag=${tag}`
-    : product.link || '';
-  let rawTitle = (product.title || '').slice(0, 200);
+function trimTitle(raw) {
+  let rawTitle = (raw || '').slice(0, 200);
   const pipeIdx = rawTitle.indexOf(' | ');
   const commaIdx = rawTitle.indexOf(',');
   const cutIdx = [pipeIdx, commaIdx].filter(i => i > 0).sort((a, b) => a - b)[0];
   if (cutIdx) rawTitle = rawTitle.slice(0, cutIdx).trim();
-  const title = escHtml(rawTitle);
+  return rawTitle;
+}
+
+function dealLink(product, tag) {
+  return product.asin
+    ? `https://www.amazon.in/dp/${product.asin}?tag=${tag}`
+    : product.link || '';
+}
+
+function formatDealMsg(product, tag) {
+  const link = dealLink(product, tag);
+  const title = escHtml(trimTitle(product.title));
   const price = product.price || '';
   const mrp = product.mrp || '';
   const disc = product.disc || '';
@@ -1206,6 +1214,22 @@ function formatDealMsg(product, tag) {
   const discRow = disc ? `Discount: ${escHtml(disc)}` : '';
   const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
   return detailsBlock ? `${title}\n${detailsBlock}\n\n👉 ${link}` : `${title}\n\n👉 ${link}`;
+}
+
+// Plain-text caption for pasting into the Facebook deals group. No HTML/markdown
+// (FB ignores formatting) — emojis + blank lines only.
+function formatFbCaption(product, tag) {
+  const title = trimTitle(product.title);
+  const price = product.price || '';
+  const mrp = product.mrp || '';
+  const disc = (product.disc || '').replace(/^-/, ''); // stored as "-73%" → "73%"
+  let priceLine = '';
+  if (price) {
+    priceLine = disc && disc !== '0%' ? `💥 ${disc} OFF — ${price}` : `💥 ${price}`;
+    if (mrp) priceLine += ` (MRP ${mrp})`;
+  }
+  const link = dealLink(product, tag);
+  return [`🔥 ${title}`, priceLine, `🛒 Buy Now 👉 ${link}`].filter(Boolean).join('\n\n');
 }
 
 // Tracks which products have already been posted — by id AND by ASIN. ASIN is the
@@ -1347,6 +1371,30 @@ async function handleApprovalCallback(cq, env) {
   if (!token) return new Response('ok');
   if (cq.from?.id !== TG_ADMIN_ID) {
     await tgAnswerCallback(token, cq.id, '⛔ Unauthorized');
+    return new Response('ok');
+  }
+
+  // FB caption request — look the product up fresh from products.json (no KV,
+  // no DO storage) and send the caption in a <pre> block: tapping a monospace
+  // block in Telegram copies it in one tap.
+  const fb = (cq.data || '').match(/^fbcap_(.+)$/);
+  if (fb) {
+    const productId = fb[1];
+    try {
+      const { products } = await getProductsFile(env);
+      const p = products.find(x => x.id === productId);
+      if (!p) {
+        await tgAnswerCallback(token, cq.id, 'Deal no longer in database');
+        return new Response('ok');
+      }
+      const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
+      const caption = formatFbCaption(p, tag);
+      await tgSend(token, TG_ADMIN_ID, `<pre>${escHtml(caption)}</pre>`, { parse_mode: 'HTML' });
+      await tgAnswerCallback(token, cq.id, '📘 Caption sent — tap it to copy');
+    } catch (e) {
+      console.error('FB caption failed:', e.message);
+      await tgAnswerCallback(token, cq.id, '⚠️ Failed, try again');
+    }
     return new Response('ok');
   }
 
@@ -1692,6 +1740,18 @@ async function postDealToChannels(product, env) {
     } catch (e) {
       console.error('Telegram post failed for', ch, e.message);
     }
+  }
+
+  // Companion DM to the admin with an FB-caption button, so any deal can be
+  // hand-picked for the Facebook group. Best-effort — never blocks the channel post.
+  try {
+    const summary = [escHtml(trimTitle(product.title)), escHtml(product.price || '')].filter(Boolean).join('\n');
+    await tgSend(token, TG_ADMIN_ID, summary, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [[{ text: '📘 FB Caption', callback_data: `fbcap_${product.id}` }]] },
+    });
+  } catch (e) {
+    console.error('FB-caption DM failed:', e.message);
   }
 }
 
