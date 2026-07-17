@@ -1754,7 +1754,14 @@ async function getUnpostedTgFresh(env) {
   // a batch (in source-feed order) and then prepend the whole batch, so within a
   // single batch addedAt increases while true recency decreases. Array position
   // is the only trustworthy signal.
-  const unposted = products.filter(p => !p.hidden && !p.outOfStock && !isAlreadyPosted(p, postedIds));
+  // Zero-price deals must be excluded HERE, before the batch slice — not just in
+  // postDealsAndTrack. They are unpostable but never claimed (a later price sync
+  // may fill the price), so if they merely got filtered after slicing they'd
+  // permanently occupy the oldest-unposted batch slots and starve the queue:
+  // slice(-5) kept returning the same ₹0 zombies while real new deals waited
+  // at the top of the array (this shipped once — batches shrank to 2, then 0).
+  const unposted = products.filter(p =>
+    !p.hidden && !p.outOfStock && !isZeroPrice(p) && !isAlreadyPosted(p, postedIds));
   // Oldest unposted deals sit at the end of the array — send oldest-of-batch
   // first, newest last. Whatever doesn't fit in this batch of 5 carries over to
   // the next cron run, still oldest-first.
