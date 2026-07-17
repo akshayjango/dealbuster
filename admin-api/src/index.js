@@ -376,6 +376,12 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
     if (isBrandBlocked(deal.title, blockedBrands)) continue;
 
     const price = deal.currentPrice || 0;
+    // No price in the feed = unavailable product. Never add it: a ₹0 entry is
+    // unpostable and unbuyable, and it recycles forever — price sync pins it to
+    // the bottom, the 720 cap evicts it, then the feed (which still lists it)
+    // re-adds it at the TOP as "new". If the product comes back with a real
+    // price in a later feed cycle, it gets added normally then.
+    if (price <= 0) continue;
     const mrp = deal.originalPrice || price;
     const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = '₹' + price.toLocaleString('en-IN');
@@ -538,6 +544,11 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   for (const { title, image, price, mrp, rtoParam } of matchesMap.values()) {
     if (added.length >= limit) break;
+
+    // No scraped price = unavailable product. Skip before spending the redirect
+    // subrequest — a ₹0/blank-price entry is unpostable and recycles forever
+    // (price sync → bottom → cap eviction → feed re-adds it at the top as new).
+    if (!(price > 0)) continue;
 
     // Follow redirect (manual) — 1 subrequest, gets Location header with Amazon URL → ASIN
     let asin = '';
