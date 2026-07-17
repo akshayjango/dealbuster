@@ -1247,6 +1247,18 @@ function markPosted(p, postedIds) {
   if (p.asin) postedIds.add(p.asin.toUpperCase());
 }
 
+// Inline-keyboard row with the FB-caption button (and Keepa price history when
+// the ASIN is known). Shown on approval DMs and autopost companion DMs alike.
+function fbCaptionRow(p) {
+  const row = [{ text: '📘 FB Caption', callback_data: `fbcap_${p.id}` }];
+  if (p.asin) {
+    // Keepa domain 10 = amazon.in; the page is buildable from ASIN alone.
+    // (pricehistory.app can't do this — its product URLs are non-derivable slugs.)
+    row.push({ text: '📈 Price History', url: `https://keepa.com/#!product/10-${p.asin.toUpperCase()}` });
+  }
+  return row;
+}
+
 // Same "no price" definition as the admin dashboard's ₹ N/A filter — keep in sync.
 function isZeroPrice(p) {
   return !p.price || p.price === '₹0' || p.price === '₹';
@@ -1347,10 +1359,13 @@ async function queueForApproval(products, env) {
   const entries = [];
   for (const p of queued) {
     const text = formatDealMsg(p, tag);
-    const keyboard = { inline_keyboard: [[
-      { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
-      { text: '❌ Reject', callback_data: `tgappr_r_${p.id}` },
-    ]] };
+    const keyboard = { inline_keyboard: [
+      [
+        { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
+        { text: '❌ Reject', callback_data: `tgappr_r_${p.id}` },
+      ],
+      fbCaptionRow(p),
+    ] };
     try {
       let messageId = null;
       if (p.image) {
@@ -1389,11 +1404,11 @@ async function tgAnswerCallback(token, id, text) {
   });
 }
 
-async function tgClearKeyboard(token, chatId, messageId) {
+async function tgSetKeyboard(token, chatId, messageId, rows) {
   return fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } }),
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: rows || [] } }),
   });
 }
 
@@ -1446,10 +1461,13 @@ async function handleApprovalCallback(cq, env) {
     return new Response('ok');
   }
 
-  if (entry.messageId) await tgClearKeyboard(token, TG_ADMIN_ID, entry.messageId).catch(() => {});
+  // Drop the Approve/Reject row but keep FB Caption / Price History usable
+  // after the decision.
+  if (entry.messageId) await tgSetKeyboard(token, TG_ADMIN_ID, entry.messageId, [fbCaptionRow(entry.product)]).catch(() => {});
 
   if (action === 'a') {
-    await sendToChannels([entry.product], env);
+    // companionDm off: the approval DM above already carries these buttons.
+    await sendToChannels([entry.product], env, { companionDm: false });
     await tgAnswerCallback(token, cq.id, '✅ Posted to channel');
     await tgSend(token, TG_ADMIN_ID, escTg(`✅ Approved & posted: ${entry.product.title.slice(0,60)}`));
   } else {
@@ -1484,7 +1502,7 @@ async function sweepExpiredApprovals(env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
   for (const e of expired) {
-    if (e.messageId) await tgClearKeyboard(token, TG_ADMIN_ID, e.messageId).catch(() => {});
+    if (e.messageId) await tgSetKeyboard(token, TG_ADMIN_ID, e.messageId, []).catch(() => {});
   }
   console.log(`Swept ${expired.length} expired approval(s)`);
 }
@@ -1519,7 +1537,7 @@ async function postDealsAndTrack(products, env) {
 // Returns how many actually went out (the DO skips already-posted ones unless
 // force is set — force still claims before sending, it only bypasses the
 // "seen before" check for deliberate manual re-posts).
-async function sendToChannels(products, env, { force = false } = {}) {
+async function sendToChannels(products, env, { force = false, companionDm = true } = {}) {
   const list = (products || []).filter(Boolean);
   if (!list.length) return 0;
 
@@ -1528,7 +1546,7 @@ async function sendToChannels(products, env, { force = false } = {}) {
     const r = await stub.fetch('https://tg-poster/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ products: list, force }),
+      body: JSON.stringify({ products: list, force, companionDm }),
     });
     if (!r.ok) { console.error('TgPoster DO failed:', r.status, await r.text().catch(() => '')); return 0; }
     const { posted } = await r.json().catch(() => ({ posted: 0 }));
@@ -1546,7 +1564,7 @@ async function sendToChannels(products, env, { force = false } = {}) {
   toSend.forEach(p => markPosted(p, postedIds));
   await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(postedIds).slice(-20000)));
   for (const p of toSend) {
-    await postDealToChannels(p, env).catch(e => console.error('TG post failed:', e.message));
+    await postDealToChannels(p, env, { companionDm }).catch(e => console.error('TG post failed:', e.message));
   }
   return toSend.length;
 }
@@ -1582,7 +1600,7 @@ export class TgPoster {
 
   async dispatch(path, body) {
     switch (path) {
-      case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force) };
+      case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force, body.companionDm !== false) };
       case '/posted/check': return this.postedCheck(body.keys || []);
       case '/posted/clear': return this.postedClear(body.keys || []);
       case '/pending/put': return this.pendingPut(body.entries || []);
@@ -1693,7 +1711,7 @@ export class TgPoster {
 
   // force skips the already-posted check (deliberate manual re-post from the
   // dashboard) but still claims before sending, like every other post.
-  async postBatch(list, force = false) {
+  async postBatch(list, force = false, companionDm = true) {
     await this.migrateFromKV();
 
     const toSend = [];
@@ -1711,7 +1729,7 @@ export class TgPoster {
     await this.ctx.storage.put(claim);
 
     for (const p of toSend) {
-      await postDealToChannels(p, this.env).catch(e => console.error('TG post failed:', e.message));
+      await postDealToChannels(p, this.env, { companionDm }).catch(e => console.error('TG post failed:', e.message));
     }
 
     // Mirror into KV — only the cron's cheap "anything new?" pre-check reads
@@ -1765,7 +1783,7 @@ async function postNewDealsToTelegramLocked(env) {
   await postNewDealsToTelegram(env);
 }
 
-async function postDealToChannels(product, env) {
+async function postDealToChannels(product, env, { companionDm = true } = {}) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
   const noPrice = !product.price || product.price === '₹0' || product.price === '₹';
@@ -1786,18 +1804,15 @@ async function postDealToChannels(product, env) {
   }
 
   // Companion DM to the admin with an FB-caption button, so any deal can be
-  // hand-picked for the Facebook group. Best-effort — never blocks the channel post.
+  // hand-picked for the Facebook group. Best-effort — never blocks the channel
+  // post. Skipped for approval-flow posts (companionDm=false): the approval DM
+  // already carries the same buttons.
+  if (!companionDm) return;
   try {
     const summary = [escHtml(trimTitle(product.title)), escHtml(product.price || '')].filter(Boolean).join('\n');
-    const row = [{ text: '📘 FB Caption', callback_data: `fbcap_${product.id}` }];
-    if (product.asin) {
-      // Keepa domain 10 = amazon.in; the page is buildable from ASIN alone.
-      // (pricehistory.app can't do this — its product URLs are non-derivable slugs.)
-      row.push({ text: '📈 Price History', url: `https://keepa.com/#!product/10-${product.asin.toUpperCase()}` });
-    }
     await tgSend(token, TG_ADMIN_ID, summary, {
       parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [row] },
+      reply_markup: { inline_keyboard: [fbCaptionRow(product)] },
     });
   } catch (e) {
     console.error('FB-caption DM failed:', e.message);
