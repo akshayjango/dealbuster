@@ -721,10 +721,12 @@ async function checkAndCleanDeals(env) {
     }
   }
 
-  // Keep OOS and zero-price products pinned to the bottom every cycle — same
-  // rules as the dashboard's manual "Push OOS/₹0 to Bottom" buttons, just
-  // applied automatically. OOS takes priority over zero-price when a product
-  // is somehow both, so it isn't double-bucketed.
+  // Keep OOS products pinned to the bottom every cycle (same rule as the
+  // dashboard's manual "Push OOS to Bottom" button). Zero-price products are
+  // REMOVED outright — syncs no longer add them, they're unbuyable and
+  // unpostable, and keeping them anywhere in the array only invites the
+  // top-of-site recycle loop back. OOS takes priority when a product is
+  // somehow both, so an OOS item survives (it has a real price to come back to).
   const mid = [], oos = [], zeroPrice = [];
   for (const p of products) {
     const updated = productMap.get(p.id) || p;
@@ -732,21 +734,27 @@ async function checkAndCleanDeals(env) {
     else if (isZeroPrice(updated)) zeroPrice.push(updated);
     else mid.push(updated);
   }
-  const finalOrder = [...mid, ...oos, ...zeroPrice];
-  const orderChanged = finalOrder.some((p, i) => p.id !== products[i]?.id);
+  const finalOrder = [...mid, ...oos];
+  const orderChanged = zeroPrice.length > 0 || finalOrder.some((p, i) => p.id !== products[i]?.id);
 
   if (!changed && !orderChanged) {
     return { success: true, message: 'Prices up to date. No changes.' };
   }
 
+  // Same ledger treatment as a 720-cap eviction: forget the removed items so a
+  // future re-add (feed cycle with a real price) posts to Telegram as new.
+  if (zeroPrice.length) {
+    await clearTgPostedForEvicted(zeroPrice, env).catch(e => console.error('Zero-price ledger clear failed:', e.message));
+  }
+
   const reordered = finalOrder.map((p, i) => ({ ...p, order: i }));
-  const msg = `Price sync: ${priceDrops} price drops (in place), ${oos.length} OOS + ${zeroPrice.length} zero-price at bottom, updated remaining`;
+  const msg = `Price sync: ${priceDrops} price drops (in place), ${oos.length} OOS at bottom, ${zeroPrice.length} zero-price removed`;
   await saveProductsFile(reordered, sha, msg, env);
 
   return {
-    success: true, priceDrops, oosAtBottom: oos.length, zeroPriceAtBottom: zeroPrice.length,
+    success: true, priceDrops, oosAtBottom: oos.length, zeroPriceRemoved: zeroPrice.length,
     oosCount: [...productMap.values()].filter(p => p.outOfStock).length,
-    message: `Price sync done. ${priceDrops} price drops updated in place, ${oos.length} OOS + ${zeroPrice.length} zero-price at bottom.`,
+    message: `Price sync done. ${priceDrops} price drops updated in place, ${oos.length} OOS at bottom, ${zeroPrice.length} zero-price removed.`,
   };
 }
 
