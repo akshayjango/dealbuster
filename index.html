@@ -174,12 +174,19 @@
       display: block;
     }
 
-    /* ── HERO ── */
+    /* ── HERO (auto-scrolling slides: active swooshes out left, next in from right) ── */
     .hero {
       text-align: center;
       padding: 60px 20px 30px;
     }
-    .hero h1 {
+    .hero-track {
+      display: grid;          /* all slides share one cell — container sizes to the tallest */
+      justify-items: center;
+      overflow: hidden;
+    }
+    .hero-slide {
+      grid-area: 1 / 1;
+      margin: 0;
       font-size: 3rem;
       font-weight: 900;
       line-height: 1.1;
@@ -190,8 +197,14 @@
       flex-direction: column;
       align-items: center;
       gap: 12px;
+      transform: translateX(120%);
+      opacity: 0;
+      transition: transform .65s cubic-bezier(.25,.8,.3,1), opacity .65s ease;
     }
-    .hero h1 span {
+    .hero-slide.is-active { transform: translateX(0); opacity: 1; }
+    .hero-slide.is-exit { transform: translateX(-120%); opacity: 0; }
+    .hero-slide.no-anim { transition: none; }
+    .hero-slide span {
       background: #7194FF;
       color: #ffffff;
       border: 2px solid var(--text);
@@ -199,6 +212,11 @@
       box-shadow: 3px 3px 0px var(--text);
       display: inline-block;
       transform: rotate(-1deg);
+    }
+    .hero-slide[data-c="coral"] span { background: #FF7B7B; transform: rotate(1deg); }
+    .hero-slide[data-c="green"] span { background: #34C77B; transform: rotate(-1deg); }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-slide { transition: none; }
     }
     .hero p {
       color: var(--text);
@@ -827,7 +845,7 @@
     @media(max-width: 768px) {
       .products-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
       .blogs-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-      .hero h1 { font-size: 2.2rem; }
+      .hero-slide { font-size: 2.2rem; }
     }
     @media(max-width: 640px) {
       .blogs-section,
@@ -881,8 +899,8 @@
       }
 
       .hero { padding: 36px 16px 20px; }
-      .hero h1 { font-size: 1.8rem; }
-      .hero h1 span { font-size: 1.1rem; padding: 4px 12px; }
+      .hero-slide { font-size: 1.8rem; }
+      .hero-slide span { font-size: 1.1rem; padding: 4px 12px; }
       .hero p { font-size: .9rem; margin-top: 16px; }
 
       .search-wrap { padding: 0 16px; margin: 16px 0 20px; }
@@ -1053,7 +1071,7 @@
       }
 
       /* RESET SHADOWS ON MOBILE VIEW TO SLIM 2px */
-      .hero h1 span,
+      .hero-slide span,
       .search-box,
       .search-box:focus-within,
       .chip,
@@ -1280,9 +1298,37 @@
 
 <!-- HERO -->
 <section class="hero">
-  <h1>Best Deals in India <span>Updated Daily</span></h1>
-
+  <div class="hero-track">
+    <h1 class="hero-slide is-active">Best Deals in India <span>Updated Daily</span></h1>
+    <div class="hero-slide" data-c="coral" aria-hidden="true">India's Smartest Deals <span>Live &bull; Verified &bull; Updated</span></div>
+    <div class="hero-slide" data-c="green" aria-hidden="true">Never Miss a Deal <span>New Offers Daily</span></div>
+  </div>
 </section>
+<script>
+(function () {
+  var slides = document.querySelectorAll('.hero-slide');
+  if (slides.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var cur = 0;
+  setInterval(function () {
+    if (document.hidden) return;
+    var prev = cur, next = (cur + 1) % slides.length;
+    slides[prev].classList.remove('is-active');
+    slides[prev].classList.add('is-exit');
+    slides[prev].setAttribute('aria-hidden', 'true');
+    slides[next].classList.add('is-active');
+    slides[next].removeAttribute('aria-hidden');
+    // After the swoosh, silently park the exited slide back on the right
+    // so it can re-enter from that side on its next turn.
+    setTimeout(function () {
+      slides[prev].classList.add('no-anim');
+      slides[prev].classList.remove('is-exit');
+      void slides[prev].offsetWidth;
+      slides[prev].classList.remove('no-anim');
+    }, 700);
+    cur = next;
+  }, 4000);
+})();
+</script>
 
 <!-- MOBILE STICKY WRAPPER: search + chips + tabs -->
 <div id="mobileSticky">
