@@ -529,7 +529,7 @@
         display: flex;
         width: 100%;
         align-items: center;
-        gap: 12px;
+        gap: 6px;
         font-size: 1.05rem;
       }
       .hot-deals-wrap h2::after {
@@ -537,6 +537,7 @@
         flex: 1;
         height: 2px;
         background: rgba(26, 26, 46, 0.12);
+        margin-left: 8px;
       }
       .hot-deal-card {
         border: none;
@@ -552,13 +553,13 @@
       }
       .hot-deal-price-current { border: none; }
       .hot-deal-btn {
-        background: var(--primary);
-        color: #fff;
+        background: var(--accent);
+        color: var(--text);
         border: none;
         padding: 10px;
         box-shadow: 2px 2px 0px var(--text) !important;
       }
-      .hot-deal-card:hover .hot-deal-btn { background: var(--primary) !important; }
+      .hot-deal-card:hover .hot-deal-btn { background: var(--accent) !important; }
     }
 
     @media(max-width: 400px) {
