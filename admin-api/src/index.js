@@ -396,6 +396,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
 
     if (existingByAsin.has(asinUpper)) {
       const existing = existingByAsin.get(asinUpper);
+      if (isDead(existing)) continue; // tombstone — feed data for it is stale, leave it buried
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
       // Price drop: refresh the price fields in place — no position bump, no
@@ -427,13 +428,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
-  let final = [...added, ...base].map((p, i) => ({ ...p, order: i }));
-
-  // Trim to cap; evicted deals get their TG-posted marks erased so re-adds repost
-  if (final.length > 720) {
-    await clearTgPostedForEvicted(final.slice(720), env).catch(e => console.error('Evict clear failed:', e.message));
-    final = final.slice(0, 720);
-  }
+  const final = await capLiveAndBury([...added, ...base], env);
 
   const msg = `DR sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -598,11 +593,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   const updatedAsinSet = new Set(updated.map(p => p.asin.toUpperCase()));
   const base = products.filter(p => !p.asin || !updatedAsinSet.has(p.asin.toUpperCase()));
-  let final = [...added, ...updated, ...base].map((p, i) => ({ ...p, order: i }));
-  if (final.length > 720) {
-    await clearTgPostedForEvicted(final.slice(720), env).catch(e => console.error('Evict clear failed:', e.message));
-    final = final.slice(0, 720);
-  }
+  const final = await capLiveAndBury([...added, ...updated, ...base], env);
 
   const msg = `IndiaFreeStuff sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -722,39 +713,38 @@ async function checkAndCleanDeals(env) {
   }
 
   // Keep OOS products pinned to the bottom every cycle (same rule as the
-  // dashboard's manual "Push OOS to Bottom" button). Zero-price products are
-  // REMOVED outright — syncs no longer add them, they're unbuyable and
-  // unpostable, and keeping them anywhere in the array only invites the
-  // top-of-site recycle loop back. OOS takes priority when a product is
-  // somehow both, so an OOS item survives (it has a real price to come back to).
-  const mid = [], oos = [], zeroPrice = [];
-  for (const p of products) {
+  // dashboard's manual "Push OOS to Bottom" button). Zero-price products
+  // become TOMBSTONES — hidden, off Telegram, but still in the array so the
+  // source feeds (which keep listing dead products for days) can't re-add
+  // them at the top as "new". Their TG-posted marks are deliberately KEPT:
+  // clearing them is what let every re-add DM the admin again. OOS takes
+  // priority when a product is somehow both, so an OOS item survives visible
+  // (it has a real price to come back to).
+  const mid = [], oos = [], tombs = [];
+  for (const p of pruneTombstones(products)) {
     const updated = productMap.get(p.id) || p;
-    if (updated.outOfStock) oos.push(updated);
-    else if (isZeroPrice(updated)) zeroPrice.push(updated);
+    if (isDead(updated)) tombs.push(updated);
+    else if (updated.outOfStock) oos.push(updated);
+    else if (isZeroPrice(updated)) tombs.push(makeTombstone(updated));
     else mid.push(updated);
   }
-  const finalOrder = [...mid, ...oos];
-  const orderChanged = zeroPrice.length > 0 || finalOrder.some((p, i) => p.id !== products[i]?.id);
+  const newlyDead = tombs.length - products.filter(isDead).length;
+  const finalOrder = [...mid, ...oos, ...tombs];
+  const orderChanged = finalOrder.length !== products.length ||
+    finalOrder.some((p, i) => p.id !== products[i]?.id || isDead(p) !== isDead(products[i]));
 
   if (!changed && !orderChanged) {
     return { success: true, message: 'Prices up to date. No changes.' };
   }
 
-  // Same ledger treatment as a 720-cap eviction: forget the removed items so a
-  // future re-add (feed cycle with a real price) posts to Telegram as new.
-  if (zeroPrice.length) {
-    await clearTgPostedForEvicted(zeroPrice, env).catch(e => console.error('Zero-price ledger clear failed:', e.message));
-  }
-
   const reordered = finalOrder.map((p, i) => ({ ...p, order: i }));
-  const msg = `Price sync: ${priceDrops} price drops (in place), ${oos.length} OOS at bottom, ${zeroPrice.length} zero-price removed`;
+  const msg = `Price sync: ${priceDrops} price drops (in place), ${oos.length} OOS at bottom, ${newlyDead} newly tombstoned`;
   await saveProductsFile(reordered, sha, msg, env);
 
   return {
-    success: true, priceDrops, oosAtBottom: oos.length, zeroPriceRemoved: zeroPrice.length,
+    success: true, priceDrops, oosAtBottom: oos.length, newlyTombstoned: newlyDead,
     oosCount: [...productMap.values()].filter(p => p.outOfStock).length,
-    message: `Price sync done. ${priceDrops} price drops updated in place, ${oos.length} OOS at bottom, ${zeroPrice.length} zero-price removed.`,
+    message: `Price sync done. ${priceDrops} price drops updated in place, ${oos.length} OOS at bottom, ${newlyDead} newly tombstoned.`,
   };
 }
 
@@ -1085,11 +1075,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
     return { success: true, count: 0, message: `Amazon Deals sync: processed ${toProcess.length} ASINs, 0 valid deals (low discount or no data)` };
   }
 
-  const final = [...added, ...products].map((p, i) => ({ ...p, order: i }));
-  if (final.length > 720) {
-    await clearTgPostedForEvicted(final.slice(720), env).catch(e => console.error('Evict clear failed:', e.message));
-  }
-  const trimmed = final.length > 720 ? final.slice(0, 720) : final;
+  const trimmed = await capLiveAndBury([...added, ...products], env);
   await saveProductsFile(trimmed, sha, `Amazon deals sync: +${added.length}`, env);
   return { success: true, count: added.length, message: `Amazon Deals sync: added ${added.length} deal${added.length > 1 ? 's' : ''} from amazon.in/deals`, addedProducts: added };
 }
@@ -1283,6 +1269,49 @@ function isZeroPrice(p) {
   return !p.price || p.price === '₹0' || p.price === '₹';
 }
 
+// ── Tombstones ────────────────────────────────────────────────────────────────
+// Dead products (OOS / price gone) are kept in products.json as invisible
+// tombstones instead of being deleted. The source feeds (DR newest-240, IFS
+// trending) keep listing a product for days after it dies on Amazon; if we
+// dropped it from the array, the very next sync would see it as "new" and
+// re-add it at the top — and it recycled like that for DAYS (top of site →
+// OOS/₹0 → bottom → evicted → re-added at top, with a Telegram DM on every
+// lap; one geyser did 20 laps in two days). Tombstones block the re-add via
+// the syncs' existingByAsin check while hidden:true keeps them off the site
+// and out of the TG queue. They don't count toward the 720 live cap and are
+// pruned after 14 days — by then the feeds have long stopped listing them.
+const TOMBSTONE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+function isDead(p) {
+  return !!p.dead;
+}
+function makeTombstone(p) {
+  return { ...p, hidden: true, outOfStock: true, dead: new Date().toISOString() };
+}
+function pruneTombstones(list) {
+  const now = Date.now();
+  return list.filter(p => !p.dead || now - Date.parse(p.dead) < TOMBSTONE_TTL_MS);
+}
+
+// Cap live products at 720 and bury dead evictees. Only in-stock, priced
+// evictees get their TG-posted marks cleared (they genuinely aged out, so a
+// future return should post as new). OOS/zero-price evictees keep their marks
+// AND become tombstones — clearing + dropping them is exactly the recycle loop
+// described above.
+async function capLiveAndBury(all, env, cap = 720) {
+  const live = [], tombs = [];
+  for (const p of pruneTombstones(all)) (isDead(p) ? tombs : live).push(p);
+  let kept = live;
+  if (live.length > cap) {
+    kept = live.slice(0, cap);
+    const evicted = live.slice(cap);
+    const aged = evicted.filter(p => !p.outOfStock && !isZeroPrice(p));
+    const dead = evicted.filter(p => p.outOfStock || isZeroPrice(p));
+    if (aged.length) await clearTgPostedForEvicted(aged, env).catch(e => console.error('Evict clear failed:', e.message));
+    tombs.push(...dead.map(makeTombstone));
+  }
+  return [...kept, ...tombs].map((p, i) => ({ ...p, order: i }));
+}
+
 // ── Autopost toggle + manual-approval queue ───────────────────────────────────
 // When autopost is OFF, deals that would normally hit the channels are instead
 // DM'd to the admin with Approve/Reject buttons. Approving sends that one deal
@@ -1357,22 +1386,31 @@ async function queueForApproval(products, env) {
   const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const now = Date.now();
 
-  // Claim in tg_posted_ids BEFORE DMing — the 5-min cron picks candidates from
-  // this ledger, so an unclaimed queued deal gets re-queued on every cron tick
-  // (this shipped once: the admin DM filled up with the same 5 deals repeating).
+  // Claim in the DO ledger BEFORE DMing — authoritative and serialized, so a
+  // deal can only ever be claimed once no matter how many schedulers race.
+  // (The old KV-only claim raced: read-modify-write of one JSON value across
+  // colos lost claims, and the same deals re-DM'd the admin on every tick.)
   // Claiming also covers reject/expire: those must never resurface either.
-  // Approve is unaffected — the DO keeps its own authoritative ledger.
+  // NOTE: approving a queued deal must therefore send with force:true — its
+  // ledger marks already exist from this claim.
   const queued = [];
   try {
-    const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
-    const fresh = products.filter(p => !isAlreadyPosted(p, ids));
+    const items = products.map(p => ({ id: p.id, asin: p.asin || null }));
+    const { fresh } = await pendingApprovalsDO(env, '/posted/claim', { items });
     if (!fresh.length) return;
-    fresh.forEach(p => markPosted(p, ids));
-    await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
-    queued.push(...fresh);
+    const freshSet = new Set(fresh);
+    queued.push(...products.filter(p => freshSet.has(p.id)));
   } catch (e) {
     console.error('Approval claim failed — not queueing to avoid repeats:', e.message);
     return;
+  }
+  // Advisory KV mirror so the cron's cheap pre-check stops proposing these.
+  try {
+    const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+    queued.forEach(p => markPosted(p, ids));
+    await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
+  } catch (e) {
+    console.error('KV mirror failed (advisory only):', e.message);
   }
 
   const entries = [];
@@ -1486,7 +1524,10 @@ async function handleApprovalCallback(cq, env) {
 
   if (action === 'a') {
     // companionDm off: the approval DM above already carries these buttons.
-    await sendToChannels([entry.product], env, { companionDm: false });
+    // force: the DO ledger already holds this deal's marks from queue time
+    // (queueForApproval's /posted/claim) — without force the DO would skip it
+    // as "already posted". Safe: /pending/take is atomic, single approve only.
+    await sendToChannels([entry.product], env, { companionDm: false, force: true });
     await tgAnswerCallback(token, cq.id, '✅ Posted to channel');
     await tgSend(token, TG_ADMIN_ID, escTg(`✅ Approved & posted: ${entry.product.title.slice(0,60)}`));
   } else {
@@ -1620,6 +1661,7 @@ export class TgPoster {
   async dispatch(path, body) {
     switch (path) {
       case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force, body.companionDm !== false) };
+      case '/posted/claim': return this.postedClaim(body.items || []);
       case '/posted/check': return this.postedCheck(body.keys || []);
       case '/posted/clear': return this.postedClear(body.keys || []);
       case '/pending/put': return this.pendingPut(body.entries || []);
@@ -1628,6 +1670,29 @@ export class TgPoster {
       case '/pending/count': return this.pendingCount();
       default: throw new Error(`unknown path: ${path}`);
     }
+  }
+
+  // Atomically claim items for the approval queue: returns the ids that were
+  // NOT already in the posted ledger and marks them, all inside the DO's
+  // serialized chain. This is the authoritative dedup for admin DMs — the KV
+  // mirror alone raced (two 5-min schedulers doing read-modify-write on one
+  // JSON value across colos lost claims, and any ledger clear resurrected
+  // everything), which is how the same dead deal DM'd the admin 30+ times.
+  async postedClaim(items) {
+    await this.migrateFromKV();
+    const fresh = [];
+    const claim = {};
+    for (const it of items) {
+      if (!it?.id) continue;
+      const keys = [`posted:${it.id}`];
+      if (it.asin) keys.push(`posted:${it.asin.toUpperCase()}`);
+      const found = await this.ctx.storage.get(keys);
+      if ([...found.values()].some(Boolean)) continue;
+      fresh.push(it.id);
+      for (const k of keys) claim[k] = 1;
+    }
+    if (Object.keys(claim).length) await this.ctx.storage.put(claim);
+    return { ok: true, fresh };
   }
 
   // Which of these ids/asins are in the posted-to-channel ledger. Batched
