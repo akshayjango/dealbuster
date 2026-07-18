@@ -288,6 +288,7 @@
       padding: 24px; box-shadow: none;
     }
     .highlights-card h3 { font-size: 1.05rem; font-weight: 900; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.02em; }
+    .highlights-card h3::before { content: '✦ '; }
     .highlights-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
     .highlights-list li { display: flex; align-items: flex-start; gap: 10px; font-size: .9rem; color: var(--text); line-height: 1.6; font-weight: 600; }
     .hl-icon { font-size: 1.1rem; margin-top: -1px; flex-shrink: 0; color: var(--text); }
@@ -515,6 +516,152 @@
         border-right: none;
         z-index: 10;
       }
+
+      /* ── MOBILE REDESIGN: soft rounded cards, purple price, brand shadows on buttons ── */
+      .product-img-box {
+        border: none;
+        border-radius: 18px;
+        overflow: hidden;
+      }
+      .discount-pill {
+        top: 12px; left: 12px;
+        transform: none;
+        border: none;
+        border-radius: 10px;
+        box-shadow: none !important;
+        font-size: .95rem;
+        padding: 6px 12px;
+        background: #D1FF00;
+      }
+      .updated-pill--overlay {
+        top: 12px; right: 12px; bottom: auto; left: auto;
+        border: none !important;
+        border-radius: 999px;
+        background: var(--primary);
+        padding: 7px 13px;
+      }
+      .product-title {
+        text-align: center;
+        font-size: 1.35rem;
+        font-weight: 800;
+        padding: 0 4px;
+      }
+      .detail-col { gap: 16px; }
+      .price-card {
+        background: #fff;
+        border: none;
+        border-radius: 18px;
+        padding: 20px 16px 16px;
+      }
+      .price-row {
+        justify-content: center;
+        margin-bottom: 18px;
+        row-gap: 8px;
+      }
+      .price-current {
+        background: none;
+        border: none;
+        box-shadow: none !important;
+        color: var(--primary);
+        padding: 0;
+        font-size: 2.3rem;
+      }
+      .savings-tag {
+        border: none;
+        border-radius: 8px;
+        padding: 5px 10px;
+        align-self: center;
+      }
+      .cta-btn { border-radius: 12px; }
+      .share-btn { border-radius: 12px; }
+      .cta-disclaimer {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        text-align: left;
+        background: #EFEBFF;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-top: 14px;
+        color: #4a4a68;
+        font-size: .78rem;
+        line-height: 1.6;
+      }
+      .cta-disclaimer::before {
+        content: 'ⓘ';
+        color: var(--primary);
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.3;
+        flex-shrink: 0;
+      }
+      .highlights-card {
+        border: none;
+        border-radius: 18px;
+        padding: 18px 16px;
+      }
+      .highlights-card h3 {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .highlights-card h3::before {
+        content: '▤';
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px; height: 34px;
+        background: var(--primary);
+        color: #fff;
+        border-radius: 10px;
+        font-size: 1.05rem;
+        flex-shrink: 0;
+      }
+      .hot-deals-wrap h2 {
+        background: none;
+        border: none;
+        box-shadow: none !important;
+        padding: 0;
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 12px;
+        font-size: 1.05rem;
+      }
+      .hot-deals-wrap h2::after {
+        content: '';
+        flex: 1;
+        height: 2px;
+        background: rgba(26, 26, 46, 0.12);
+      }
+      .hot-deal-card {
+        border: none;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(26, 26, 46, 0.08) !important;
+      }
+      .hot-deal-img-box { border-bottom: none; }
+      .hot-deal-disc {
+        top: 8px; left: 8px;
+        background: var(--primary);
+        border: none;
+        border-radius: 8px;
+        padding: 3px 9px;
+      }
+      .hot-deal-price-current {
+        border: none;
+        border-radius: 6px;
+      }
+      .hot-deal-btn {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 10px;
+        box-shadow: 2px 2px 0px var(--text) !important;
+      }
+      .hot-deal-card:hover .hot-deal-btn { background: var(--primary) !important; }
     }
 
     @media(max-width: 400px) {
@@ -588,7 +735,7 @@
         <a href="#" class="cta-btn" id="ctaBtn" target="_blank" rel="noopener noreferrer">Check Latest Price on Amazon →</a>
         <button class="share-btn" id="shareBtn" onclick="shareDeal()" aria-label="Share deal">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
-          <span>Share</span>
+          <span>Share This Deal</span>
         </button>
       </div>
       <p class="cta-note">As an Amazon Associate, I earn from qualifying purchases.</p>
@@ -597,7 +744,7 @@
 
     <!-- Description -->
     <div class="highlights-card">
-      <h3>✦ Product Description</h3>
+      <h3>Product Description</h3>
       <ul class="highlights-list" id="highlightsList">
         <li><span class="hl-icon">•</span> Loading description…</li>
       </ul>
