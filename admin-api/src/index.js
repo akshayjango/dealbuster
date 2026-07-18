@@ -720,8 +720,10 @@ async function checkAndCleanDeals(env) {
   // clearing them is what let every re-add DM the admin again. OOS takes
   // priority when a product is somehow both, so an OOS item survives visible
   // (it has a real price to come back to).
+  // Existing tombstones pass through untouched — capLiveAndBury (every sync
+  // run) owns expiry, because expiry must also clear the TG ledger.
   const mid = [], oos = [], tombs = [];
-  for (const p of pruneTombstones(products)) {
+  for (const p of products) {
     const updated = productMap.get(p.id) || p;
     if (isDead(updated)) tombs.push(updated);
     else if (updated.outOfStock) oos.push(updated);
@@ -1287,27 +1289,28 @@ function isDead(p) {
 function makeTombstone(p) {
   return { ...p, hidden: true, outOfStock: true, dead: new Date().toISOString() };
 }
-function pruneTombstones(list) {
-  const now = Date.now();
-  return list.filter(p => !p.dead || now - Date.parse(p.dead) < TOMBSTONE_TTL_MS);
-}
-
-// Cap live products at 720 and bury dead evictees. Only in-stock, priced
-// evictees get their TG-posted marks cleared (they genuinely aged out, so a
-// future return should post as new). OOS/zero-price evictees keep their marks
-// AND become tombstones — clearing + dropping them is exactly the recycle loop
-// described above.
+// Cap live products at 720. EVERY evictee becomes a tombstone — in-stock ones
+// too, not just dead ones. At current add volume the cap evicts in ~1-3 days
+// while the DR feed still lists a deal for ~2+ days, so clearing TG marks at
+// eviction time re-DM'd even healthy deals when the feed re-added them the
+// next cycle. The ledger clear now happens when a tombstone EXPIRES (14 days):
+// by then the feeds have long dropped the deal, so if it ever comes back it's
+// a genuine return and posts to Telegram as new.
 async function capLiveAndBury(all, env, cap = 720) {
-  const live = [], tombs = [];
-  for (const p of pruneTombstones(all)) (isDead(p) ? tombs : live).push(p);
+  const now = Date.now();
+  const live = [], tombs = [], expired = [];
+  for (const p of all) {
+    if (!isDead(p)) live.push(p);
+    else if (now - Date.parse(p.dead) < TOMBSTONE_TTL_MS) tombs.push(p);
+    else expired.push(p);
+  }
   let kept = live;
   if (live.length > cap) {
     kept = live.slice(0, cap);
-    const evicted = live.slice(cap);
-    const aged = evicted.filter(p => !p.outOfStock && !isZeroPrice(p));
-    const dead = evicted.filter(p => p.outOfStock || isZeroPrice(p));
-    if (aged.length) await clearTgPostedForEvicted(aged, env).catch(e => console.error('Evict clear failed:', e.message));
-    tombs.push(...dead.map(makeTombstone));
+    tombs.push(...live.slice(cap).map(makeTombstone));
+  }
+  if (expired.length) {
+    await clearTgPostedForEvicted(expired, env).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
   }
   return [...kept, ...tombs].map((p, i) => ({ ...p, order: i }));
 }
@@ -1351,11 +1354,13 @@ async function pendingApprovalsDO(env, path, body) {
   return r.json();
 }
 
-// When deals are evicted at the 720 cap, erase them from the TG posted ledger
-// (DO authoritative + KV advisory mirror) so a future re-add — manual or from
-// any sync — goes to the channel again like a brand-new deal. Best-effort: if
-// either clear fails the deal just stays "posted" and a re-add is silently
-// skipped (missed post, never a duplicate — the preferred failure mode).
+// When a tombstone expires (14 days after burial), erase it from the TG posted
+// ledger (DO authoritative + KV advisory mirror) so a genuine future return —
+// manual or from any sync — goes to the channel again like a brand-new deal.
+// NEVER call this at eviction time: the feeds still list freshly evicted deals,
+// and clearing then re-DM'd every re-add. Best-effort: if either clear fails
+// the deal just stays "posted" and a re-add is silently skipped (missed post,
+// never a duplicate — the preferred failure mode).
 async function clearTgPostedForEvicted(evicted, env) {
   const keys = [];
   for (const p of evicted || []) {
