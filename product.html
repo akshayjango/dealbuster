@@ -517,87 +517,10 @@
         z-index: 10;
       }
 
-      /* ── MOBILE REDESIGN: soft rounded cards, purple price, brand shadows on buttons ── */
-      .product-img-box {
-        border: none;
-        border-radius: 18px;
-        overflow: hidden;
-      }
-      .discount-pill {
-        top: 12px; left: 12px;
-        transform: none;
-        border: none;
-        border-radius: 10px;
-        box-shadow: none !important;
-        font-size: .95rem;
-        padding: 6px 12px;
-        background: #D1FF00;
-      }
-      .updated-pill--overlay {
-        top: 12px; right: 12px; bottom: auto; left: auto;
-        border: none !important;
-        border-radius: 999px;
-        background: var(--primary);
-        padding: 7px 13px;
-      }
-      .product-title {
-        text-align: center;
-        font-size: 1.35rem;
-        font-weight: 800;
-        padding: 0 4px;
-      }
-      .detail-col { gap: 16px; }
-      .price-card {
-        background: #fff;
-        border: none;
-        border-radius: 18px;
-        padding: 20px 16px 16px;
-      }
-      .price-row {
-        justify-content: center;
-        margin-bottom: 18px;
-        row-gap: 8px;
-      }
-      .price-current {
-        background: none;
-        border: none;
-        box-shadow: none !important;
-        color: var(--primary);
-        padding: 0;
-        font-size: 2.3rem;
-      }
-      .savings-tag {
-        border: none;
-        border-radius: 8px;
-        padding: 5px 10px;
-        align-self: center;
-      }
-      .cta-btn { border-radius: 12px; }
-      .share-btn { border-radius: 12px; }
+      /* Price/availability disclaimer hidden on mobile */
       .cta-disclaimer { display: none !important; }
-      .highlights-card {
-        border: none;
-        border-radius: 18px;
-        padding: 18px 16px;
-      }
-      .highlights-card h3 {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 14px;
-      }
-      .highlights-card h3::before {
-        content: '▤';
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 34px; height: 34px;
-        background: var(--primary);
-        color: #fff;
-        border-radius: 10px;
-        font-size: 1.05rem;
-        flex-shrink: 0;
-      }
+
+      /* ── HOT DEALS (mobile): new colour style, SHARP edges — no border-radius ── */
       .hot-deals-wrap h2 {
         background: none;
         border: none;
@@ -617,7 +540,6 @@
       }
       .hot-deal-card {
         border: none;
-        border-radius: 16px;
         overflow: hidden;
         box-shadow: 0 2px 10px rgba(26, 26, 46, 0.08) !important;
       }
@@ -626,18 +548,13 @@
         top: 8px; left: 8px;
         background: var(--primary);
         border: none;
-        border-radius: 8px;
         padding: 3px 9px;
       }
-      .hot-deal-price-current {
-        border: none;
-        border-radius: 6px;
-      }
+      .hot-deal-price-current { border: none; }
       .hot-deal-btn {
         background: var(--primary);
         color: #fff;
         border: none;
-        border-radius: 10px;
         padding: 10px;
         box-shadow: 2px 2px 0px var(--text) !important;
       }
