@@ -88,7 +88,23 @@ async function getProductsFile(env) {
   if (resp.status === 404) return { products: [], sha: null };
   if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.message || `GitHub fetch failed: ${resp.status}`); }
   const file = await resp.json();
-  const rawBytes = atob(file.content.replace(/\n/g, ''));
+
+  // The Contents API only inlines file content for files <=1MB. products.json
+  // crossed that line (grown past 1,048,576 bytes) — past it GitHub returns
+  // content:"" + encoding:"none" instead of an error, so every reader silently
+  // got an empty string, atob('') -> '', JSON.parse('') -> "Unexpected end of
+  // JSON input". Every sync AND the admin dashboard read through here, so this
+  // one crossing broke everything at once. Fall back to the Git Blobs API,
+  // which returns base64 content regardless of size (up to 100MB).
+  let base64 = file.content;
+  if (!base64 || file.encoding === 'none') {
+    const blobUrl = `https://api.github.com/repos/akshayjango/dealbuster/git/blobs/${file.sha}`;
+    const blobResp = await fetch(blobUrl, { headers: ghHeaders(env) });
+    if (!blobResp.ok) { const err = await blobResp.json().catch(() => ({})); throw new Error(err.message || `GitHub blob fetch failed: ${blobResp.status}`); }
+    base64 = (await blobResp.json()).content;
+  }
+
+  const rawBytes = atob(base64.replace(/\n/g, ''));
   const uint8 = new Uint8Array(rawBytes.length);
   for (let i = 0; i < rawBytes.length; i++) uint8[i] = rawBytes.charCodeAt(i);
   const products = JSON.parse(new TextDecoder('utf-8').decode(uint8));
