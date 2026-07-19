@@ -1418,7 +1418,6 @@ async function queueForApproval(products, env) {
   try {
     const items = products.map(p => ({ id: p.id, asin: p.asin || null }));
     const { fresh } = await pendingApprovalsDO(env, '/posted/claim', { items });
-    if (!fresh.length) return;
     const freshSet = new Set(fresh);
     queued.push(...products.filter(p => freshSet.has(p.id)));
   } catch (e) {
@@ -1426,13 +1425,26 @@ async function queueForApproval(products, env) {
     return;
   }
   // Advisory KV mirror so the cron's cheap pre-check stops proposing these.
+  // Mark EVERY requested product, not just the ones that came back fresh. If
+  // the DO already held some of these as posted (e.g. a prior tick's mirror
+  // write failed right after a successful DO claim), this is the only place
+  // that heals the mirror for them. The old code returned early when nothing
+  // came back fresh — skipping this block entirely — so once the mirror fell
+  // behind the DO even once, getUnpostedTgFresh kept re-selecting the same
+  // already-claimed ids forever: every tick got fresh:[] and bailed before
+  // reaching here, permanently wedging the front of the queue and silently
+  // starving all genuinely new deals behind it (no error logged either —
+  // this is exactly how posting went quiet for 43 minutes with fresh deals
+  // sitting in products.json the whole time).
   try {
     const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
-    queued.forEach(p => markPosted(p, ids));
+    products.forEach(p => markPosted(p, ids));
     await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
   } catch (e) {
     console.error('KV mirror failed (advisory only):', e.message);
   }
+
+  if (!queued.length) return;
 
   const entries = [];
   for (const p of queued) {
