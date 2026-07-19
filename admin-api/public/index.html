@@ -2186,7 +2186,9 @@ document.addEventListener('click', function(e) {
 async function updateNotifications() {
   const priceAlerts = allProducts.filter(p => p.lowestPriceText);
   const dropAlerts  = allProducts.filter(p => p.priceDropText);
-  const oosAlerts   = allProducts.filter(p => p.outOfStock);
+  // OOS intentionally excluded from the notification bar — too noisy. Products
+  // still get pushed to the bottom via the price sync; use the ⚠ OOS filter
+  // in the product list toolbar to review them instead.
 
   let syncErrors = [], amazonAlerts = [];
   try {
@@ -2200,7 +2202,7 @@ async function updateNotifications() {
 
   const badge = document.getElementById('notificationBadge');
   const list  = document.getElementById('notificationList');
-  const total = priceAlerts.length + dropAlerts.length + oosAlerts.length + amazonAlerts.length + syncErrors.length;
+  const total = priceAlerts.length + dropAlerts.length + amazonAlerts.length + syncErrors.length;
 
   badge.textContent = total;
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
@@ -2245,25 +2247,6 @@ async function updateNotifications() {
     `).join('')}
   ` : '';
 
-  const oosSect = oosAlerts.length ? `
-    <div id="oosNotifSection" style="transition:opacity .25s ease, max-height .25s ease;">
-    <div style="padding:6px 12px 4px;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;display:flex;align-items:center;justify-content:space-between;">
-      <span>📦 Out of Stock (${oosAlerts.length})</span>
-      <span onclick="pushAllOOSToBottomFromNotif()" style="cursor:pointer;color:#dc2626;font-size:.68rem;font-weight:600;">⬇ Push All to Bottom</span>
-    </div>
-    ${oosAlerts.map(p => `
-      <div onclick="goToProduct('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:8px;margin:0 4px 2px;cursor:pointer;transition:background .15s;" onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''">
-        <img src="${escHtml(p.image||'')}" alt="" style="width:36px;height:36px;object-fit:contain;background:#f9fafb;border-radius:6px;flex-shrink:0;border:1px solid #e5e7eb;" onerror="this.style.display='none'"/>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(p.title)}</div>
-          <div style="font-size:.72rem;color:#dc2626;font-weight:700;margin-top:2px;">Out of stock on Amazon</div>
-        </div>
-        <button onclick="dismissOOS(event,'${p.id}')" title="Mark resolved" style="border:none;background:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:50%;display:flex;">${xBtn}</button>
-      </div>
-    `).join('')}
-    </div>
-  ` : '';
-
   const amzSect = amazonAlerts.length ? `
     <div style="padding:6px 12px 4px;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px;display:flex;align-items:center;justify-content:space-between;">
       <span>🏷️ Amazon Deals (${amazonAlerts.length})</span>
@@ -2299,7 +2282,7 @@ async function updateNotifications() {
     `).join('')}
   ` : '';
 
-  list.innerHTML = dropSect + priceSect + oosSect + amzSect + errSect;
+  list.innerHTML = dropSect + priceSect + amzSect + errSect;
 }
 
 async function dismissPriceDrop(event, id) {
@@ -2355,56 +2338,6 @@ async function clearAllNotifications() {
     updateStats(); renderList(); updateNotifications();
     document.getElementById('notificationDropdown').style.display = 'none';
   } catch (e) { alert('Failed to dismiss all alerts: ' + e.message); }
-}
-
-async function dismissOOS(event, id) {
-  event.stopPropagation();
-  try {
-    const resp = await apiFetch(`/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ outOfStock: false }) });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    const idx = allProducts.findIndex(p => p.id === id);
-    if (idx !== -1) allProducts[idx].outOfStock = false;
-    updateStats(); renderList(); updateNotifications();
-  } catch (e) { alert('Failed to dismiss: ' + e.message); }
-}
-
-async function pushAllOOSToBottomFromNotif() {
-  const oosIds = allProducts.filter(p => p.outOfStock).map(p => p.id);
-  if (!oosIds.length) return;
-  // Move all OOS to end, preserving relative order of non-OOS
-  allProducts = [
-    ...allProducts.filter(p => !p.outOfStock),
-    ...allProducts.filter(p => p.outOfStock),
-  ].map((p, i) => ({ ...p, order: i }));
-  renderList();
-  const orderedIds = allProducts.map(p => p.id);
-  try {
-    const resp = await apiFetch('/products/reorder', { method: 'POST', body: { orderedIds } });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    // Dismiss all OOS notifications
-    await apiFetch('/products/clear-oos-notifications', { method: 'POST' });
-    // Server flag is cleared, but allProducts is local state — clear it here too,
-    // otherwise the notif panel keeps showing these until a full page reload.
-    allProducts.forEach(p => { if (oosIds.includes(p.id)) p.outOfStock = false; });
-    fadeOutOOSSection();
-  } catch (e) {
-    alert('Failed: ' + e.message);
-    loadProducts();
-  }
-}
-
-function fadeOutOOSSection() {
-  const sect = document.getElementById('oosNotifSection');
-  if (!sect) { updateNotifications(); return; }
-  sect.style.overflow = 'hidden';
-  sect.style.maxHeight = sect.scrollHeight + 'px';
-  requestAnimationFrame(() => {
-    sect.style.opacity = '0';
-    sect.style.maxHeight = '0px';
-  });
-  setTimeout(updateNotifications, 250);
 }
 
 async function clearSyncErrors() {
