@@ -278,7 +278,22 @@ function detectCategoryFromTitle(title) {
 // Returns { badge: string|null, highlights: string[], category: string|null }
 async function fetchAmazonPageData(asin) {
   try {
-    const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
+    // Hard timeout — this fetch runs inline in the TG posting path (isLowestPriceDeal,
+    // called once per deal right before it's sent). Amazon can go slow or start
+    // rate-limiting a scraping pattern; with no timeout that hangs the WHOLE cron
+    // invocation until Cloudflare's wall-clock limit kills it — silently, no
+    // catchable exception, no error logged, nothing committed. That's exactly what
+    // froze every sync (site, TG bot, dashboard) for 5 hours on 2026-07-20: the
+    // stuck invocation never reached queueForApproval's later steps, so nothing
+    // after it in the queue could progress either, tick after tick.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    let r;
+    try {
+      r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!r.ok) return { badge: null, highlights: [], category: null };
     const html = await r.text();
 
@@ -1496,9 +1511,16 @@ async function queueForApproval(products, env) {
 
   if (!queued.length) return;
 
+  // Run all badge checks concurrently — each is now individually timeout-bounded
+  // (5s), but awaiting them one at a time in the send loop below still multiplied
+  // that into up to batchSize x 5s of added latency worst case. Concurrent here
+  // caps the whole batch's worst case at a single 5s window.
+  const lowestFlags = await Promise.all(queued.map(p => isLowestPriceDeal(p.asin).catch(() => false)));
+
   const entries = [];
-  for (const p of queued) {
-    const isLowest = await isLowestPriceDeal(p.asin).catch(() => false);
+  for (let qi = 0; qi < queued.length; qi++) {
+    const p = queued[qi];
+    const isLowest = lowestFlags[qi];
     const text = formatDealMsg(p, tag, isLowest);
     const keyboard = { inline_keyboard: [
       [
