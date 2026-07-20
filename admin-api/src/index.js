@@ -420,7 +420,8 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
       // on schedule; if a sync or manual add brings it back after eviction, it
       // enters as a genuinely new deal then.
       if (newPrice && existingPrice && newPrice < existingPrice) {
-        updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false });
+        const priceHistory = appendPriceHistory(existing, priceStr);
+        updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory });
       }
     } else {
       if (added.length >= limit) break;
@@ -624,6 +625,27 @@ function parsePrice(str) {
   return n > 0 ? Math.round(n) : null;
 }
 
+// Our own price-history tracker — no external API (Keepa is a paid product
+// with real token limits; we already fetch prices ourselves via the Creators
+// API and DR feed, this just stops throwing that data away). Only appends
+// when the price actually changes, not on every check, so growth tracks real
+// volatility instead of check frequency — most products change price rarely,
+// keeping products.json's size increase small. Capped at 40 points/product as
+// a hard ceiling regardless (products.json already crossed GitHub's 1MB
+// Contents-API inline-read limit once; the Git-Blobs-API fallback handles any
+// size now, but there's no reason to let this grow unbounded either).
+const PRICE_HISTORY_CAP = 40;
+function appendPriceHistory(product, newPriceStr) {
+  const history = Array.isArray(product.priceHistory) ? [...product.priceHistory] : [];
+  if (!history.length) {
+    // Seed with the price the product started at, so the chart always has a
+    // real first point instead of starting mid-story at the first change.
+    history.push({ date: product.addedAt || new Date().toISOString(), price: product.price });
+  }
+  history.push({ date: new Date().toISOString(), price: newPriceStr });
+  return history.slice(-PRICE_HISTORY_CAP);
+}
+
 async function checkAndCleanDeals(env) {
   const { products, sha } = await getProductsFile(env);
   if (!products.length) return { success: true, message: 'No products to check.' };
@@ -698,9 +720,13 @@ async function checkAndCleanDeals(env) {
         const newMrpStr = '₹' + Math.round(amMrp).toLocaleString('en-IN');
         const newDiscStr = newDisc > 0 ? `-${newDisc}%` : '0%';
 
-        const priceChanged = updated.price !== newPriceStr || updated.mrp !== newMrpStr || updated.disc !== newDiscStr;
+        const priceStrChanged = updated.price !== newPriceStr;
+        const priceChanged = priceStrChanged || updated.mrp !== newMrpStr || updated.disc !== newDiscStr;
         const priceDrop = dbPrice !== null && amPrice < dbPrice;
 
+        if (priceStrChanged) {
+          updated.priceHistory = appendPriceHistory(updated, newPriceStr);
+        }
         if (priceChanged) {
           updated.price = newPriceStr;
           updated.mrp = newMrpStr;

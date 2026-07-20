@@ -293,6 +293,32 @@
     .highlights-list li { display: flex; align-items: flex-start; gap: 10px; font-size: .9rem; color: var(--text); line-height: 1.6; font-weight: 600; }
     .hl-icon { font-size: 1.1rem; margin-top: -1px; flex-shrink: 0; color: var(--text); }
 
+    /* PRICE HISTORY */
+    .price-history-wrap { max-width: 960px; margin: 50px auto 0; padding: 0 20px; }
+    .price-history-wrap h2 {
+      font-size: 1.4rem; font-weight: 900; margin-bottom: 24px; color: var(--text);
+      display: inline-flex; align-items: center; gap: 8px; text-transform: uppercase;
+      background: #fff; border: 2px solid var(--text); padding: 6px 16px;
+      box-shadow: 3px 3px 0px var(--text);
+    }
+    .price-history-wrap h2::before { content: '📈 '; }
+    .price-history-card {
+      background: var(--card-bg); border: 2px solid var(--text);
+      padding: 24px; box-shadow: none;
+    }
+    .ph-stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .ph-stat {
+      flex: 1; min-width: 100px; background: #F6ECE5; border: 2px solid var(--text);
+      padding: 10px 14px; text-align: center;
+    }
+    .ph-stat-label { display: block; font-size: .7rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.04em; margin-bottom: 4px; }
+    .ph-stat-value { display: block; font-size: 1.2rem; font-weight: 900; color: var(--text); }
+    .ph-stat.is-low .ph-stat-value { color: #15803d; }
+    .ph-stat.is-high .ph-stat-value { color: #b91c1c; }
+    .ph-chart-box { width: 100%; overflow-x: auto; }
+    .ph-chart-box svg { display: block; width: 100%; height: auto; min-width: 320px; }
+    .ph-note { font-size: .82rem; color: var(--muted); margin-top: 14px; text-align: center; font-weight: 600; }
+
     /* HOT DEALS SECTION */
     .hot-deals-wrap { max-width: 960px; margin: 50px auto 60px; padding: 0 20px; }
     .hot-deals-wrap h2 {
@@ -460,6 +486,11 @@
 
       .highlights-card { padding: 18px; }
 
+      .price-history-wrap { padding: 0 14px; }
+      .price-history-wrap h2 { font-size: 1.25rem; margin-bottom: 18px; }
+      .price-history-card { padding: 18px; }
+      .ph-stat-value { font-size: 1.05rem; }
+
       .hot-deals-wrap { padding: 0 14px; margin-bottom: 40px; }
       .hot-deals-wrap h2 { font-size: 1.25rem; margin-bottom: 18px; }
       .hot-deals-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -496,6 +527,8 @@
       .price-card,
       .verdict,
       .highlights-card,
+      .price-history-wrap h2,
+      .price-history-card,
       .hot-deals-wrap h2,
       .hot-deal-card,
       .affiliate-note {
@@ -650,6 +683,20 @@
   </div>
 </div>
 
+<!-- PRICE HISTORY -->
+<div class="price-history-wrap" id="priceHistoryWrap" style="display:none;">
+  <h2>Price History</h2>
+  <div class="price-history-card">
+    <div class="ph-stats" id="phStats">
+      <div class="ph-stat is-low"><span class="ph-stat-label">Lowest</span><span class="ph-stat-value" id="phLow">–</span></div>
+      <div class="ph-stat"><span class="ph-stat-label">Current</span><span class="ph-stat-value" id="phCurrent">–</span></div>
+      <div class="ph-stat is-high"><span class="ph-stat-label">Highest</span><span class="ph-stat-value" id="phHigh">–</span></div>
+    </div>
+    <div class="ph-chart-box" id="phChartBox"></div>
+    <p class="ph-note" id="phNote"></p>
+  </div>
+</div>
+
 <!-- HOT DEALS RIGHT NOW -->
 <div class="hot-deals-wrap">
   <h2>Hot Deals Right Now</h2>
@@ -781,13 +828,91 @@
     hlList.innerHTML = '<li><span class="hl-icon">•</span> High quality product with a great discount</li>';
   }
 
-  // ── Load Hot Deals Right Now ──
+  // Renders the price-history chart as a hand-drawn SVG (straight segments,
+  // square markers, thick borders — matches the site's brutalist look rather
+  // than a soft gradient area chart). `product` is this deal's own record
+  // from products.json (or null if not found/no ASIN); `fallbackPrice` is the
+  // price carried in the share URL, used to seed a single point when there's
+  // no history yet so the stat row still shows something.
+  function renderPriceHistory(product, fallbackPrice) {
+    const wrap = document.getElementById('priceHistoryWrap');
+    const statsEl = document.getElementById('phStats');
+    const chartBox = document.getElementById('phChartBox');
+    const note = document.getElementById('phNote');
+
+    const toNum = s => { const n = parseInt(String(s || '').replace(/[^0-9]/g, ''), 10); return isNaN(n) ? null : n; };
+
+    const raw = (product && Array.isArray(product.priceHistory)) ? product.priceHistory : [];
+    const points = raw
+      .map(h => ({ date: new Date(h.date), price: toNum(h.price) }))
+      .filter(pt => pt.price !== null && !isNaN(pt.date.getTime()))
+      .sort((a, b) => a.date - b.date);
+
+    wrap.style.display = '';
+
+    if (points.length < 2) {
+      statsEl.style.display = 'none';
+      chartBox.innerHTML = '';
+      note.textContent = "We just started tracking this deal's price — check back later to see how it's moved.";
+      return;
+    }
+
+    const prices = points.map(pt => pt.price);
+    const low = Math.min(...prices);
+    const high = Math.max(...prices);
+    const cur = prices[prices.length - 1];
+
+    statsEl.style.display = '';
+    document.getElementById('phLow').textContent = '₹' + low.toLocaleString('en-IN');
+    document.getElementById('phHigh').textContent = '₹' + high.toLocaleString('en-IN');
+    document.getElementById('phCurrent').textContent = '₹' + cur.toLocaleString('en-IN');
+    note.textContent = '';
+
+    const W = 700, H = 260, padL = 60, padR = 16, padT = 20, padB = 34;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const yMin = low === high ? low - 1 : low;
+    const yMax = low === high ? high + 1 : high;
+    const xFor = i => padL + (points.length === 1 ? 0 : (plotW * i) / (points.length - 1));
+    const yFor = v => padT + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+    const linePts = points.map((pt, i) => `${xFor(i).toFixed(1)},${yFor(pt.price).toFixed(1)}`).join(' ');
+    const markers = points.map((pt, i) => {
+      const x = xFor(i), y = yFor(pt.price);
+      return `<rect x="${(x-4).toFixed(1)}" y="${(y-4).toFixed(1)}" width="8" height="8" fill="#6c47ff" stroke="#1a1a2e" stroke-width="1.5"/>`;
+    }).join('');
+    const fmtDate = d => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+    chartBox.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Price history chart">
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="#1a1a2e" stroke-width="2"/>
+        <line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="#1a1a2e" stroke-width="2"/>
+        <text x="${padL-8}" y="${padT+4}" text-anchor="end" font-size="12" font-weight="700" fill="#1a1a2e">₹${yMax.toLocaleString('en-IN')}</text>
+        <text x="${padL-8}" y="${padT+plotH+4}" text-anchor="end" font-size="12" font-weight="700" fill="#1a1a2e">₹${yMin.toLocaleString('en-IN')}</text>
+        <polyline points="${linePts}" fill="none" stroke="#6c47ff" stroke-width="3" stroke-linejoin="miter" stroke-linecap="square"/>
+        ${markers}
+        <text x="${padL}" y="${H-8}" font-size="12" font-weight="700" fill="#6b7280">${fmtDate(points[0].date)}</text>
+        <text x="${padL+plotW}" y="${H-8}" text-anchor="end" font-size="12" font-weight="700" fill="#6b7280">${fmtDate(points[points.length-1].date)}</text>
+      </svg>
+    `;
+  }
+
+  // ── Load Hot Deals Right Now + this product's own Price History ──
   (async () => {
     try {
       const resp = await fetch('products.json?t=' + Date.now());
       if (!resp.ok) return;
       const data = await resp.json();
-      const products = (Array.isArray(data) ? data : (data.products || []))
+      const allProducts = Array.isArray(data) ? data : (data.products || []);
+
+      // Find this exact product (by ASIN, extracted from the Amazon link) to
+      // read its priceHistory — the URL only carries the snapshot price/mrp
+      // at share-time, not the running history array.
+      const asinMatch = link.match(/\/dp\/([A-Z0-9]{10})/i);
+      const asin = asinMatch ? asinMatch[1].toUpperCase() : null;
+      const self = asin ? allProducts.find(x => (x.asin || '').toUpperCase() === asin) : null;
+      renderPriceHistory(self, current);
+
+      const products = allProducts
         .filter(p => !p.hidden && p.title !== title && p.price && p.price !== '₹0' && p.price !== '₹');
 
       // Get 4 random deals from the latest 20 products
