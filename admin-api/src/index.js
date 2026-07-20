@@ -1235,9 +1235,9 @@ function dealLink(product, tag) {
     : product.link || '';
 }
 
-function formatDealMsg(product, tag) {
+function formatDealMsg(product, tag, isLowest = false) {
   const link = dealLink(product, tag);
-  const title = escHtml(trimTitle(product.title));
+  const title = (isLowest ? 'Lowest ' : '') + escHtml(trimTitle(product.title));
   const price = product.price || '';
   const mrp = product.mrp || '';
   const disc = product.disc || '';
@@ -1250,12 +1250,26 @@ function formatDealMsg(product, tag) {
 
 // Plain-text caption for pasting into the Facebook deals group. No HTML/markdown
 // (FB ignores formatting) — emojis + blank lines only.
-function formatFbCaption(product, tag) {
-  const title = trimTitle(product.title);
+function formatFbCaption(product, tag, isLowest = false) {
+  const title = (isLowest ? 'Lowest ' : '') + trimTitle(product.title);
   const price = product.price || '';
   const link = dealLink(product, tag);
   const priceBlock = price ? `💥 Deal Price @ ${price} 👇\n${link}` : `👇\n${link}`;
   return `🔥 ${title}\n${priceBlock}`;
+}
+
+// Live "Lowest price in N days / ever" check — reads the SAME Amazon-native
+// badge checkLowestPriceBadges already scrapes in the background (one HTTP
+// fetch of the product page + regex, no external API, no key, no token
+// quota — unlike Keepa's API, which is a paid product with real per-token
+// limits and no meaningful free tier for this volume). Checked live right
+// before a deal is sent, rather than relying on the background badge sweep,
+// since that only covers 15 products/15min and a brand-new deal would post
+// before its turn came up.
+async function isLowestPriceDeal(asin) {
+  if (!asin) return false;
+  const { badge } = await fetchAmazonPageData(asin);
+  return !!badge;
 }
 
 // Tracks which products have already been posted — by id AND by ASIN. ASIN is the
@@ -1458,7 +1472,8 @@ async function queueForApproval(products, env) {
 
   const entries = [];
   for (const p of queued) {
-    const text = formatDealMsg(p, tag);
+    const isLowest = await isLowestPriceDeal(p.asin).catch(() => false);
+    const text = formatDealMsg(p, tag, isLowest);
     const keyboard = { inline_keyboard: [
       [
         { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
@@ -1534,7 +1549,8 @@ async function handleApprovalCallback(cq, env) {
         return new Response('ok');
       }
       const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
-      const caption = formatFbCaption(p, tag);
+      const isLowest = await isLowestPriceDeal(p.asin).catch(() => false);
+      const caption = formatFbCaption(p, tag, isLowest);
       await tgSend(token, TG_ADMIN_ID, `<pre>${escHtml(caption)}</pre>`, { parse_mode: 'HTML' });
       await tgAnswerCallback(token, cq.id, '📘 Caption sent — tap it to copy');
     } catch (e) {
@@ -1933,7 +1949,8 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
   const noPrice = !product.price || product.price === '₹0' || product.price === '₹';
   if (noPrice) return;
   const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
-  const msg = formatDealMsg(product, tag);
+  const isLowest = await isLowestPriceDeal(product.asin).catch(() => false);
+  const msg = formatDealMsg(product, tag, isLowest);
   for (const ch of TG_CHANNELS) {
     try {
       if (product.image) {
