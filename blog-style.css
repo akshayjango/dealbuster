@@ -36,7 +36,7 @@ header {
 .logo {
   font-size: 1.3rem; font-weight: 800; color: var(--text); letter-spacing: -0.3px; text-decoration: none;
   background: none; border: none; padding: 0; box-shadow: none;
-  transition: none; text-transform: none;
+  transition: none; text-transform: uppercase;
 }
 .logo:hover {
   transform: none;
