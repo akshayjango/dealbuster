@@ -1326,7 +1326,7 @@ async function capLiveAndBury(all, env, cap = 720) {
     tombs.push(...live.slice(cap).map(makeTombstone));
   }
   if (expired.length) {
-    await clearTgPostedForEvicted(expired, env).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
+    await clearTgPostedMarks(expired, env).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
   }
   return [...kept, ...tombs].map((p, i) => ({ ...p, order: i }));
 }
@@ -1370,16 +1370,26 @@ async function pendingApprovalsDO(env, path, body) {
   return r.json();
 }
 
-// When a tombstone expires (14 days after burial), erase it from the TG posted
-// ledger (DO authoritative + KV advisory mirror) so a genuine future return —
-// manual or from any sync — goes to the channel again like a brand-new deal.
-// NEVER call this at eviction time: the feeds still list freshly evicted deals,
-// and clearing then re-DM'd every re-add. Best-effort: if either clear fails
-// the deal just stays "posted" and a re-add is silently skipped (missed post,
-// never a duplicate — the preferred failure mode).
-async function clearTgPostedForEvicted(evicted, env) {
+// Erase products from the TG posted ledger (DO authoritative + KV advisory
+// mirror) so a genuine future appearance — manual add or any sync — goes to
+// the channel/queue again like a brand-new deal. Three call sites:
+//  1. Tombstone expiry (14 days after burial) — never call this AT eviction
+//     time instead: the feeds still list freshly evicted deals, and clearing
+//     then re-DM'd every re-add (the July 2026 spam loop).
+//  2. Reject — the admin declining THIS listing shouldn't blacklist the ASIN
+//     forever; if the same product resurfaces later it deserves a fresh look.
+//  3. Approval expiry (4h/2am-cutoff sweep) — the admin never decided, so this
+//     must not count as a decision either; without clearing here, a deal that
+//     simply timed out unanswered became permanently invisible to Telegram on
+//     every future re-add, indistinguishable from a real repost from the
+//     outside — this is what silently ate the Acerpure fan/basketball
+//     shoes/boys t-shirt/torch light deals while newer ones kept posting fine.
+// Best-effort: if either clear fails the deal just stays "posted" and a
+// re-add is silently skipped (missed post, never a duplicate — the preferred
+// failure mode).
+async function clearTgPostedMarks(products, env) {
   const keys = [];
-  for (const p of evicted || []) {
+  for (const p of products || []) {
     if (p.id) keys.push(p.id);
     if (p.asin) keys.push(p.asin.toUpperCase());
   }
@@ -1564,6 +1574,10 @@ async function handleApprovalCallback(cq, env) {
     await tgAnswerCallback(token, cq.id, '✅ Posted to channel');
     await tgSend(token, TG_ADMIN_ID, escTg(`✅ Approved & posted: ${entry.product.title.slice(0,60)}`));
   } else {
+    // Clear the ledger mark this claim set — a reject means "not this listing",
+    // not "never show this ASIN again". Without this, the product silently
+    // stopped reaching Telegram on every future re-add, forever.
+    await clearTgPostedMarks([entry.product], env).catch(e => console.error('Reject ledger clear failed:', e.message));
     await tgAnswerCallback(token, cq.id, '❌ Rejected');
     await tgSend(token, TG_ADMIN_ID, escTg(`❌ Rejected: ${entry.product.title.slice(0,60)}`));
   }
@@ -1591,6 +1605,12 @@ async function sweepExpiredApprovals(env) {
     now, ttlMs: APPROVAL_TTL_MS, cutoff: lastDailyCutoff(now),
   });
   if (!expired.length) return;
+
+  // Timing out unanswered is not a decision — the admin never saw/acted on
+  // these, so they must not stay permanently marked "posted" either. Without
+  // this, an expired deal silently stopped reaching Telegram on every future
+  // re-add forever, indistinguishable from a real repost.
+  await clearTgPostedMarks(expired.map(e => e.product), env).catch(e => console.error('Expiry ledger clear failed:', e.message));
 
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
