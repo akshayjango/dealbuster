@@ -1940,6 +1940,17 @@ export class TgPoster {
 async function getUnpostedTgFresh(env) {
   const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
   const { products } = await getProductsFile(env);
+  // One-time fresh-start cutoff (KV `tg_fresh_start_cutoff`, ISO string): when
+  // set, silently skips the entire existing backlog instead of working
+  // through it — only products added AFTER the cutoff are eligible. This
+  // doesn't need per-item ledger writes; everything already in products.json
+  // at reset time was necessarily added before "now", and everything from any
+  // future sync is added after — a plain addedAt comparison is exact for that
+  // one purpose, unaffected by the ordering fuzziness noted below. Leave the
+  // KV key in place permanently — once set, it's a no-op forever after (every
+  // future addedAt is already past it), so there's no need to ever clear it.
+  const cutoff = await env.KV.get('tg_fresh_start_cutoff');
+  const cutoffMs = cutoff ? Date.parse(cutoff) : null;
   // products[] is already newest-first — that IS the site's recency ranking.
   // addedAt is not reliable for ordering: sync jobs stamp it while looping over
   // a batch (in source-feed order) and then prepend the whole batch, so within a
@@ -1952,7 +1963,8 @@ async function getUnpostedTgFresh(env) {
   // slice(-5) kept returning the same ₹0 zombies while real new deals waited
   // at the top of the array (this shipped once — batches shrank to 2, then 0).
   const unposted = products.filter(p =>
-    !p.hidden && !p.outOfStock && !isZeroPrice(p) && !isAlreadyPosted(p, postedIds));
+    !p.hidden && !p.outOfStock && !isZeroPrice(p) && !isAlreadyPosted(p, postedIds) &&
+    (cutoffMs === null || Date.parse(p.addedAt) >= cutoffMs));
   // Oldest unposted deals sit at the end of the array — send oldest-of-batch
   // first, newest last. Whatever doesn't fit in this batch of 5 carries over to
   // the next cron run, still oldest-first.
