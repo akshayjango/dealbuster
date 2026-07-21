@@ -1373,7 +1373,7 @@ async function capLiveAndBury(all, env, cap = 720) {
     tombs.push(...live.slice(cap).map(makeTombstone));
   }
   if (expired.length) {
-    await clearTgPostedMarks(expired, env).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
+    await clearTgPostedMarks(expired, env, { resetExpiryFlag: true }).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
   }
   return [...kept, ...tombs].map((p, i) => ({ ...p, order: i }));
 }
@@ -1434,7 +1434,12 @@ async function pendingApprovalsDO(env, path, body) {
 // Best-effort: if either clear fails the deal just stays "posted" and a
 // re-add is silently skipped (missed post, never a duplicate — the preferred
 // failure mode).
-async function clearTgPostedMarks(products, env) {
+//
+// resetExpiryFlag: also clears the "already used its one free re-queue" flag
+// (see sweepExpiredApprovals) — pass true only for a genuinely fresh start
+// (tombstone expiry: the product died and is reappearing 14+ days later).
+// Reject and approval-expiry do NOT reset it — see sweepExpiredApprovals.
+async function clearTgPostedMarks(products, env, { resetExpiryFlag = false } = {}) {
   const keys = [];
   for (const p of products || []) {
     if (p.id) keys.push(p.id);
@@ -1454,6 +1459,9 @@ async function clearTgPostedMarks(products, env) {
     if (changed) await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids)));
   } catch (e) {
     console.error('TG ledger clear (KV mirror) failed:', e.message);
+  }
+  if (resetExpiryFlag) {
+    await pendingApprovalsDO(env, '/expiredonce/clear', { keys }).catch(e => console.error('Expiry-flag reset failed:', e.message));
   }
 }
 
@@ -1654,17 +1662,34 @@ async function sweepExpiredApprovals(env) {
   if (!expired.length) return;
 
   // Timing out unanswered is not a decision — the admin never saw/acted on
-  // these, so they must not stay permanently marked "posted" either. Without
-  // this, an expired deal silently stopped reaching Telegram on every future
-  // re-add forever, indistinguishable from a real repost.
-  await clearTgPostedMarks(expired.map(e => e.product), env).catch(e => console.error('Expiry ledger clear failed:', e.message));
+  // these, so a FIRST expiry must not permanently mark it "posted" either,
+  // or it becomes invisible to Telegram on every future re-add forever,
+  // indistinguishable from a real repost. But a SECOND expiry (still
+  // unanswered after the free re-queue) means clearing again would just
+  // requeue it a third time, a fourth time, forever — spamming the same
+  // handful of ignored deals all night whenever nobody's there to tap a
+  // button (this shipped once, 2am-7am). One free re-queue, then leave it.
+  const items = expired.map(e => ({ id: e.product.id, asin: e.product.asin || null }));
+  let checks;
+  try {
+    ({ results: checks } = await pendingApprovalsDO(env, '/expiredonce/check', { items }));
+  } catch (e) {
+    console.error('Expiry-once check failed — treating as first expiry (matches old behavior):', e.message);
+    checks = items.map(it => ({ id: it.id, alreadyFlagged: false }));
+  }
+  const alreadyFlagged = new Set(checks.filter(c => c.alreadyFlagged).map(c => c.id));
+  const toRequeue = expired.filter(e => !alreadyFlagged.has(e.product.id));
+
+  if (toRequeue.length) {
+    await clearTgPostedMarks(toRequeue.map(e => e.product), env).catch(e => console.error('Expiry ledger clear failed:', e.message));
+  }
 
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
   for (const e of expired) {
     if (e.messageId) await tgSetKeyboard(token, TG_ADMIN_ID, e.messageId, []).catch(() => {});
   }
-  console.log(`Swept ${expired.length} expired approval(s)`);
+  console.log(`Swept ${expired.length} expired approval(s), ${toRequeue.length} re-queued, ${expired.length - toRequeue.length} left posted (already used their free re-queue)`);
 }
 
 // Single choke point for posting to Telegram. Every call site (manual publish,
@@ -1764,6 +1789,8 @@ export class TgPoster {
       case '/posted/claim': return this.postedClaim(body.items || []);
       case '/posted/check': return this.postedCheck(body.keys || []);
       case '/posted/clear': return this.postedClear(body.keys || []);
+      case '/expiredonce/check': return this.expireOnceCheck(body.items || []);
+      case '/expiredonce/clear': return this.expireOnceClear(body.keys || []);
       case '/pending/put': return this.pendingPut(body.entries || []);
       case '/pending/take': return this.pendingTake(body.productId);
       case '/pending/sweep': return this.pendingSweep(body);
@@ -1813,6 +1840,44 @@ export class TgPoster {
   async postedClear(keys) {
     await this.migrateFromKV();
     const full = keys.map(k => `posted:${k}`);
+    for (let i = 0; i < full.length; i += 128) {
+      await this.ctx.storage.delete(full.slice(i, i + 128));
+    }
+    return { ok: true, cleared: keys.length };
+  }
+
+  // Bounded retry for expiry-triggered ledger clears. An approval-queue entry
+  // that expires unanswered gets ONE free re-queue (sweepExpiredApprovals
+  // clears its posted-mark so the next tick can send it again). If it expires
+  // A SECOND TIME still unanswered, this flags it — sweepExpiredApprovals then
+  // leaves its posted-mark alone instead of clearing it again. Without this,
+  // an ignored deal cycles forever whenever nobody's there to tap a button:
+  // expire → mark cleared → next tick re-queues it (nothing else to fill the
+  // slot) → sits unanswered → expires again → repeat, spamming the same
+  // handful of deals every ~4h all night (this shipped once, 2am-7am).
+  // items: [{id, asin}]. Returns [{id, alreadyFlagged}] — checks AND sets in
+  // one atomic pass (this DO's request chain already serializes everything).
+  async expireOnceCheck(items) {
+    await this.migrateFromKV();
+    const results = [];
+    const toSet = {};
+    for (const it of items) {
+      if (!it?.id) continue;
+      const keys = [`expiredonce:${it.id}`];
+      if (it.asin) keys.push(`expiredonce:${it.asin.toUpperCase()}`);
+      const found = await this.ctx.storage.get(keys);
+      const already = [...found.values()].some(Boolean);
+      results.push({ id: it.id, alreadyFlagged: already });
+      if (!already) for (const k of keys) toSet[k] = 1;
+    }
+    if (Object.keys(toSet).length) await this.ctx.storage.put(toSet);
+    return { ok: true, results };
+  }
+
+  // Resets the "already used its one free re-queue" flag — called only for a
+  // genuinely fresh start (tombstone expiry: 14+ days dead, reappearing now).
+  async expireOnceClear(keys) {
+    const full = keys.map(k => `expiredonce:${k}`);
     for (let i = 0; i < full.length; i += 128) {
       await this.ctx.storage.delete(full.slice(i, i + 128));
     }
