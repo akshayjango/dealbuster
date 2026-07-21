@@ -18,7 +18,7 @@ let tokenExpiry = 0;
 
 async function getAccessToken(clientId, clientSecret) {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
-  const resp = await fetch('https://api.amazon.com/auth/o2/token', {
+  const resp = await fetchWithTimeout('https://api.amazon.com/auth/o2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}&scope=creatorsapi%3A%3Adefault`,
@@ -248,6 +248,27 @@ const AMZ_HEADERS = {
   'Accept': 'text/html',
 };
 
+// Hard-timeout wrapper for every third-party fetch (Amazon/DealsRadar/
+// IndiaFreeStuff scraping — sites we have no SLA with). Without this, a slow
+// or rate-limiting response hangs the fetch indefinitely, which hangs the
+// whole cron invocation past Cloudflare's execution limit and gets killed
+// silently: no catchable exception, no error logged, nothing committed. This
+// is what froze syncs for hours on 2026-07-20/21 (DealsRadar's deals.js fetch
+// hung inside the cron_hourly lock, which — being a GLOBAL lock shared with
+// cron_10min — then blocked IndiaFreeStuff/price-check from ever acquiring it
+// too, even though IFS's own code was fine). AbortError from the timeout is a
+// normal catchable exception, so every existing try/catch around a fetch call
+// handles it exactly like any other network failure.
+async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // Derive product image from ASIN — no subrequest needed
 function asinImage(asin) {
   return `https://m.media-amazon.com/images/P/${asin}.01._SL500_.jpg`;
@@ -278,22 +299,7 @@ function detectCategoryFromTitle(title) {
 // Returns { badge: string|null, highlights: string[], category: string|null }
 async function fetchAmazonPageData(asin) {
   try {
-    // Hard timeout — this fetch runs inline in the TG posting path (isLowestPriceDeal,
-    // called once per deal right before it's sent). Amazon can go slow or start
-    // rate-limiting a scraping pattern; with no timeout that hangs the WHOLE cron
-    // invocation until Cloudflare's wall-clock limit kills it — silently, no
-    // catchable exception, no error logged, nothing committed. That's exactly what
-    // froze every sync (site, TG bot, dashboard) for 5 hours on 2026-07-20: the
-    // stuck invocation never reached queueForApproval's later steps, so nothing
-    // after it in the queue could progress either, tick after tick.
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    let r;
-    try {
-      r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS, signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
+    const r = await fetchWithTimeout(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS }, 5000);
     if (!r.ok) return { badge: null, highlights: [], category: null };
     const html = await r.text();
 
@@ -356,7 +362,7 @@ async function fetchAmazonPageData(asin) {
 async function scrapeAndSyncDealsRadar(env, limit = 30) {
   let dealsJs;
   try {
-    const r = await fetch('https://www.dealsradar.in/deals.js', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    const r = await fetchWithTimeout('https://www.dealsradar.in/deals.js', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     dealsJs = await r.text();
   } catch (e) {
@@ -495,7 +501,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const blockedBrands = await getBlockedBrands(env);
 
   try {
-    const r = await fetch('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    const r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const html = await r.text();
 
@@ -580,7 +586,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     // Follow redirect (manual) — 1 subrequest, gets Location header with Amazon URL → ASIN
     let asin = '';
     try {
-      const red = await fetch(`https://www.indiafreestuff.in/?rto=${rtoParam}`, {
+      const red = await fetchWithTimeout(`https://www.indiafreestuff.in/?rto=${rtoParam}`, {
         redirect: 'manual',
         headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
       });
@@ -687,7 +693,7 @@ async function checkAndCleanDeals(env) {
     chunk.forEach(p => { const u = productMap.get(p.id); if (u) u.lastChecked = now; });
 
     try {
-      const resp = await fetch('https://creatorsapi.amazon/catalog/v1/getItems', {
+      const resp = await fetchWithTimeout('https://creatorsapi.amazon/catalog/v1/getItems', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'x-marketplace': 'www.amazon.in' },
         body: JSON.stringify({
@@ -891,7 +897,7 @@ async function checkAmazonDeals(env) {
 
   for (const pageUrl of pageUrls) {
     try {
-      const r = await fetch(pageUrl, {
+      const r = await fetchWithTimeout(pageUrl, {
         headers: {
           ...AMZ_HEADERS,
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -936,7 +942,7 @@ async function checkAmazonDeals(env) {
     if (newAlerts.length >= 35) break; // Hard cap on subrequests
 
     try {
-      const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
+      const r = await fetchWithTimeout(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
       if (!r.ok) continue;
       const html = await r.text();
 
@@ -1016,7 +1022,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
     const asinSet = new Set();
     for (const pageUrl of pageUrls) {
       try {
-        const r = await fetch(pageUrl, { headers: { ...AMZ_HEADERS, 'Cache-Control': 'no-cache' } });
+        const r = await fetchWithTimeout(pageUrl, { headers: { ...AMZ_HEADERS, 'Cache-Control': 'no-cache' } });
         if (!r.ok) continue;
         const html = await r.text();
         for (const m of html.matchAll(/data-asin="([A-Z0-9]{10})"/g))             asinSet.add(m[1]);
@@ -1060,7 +1066,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
   for (const asin of toProcess) {
     if (existingByAsin.has(asin) || deletedSet.has(asin)) continue;
     try {
-      const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
+      const r = await fetchWithTimeout(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
       if (!r.ok) continue;
       const html = await r.text();
 
@@ -1216,7 +1222,7 @@ async function handleDebug(env) {
   let token, tokenStatus, tokenFull;
   try {
     cachedToken = null;
-    const tResp = await fetch('https://api.amazon.com/auth/o2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `grant_type=client_credentials&client_id=${encodeURIComponent(env.PA_ACCESS_KEY)}&client_secret=${encodeURIComponent(env.PA_SECRET_KEY)}&scope=creatorsapi%3A%3Adefault` });
+    const tResp = await fetchWithTimeout('https://api.amazon.com/auth/o2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `grant_type=client_credentials&client_id=${encodeURIComponent(env.PA_ACCESS_KEY)}&client_secret=${encodeURIComponent(env.PA_SECRET_KEY)}&scope=creatorsapi%3A%3Adefault` });
     tokenStatus = tResp.status; const tData = await tResp.json(); tokenFull = JSON.stringify(tData).slice(0,200); token = tData.access_token;
   } catch (e) { return json({ secrets, tokenError: e.message }); }
   const reqPayload = { keywords:'boat', resources:['images.primary.large','itemInfo.title','offersV2.listings.price'], partnerTag: env.PA_PARTNER_TAG, partnerType:'Associates', marketplace:'www.amazon.in', itemCount:1 };
@@ -1297,20 +1303,6 @@ function formatFbCaption(product, tag, isLowest = false) {
   const link = dealLink(product, tag);
   const priceBlock = price ? `💥 Deal Price @ ${price} 👇\n${link}` : `👇\n${link}`;
   return `🔥 ${title}\n${priceBlock}`;
-}
-
-// Live "Lowest price in N days / ever" check — reads the SAME Amazon-native
-// badge checkLowestPriceBadges already scrapes in the background (one HTTP
-// fetch of the product page + regex, no external API, no key, no token
-// quota — unlike Keepa's API, which is a paid product with real per-token
-// limits and no meaningful free tier for this volume). Checked live right
-// before a deal is sent, rather than relying on the background badge sweep,
-// since that only covers 15 products/15min and a brand-new deal would post
-// before its turn came up.
-async function isLowestPriceDeal(asin) {
-  if (!asin) return false;
-  const { badge } = await fetchAmazonPageData(asin);
-  return !!badge;
 }
 
 // Tracks which products have already been posted — by id AND by ASIN. ASIN is the
@@ -1511,17 +1503,9 @@ async function queueForApproval(products, env) {
 
   if (!queued.length) return;
 
-  // Run all badge checks concurrently — each is now individually timeout-bounded
-  // (5s), but awaiting them one at a time in the send loop below still multiplied
-  // that into up to batchSize x 5s of added latency worst case. Concurrent here
-  // caps the whole batch's worst case at a single 5s window.
-  const lowestFlags = await Promise.all(queued.map(p => isLowestPriceDeal(p.asin).catch(() => false)));
-
   const entries = [];
-  for (let qi = 0; qi < queued.length; qi++) {
-    const p = queued[qi];
-    const isLowest = lowestFlags[qi];
-    const text = formatDealMsg(p, tag, isLowest);
+  for (const p of queued) {
+    const text = formatDealMsg(p, tag);
     const keyboard = { inline_keyboard: [
       [
         { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
@@ -1597,8 +1581,7 @@ async function handleApprovalCallback(cq, env) {
         return new Response('ok');
       }
       const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
-      const isLowest = await isLowestPriceDeal(p.asin).catch(() => false);
-      const caption = formatFbCaption(p, tag, isLowest);
+      const caption = formatFbCaption(p, tag);
       await tgSend(token, TG_ADMIN_ID, `<pre>${escHtml(caption)}</pre>`, { parse_mode: 'HTML' });
       await tgAnswerCallback(token, cq.id, '📘 Caption sent — tap it to copy');
     } catch (e) {
@@ -1997,8 +1980,7 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
   const noPrice = !product.price || product.price === '₹0' || product.price === '₹';
   if (noPrice) return;
   const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
-  const isLowest = await isLowestPriceDeal(product.asin).catch(() => false);
-  const msg = formatDealMsg(product, tag, isLowest);
+  const msg = formatDealMsg(product, tag);
   for (const ch of TG_CHANNELS) {
     try {
       if (product.image) {
@@ -2114,7 +2096,7 @@ async function handleTelegramWebhook(request, env) {
   try {
     const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
     const resolveAsin = async (rawUrl) => {
-      const r = await fetch(rawUrl, { redirect: 'follow', headers: AMZ_HEADERS });
+      const r = await fetchWithTimeout(rawUrl, { redirect: 'follow', headers: AMZ_HEADERS });
       const finalUrl = r.url;
       const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
                  || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
@@ -2279,14 +2261,14 @@ export default {
         try {
           let html = '';
           if (shortUrl) {
-            const redir = await fetch(shortUrl, { redirect: 'follow', headers: AMZ_HEADERS });
+            const redir = await fetchWithTimeout(shortUrl, { redirect: 'follow', headers: AMZ_HEADERS });
             const asinM = redir.url.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
             if (asinM) { asin = asinM[1]; html = await redir.text(); }
           }
           const isCaptcha = html && (html.includes('captcha') || html.includes('Robot Check'));
           const hasTitle = html && (html.includes('id="productTitle"') || html.includes('<title>'));
           if ((!html || isCaptcha || !hasTitle) && asin) {
-            const r = await fetch(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
+            const r = await fetchWithTimeout(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
             html = await r.text();
           }
           let title = '';
@@ -2522,7 +2504,7 @@ export default {
 
           for (const p of nanProducts) {
             try {
-              const r = await fetch(`https://www.amazon.in/dp/${p.asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
+              const r = await fetchWithTimeout(`https://www.amazon.in/dp/${p.asin}?th=1&psc=1`, { headers: AMZ_HEADERS });
               if (!r.ok) continue;
               const html = await r.text();
 
