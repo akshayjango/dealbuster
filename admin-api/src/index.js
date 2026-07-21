@@ -1344,8 +1344,10 @@ function isZeroPrice(p) {
 // lap; one geyser did 20 laps in two days). Tombstones block the re-add via
 // the syncs' existingByAsin check while hidden:true keeps them off the site
 // and out of the TG queue. They don't count toward the 720 live cap and are
-// pruned after 14 days — by then the feeds have long stopped listing them.
-const TOMBSTONE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+// pruned after 4 days — the observed recycle window was ~2 days (the "20
+// laps" case above), so 4 is a comfortable 2x margin above that without
+// sitting on dead weight for two full weeks like the original 14 did.
+const TOMBSTONE_TTL_MS = 4 * 24 * 60 * 60 * 1000;
 function isDead(p) {
   return !!p.dead;
 }
@@ -1356,7 +1358,7 @@ function makeTombstone(p) {
 // too, not just dead ones. At current add volume the cap evicts in ~1-3 days
 // while the DR feed still lists a deal for ~2+ days, so clearing TG marks at
 // eviction time re-DM'd even healthy deals when the feed re-added them the
-// next cycle. The ledger clear now happens when a tombstone EXPIRES (14 days):
+// next cycle. The ledger clear now happens when a tombstone EXPIRES (4 days):
 // by then the feeds have long dropped the deal, so if it ever comes back it's
 // a genuine return and posts to Telegram as new.
 async function capLiveAndBury(all, env, cap = 720) {
@@ -1420,7 +1422,7 @@ async function pendingApprovalsDO(env, path, body) {
 // Erase products from the TG posted ledger (DO authoritative + KV advisory
 // mirror) so a genuine future appearance — manual add or any sync — goes to
 // the channel/queue again like a brand-new deal. Two call sites:
-//  1. Tombstone expiry (14 days after burial) — never call this AT eviction
+//  1. Tombstone expiry (4 days after burial) — never call this AT eviction
 //     time instead: the feeds still list freshly evicted deals, and clearing
 //     then re-DM'd every re-add (the July 2026 spam loop).
 //  2. Reject — a deliberate per-instance admin decision, not an unattended
