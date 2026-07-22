@@ -448,7 +448,7 @@
 
       .breadcrumb { display: none; }
 
-      .product-wrap { grid-template-columns: 1fr; margin: 0 auto 40px; padding: 0; gap: 20px; }
+      .product-wrap { grid-template-columns: 1fr; margin: 0 auto 16px; padding: 0; gap: 20px; }
 
       /* Hero image: full-bleed, covers under the status bar, floating action buttons on top */
       .img-col { width: 100%; max-width: 100%; gap: 0; padding: 0 14px; }
@@ -501,12 +501,12 @@
       /* Price History: boxed card look and heading size matching Highlights */
       .price-history-wrap {
         background: var(--card-bg); border: 1px solid var(--border-c); border-radius: var(--radius);
-        box-shadow: var(--shadow-sm); padding: 10px 14px 14px; margin: 12px 14px 0; overflow: hidden;
+        box-shadow: var(--shadow-sm); padding: 10px 14px 14px; margin: 8px 14px 0; overflow: hidden;
       }
       .price-history-wrap h2 {
-        font-size: .9rem; margin-bottom: 8px; padding-bottom: 0; border-bottom: none;
+        display: block; font-size: .9rem; margin-bottom: 8px; padding-bottom: 0; border-bottom: none;
       }
-      .price-history-wrap h2::before { content: ''; }
+      .price-history-wrap h2::before { content: ''; display: none; }
 
       /* Similar Products / Hot Deals: no section box, just an inset heading + horizontal scroll row */
       .similar-products-wrap,
