@@ -789,14 +789,26 @@
   // CTA link
   document.getElementById('ctaBtn').href = link;
 
-  // Description
+  // Description — feed sources without real bullet points (IndiaFreeStuff, DealsRadar)
+  // fall back to a single generic placeholder line; swap it for a fuller generic blurb.
+  const GENERIC_HIGHLIGHTS = [
+    'Handpicked deal, verified live on Amazon at the time of posting.',
+    'Discounted price shown is off the listed MRP — check the product page for the exact current price.',
+    'Sold and delivered via Amazon India, so standard Amazon delivery, returns, and warranty terms apply.',
+    'Review full specifications, size/variant options, and buyer ratings on Amazon before purchasing.',
+    'Deal prices and stock can change anytime, so grab it while it lasts.',
+    'One of our daily-curated picks across electronics, fashion, home, beauty, and health deals.'
+  ];
+  const isPlaceholder = h => !h || !h.trim() || h.trim().toLowerCase() === 'great deal on amazon';
   const hlList = document.getElementById('highlightsList');
-  if (highlights.length) {
+  if (highlights.length && !highlights.every(isPlaceholder)) {
     hlList.innerHTML = highlights.map(h =>
       `<li><span class="hl-icon">•</span> ${h}</li>`
     ).join('');
   } else {
-    hlList.innerHTML = '<li><span class="hl-icon">•</span> High quality product with a great discount</li>';
+    hlList.innerHTML = GENERIC_HIGHLIGHTS.map(h =>
+      `<li><span class="hl-icon">•</span> ${h}</li>`
+    ).join('');
   }
 
   // Renders the price-history chart as a hand-drawn SVG (straight segments,
