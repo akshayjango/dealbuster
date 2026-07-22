@@ -84,7 +84,7 @@ function ghHeaders(env) {
 
 async function getProductsFile(env) {
   const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/products.json`;
-  const resp = await fetch(apiUrl, { headers: ghHeaders(env) });
+  const resp = await fetchWithTimeout(apiUrl, { headers: ghHeaders(env) });
   if (resp.status === 404) return { products: [], sha: null };
   if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.message || `GitHub fetch failed: ${resp.status}`); }
   const file = await resp.json();
@@ -99,7 +99,7 @@ async function getProductsFile(env) {
   let base64 = file.content;
   if (!base64 || file.encoding === 'none') {
     const blobUrl = `https://api.github.com/repos/akshayjango/dealbuster/git/blobs/${file.sha}`;
-    const blobResp = await fetch(blobUrl, { headers: ghHeaders(env) });
+    const blobResp = await fetchWithTimeout(blobUrl, { headers: ghHeaders(env) });
     if (!blobResp.ok) { const err = await blobResp.json().catch(() => ({})); throw new Error(err.message || `GitHub blob fetch failed: ${blobResp.status}`); }
     base64 = (await blobResp.json()).content;
   }
@@ -141,7 +141,7 @@ async function saveProductsFile(products, sha, message, env, _retry = true) {
   const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/products.json`;
   const body = { message, content: encodeBase64Unicode(JSON.stringify(deduped, null, 2)) };
   if (sha) body.sha = sha;
-  const resp = await fetch(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const resp = await fetchWithTimeout(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 15000);
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
     const msg = err.message || `GitHub write failed: ${resp.status}`;
@@ -163,7 +163,7 @@ async function saveProductsFile(products, sha, message, env, _retry = true) {
 
 async function getDeletedAsins(env) {
   const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/deleted_asins.json`;
-  const resp = await fetch(apiUrl, { headers: ghHeaders(env) });
+  const resp = await fetchWithTimeout(apiUrl, { headers: ghHeaders(env) });
   if (resp.status === 404) return { asins: [], sha: null };
   if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.message || `GitHub fetch failed for deleted_asins: ${resp.status}`); }
   const file = await resp.json();
@@ -183,7 +183,7 @@ async function addDeletedAsin(asin, env) {
     const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/deleted_asins.json`;
     const body = { message: `Add deleted ASIN: ${upper}`, content: encodeBase64Unicode(JSON.stringify(asins, null, 2)) };
     if (sha) body.sha = sha;
-    await fetch(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    await fetchWithTimeout(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   } catch (e) { console.error('Failed to save deleted ASIN:', e.message); }
 }
 
@@ -194,7 +194,7 @@ async function restoreAsinIfDeleted(asin, env) {
     const upper = asin.toUpperCase();
     if (!asins.includes(upper)) return;
     const remaining = asins.filter(a => a !== upper);
-    await fetch(`https://api.github.com/repos/akshayjango/dealbuster/contents/deleted_asins.json`, {
+    await fetchWithTimeout(`https://api.github.com/repos/akshayjango/dealbuster/contents/deleted_asins.json`, {
       method: 'PUT',
       headers: { ...ghHeaders(env), 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: `Restore ASIN: ${upper}`, content: encodeBase64Unicode(JSON.stringify(remaining, null, 2)), sha }),
