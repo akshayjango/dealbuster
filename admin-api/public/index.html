@@ -132,8 +132,13 @@
     /* ── Toolbar ── */
     .toolbar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
     .toolbar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .toolbar-actions { flex-wrap: wrap; }
+    .toolbar-actions { flex-wrap: wrap; padding-top: 10px; }
     .toolbar-actions .btn { font-size: .82rem; padding: 7px 12px; white-space: nowrap; }
+    .toolbar-actions-gate { border: 1px dashed var(--border); border-radius: 12px; padding: 0 10px; }
+    .toolbar-actions-gate summary { cursor: pointer; list-style: none; margin: 8px 0; }
+    .toolbar-actions-gate summary::-webkit-details-marker { display: none; }
+    .toolbar-actions-gate[open] { padding-bottom: 10px; }
+    .toolbar-actions-gate:not([open]) .toolbar-actions { display: none; }
     .toolbar input[type=text] { flex: 1; min-width: 120px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; font-size: .9rem; font-family: inherit; background: #fff; color: var(--text); transition: border-color .15s ease, box-shadow .15s ease; }
     .toolbar input[type=text]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(108,71,255,.15); }
     .toolbar select { padding: 10px 36px 10px 14px; border: 1px solid var(--border); border-radius: 12px; font-size: .9rem; font-family: inherit; background: #fff; color: var(--text); appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236E7385' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; transition: border-color .15s ease, box-shadow .15s ease; }
@@ -405,30 +410,33 @@
             <option value="Beauty">Beauty</option>
             <option value="Health">Health</option>
           </select>
-          <button class="btn btn-ghost btn-sm" id="oosFilterBtn" onclick="toggleOOSFilter()" title="Show Out of Stock">⚠ OOS</button>
-          <button class="btn btn-ghost btn-sm" id="nopriceFilterBtn" onclick="toggleNoPriceFilter()" title="Show Price Unavailable">₹ N/A</button>
-          <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
-          <button class="btn btn-outline btn-sm" onclick="pushZeroPriceToBottom()" id="pushZeroPriceBtn" style="border-color:#d97706;color:#d97706;">⬇ Push ₹0 to Bottom</button>
           <button class="btn btn-ghost btn-sm" id="sortPriceBtn" onclick="toggleSort('price')" title="Sort by Price">↑ Price</button>
           <button class="btn btn-ghost btn-sm" id="sortDiscBtn" onclick="toggleSort('disc')" title="Sort by Discount">% Discount</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
-        </div>
-        <!-- Row 2: sync buttons -->
-        <div class="toolbar-row toolbar-actions">
-          <button class="btn btn-outline btn-sm" onclick="syncDealsRadar()" id="syncDealsRadarBtn">Sync DealsRadar</button>
-          <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIfsBtn">Sync IndiaFreeStuff</button>
-          <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
-          <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
-          <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
-          <button class="btn btn-outline btn-sm" onclick="reregisterWebhook()" title="Re-register Telegram webhook (needed once after bot update)" style="border-color:#6b7280;color:#6b7280;">🔗 Re-register Webhook</button>
-          <button class="btn btn-outline btn-sm" onclick="openBlockedBrandsModal()" id="blockedBrandsBtn" style="border-color:#7c3aed;color:#7c3aed;">🚫 Blocked Brands</button>
-          <label style="display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:var(--muted);margin:0 4px;white-space:nowrap;">
-            <span class="toggle-switch"><input type="checkbox" id="autopostToggle" checked onchange="toggleAutopost()"/><span class="toggle-slider"></span></span>
-            Auto-Post
-          </label>
-          <span id="pendingApprovalBadge" style="font-size:.78rem;color:#d97706;display:none;"></span>
           <button class="btn btn-sm toolbar-add-deal" onclick="switchTab('addDeal')">+ Add Deal</button>
         </div>
+        <!-- Row 2: gated actions — collapsed by default to prevent accidental taps -->
+        <details class="toolbar-actions-gate">
+          <summary class="btn btn-outline btn-sm">⚙ More Actions ▾</summary>
+          <div class="toolbar-row toolbar-actions">
+            <button class="btn btn-ghost btn-sm" id="oosFilterBtn" onclick="toggleOOSFilter()" title="Show Out of Stock">⚠ OOS</button>
+            <button class="btn btn-ghost btn-sm" id="nopriceFilterBtn" onclick="toggleNoPriceFilter()" title="Show Price Unavailable">₹ N/A</button>
+            <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
+            <button class="btn btn-outline btn-sm" onclick="pushZeroPriceToBottom()" id="pushZeroPriceBtn" style="border-color:#d97706;color:#d97706;">⬇ Push ₹0 to Bottom</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
+            <button class="btn btn-outline btn-sm" onclick="syncDealsRadar()" id="syncDealsRadarBtn">Sync DealsRadar</button>
+            <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIfsBtn">Sync IndiaFreeStuff</button>
+            <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
+            <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
+            <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
+            <button class="btn btn-outline btn-sm" onclick="reregisterWebhook()" title="Re-register Telegram webhook (needed once after bot update)" style="border-color:#6b7280;color:#6b7280;">🔗 Re-register Webhook</button>
+            <button class="btn btn-outline btn-sm" onclick="openBlockedBrandsModal()" id="blockedBrandsBtn" style="border-color:#7c3aed;color:#7c3aed;">🚫 Blocked Brands</button>
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:var(--muted);margin:0 4px;white-space:nowrap;">
+              <span class="toggle-switch"><input type="checkbox" id="autopostToggle" checked onchange="toggleAutopost()"/><span class="toggle-slider"></span></span>
+              Auto-Post
+            </label>
+            <span id="pendingApprovalBadge" style="font-size:.78rem;color:#d97706;display:none;"></span>
+          </div>
+        </details>
       </div>
 
       <!-- List -->
