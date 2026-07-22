@@ -75,7 +75,18 @@ async function handleSearch(query, env) {
 // ── GitHub helpers ────────────────────────────────────────────────────────────
 
 function encodeBase64Unicode(str) {
-  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p) => String.fromCharCode('0x' + p)));
+  // products.json crossed several MB; the old encodeURIComponent+regex-callback
+  // approach invokes a JS callback per %XX triplet (3 per multi-byte char, e.g.
+  // every ₹ in every price/priceHistory entry) — tens of thousands of calls per
+  // write, enough to hit the Worker's CPU limit with no catchable error. This
+  // does the same UTF-8 encode via TextEncoder (native, no per-char callback).
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 function ghHeaders(env) {
