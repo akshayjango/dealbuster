@@ -970,11 +970,8 @@
         `;
       }
 
-      // Hot Deals Right Now — latest 8
-      const hotSelected = products.slice(0, 8);
-      document.getElementById('hotDealsGrid').innerHTML = hotSelected.map(cardHTML).join('');
-
       // Similar Products — same category as this deal, latest 8 (mobile-only section)
+      const productKey = p => (p.asin || p.link || p.title);
       const catLower = cat.toLowerCase();
       const similarSelected = products.filter(p => (p.category || '').toLowerCase() === catLower).slice(0, 8);
       const similarWrap = document.getElementById('similarWrap');
@@ -984,6 +981,11 @@
       } else {
         similarWrap.style.display = 'none';
       }
+
+      // Hot Deals Right Now — latest 8, excluding anything already shown in Similar Products
+      const similarKeys = new Set(similarSelected.map(productKey));
+      const hotSelected = products.filter(p => !similarKeys.has(productKey(p))).slice(0, 8);
+      document.getElementById('hotDealsGrid').innerHTML = hotSelected.map(cardHTML).join('');
     } catch (e) {
       console.error('Failed to load hot deals:', e);
     }
