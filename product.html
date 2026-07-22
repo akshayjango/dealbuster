@@ -330,7 +330,15 @@
     .ph-stat.is-high .ph-stat-value { color: #E5484D; }
     .ph-chart-box { width: 100%; overflow-x: auto; }
     .ph-chart-box svg { display: block; width: 100%; height: auto; min-width: 320px; }
-    .ph-note { font-size: .82rem; color: var(--muted); margin-top: 14px; text-align: center; font-weight: 500; }
+    .ph-note { font-size: .82rem; color: var(--muted); margin: 0; text-align: center; font-weight: 500; }
+    .ph-keepa-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-top: 16px; padding: 10px 16px; border-radius: var(--radius);
+      border: 1px solid var(--border-c); background: var(--bg);
+      color: var(--text); font-size: .85rem; font-weight: 700;
+      text-decoration: none;
+    }
+    .ph-keepa-btn:hover { border-color: var(--accent); }
 
     /* HOT DEALS SECTION */
     .hot-deals-wrap { max-width: 960px; margin: 50px auto 60px; padding: 0 20px; }
@@ -639,6 +647,7 @@
     </div>
     <div class="ph-chart-box" id="phChartBox"></div>
     <p class="ph-note" id="phNote"></p>
+    <a class="ph-keepa-btn" id="phKeepaBtn" target="_blank" rel="noopener" style="display:none;">📈 Full Price History on Keepa</a>
   </div>
 </div>
 
@@ -784,6 +793,14 @@
     const statsEl = document.getElementById('phStats');
     const chartBox = document.getElementById('phChartBox');
     const note = document.getElementById('phNote');
+    const keepaBtn = document.getElementById('phKeepaBtn');
+
+    if (product && product.asin) {
+      keepaBtn.href = 'https://keepa.com/#!product/10-' + product.asin.toUpperCase();
+      keepaBtn.style.display = '';
+    } else {
+      keepaBtn.style.display = 'none';
+    }
 
     const toNum = s => { const n = parseInt(String(s || '').replace(/[^0-9]/g, ''), 10); return isNaN(n) ? null : n; };
 
