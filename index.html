@@ -2456,6 +2456,13 @@
       el.classList.toggle('ptr-animated', animated);
       el.style.transform = `translateY(${px - 70 + REST_DROP}px)`;
     }
+    // True off-screen — px=0 in setY() still sits 30px into the viewport
+    // (it's offset by REST_DROP), so cancelling needs its own target.
+    function hide(animated) {
+      el.classList.toggle('ptr-animated', animated);
+      el.classList.remove('ptr-spin');
+      el.style.transform = 'translateY(-70px)';
+    }
 
     // Only arms in the page's default top state: scrolled to 0 AND the
     // mobile search bar hasn't gone into its sticky/pinned mode yet.
@@ -2484,7 +2491,7 @@
       if (!dragging || startY === null || e.pointerType !== 'touch') return;
       // Scrolled away from the top mid-gesture, or the sticky bar pinned —
       // this is ordinary scrolling, not a pull. Bail without animating.
-      if (!atDefaultTop()) { dragging = false; startY = null; pulled = 0; return; }
+      if (!atDefaultTop()) { dragging = false; startY = null; pulled = 0; hide(true); return; }
       const delta = e.clientY - startY - DEAD_ZONE;
       if (delta <= 0) { pulled = 0; return; }
       pulled = Math.min(delta * 0.5, PULL_MAX);
@@ -2500,7 +2507,7 @@
         el.classList.add('ptr-spin');
         setTimeout(() => location.reload(), 900);
       } else {
-        setY(0, true);
+        hide(true);
       }
       pulled = 0;
       startY = null;
