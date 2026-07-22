@@ -778,7 +778,7 @@ async function login() {
     const resp = await apiFetch('/ping', { method: 'GET' }, pwd);
     if (resp.status === 401) { errEl.textContent = 'Wrong password.'; return; }
     password = pwd;
-    sessionStorage.setItem('db_admin_pwd', pwd);
+    localStorage.setItem('db_admin_pwd', pwd);
     showScreen('screenApp');
     loadProducts();
     loadAutopostState();
@@ -799,7 +799,7 @@ document.addEventListener('click', (e) => {
 
 function logout() {
   password = '';
-  sessionStorage.removeItem('db_admin_pwd');
+  localStorage.removeItem('db_admin_pwd');
   allProducts = [];
   document.getElementById('passwordInput').value = '';
   showScreen('screenLogin');
@@ -861,11 +861,11 @@ async function disablePushNotifications() {
 
 // Auto-restore session on page load
 (async () => {
-  const saved = sessionStorage.getItem('db_admin_pwd');
+  const saved = localStorage.getItem('db_admin_pwd');
   if (!saved) return;
   try {
     const resp = await apiFetch('/ping', { method: 'GET' }, saved);
-    if (resp.status === 401) { sessionStorage.removeItem('db_admin_pwd'); return; }
+    if (resp.status === 401) { localStorage.removeItem('db_admin_pwd'); return; }
     password = saved;
     showScreen('screenApp');
     loadProducts();
