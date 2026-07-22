@@ -336,6 +336,7 @@
       margin-bottom: 32px;
     }
     .tab-btn {
+      position: relative;
       padding: 10px 18px;
       border: none;
       background: none;
@@ -354,7 +355,17 @@
     }
     .tab-btn.active {
       color: var(--text);
-      border-bottom-color: var(--primary);
+      border-bottom-color: transparent;
+    }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: -1px;
+      height: 4px;
+      border-radius: 5px 5px 0 0;
+      background: var(--primary);
     }
     /* Tab icon: hidden on desktop, shown on mobile */
     .tab-icon { display: none; }
@@ -958,8 +969,10 @@
       #mobileSticky .search-box { max-width: 100% !important; box-shadow: var(--shadow-sm) !important; }
       #mobileSticky .search-box:focus-within { transform: none !important; box-shadow: var(--shadow-sm) !important; }
 
-      /* Tabs strip */
-      .tabs-wrap { padding: 0 0 0 6px !important; }
+      /* Tabs strip — left inset matches the card grid gutter; right side is
+         flush so the strip (and its underline) can scroll fully off toward
+         the left, uninterrupted, instead of stopping short at a padded edge. */
+      .tabs-wrap { padding: 0 0 0 12px !important; }
       .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0; scrollbar-width: none; margin-bottom: 0 !important; border-bottom: none !important; padding-bottom: 0; }
       .tabs::-webkit-scrollbar { display: none; }
       .tab-btn {
@@ -976,9 +989,22 @@
            tabs in view across the transition, so only the icon/row-layout
            collapses on scroll instead of the whole strip reflowing. */
         min-width: calc((100vw - 6px) / 5) !important;
-        border-bottom-width: 4px !important;
+        /* Contiguous (gap:0) borders on every tab form one continuous line
+           that scrolls together with the row, instead of a fixed separator
+           on the non-scrolling wrapper. */
+        border-bottom: 2px solid var(--border-c) !important;
       }
-      .tab-btn.active { border-bottom-color: var(--primary) !important; border-bottom-width: 3px !important; }
+      .tab-btn.active { border-bottom-color: transparent !important; }
+      .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: -2px;
+        height: 5px;
+        border-radius: 5px 5px 0 0;
+        background: var(--primary);
+      }
       .tab-icon {
         display: flex;
         align-items: center;
