@@ -498,24 +498,26 @@
       .highlights-list li { font-size: .82rem; line-height: 1.5; }
       .hl-icon { display: none; }
 
-      /* Price History / Similar Products / Hot Deals: same boxed-card look and heading size as Highlights */
-      .price-history-wrap,
-      .similar-products-wrap,
-      .hot-deals-wrap {
+      /* Price History: boxed card look and heading size matching Highlights */
+      .price-history-wrap {
         background: var(--card-bg); border: 1px solid var(--border-c); border-radius: var(--radius);
         box-shadow: var(--shadow-sm); padding: 10px 14px 14px; margin: 12px 14px 0; overflow: hidden;
       }
-      .hot-deals-wrap { margin-bottom: 20px; }
-      .price-history-wrap h2,
-      .similar-products-wrap h2,
-      .hot-deals-wrap h2 {
+      .price-history-wrap h2 {
         font-size: .9rem; margin-bottom: 8px; padding-bottom: 0; border-bottom: none;
       }
-      .price-history-wrap h2::before,
+      .price-history-wrap h2::before { content: ''; }
+
+      /* Similar Products / Hot Deals: no section box, just an inset heading + horizontal scroll row */
+      .similar-products-wrap,
+      .hot-deals-wrap { padding: 0 14px; margin: 12px 0 0; }
+      .hot-deals-wrap { margin-bottom: 20px; }
+      .similar-products-wrap h2,
+      .hot-deals-wrap h2 {
+        font-size: .8rem; font-weight: 600; margin-bottom: 8px; padding-bottom: 0; border-bottom: none;
+      }
       .similar-products-wrap h2::before,
       .hot-deals-wrap h2::before { content: ''; }
-      .similar-products-wrap h2,
-      .hot-deals-wrap h2 { font-weight: 600; font-size: .8rem; }
 
       /* Similar Products: horizontal scroll, mobile-only section */
       .similar-products-wrap { display: block; }
