@@ -989,13 +989,17 @@
       .tab-icon svg { width: 100%; height: 100%; }
 
       /* Once pinned (scrolled past the hero), drop icons — text-only tabs,
-         row layout instead of stacked, so the strip stays compact. */
+         row layout instead of stacked, so the strip stays compact. Only
+         ~5 tabs show at a time (rest sit off-screen, reachable by swipe),
+         and the strip is nudged right so "Deals" isn't flush to the edge. */
       #mobileSticky.stuck .tab-icon { display: none; }
+      #mobileSticky.stuck .tabs-wrap { padding-left: 14px !important; }
       #mobileSticky.stuck .tab-btn {
         flex-direction: row !important;
         padding: 12px 10px !important;
         font-size: .8rem !important;
-        min-width: auto !important;
+        min-width: calc((100vw - 14px) / 5) !important;
+        justify-content: center !important;
       }
 
       .products-section { padding: 20px 12px 40px; }
