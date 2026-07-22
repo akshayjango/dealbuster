@@ -177,15 +177,15 @@
       z-index: 10;
     }
 
-    /* MOBILE FLOATING ACTIONS (back / search / share over the hero image) */
+    /* MOBILE FLOATING ACTIONS (back / search / share over the hero image, sticky on scroll) */
     .floating-actions { display: none; }
     .fa-btn {
-      width: 36px; height: 36px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%;
       background: rgba(255,255,255,.95); display: flex; align-items: center;
       justify-content: center; box-shadow: var(--shadow-sm); color: var(--text);
       text-decoration: none; border: none; cursor: pointer; flex-shrink: 0;
     }
-    .fa-btn svg { width: 18px; height: 18px; }
+    .fa-btn svg { width: 20px; height: 20px; }
     .fa-group { display: flex; gap: 10px; }
 
     .updated-pill {
@@ -459,8 +459,16 @@
         aspect-ratio: 1/1;
       }
       .floating-actions {
-        display: flex; position: absolute; top: 14px; left: 14px; right: 14px;
-        justify-content: space-between; z-index: 20;
+        display: flex; position: fixed; left: 0; right: 0; top: 0;
+        padding: 14px 14px calc(14px + env(safe-area-inset-top,0px));
+        justify-content: space-between; z-index: 30;
+        background: transparent; box-shadow: none;
+        transition: background-color .2s ease, box-shadow .2s ease;
+      }
+      .floating-actions.solid {
+        background: #fff;
+        box-shadow: 0 6px 16px rgba(23,25,43,.12);
+        border-radius: 0 0 20px 20px;
       }
       .discount-pill { top: auto; bottom: 14px; left: 14px; }
 
@@ -592,14 +600,14 @@
   <div class="img-col">
     <div class="floating-actions">
       <a class="fa-btn" href="index.html" aria-label="Back" onclick="if(document.referrer.includes('dealbuster.in')||document.referrer.includes('localhost')){event.preventDefault();history.back();}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </a>
       <div class="fa-group">
         <a class="fa-btn" href="index.html?openSearch=1" aria-label="Search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         </a>
         <button class="fa-btn" onclick="shareDeal(this)" aria-label="Share deal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
         </button>
       </div>
     </div>
@@ -756,6 +764,12 @@
     };
     document.getElementById('imgBox').prepend(img);
   }
+
+  // Floating action bar: goes solid with a drop shadow once the hero image scrolls past
+  const floatingActions = document.querySelector('.floating-actions');
+  window.addEventListener('scroll', () => {
+    floatingActions.classList.toggle('solid', window.scrollY > 40);
+  }, { passive: true });
 
   // Discount pill
   document.getElementById('discountPill').textContent = discount;
