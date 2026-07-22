@@ -2448,11 +2448,12 @@
     const el = document.getElementById('ptrLoader');
     const PULL_MAX = 90;     // px of finger travel mapped to full reveal
     const THRESHOLD = 60;    // px pull needed to commit to a refresh
+    const REST_DROP = 40;    // extra px to sit lower, both mid-pull and while loading
     let startY = null, dragging = false, committed = false;
 
     function setY(px, animated) {
       el.classList.toggle('ptr-animated', animated);
-      el.style.transform = `translateY(${px - 70}px)`;
+      el.style.transform = `translateY(${px - 70 + REST_DROP}px)`;
     }
 
     // Pointer events, not touch events: elsewhere on the page (the search
