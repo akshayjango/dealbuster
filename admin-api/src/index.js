@@ -150,7 +150,9 @@ async function saveProductsFile(products, sha, message, env, _retry = true) {
   }
 
   const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/products.json`;
-  const body = { message, content: encodeBase64Unicode(JSON.stringify(deduped, null, 2)) };
+  const rawJson = JSON.stringify(deduped, null, 2);
+  console.log(`saveProductsFile: writing ${(rawJson.length / 1024 / 1024).toFixed(2)}MB, ${deduped.length} products`);
+  const body = { message, content: encodeBase64Unicode(rawJson) };
   if (sha) body.sha = sha;
   const resp = await fetchWithTimeout(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 15000);
   if (!resp.ok) {
