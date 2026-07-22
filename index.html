@@ -2448,12 +2448,21 @@
     const el = document.getElementById('ptrLoader');
     const PULL_MAX = 90;     // px of finger travel mapped to full reveal
     const THRESHOLD = 60;    // px pull needed to commit to a refresh
+    const DEAD_ZONE = 15;    // px of travel ignored before it counts as a real pull, not scroll jitter
     const REST_DROP = 40;    // extra px to sit lower, both mid-pull and while loading
     let startY = null, dragging = false, committed = false;
 
     function setY(px, animated) {
       el.classList.toggle('ptr-animated', animated);
       el.style.transform = `translateY(${px - 70 + REST_DROP}px)`;
+    }
+
+    // Only arms in the page's default top state: scrolled to 0 AND the
+    // mobile search bar hasn't gone into its sticky/pinned mode yet.
+    function atDefaultTop() {
+      if (window.scrollY > 0) return false;
+      const stickyBar = document.getElementById('mobileSticky');
+      return !stickyBar || !stickyBar.classList.contains('stuck');
     }
 
     // Pointer events, not touch events: elsewhere on the page (the search
@@ -2466,15 +2475,18 @@
     let pulled = 0;
 
     document.addEventListener('pointerdown', e => {
-      if (e.pointerType !== 'touch' || window.scrollY > 0 || committed) { startY = null; return; }
+      if (e.pointerType !== 'touch' || committed || !atDefaultTop()) { startY = null; return; }
       startY = e.clientY;
       dragging = true;
     }, { capture: true, passive: true });
 
     document.addEventListener('pointermove', e => {
       if (!dragging || startY === null || e.pointerType !== 'touch') return;
-      const delta = e.clientY - startY;
-      if (delta <= 0) return;
+      // Scrolled away from the top mid-gesture, or the sticky bar pinned —
+      // this is ordinary scrolling, not a pull. Bail without animating.
+      if (!atDefaultTop()) { dragging = false; startY = null; pulled = 0; return; }
+      const delta = e.clientY - startY - DEAD_ZONE;
+      if (delta <= 0) { pulled = 0; return; }
       pulled = Math.min(delta * 0.5, PULL_MAX);
       setY(pulled, false);
     }, { capture: true, passive: true });
