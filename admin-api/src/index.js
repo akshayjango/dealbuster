@@ -245,12 +245,119 @@ async function saveSyncError(source, message, env) {
     existing.unshift({ id: Date.now().toString(), source, message, time: new Date().toISOString() });
     await env.KV.put('syncErrors', JSON.stringify(existing.slice(0, 20)));
   } catch (e) { console.error('Failed to save sync error:', e.message); }
+  await notifyAdminPush(`Sync error: ${source}`, message.slice(0, 180), env);
 }
 
 async function getSyncErrors(env) {
   if (!env.KV) return [];
   try { return await env.KV.get('syncErrors', 'json') || []; }
   catch { return []; }
+}
+
+// ── Web Push (RFC 8291/8188 aes128gcm) — no npm deps, pure Web Crypto ───────
+// One admin subscription stored in KV under 'pushSubscription'. Sending costs
+// zero KV writes (read-only); only (re)subscribing writes.
+
+function b64urlToBuf(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf;
+}
+function bufToB64url(buf) {
+  let bin = '';
+  const arr = new Uint8Array(buf);
+  for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function concatBufs(...bufs) {
+  const total = bufs.reduce((n, b) => n + b.byteLength, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const b of bufs) { out.set(new Uint8Array(b), off); off += b.byteLength; }
+  return out;
+}
+async function hmacSha256(keyBytes, data) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, data));
+}
+async function hkdf(salt, ikm, info, length) {
+  const prk = await hmacSha256(salt, ikm);
+  const t = await hmacSha256(prk, concatBufs(info, new Uint8Array([1])));
+  return t.slice(0, length);
+}
+
+async function buildVapidHeader(env, endpoint) {
+  const dest = new URL(endpoint);
+  const aud = `${dest.protocol}//${dest.host}`;
+  const header = { typ: 'JWT', alg: 'ES256' };
+  const payload = { aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: env.VAPID_SUBJECT || 'mailto:admin@dealbuster.in' };
+  const enc = (obj) => bufToB64url(new TextEncoder().encode(JSON.stringify(obj)));
+  const unsigned = `${enc(header)}.${enc(payload)}`;
+  const key = await crypto.subtle.importKey('jwk', JSON.parse(env.VAPID_PRIVATE_KEY_JWK), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, new TextEncoder().encode(unsigned));
+  return `vapid t=${unsigned}.${bufToB64url(sig)}, k=${env.VAPID_PUBLIC_KEY}`;
+}
+
+async function encryptPushPayload(subscription, payloadObj) {
+  const uaPublicRaw = b64urlToBuf(subscription.keys.p256dh);
+  const authSecret = b64urlToBuf(subscription.keys.auth);
+
+  const asKeyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const asPublicRaw = new Uint8Array(await crypto.subtle.exportKey('raw', asKeyPair.publicKey));
+  const uaPublicKey = await crypto.subtle.importKey('raw', uaPublicRaw, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const sharedSecret = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaPublicKey }, asKeyPair.privateKey, 256));
+
+  const keyInfo = concatBufs(new TextEncoder().encode('WebPush: info\0'), uaPublicRaw, asPublicRaw);
+  const ikm = await hkdf(authSecret, sharedSecret, keyInfo, 32);
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(salt, ikm, new TextEncoder().encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(salt, ikm, new TextEncoder().encode('Content-Encoding: nonce\0'), 12);
+
+  const plaintext = concatBufs(new TextEncoder().encode(JSON.stringify(payloadObj)), new Uint8Array([2]));
+  const aesKey = await crypto.subtle.importKey('raw', cek, { name: 'AES-GCM' }, false, ['encrypt']);
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aesKey, plaintext));
+
+  const rs = 4096;
+  const header = concatBufs(
+    salt,
+    new Uint8Array([(rs >>> 24) & 0xff, (rs >>> 16) & 0xff, (rs >>> 8) & 0xff, rs & 0xff]),
+    new Uint8Array([asPublicRaw.length]),
+    asPublicRaw
+  );
+  return concatBufs(header, ciphertext);
+}
+
+async function sendWebPushNotification(subscription, payloadObj, env) {
+  const body = await encryptPushPayload(subscription, payloadObj);
+  const vapidHeader = await buildVapidHeader(env, subscription.endpoint);
+  const resp = await fetchWithTimeout(subscription.endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      'TTL': '86400',
+      'Authorization': vapidHeader,
+    },
+    body,
+  }, 8000);
+  // Gone/expired subscription — drop it so we stop trying (and don't leak a stale write later).
+  if ((resp.status === 404 || resp.status === 410) && env.KV) {
+    await env.KV.delete('pushSubscription').catch(() => {});
+  }
+  return resp;
+}
+
+async function notifyAdminPush(title, body, env) {
+  if (!env.KV || !env.VAPID_PRIVATE_KEY_JWK) return;
+  try {
+    const sub = await env.KV.get('pushSubscription', 'json');
+    if (!sub) return;
+    await sendWebPushNotification(sub, { title, body }, env);
+  } catch (e) { console.error('Push notify failed:', e.message); }
 }
 
 // ── Amazon helpers ────────────────────────────────────────────────────────────
@@ -2666,6 +2773,25 @@ export default {
       // ── DELETE /sync-errors ──────────────────────────────────────────────────
       if (url.pathname === '/sync-errors' && request.method === 'DELETE') {
         if (env.KV) await env.KV.put('syncErrors', JSON.stringify([]));
+        return json({ success: true });
+      }
+
+      // ── GET /push/vapid-public-key ───────────────────────────────────────────
+      if (url.pathname === '/push/vapid-public-key' && request.method === 'GET') {
+        return json({ key: env.VAPID_PUBLIC_KEY || null });
+      }
+
+      // ── POST /push/subscribe ─────────────────────────────────────────────────
+      if (url.pathname === '/push/subscribe' && request.method === 'POST') {
+        const sub = await request.json();
+        if (!sub || !sub.endpoint || !sub.keys) return json({ error: 'Invalid subscription' }, 400);
+        if (env.KV) await env.KV.put('pushSubscription', JSON.stringify(sub));
+        return json({ success: true });
+      }
+
+      // ── DELETE /push/subscribe ───────────────────────────────────────────────
+      if (url.pathname === '/push/subscribe' && request.method === 'DELETE') {
+        if (env.KV) await env.KV.delete('pushSubscription');
         return json({ success: true });
       }
 

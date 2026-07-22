@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-p", "4321", "."],
       "port": 4321
+    },
+    {
+      "name": "admin-api-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["wrangler", "dev", "--config", "admin-api/wrangler.toml", "--port", "8787"],
+      "port": 8787
     }
   ]
 }

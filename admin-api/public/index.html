@@ -364,6 +364,19 @@
           <div style="padding:16px;text-align:center;color:var(--muted);font-size:.85rem;">No new price drop alerts</div>
         </div>
       </div>
+
+      <!-- 3-dot menu -->
+      <button class="btn-hamburger" onclick="toggleHamburgerMenu(event)" id="hamburgerBtn" title="Menu" style="display:inline-flex;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"></circle>
+          <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"></circle>
+          <circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"></circle>
+        </svg>
+      </button>
+      <div class="hamburger-menu" id="hamburgerMenu">
+        <button onclick="enablePushNotifications()" id="pushEnableBtn">🔔 Enable Push Alerts</button>
+        <button class="logout-btn" onclick="logout()">Log out</button>
+      </div>
     </div>
   </header>
 
@@ -769,10 +782,20 @@ async function login() {
     showScreen('screenApp');
     loadProducts();
     loadAutopostState();
+    refreshPushButtonLabel();
   } catch (e) {
     errEl.textContent = 'Connection failed: ' + e.message;
   }
 }
+
+function toggleHamburgerMenu(e) {
+  e.stopPropagation();
+  document.getElementById('hamburgerMenu').classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('hamburgerMenu');
+  if (menu && !menu.contains(e.target) && e.target.id !== 'hamburgerBtn') menu.classList.remove('open');
+});
 
 function logout() {
   password = '';
@@ -780,6 +803,60 @@ function logout() {
   allProducts = [];
   document.getElementById('passwordInput').value = '';
   showScreen('screenLogin');
+}
+
+// ── Push notifications ────────────────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function refreshPushButtonLabel() {
+  const btn = document.getElementById('pushEnableBtn');
+  if (!btn || !('serviceWorker' in navigator)) return;
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = reg && await reg.pushManager.getSubscription();
+  btn.textContent = sub ? '🔕 Disable Push Alerts' : '🔔 Enable Push Alerts';
+  btn.onclick = sub ? disablePushNotifications : enablePushNotifications;
+}
+
+async function enablePushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('Push notifications are not supported in this browser.');
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { alert('Notification permission denied.'); return; }
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    const keyResp = await apiFetch('/push/vapid-public-key');
+    const { key } = await keyResp.json();
+    if (!key) { alert('Push not configured on the server yet.'); return; }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key),
+    });
+    await apiFetch('/push/subscribe', { method: 'POST', body: sub.toJSON() });
+    await refreshPushButtonLabel();
+    alert('Push notifications enabled — you\'ll get alerts even with this tab closed.');
+  } catch (e) {
+    alert('Failed to enable push notifications: ' + e.message);
+  }
+}
+
+async function disablePushNotifications() {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+    await apiFetch('/push/subscribe', { method: 'DELETE' });
+    await refreshPushButtonLabel();
+  } catch (e) {
+    alert('Failed to disable push notifications: ' + e.message);
+  }
 }
 
 // Auto-restore session on page load
@@ -793,6 +870,7 @@ function logout() {
     showScreen('screenApp');
     loadProducts();
     loadAutopostState();
+    refreshPushButtonLabel();
   } catch {}
 })();
 
