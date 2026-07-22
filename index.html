@@ -67,11 +67,15 @@
       --shadow-lift: 0 2px 4px rgba(23, 25, 43, 0.06), 0 16px 32px -12px rgba(23, 25, 43, 0.18);
     }
 
+    html {
+      overscroll-behavior-y: none;
+    }
     body {
       font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
       background-color: var(--bg);
       color: var(--text);
       -webkit-font-smoothing: antialiased;
+      overscroll-behavior-y: none;
     }
 
     /* ── HEADER ── */
@@ -972,7 +976,7 @@
          flush so the strip (and its underline) can scroll fully off toward
          the left, uninterrupted, instead of stopping short at a padded edge. */
       .tabs-wrap { padding: 0 0 0 12px !important; }
-      .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0; scrollbar-width: none; margin-bottom: 0 !important; border-bottom: none !important; padding-bottom: 0; }
+      .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0; scrollbar-width: none; margin-bottom: 0 !important; border-bottom: none !important; padding-bottom: 0; overscroll-behavior-x: contain; touch-action: pan-x; }
       .tabs::-webkit-scrollbar { display: none; }
       .tab-btn {
         display: flex !important;
