@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="favicon-tab.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -176,6 +177,17 @@
       z-index: 10;
     }
 
+    /* MOBILE FLOATING ACTIONS (back / search / share over the hero image) */
+    .floating-actions { display: none; }
+    .fa-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,.95); display: flex; align-items: center;
+      justify-content: center; box-shadow: var(--shadow-sm); color: var(--text);
+      text-decoration: none; border: none; cursor: pointer; flex-shrink: 0;
+    }
+    .fa-btn svg { width: 18px; height: 18px; }
+    .fa-group { display: flex; gap: 10px; }
+
     .updated-pill {
       background: var(--primary); border: none; border-radius: 999px;
       padding: 8px 14px; font-size: .75rem; font-weight: 700;
@@ -343,6 +355,12 @@
     .ph-keepa-btn:hover { border-color: var(--accent); }
     .ph-keepa-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
 
+    /* SIMILAR PRODUCTS (mobile-only for now, reuses hot-deal-card styling) */
+    .similar-products-wrap { display: none; }
+    @media(min-width: 769px) {
+      .similar-products-wrap { display: none !important; }
+    }
+
     /* HOT DEALS SECTION */
     .hot-deals-wrap { max-width: 960px; margin: 50px auto 60px; padding: 0 20px; }
     .hot-deals-wrap h2 {
@@ -426,98 +444,82 @@
 
     /* RESPONSIVE */
     @media(max-width: 768px) {
-      header {
-        padding: 16px 16px !important;
-        display: flex;
-        align-items: center;
-      }
-      .logo { display: none !important; }
-      nav {
-        display: flex !important;
-        align-items: center;
-        width: 100%;
-        justify-content: space-between;
-      }
-      .nav-join-group {
-        display: inline-flex !important;
-        align-items: center;
-        gap: 12px !important;
-      }
-      nav a:not(.btn-join) {
-        font-size: 0 !important;
-        width: 36px;
-        height: 36px;
-        display: inline-flex !important;
-        align-items: center;
-        justify-content: center;
-        padding: 0 !important;
-        margin-left: 0 !important;
-        background: #ffffff !important;
-        border: 1px solid var(--border-c) !important;
-        box-shadow: var(--shadow-sm) !important;
-        border-radius: 999px !important;
-        text-transform: none !important;
-        transition: box-shadow 0.15s ease;
-      }
-      nav a:not(.btn-join)::before {
-        content: "←";
-        font-size: 1.2rem;
-        font-weight: 700;
-        color: var(--text);
-      }
-      nav a:not(.btn-join):active {
-        transform: none !important;
-        box-shadow: var(--shadow-sm) !important;
-      }
-      .join-label {
-        display: inline-block !important;
-        font-size: .8rem;
-        font-weight: 700;
-        color: var(--text);
-        text-transform: uppercase;
-        margin-right: 2px;
-        margin-left: 8px;
-      }
-      .btn-text {
-        display: none !important;
-      }
-      .btn-join {
-        width: 36px !important;
-        height: 36px !important;
-        padding: 0 !important;
-        display: inline-flex !important;
-        justify-content: center;
-        align-items: center;
-        box-shadow: var(--shadow-sm) !important;
-      }
-      .btn-join:hover,
-      .btn-join:active {
-        transform: none !important;
-        box-shadow: var(--shadow-sm) !important;
-      }
+      /* Old JOIN/telegram/whatsapp header is replaced by floating actions over the hero image */
+      header { display: none !important; }
 
       .breadcrumb { display: none; }
 
-      .product-wrap { grid-template-columns: 1fr; margin: 14px auto 40px; padding: 0 14px; gap: 24px; }
-      .img-col { width: 100%; max-width: 100%; }
+      .product-wrap { grid-template-columns: 1fr; margin: 0 auto 40px; padding: 0; gap: 20px; }
 
-      .product-title { font-size: 1.25rem; }
-      .price-current { font-size: 2rem; }
-      .price-card { padding: 18px; }
-      .cta-row { flex-direction: column; gap: 12px; }
+      /* Hero image: full-bleed, covers under the status bar, floating action buttons on top */
+      .img-col { width: 100%; max-width: 100%; gap: 0; padding: 0 14px; }
+      .product-img-box {
+        border-radius: 0; border: none; box-shadow: none;
+        margin: 0 -14px; width: calc(100% + 28px);
+        aspect-ratio: 1/1;
+      }
+      .floating-actions {
+        display: flex; position: absolute; top: 14px; left: 14px; right: 14px;
+        justify-content: space-between; z-index: 20;
+      }
+      .discount-pill { top: auto; bottom: 14px; left: 14px; }
+
+      .product-title { font-size: 1.15rem; margin: 0 14px; }
+
+      .price-card { padding: 0 14px; border: none; box-shadow: none; background: transparent; }
+      .price-row { margin-bottom: 10px; gap: 8px; }
+      .price-current {
+        font-size: 1.5rem; background: #E8F8F0; color: #12925A;
+        padding: 4px 10px; border-radius: 8px;
+      }
+      .price-original { font-size: .9rem; }
+      .savings-tag { background: none; padding: 0; color: #12925A; font-size: .82rem; }
+
+      .verdict { margin: 0 14px 14px; }
+
+      /* CTA becomes a sticky bottom bar; the long share button is dropped (share now lives up top) */
+      .cta-row { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; flex-direction: row; gap: 0; margin: 0; background: #fff; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(23,25,43,.12); border-top: 1px solid var(--border-c); }
       .cta-btn { font-size: 0.95rem; padding: 14px; }
-      .share-btn { width: 100%; font-size: 0.95rem; padding: 14px; }
+      .share-btn { display: none !important; }
+      body { padding-bottom: 74px; }
 
-      .highlights-card { padding: 18px; }
+      /* Highlights: compact, no icons/bullets */
+      .highlights-card { padding: 14px; margin: 0 14px; border-radius: var(--radius); }
+      .highlights-card h3::before { content: ''; }
+      .highlights-card h3 { font-size: .9rem; margin-bottom: 8px; }
+      .highlights-list { gap: 6px; }
+      .highlights-list li { font-size: .82rem; line-height: 1.5; }
+      .hl-icon { display: none; }
 
-      .price-history-wrap { padding: 0 14px; }
-      .price-history-wrap h2 { font-size: 1.25rem; margin-bottom: 18px; }
-      .price-history-card { padding: 18px; }
+      /* Similar Products: horizontal scroll, mobile-only section */
+      .similar-products-wrap { display: block; padding: 0 14px; margin: 0; }
+      .similar-products-wrap h2 { font-size: 1.05rem; margin-bottom: 12px; padding-bottom: 0; border-bottom: none; }
+      .similar-products-wrap h2::before { content: ''; }
+
+      /* Price History: compact, no emoji, Keepa button pops */
+      .price-history-wrap { padding: 0 14px; margin: 30px auto 0; }
+      .price-history-wrap h2 { font-size: 1.05rem; margin-bottom: 12px; padding-bottom: 0; border-bottom: none; }
+      .price-history-wrap h2::before { content: ''; }
+      .price-history-card { padding: 16px; }
       .ph-stat-value { font-size: 1.05rem; }
+      .ph-keepa-btn { background: var(--accent); border: none; font-weight: 800; box-shadow: var(--shadow-sm); }
+      .ph-keepa-btn:hover { background: var(--accent-hover); }
 
-      .hot-deals-wrap { padding: 0 14px; margin-bottom: 40px; }
-      .hot-deals-wrap h2 { font-size: 1.25rem; margin-bottom: 18px; }
-      .hot-deals-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      /* Hot Deals + Similar Products: horizontal scroll cards, no CTA button on the card itself */
+      .hot-deals-wrap { padding: 0 14px; margin: 30px auto 40px; }
+      .hot-deals-wrap h2 { font-size: 1.05rem; margin-bottom: 12px; padding-bottom: 0; border-bottom: none; }
+      .hot-deals-wrap h2::before { content: ''; }
+      .hot-deals-grid {
+        display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 12px;
+        scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+      }
+      .hot-deals-grid::-webkit-scrollbar { display: none; }
+      .hot-deal-card { min-width: 148px; max-width: 148px; flex-shrink: 0; scroll-snap-align: start; padding: 10px; }
+      .hot-deal-btn { display: none; }
+      .hot-deal-img-box { height: 100px; }
+      .hot-deal-title { font-size: .74rem; height: 2.6em; margin-bottom: 8px; }
+      .hot-deal-price-current { font-size: .88rem; }
 
       .affiliate-note { display: none !important; }
       .cta-note { display: none !important; }
@@ -526,14 +528,10 @@
 
       /* NEUTRALIZE HOVER TRANSFORMS ON MOBILE VIEW (no hover state on touch) */
       .cta-btn:active,
-      .share-btn:active,
-      .hot-deal-btn:active,
       .hot-deal-card:hover {
         transform: none !important;
       }
       .cta-btn:hover { box-shadow: var(--shadow-sm) !important; background: var(--accent) !important; }
-      .share-btn:hover { box-shadow: var(--shadow-sm) !important; background: #fff !important; color: var(--text) !important; border-color: var(--border-c) !important; }
-      .hot-deal-card:hover .hot-deal-btn { background: var(--primary-soft) !important; color: var(--primary) !important; }
       .footer-disclaimer { display: none !important; }
 
       /* updated tag: move inside image corner on mobile */
@@ -541,7 +539,7 @@
       .updated-pill--overlay {
         display: inline-flex !important;
         position: absolute;
-        top: 12px; right: 12px; bottom: auto; left: auto;
+        top: auto; right: 14px; bottom: 14px; left: auto;
         font-size: .7rem; padding: 6px 12px;
         border: none;
         z-index: 10;
@@ -592,6 +590,19 @@
 
   <!-- LEFT -->
   <div class="img-col">
+    <div class="floating-actions">
+      <a class="fa-btn" href="index.html" aria-label="Back" onclick="if(document.referrer.includes('dealbuster.in')||document.referrer.includes('localhost')){event.preventDefault();history.back();}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </a>
+      <div class="fa-group">
+        <a class="fa-btn" href="index.html?openSearch=1" aria-label="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        </a>
+        <button class="fa-btn" onclick="shareDeal(this)" aria-label="Share deal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+        </button>
+      </div>
+    </div>
     <div class="product-img-box" id="imgBox">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -620,7 +631,7 @@
 
       <div class="cta-row">
         <a href="#" class="cta-btn" id="ctaBtn" target="_blank" rel="noopener noreferrer">Check Latest Price on Amazon →</a>
-        <button class="share-btn" id="shareBtn" onclick="shareDeal()" aria-label="Share deal">
+        <button class="share-btn" id="shareBtn" onclick="shareDeal(this)" aria-label="Share deal">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
           <span>Share This Deal</span>
         </button>
@@ -631,12 +642,18 @@
 
     <!-- Description -->
     <div class="highlights-card">
-      <h3>Product Description</h3>
+      <h3>Highlights</h3>
       <ul class="highlights-list" id="highlightsList">
         <li><span class="hl-icon">•</span> Loading description…</li>
       </ul>
     </div>
   </div>
+</div>
+
+<!-- SIMILAR PRODUCTS (mobile-only) -->
+<div class="hot-deals-wrap similar-products-wrap" id="similarWrap" style="display:none;">
+  <h2>Similar Products</h2>
+  <div class="hot-deals-grid" id="similarGrid"></div>
 </div>
 
 <!-- PRICE HISTORY -->
@@ -877,13 +894,7 @@
       const products = allProducts
         .filter(p => !p.hidden && p.title !== title && p.price && p.price !== '₹0' && p.price !== '₹');
 
-      // Get 4 random deals from the latest 20 products
-      const latestPool = products.slice(0, 20);
-      const shuffled = latestPool.sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, 4);
-
-      const grid = document.getElementById('hotDealsGrid');
-      grid.innerHTML = selected.map(p => {
+      function cardHTML(p) {
         const url = 'product.html?' + new URLSearchParams({
           title: p.title,
           cat: p.category || 'All Deals',
@@ -910,16 +921,32 @@
             <button class="hot-deal-btn">VIEW DEAL</button>
           </a>
         `;
-      }).join('');
+      }
+
+      // Hot Deals Right Now — latest 8
+      const hotSelected = products.slice(0, 8);
+      document.getElementById('hotDealsGrid').innerHTML = hotSelected.map(cardHTML).join('');
+
+      // Similar Products — same category as this deal, latest 8 (mobile-only section)
+      const catLower = cat.toLowerCase();
+      const similarSelected = products.filter(p => (p.category || '').toLowerCase() === catLower).slice(0, 8);
+      const similarWrap = document.getElementById('similarWrap');
+      if (similarSelected.length) {
+        document.getElementById('similarGrid').innerHTML = similarSelected.map(cardHTML).join('');
+        similarWrap.style.display = '';
+      } else {
+        similarWrap.style.display = 'none';
+      }
     } catch (e) {
       console.error('Failed to load hot deals:', e);
     }
   })();
 
   // Share Deal functionality
-  function shareDeal() {
+  function shareDeal(triggerBtn) {
     const titleText = `${title} - Amazing deal on Dealbuster!`;
     const shareUrl = link;
+    const btn = triggerBtn || document.getElementById('shareBtn');
 
     if (navigator.share) {
       navigator.share({
@@ -929,12 +956,11 @@
       }).catch(() => {});
     } else {
       navigator.clipboard.writeText(shareUrl).then(() => {
-        const btn = document.getElementById('shareBtn');
         const originalContent = btn.innerHTML;
-        btn.innerHTML = `
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-          <span>Copied!</span>
-        `;
+        const hasLabel = btn.querySelector('span');
+        btn.innerHTML = hasLabel
+          ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span>Copied!</span>`
+          : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>`;
         setTimeout(() => {
           btn.innerHTML = originalContent;
         }, 2000);

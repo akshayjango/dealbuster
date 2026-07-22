@@ -2165,6 +2165,12 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && overlay.classList.contains('open')) requestClose();
     });
+
+    // Deep link from product.html's mobile search icon (?openSearch=1)
+    if (new URLSearchParams(location.search).get('openSearch') === '1') {
+      history.replaceState({}, '', location.pathname);
+      openOverlay();
+    }
   })();
 
   // Chip filter
