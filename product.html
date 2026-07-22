@@ -250,7 +250,7 @@
       margin-top: 0;
     }
     .cta-btn {
-      display: block; flex: 1;
+      display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1;
       background: var(--accent); color: var(--text);
       border: none; border-radius: var(--radius); padding: 16px;
       font-size: 1.05rem; font-weight: 700; cursor: pointer;
@@ -259,6 +259,7 @@
       transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
       letter-spacing: 0.01em;
     }
+    .cta-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
     .cta-btn:hover {
       background: var(--accent-hover);
       transform: translateY(-1px);
@@ -347,12 +348,11 @@
     .ph-note { font-size: .82rem; color: var(--muted); margin: 0; text-align: center; font-weight: 500; }
     .ph-keepa-btn {
       display: flex; align-items: center; justify-content: center; gap: 6px;
-      margin-top: 16px; padding: 10px 16px; border-radius: var(--radius);
-      border: 1px solid var(--border-c); background: var(--bg);
-      color: var(--text); font-size: .85rem; font-weight: 700;
-      text-decoration: none;
+      margin-top: 16px; padding: 0; border: none; background: none;
+      color: var(--primary); font-size: .85rem; font-weight: 700;
+      text-decoration: underline; text-underline-offset: 3px;
     }
-    .ph-keepa-btn:hover { border-color: var(--accent); }
+    .ph-keepa-btn:hover { color: var(--primary-dark); }
     .ph-keepa-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
 
     /* SIMILAR PRODUCTS (mobile-only for now, reuses hot-deal-card styling) */
@@ -510,8 +510,6 @@
       .price-history-wrap h2::before { content: ''; }
       .price-history-card { padding: 16px; }
       .ph-stat-value { font-size: 1.05rem; }
-      .ph-keepa-btn { background: var(--accent); border: none; font-weight: 800; box-shadow: var(--shadow-sm); }
-      .ph-keepa-btn:hover { background: var(--accent-hover); }
 
       /* Hot Deals + Similar Products: horizontal scroll cards, no CTA button on the card itself */
       .hot-deals-wrap { padding: 0 14px; margin: 30px auto 40px; }
@@ -638,7 +636,10 @@
       </div>
 
       <div class="cta-row">
-        <a href="#" class="cta-btn" id="ctaBtn" target="_blank" rel="noopener noreferrer">Check Latest Price on Amazon →</a>
+        <a href="#" class="cta-btn" id="ctaBtn" target="_blank" rel="noopener noreferrer">
+          <span>Check Latest Price on Amazon</span>
+          <svg viewBox="0 0 512 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M479 0H92.1004C73.9004 0 59.1004 14.8 59.1004 33C59.1004 51.2 73.9004 66 92.1004 66H399.2L9.70039 455.6C-3.19961 468.5 -3.19961 489.4 9.70039 502.3C22.6004 515.2 43.5004 515.2 56.4004 502.3L445.9 112.7V419.8C445.9 438 460.7 452.8 478.9 452.8C497.1 452.8 511.9 438 511.9 419.8V33C512 14.8 497.2 0 479 0Z"/></svg>
+        </a>
         <button class="share-btn" id="shareBtn" onclick="shareDeal(this)" aria-label="Share deal">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
           <span>Share This Deal</span>
@@ -676,7 +677,7 @@
     <div class="ph-chart-box" id="phChartBox"></div>
     <p class="ph-note" id="phNote"></p>
     <a class="ph-keepa-btn" id="phKeepaBtn" target="_blank" rel="noopener" style="display:none;">Full Price History on Keepa
-    <svg viewBox="0 0 512 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M479 0H92.1004C73.9004 0 59.1004 14.8 59.1004 33C59.1004 51.2 73.9004 66 92.1004 66H399.2L9.70039 455.6C-3.19961 468.5 -3.19961 489.4 9.70039 502.3C22.6004 515.2 43.5004 515.2 56.4004 502.3L445.9 112.7V419.8C445.9 438 460.7 452.8 478.9 452.8C497.1 452.8 511.9 438 511.9 419.8V33C512 14.8 497.2 0 479 0Z"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
   </a>
   </div>
 </div>
