@@ -2455,24 +2455,32 @@
       el.style.transform = `translateY(${px - 70}px)`;
     }
 
-    document.addEventListener('touchstart', e => {
-      if (window.scrollY > 0 || committed) { startY = null; return; }
-      startY = e.touches[0].clientY;
+    // Pointer events, not touch events: elsewhere on the page (the search
+    // input, right at the top) calls preventDefault() on its own pointerdown
+    // to guard focus behavior. Per spec that silently suppresses the whole
+    // touchstart/touchmove/touchend sequence for that finger, which killed
+    // this gesture whenever it started near the top. preventDefault() does
+    // not stop a pointerdown from bubbling, so tracking pointer events here
+    // sidesteps that suppression entirely.
+    let pulled = 0;
+
+    document.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'touch' || window.scrollY > 0 || committed) { startY = null; return; }
+      startY = e.clientY;
       dragging = true;
-    }, { passive: true });
+    }, { capture: true, passive: true });
 
-    document.addEventListener('touchmove', e => {
-      if (!dragging || startY === null) return;
-      const delta = e.touches[0].clientY - startY;
+    document.addEventListener('pointermove', e => {
+      if (!dragging || startY === null || e.pointerType !== 'touch') return;
+      const delta = e.clientY - startY;
       if (delta <= 0) return;
-      const pull = Math.min(delta * 0.5, PULL_MAX);
-      setY(pull, false);
-    }, { passive: true });
+      pulled = Math.min(delta * 0.5, PULL_MAX);
+      setY(pulled, false);
+    }, { capture: true, passive: true });
 
-    document.addEventListener('touchend', () => {
+    document.addEventListener('pointerup', () => {
       if (!dragging) return;
       dragging = false;
-      const pulled = parseFloat((el.style.transform.match(/-?[\d.]+(?=px\))/) || [0])[0]) + 70;
       if (pulled >= THRESHOLD) {
         committed = true;
         setY(70, true);
@@ -2481,6 +2489,7 @@
       } else {
         setY(0, true);
       }
+      pulled = 0;
       startY = null;
     }, { passive: true });
   })();
