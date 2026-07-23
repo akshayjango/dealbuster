@@ -2512,6 +2512,18 @@
       pulled = 0;
       startY = null;
     }, { passive: true });
+
+    // Real touch devices frequently fire pointercancel instead of pointerup
+    // once the browser's own gesture recognizer claims the touch for
+    // scrolling — without this, dragging never clears and the loader is
+    // left stuck on screen at whatever position it last reached.
+    document.addEventListener('pointercancel', () => {
+      if (!dragging) return;
+      dragging = false;
+      pulled = 0;
+      startY = null;
+      hide(true);
+    }, { passive: true });
   })();
 
   // Register service worker for PWA / TWA support
