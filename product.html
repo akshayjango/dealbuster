@@ -171,9 +171,9 @@
     
     .discount-pill {
       position: absolute; top: 12px; left: 12px;
-      background: var(--lime); color: var(--text);
+      background: none; color: var(--primary);
       font-size: .95rem; font-weight: 800; padding: 5px 14px;
-      border: none; border-radius: 6px; box-shadow: var(--shadow-sm);
+      border: none; box-shadow: none;
       z-index: 10;
     }
 
@@ -189,9 +189,9 @@
     .fa-group { display: flex; gap: 10px; }
 
     .updated-pill {
-      background: var(--primary); border: none; border-radius: 999px;
+      background: var(--text); border: none; border-radius: 999px;
       padding: 8px 14px; font-size: .75rem; font-weight: 700;
-      color: #ffffff; letter-spacing: 0.02em;
+      color: #fff; letter-spacing: 0.02em;
       display: inline-flex; align-items: center; gap: 8px; width: fit-content;
     }
     .updated-pill .dot {
@@ -553,7 +553,7 @@
       /* Similar Products / Hot Deals: no section box, just an inset heading + horizontal scroll row */
       .similar-products-wrap,
       .hot-deals-wrap { padding: 0 14px; margin: 12px 0 0; }
-      .hot-deals-wrap { margin-bottom: 20px; }
+      .hot-deals-wrap { margin-bottom: 60px; }
       .similar-products-wrap h2,
       .hot-deals-wrap h2 {
         font-size: .8rem; font-weight: 600; margin-bottom: 8px; padding-bottom: 0; border-bottom: none;
@@ -683,7 +683,7 @@
       <div class="updated-pill updated-pill--overlay"><span class="dot"></span> <span id="updatedText">Just Updated</span></div>
     </div>
     <div class="badges-row">
-      <span class="discount-pill" id="discountPill">-75%</span>
+      <span class="discount-pill" id="discountPill">-75% OFF</span>
       <div class="updated-pill updated-pill--below"><span class="dot"></span> <span id="updatedText2">Just Updated</span></div>
     </div>
   </div>
@@ -851,7 +851,7 @@
   }, { passive: true });
 
   // Discount pill
-  document.getElementById('discountPill').textContent = discount;
+  document.getElementById('discountPill').textContent = discount + ' OFF';
 
   // Updated tag
   if (updated) {
