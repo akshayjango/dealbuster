@@ -518,17 +518,37 @@
     }
     .discount-badge {
       position: absolute;
-      top: 8px;
-      left: 8px;
-      background: var(--lime);
+      top: -5px;
+      left: -5px;
+      width: 47px;
+      height: 46px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 110 109'%3E%3Cpath d='M87.2793 0C88.4037 1.42926e-05 89.5054 0.316178 90.459 0.912109L101.355 7.72168C103.535 9.08375 104.604 11.6831 104.016 14.1846L103.766 15.2461C103.29 17.2687 103.894 19.394 105.363 20.8633L108.14 23.6396C110.108 25.6085 110.465 28.6736 108.999 31.041L106.504 35.0703C105.553 36.6074 105.345 38.4918 105.938 40.1992L107.879 45.7754C108.574 47.7746 108.164 49.9923 106.801 51.6113L102.41 56.8252C101.499 57.9068 101 59.2755 101 60.6895V66.792C101 69.0644 99.7161 71.1418 97.6836 72.1582L91.4688 75.2656C89.9023 76.0489 88.756 77.4777 88.3311 79.1768L86.4609 86.6562C85.8781 88.9874 83.9606 90.7463 81.5879 91.126L75.8154 92.0498C74.0339 92.335 72.4753 93.4064 71.5713 94.9678L69.2334 99.0059C68.1607 100.859 66.1819 102 64.041 102H55.8164C54.6319 102 53.4738 102.351 52.4883 103.008L46.2217 107.186C44.5254 108.316 42.3706 108.509 40.501 107.696L34.5059 105.089C32.9142 104.397 31.1002 104.429 29.5332 105.175L25.3262 107.178C23.0329 108.27 20.3001 107.8 18.5039 106.004L16.2578 103.758C15.1326 102.633 13.6059 102 12.0146 102H9.28125C6.97069 102 4.86507 100.673 3.86816 98.5889L0.586914 91.7275C0.200453 90.9194 0 90.0345 0 89.1387V0H87.2793Z' fill='%23FFD000'/%3E%3C/svg%3E");
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
       color: var(--text);
       border: none;
-      border-radius: 999px;
-      font-size: .75rem;
-      font-weight: 800;
-      padding: 3px 10px;
-      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 7px 4px 6px 6px;
       z-index: 5;
+    }
+    .discount-badge .db-num {
+      font-size: .72rem;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+    .discount-badge .db-num .db-pct {
+      font-weight: 500;
+    }
+    .discount-badge .db-off {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .5px;
+      line-height: 1;
+      margin-top: 1px;
     }
     .card-body {
       padding: 14px;
@@ -1069,7 +1089,8 @@
       .product-card { border-color: var(--border-c); }
       
       .card-img-wrap { height: 130px; padding: 10px; }
-      .discount-badge { font-size: .65rem; padding: 2px 6px; top: 6px; left: 6px; }
+      .discount-badge .db-num { font-size: .62rem; }
+      .discount-badge .db-off { font-size: .58rem; }
       .card-body { padding: 10px; }
       .card-title { font-size: 11px; margin-bottom: 8px; height: 2.7em; }
       .price-current { font-size: .95rem; font-weight: 900; padding: 1px 4px; }
@@ -1609,7 +1630,7 @@
     <a class="product-card" data-cat="electronics" href="product.html?title=boAt+Airdopes+219%2C+4Mics+ENx%2C+40H+Battery%2C+Best+in+Segment+for&cat=Electronics&price=%E2%82%B9999&mrp=%E2%82%B93%2C990&disc=-75%25&updated=2026-07-16&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F71FOccCOQmL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB0FC2Y3XGV%3Ftag%3Ddealbuster002-21&hl=Quad+Mics+with+ENx+Technology%3A+ENx-powered+quad+mics+in+these+earbuds+eliminate+noise+for+clear+calls+regardless+of+your+location.+Converse+in+caf%C3%A9s+and+on+public+transport+hands-free+with+your+Airdopes.%7CPowerful+13mm+Drivers%3A+Tune+into+thumping+bass-rich+boAt+Signature+Sound+from+the+dual+13+mm+drivers.+Experience+every+beat+to+the+fullest%21%7CUp+to+40+hours+of+Playback%3A+Groove+uninterrupted+with+the+boAt+Airdopes+219+TWS+Earbuds.+Listen+to+songs+and+podcasts+while+unwinding+for+up+to+40+hours.%7CBEAST+Mode%3A+Immerse+in+the+virtual+world+with+the+45+ms+low-latency+gaming+BEAST+mode.+Enjoy+lag-free+gaming+while+playing+solo+or+with+your+squad.%7CASAP+Charge%3A+Charge+your+buds+for+10+minutes+and+keep+binge-watching+for+120+minutes.+Thanks+to+ASAP+Charge%2C+you+can+resume+your+favorite+web+series+and+tick+it+off+your+watchlist.">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/71FOccCOQmL._SY355_.jpg" alt="boAt Airdopes 219, 4Mics ENx, 40H Battery, Best in Segment for" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-75%</span>
+        <span class="discount-badge"><span class="db-num">75<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">boAt Airdopes 219, 4Mics ENx, 40H Battery, Best in Segment for</p>
@@ -1626,7 +1647,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=LAKME+9to5+Eyeconic+Waterproof+Liquid+Eyeliner%2C+Intense+Black%2C+4.5&cat=Beauty&price=%E2%82%B9146&mrp=%E2%82%B9325&disc=-55%25&updated=2026-07-16&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F41FkrmbWMkL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB08N7Y9VYX%3Ftag%3Ddealbuster002-21&hl=ERGONOMIC+DESIGN%3A+Lakme+Eyeconic+Liquid+Eyeliner+features+an+ergonomic+cap+for+comfortable+grip+and+precise+control%2C+making+it+ideal+for+eyeliner+liquid+application.%7CFLEXI-TIP+PRECISION%3A+Achieve+flawless+lines+with+the+flexi-tip+applicator%2C+designed+for+smooth+application%7CQUICK-DRY+FORMULA%3A+This+eyeliner+liquid+dries+in+just+15+seconds%2C+ensuring+a+smudge-proof%2C+waterproof+finish+for+long-lasting+wear+throughout+the+day.%7C24-HOUR+WEAR%3A+Enjoy+intense+color+that+lasts+up+to+24+hours%2C+making+this+eyeliner+liquid+perfect+for+nonstop+slay+from+morning+meetings+to+late-night+events.%7CWATERPROOF+%26+SMUDGEPROOF%3A+Lakme+Eyeconic+Eyeliner+offers+a+waterproof+and+smudge-proof+formula%2C+ensuring+your+look+stays+intact+in+all+weather+conditions.">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/41FkrmbWMkL._SY355_.jpg" alt="LAKME 9to5 Eyeconic Waterproof Liquid Eyeliner, Intense Black, 4.5" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-55%</span>
+        <span class="discount-badge"><span class="db-num">55<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">LAKME 9to5 Eyeconic Waterproof Liquid Eyeliner, Intense Black, 4.5</p>
@@ -1643,7 +1664,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=Plum+Hibiscus+%26+Ceramides+Long+%26+Healthy+Shampoo&cat=Beauty&price=%E2%82%B9248&mrp=%E2%82%B9310&disc=-20%25&updated=2026-07-16&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F41rTW6fz9qL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB0C85G5D26%3Ftag%3Ddealbuster002-21&hl=Smoothens+hair+%26+improves+overall+hair+structure%3A+Ceramides+strengthen+the+hair+cuticle%2C+restore+moisture+balance%2C+and+smoothen+hair+for+a+healthier+look.%7CHelps+prevent+split+ends%3A+Hibiscus+extract+acts+as+a+natural+emollient%2C+helping+to+prevent+split+ends+by+softening+the+hair.%7CKeeps+hair+healthy%3A+Ceramides+protect+hair+from+environmental+damage%2C+enhance+shine%2C+improve+texture%2C+and+maintain+overall+hair+health.%7CHydrates+and+conditions%3A+Hibiscus+extract+is+rich+in+antioxidants+and+helps+retain+moisture%2C+leaving+hair+soft%2C+conditioned%2C+and+hydrated.%7CComplete+the+routine%3A+For+best+results%2C+use+it+with+Plum+Hibiscus+%26+Ceramides+Conditioner+and+Serum.">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/41rTW6fz9qL._SY355_.jpg" alt="Plum Hibiscus & Ceramides Long & Healthy Shampoo" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-20%</span>
+        <span class="discount-badge"><span class="db-num">20<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Plum Hibiscus & Ceramides Long & Healthy Shampoo</p>
@@ -1660,7 +1681,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=L%27Or%C3%A9al+Paris+Revitalift+1.5%25+Hyaluronic+Acid+Serum%2C+Volume%3A+30ml%2C&cat=Beauty&price=%E2%82%B9549&mrp=%E2%82%B9999&disc=-45%25&updated=2026-07-16&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F51dyKxcQAaL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB08QSRRYGL%3Ftag%3Ddealbuster002-21&hl=A+Lightweight+serum+with+50X+smaller+Micro+Hyaluronic+Acid%7CIntensely+hydrates%2C+smooths%2C+and+replumps+skin+to+reduce+fine+lines+by+-60%25%7CApply+this+moisturising+serum+daily%2C+day+%26+night%7CFragrance+free%2C+paraben+free%2C+alcohol+free+formulation%7CContents%3A+1x+L%27Or%C3%A9al+Paris+Revitalift+1.5%25+Hyaluronic+Acid+Serum%2C+Volume%3A+30ml">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/51dyKxcQAaL._SY355_.jpg" alt="L'Oréal Paris Revitalift 1.5% Hyaluronic Acid Serum, Volume: 30ml," style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-45%</span>
+        <span class="discount-badge"><span class="db-num">45<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">L'Oréal Paris Revitalift 1.5% Hyaluronic Acid Serum, Volume: 30ml,</p>
@@ -1677,7 +1698,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=Head+%26+Shoulders+7in1+Anti-dandruff+Shampoo&cat=Beauty&price=%E2%82%B9594&mrp=%E2%82%B91%2C511&disc=-61%25&updated=2026-07-10&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F61zcOHszc4L._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB0DPB3QJNM%3Ftag%3Ddealbuster002-21&hl=Multi-action+formula.+Suitable+for+both+men+and+women.%7C7+benefits+-+Clinically+proven.+100%25+dandruff+protection.%7CItch+relief.+Deep+Cleansing%7CReduces+Dryness.+Soft%2C+smooth+hair.%7CNourishes+hair+and+scalp.+Strong%2C+healthy+hair">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/61zcOHszc4L._SY355_.jpg" alt="Head & Shoulders 7in1 Anti-dandruff Shampoo" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-61%</span>
+        <span class="discount-badge"><span class="db-num">61<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Head & Shoulders 7in1 Anti-dandruff Shampoo</p>
@@ -1694,7 +1715,7 @@
     <a class="product-card" data-cat="fashion" href="product.html?title=Origami+So+Soft+2+Ply+Facial+Tissue+Pack&cat=Fashion&price=%E2%82%B9129&mrp=%E2%82%B9255&disc=-49%25&updated=2026-07-04&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F81Es21qK1fL._SY355_PIbundle-6%2CTopRight%2C0%2C0_AA355SH20_.jpg&link=https%3A%2F%2Famzn.to%2F4wtGrD2&hl=Extra+soft+and+thicker+tissue+is+made+with+a+special+blend+of+fibers+that+are+designed+to+be+soft+on+the+skin+and+not+disintegrate+on+moist+skin%7CSafe+and+hygienic+for+wiping+skin+and+make+up+removal.+Made+from+100%25+cellulose+fiber%3A+Free+of+any+inks%2C+dyes+or+harsh+chemicals+and+chlorine+brightening+agen%7CEasily+dispensed+Multipurpose+tissue+for+personal+care%2C+bedside%2C+dressing+table%2C+office+and+car%7CMade+from+100%25+cellulose+fiber%3A+Free+of+any+inks%2C+dyes+or+harsh+chemicals+and+chlorine+brightening+agent%7C2+Ply+Facial+Tissue+Box+%7C+Car+Tissue+-+Pack+of+6+%28100+Pulls+Per+Box%2C+600+Sheets%29">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/81Es21qK1fL._SY355_PIbundle-6,TopRight,0,0_AA355SH20_.jpg" alt="Origami So Soft 2 Ply Facial Tissue Pack" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-49%</span>
+        <span class="discount-badge"><span class="db-num">49<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Origami So Soft 2 Ply Facial Tissue Pack</p>
@@ -1711,7 +1732,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=Santoor+Brightening+Shower+Gel+With+Natural+Saffron+%26+Marigold+Extracts%7C+For+Men+%26+Women%7C+For+Glowing+Skin%7C+Suitable+For+All+Skin+Types%7C+No+Parabens%7C+No+Silicones%7C+500ml&cat=Beauty&price=%E2%82%B9119&mrp=%E2%82%B923&disc=0%25&updated=2026-07-03&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F61u928nxg7L._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB0CQYG22TN%3Ftag%3Ddealbuster002-21&hl=Natural+Radiance%3A+Discover+Santoor+Brightening+Shower+Gel%2C+enriched+with+saffron+and+marigold+extracts%2C+unveiling+your+skin%27s+inherent+glow+for+a+bright+and+luminous+complexion..%7CSaffron+Extracts%3A+Saffron+contains+antioxidants+that+can+help+to+lighten+and+brighten+the+skin%2C+reducing+the+appearance+of+dark+spots+and+blemishes.+It+promotes+a+radiant+complexion.%7CMarigold+Extracts%3A+Marigold+helps+prevent+premature+aging+and+maintains+a+youthful-looking+skin.%7CRich%2C+Silky+Lather%3A+Enjoy+the+luxurious+sensation+of+the+rich+and+creamy+lather+of+Santoor+shower+gel+as+it+cleanses+away+impurities.%7CGentle+and+Safe%3A+Our+paraben-free+shower+gel+with+a+pH-balanced+formula+is+dermatologically+tested%2C+ensuring+a+gentle+cleanse+without+stripping+away+your+skin%27s+natural+oils.">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/61u928nxg7L._SY355_.jpg" alt="Santoor Brightening Shower Gel With Natural Saffron & Marigold Extracts| For Men & Women| For Glowing Skin| Suitable For All Skin Types| No Parabens| No Silicones| 500ml" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">0%</span>
+        <span class="discount-badge"><span class="db-num">0<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Santoor Brightening Shower Gel With Natural Saffron & Marigold Extracts| For Men & Women| For Glowing Skin| Suitable For All Skin Types| No Parabens| No Silicones| 500ml</p>
@@ -1728,7 +1749,7 @@
     <a class="product-card" data-cat="electronics" href="product.html?title=B0GL29BM99&cat=Electronics&price=&mrp=&disc=0%25&updated=2026-07-02&img=&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB0GL29BM99%3Ftag%3Ddealbuster002-21&hl=">
       <div class="card-img-wrap">
         <img src="" alt="B0GL29BM99" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">0%</span>
+        <span class="discount-badge"><span class="db-num">0<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">B0GL29BM99</p>
@@ -1745,7 +1766,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=Maybelline+New+York+Fit+Me+Matte+Poreless+Pressed+Face+Powder.&cat=Beauty&price=%E2%82%B9256&mrp=%E2%82%B9629&disc=-59%25&updated=2026-07-01&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F51W0zPZqOHL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB00PFCSS84%3Ftag%3Ddealbuster002-21&hl=Breathable+and+lightweight+pressed+powder+foundation+that+mattifies+skin+and+minimized+pores%2C+Ideal+for+normal+to+oily+skin%7CMattifies+and+leaves+a+poreless+looking+finish+with+long+lasting+shine+control%2C+Natural%2C+poreless+looking+results%7CUsing+the+sponge+applicator%2C+apply+to+the+forehead%2C+nose%2C+cheeks%2C+and+chin.+Blend+all+over+using+gentle+downward+strokes.%7CUp+to+12+hours+wear%2C+Perlite+mineral+technology+absorbs+oil+to+mattify+skin%2C+Blurring+micro+powders+minimize+pores%7CContents%3A+1+Maybelline+New+York+Fit+Me+Matte+Poreless+Powder%2C+Shade%3A+230+Natural+Buff%2C+Weight%3A+8.5g">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/51W0zPZqOHL._SY355_.jpg" alt="Maybelline New York Fit Me Matte Poreless Pressed Face Powder." style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-59%</span>
+        <span class="discount-badge"><span class="db-num">59<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Maybelline New York Fit Me Matte Poreless Pressed Face Powder.</p>
@@ -1762,7 +1783,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=Vaseline+Aloe+Fresh+Body+Lotion%2C24+HR+Long+Lasting+Moisturisation&cat=Beauty&price=%E2%82%B9259&mrp=%E2%82%B9565&disc=-54%25&updated=2026-07-01&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F51npyoFCysL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB09ZL92BKR%3Ftag%3Ddealbuster002-21&hl=Instantly+absorbs+5+layers+deep+for+healthy+soft+skin%7CFeatherlight+formula+with+non+greasy+feel%7C100%25+Aloe+vera+Extracts%7CAll+Day+Hydration+with+pure+Aloe+extracts+and+Menthol%7CMoisturise+to+restore+dry+skin">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/51npyoFCysL._SY355_.jpg" alt="Vaseline Aloe Fresh Body Lotion,24 HR Long Lasting Moisturisation" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-54%</span>
+        <span class="discount-badge"><span class="db-num">54<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Vaseline Aloe Fresh Body Lotion,24 HR Long Lasting Moisturisation</p>
@@ -1779,7 +1800,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=Garnier+Skin+Naturals%2C+Bright+Complete+30X+Vitamin+C+Booster+Face&cat=Beauty&price=%E2%82%B9462&mrp=%E2%82%B9925&disc=-50%25&updated=2026-07-01&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F51xZTTUJotL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB09XTV433Y%3Ftag%3Ddealbuster002-21&hl=Face+serum+suitable+for+all+skin+types%7CInstantly+combats+a+dull+skin+tone+and+reduces+dark+spots+when+used+regularly%7CHow+to+use%3A+Cleanse+skin+using+a+face+wash%2C+Apply+3-4+drops+of+serum+and+spread+evenly+over+the+face+and+neck+using+gentle+tapping+motions%2C+Use+twice+a+day+and+follow+up+with+moisturising+creams%7CEnriched+with+lemon+extracts+and+30+times+the+amount+of+Vitamin+C+of+Garnier%27s+Bright+Complete+face+creams+to+combat+dark+spots%7CContents%3A+1x+Garnier+Bright+Complete+Vitamin+C+Booster+Face+Serum%2C+Volume%3A+50+ml">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/51xZTTUJotL._SY355_.jpg" alt="Garnier Skin Naturals, Bright Complete 30X Vitamin C Booster Face" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-50%</span>
+        <span class="discount-badge"><span class="db-num">50<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Garnier Skin Naturals, Bright Complete 30X Vitamin C Booster Face</p>
@@ -1796,7 +1817,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=Lakme+9+to+5+Overtime+Shine+Nail+Polish+-+Coffee+Edit-06+Caramel&cat=Beauty&price=%E2%82%B9137&mrp=%E2%82%B9260&disc=-47%25&updated=2026-07-01&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F51KWkzFUHuL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB0GSZJ7XQW%3Ftag%3Ddealbuster002-21&hl=HIGH+SHINE+PAYOFF%3A+Achieve+a+glossy+finish+in+one+stroke+with+Lakme+nail+polish+for+women%2C+offering+high+shine+payoff+and+a+professional+look+for+every+occasion.%7CVERSATILE+SHADES%3A+This+nail+polish+set+includes+15+nude-to-roast+tones%2C+perfect+as+nail+paints+for+women+and+suited+for+all+Indian+skin+tones.%7CTOXIN-FREE+FORMULA%3A+Lakme+nail+polish+is+crafted+with+a+toxin-free+formula%2C+ensuring+safe%2C+long-lasting+wear+for+women+who+love+nailpaints+for+women.%7CQUICK+DRYING%3A+The+quick-dry+formula+of+this+nail+polish+combo+ensures+a+salon-like+finish+at+home%2C+making+it+ideal+for+busy+schedules+and+daily+use.%7CCOFFEE+OIL+ENRICHMENT%3A+Infused+with+coffee+oil%2C+this+nail+polish+strengthens+nails%2C+making+it+a+perfect+gel+polish+alternative+for+healthier%2C+stronger+nails.">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/51KWkzFUHuL._SY355_.jpg" alt="Lakme 9 to 5 Overtime Shine Nail Polish - Coffee Edit-06 Caramel" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-47%</span>
+        <span class="discount-badge"><span class="db-num">47<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Lakme 9 to 5 Overtime Shine Nail Polish - Coffee Edit-06 Caramel</p>
@@ -1813,7 +1834,7 @@
     <a class="product-card" data-cat="home" href="product.html?title=Beardo+Body+Acne+Clear+Body+Wash+for+Men+200+ml&cat=Home&price=%E2%82%B9134&mrp=%E2%82%B9399&disc=-66%25&updated=2026-07-01&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F71xnxKbPaGL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB09WYT29RX%3Ftag%3Ddealbuster002-21&hl=Potent+Body+Acne+Defense%3A+Infused+with+Salicylic+acid%2CNeem+%26+Tea+tree%2C+our+bacne+body+wash+effectively+dries+out+pimples+without+stripping+your+skin+of+moisture%2C+promoting+a+clear+and+even+skin+tone.+This+acne+shower+wash+is+ideal+for+acne-prone+and+sensitive+skin.%7CDual-Action+Acne+Control%3A+Our+body+wash+for+acne+not+only+combats+breakouts+but+also+nourishes+your+skin.+This+acne+clearing+body+wash+exfoliates+gently%2C+removing+dead+skin+cells+while+strengthening+the+skin%27s+barrier%2C+leavi%7CUnclogs+and+minimizes+the+appearance+of+pores%2C+giving+you+clearer+skin+on+chest+and+back%7CBeardo%27s+B-Acne+Body+wash+is+specially+designed+to+be+effective+on+men%27s+tough+skin.%7CReveals+Smoother+Skin%3A+Moisturizes+to+reveal+skin+that%27s+noticeably+softer%2C+smoother+and+virtually+bump-free+in+one+month">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/71xnxKbPaGL._SY355_.jpg" alt="Beardo Body Acne Clear Body Wash for Men 200 ml" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-66%</span>
+        <span class="discount-badge"><span class="db-num">66<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Beardo Body Acne Clear Body Wash for Men 200 ml</p>
@@ -1830,7 +1851,7 @@
     <a class="product-card" data-cat="beauty" href="product.html?title=Parachute+SkinPure+Body+Lotion+with+Vitamin+C+%26+Virgin+Coconut+Oil&cat=Beauty&price=%E2%82%B9171&mrp=%E2%82%B9465&disc=-63%25&updated=2026-07-01&img=https%3A%2F%2Fm.media-amazon.com%2Fimages%2FI%2F61peQyMuNsL._SY355_.jpg&link=https%3A%2F%2Fwww.amazon.in%2Fdp%2FB0FCFSX424%3Ftag%3Ddealbuster002-21&hl=Power+of+Vitamin+C+-+Helps+protect+the+skin+from+free+radicals+and+enhances+natural+radiance.%7CVirgin+Coconut+Oil+-+Supports+skin+healing+and+helps+reduce+inflammation.%7CLong-Lasting+Moisture+-+Delivers+up+to+72+hours+of+intense+moisturization*+for+soft%2C+hydrated+skin.%7CNourishing+Serum+-+Formulated+with+natural+moisturisers+to+keep+your+skin+healthy+and+supple.%7CWith+Rosehip+Oil+-+Hydrates+and+helps+brighten+skin+for+a+natural%2C+healthy+glow.">
       <div class="card-img-wrap">
         <img src="https://m.media-amazon.com/images/I/61peQyMuNsL._SY355_.jpg" alt="Parachute SkinPure Body Lotion with Vitamin C & Virgin Coconut Oil" style="width:100%;height:180px;object-fit:contain;display:block;background:#fff;">
-        <span class="discount-badge">-63%</span>
+        <span class="discount-badge"><span class="db-num">63<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">Parachute SkinPure Body Lotion with Vitamin C & Virgin Coconut Oil</p>
@@ -2267,7 +2288,7 @@
     el.innerHTML = `
       <div class="card-img-wrap">
         <img src="${p.image}" alt="${displayTitle.replace(/"/g,'&quot;')}">
-        <span class="discount-badge">${p.disc}</span>
+        <span class="discount-badge"><span class="db-num">${String(p.disc).replace(/^-/, '').replace(/%$/, '')}<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
         <p class="card-title">${displayTitle}</p>
