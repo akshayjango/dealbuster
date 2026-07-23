@@ -2244,6 +2244,42 @@
   });
 
   // Load dynamic products from products.json (admin-published)
+  const PRODUCTS_URL = 'https://dealbuster-admin-api.vakshay083.workers.dev/public/products.json';
+  const zeroPrice = p => !p.price || p.price === '₹0' || p.price === '₹';
+  const productKey = p => p.asin || p.link;
+  // Populated as products are rendered — lets the silent 5-min poll below
+  // tell brand-new deals apart from ones already on the page.
+  const knownProductIds = new Set();
+
+  function buildProductCard(p) {
+    const displayTitle = p.title.split('|')[0].trim();
+    const cat = (p.category || 'other').toLowerCase();
+    const params = new URLSearchParams({
+      title: displayTitle, cat, price: p.price, mrp: p.mrp, disc: p.disc,
+      updated: p.addedAt || '', img: p.image, link: p.link,
+      hl: (p.highlights || []).join('|'),
+    });
+    const el = document.createElement('a');
+    el.className = 'product-card';
+    el.dataset.cat = cat;
+    if (p.featured) el.dataset.featured = '1';
+    el.href = 'product.html?' + params.toString();
+    el.innerHTML = `
+      <div class="card-img-wrap">
+        <img src="${p.image}" alt="${displayTitle.replace(/"/g,'&quot;')}">
+        <span class="discount-badge">${p.disc}</span>
+      </div>
+      <div class="card-body">
+        <p class="card-title">${displayTitle}</p>
+        <div class="card-prices" data-nosnippet>
+          ${(p.mrp && p.mrp !== '₹0' && p.mrp !== '₹') ? `<div class="price-original">${p.mrp}</div>` : ''}
+          ${(p.price && p.price !== '₹0' && p.price !== '₹') ? `<div class="price-current">${p.price}</div>` : `<div class="price-current" style="font-size:.75rem;opacity:.6;font-weight:500;">Price unavailable</div>`}
+        </div>
+        <button class="btn-view" onclick="event.stopPropagation();window.open(this.dataset.link,'_blank','noopener')" data-link="${p.link}">View @ Amazon</button>
+      </div>`;
+    return el;
+  }
+
   (async () => {
     // Show shimmer skeletons while fetching — and hide the static fallback
     // cards so the WHOLE grid shimmers, not just a prepended strip with stale
@@ -2260,21 +2296,18 @@
     const unhideStatic = () => grid.querySelectorAll('.preload-hidden').forEach(c => c.classList.remove('preload-hidden'));
 
     try {
-      const resp = await fetch('https://dealbuster-admin-api.vakshay083.workers.dev/public/products.json', { cache: 'no-cache' });
+      const resp = await fetch(PRODUCTS_URL, { cache: 'no-cache' });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       // Zero-price ("Price unavailable") deals always sink to the bottom,
       // whatever their position in products.json — the backend sweep only
       // reorders the file periodically, so this is the display guarantee.
-      const zeroPrice = p => !p.price || p.price === '₹0' || p.price === '₹';
       const products = (Array.isArray(data) ? data : (data.products || []))
         .filter(p => !p.hidden)
         .sort((a, b) =>
           (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
           (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
           (a.order ?? 999) - (b.order ?? 999));
-      const grid = document.getElementById('productsGrid');
-      const today = new Date().toLocaleDateString('en-CA');
       // Remove old static HTML cards that are now managed via products.json
       grid.querySelectorAll('.product-card[data-managed]').forEach(c => c.remove());
       // Remove legacy static cards that are now managed via products.json
@@ -2297,32 +2330,8 @@
       });
       const fragment = document.createDocumentFragment();
       products.forEach(p => {
-        const displayTitle = p.title.split('|')[0].trim();
-        const cat = (p.category || 'other').toLowerCase();
-        const params = new URLSearchParams({
-          title: displayTitle, cat, price: p.price, mrp: p.mrp, disc: p.disc,
-          updated: p.addedAt || '', img: p.image, link: p.link,
-          hl: (p.highlights || []).join('|'),
-        });
-        const el = document.createElement('a');
-        el.className = 'product-card';
-        el.dataset.cat = cat;
-        if (p.featured) el.dataset.featured = '1';
-        el.href = 'product.html?' + params.toString();
-        el.innerHTML = `
-          <div class="card-img-wrap">
-            <img src="${p.image}" alt="${displayTitle.replace(/"/g,'&quot;')}">
-            <span class="discount-badge">${p.disc}</span>
-          </div>
-          <div class="card-body">
-            <p class="card-title">${displayTitle}</p>
-            <div class="card-prices" data-nosnippet>
-              ${(p.mrp && p.mrp !== '₹0' && p.mrp !== '₹') ? `<div class="price-original">${p.mrp}</div>` : ''}
-              ${(p.price && p.price !== '₹0' && p.price !== '₹') ? `<div class="price-current">${p.price}</div>` : `<div class="price-current" style="font-size:.75rem;opacity:.6;font-weight:500;">Price unavailable</div>`}
-            </div>
-            <button class="btn-view" onclick="event.stopPropagation();window.open(this.dataset.link,'_blank','noopener')" data-link="${p.link}">View @ Amazon</button>
-          </div>`;
-        fragment.appendChild(el);
+        knownProductIds.add(productKey(p));
+        fragment.appendChild(buildProductCard(p));
       });
       document.getElementById('skeletonWrap')?.remove();
       unhideStatic();
@@ -2439,8 +2448,59 @@
     window.addEventListener('load', () => { blogsGrid.scrollLeft = 0; updateBlogArrows(); });
   }
 
-  // Auto-refresh every 5 minutes so users always see live deals
-  setTimeout(() => location.reload(), 5 * 60 * 1000);
+  // Silently check for newly published deals every 5 minutes. No reload, no
+  // scroll jump — a hard reload used to yank users back to the top mid-browse.
+  // Only brand-new products (by asin/link) get added, prepended to the grid;
+  // everything already on screen (including infinite-scroll clones) is left
+  // completely untouched. If the insertion lands above what the user is
+  // currently looking at, their scroll position is compensated so nothing
+  // visibly shifts — they'll see the new deals whenever they scroll to top.
+  async function pollForNewDeals() {
+    try {
+      const resp = await fetch(PRODUCTS_URL, { cache: 'no-cache' });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const products = (Array.isArray(data) ? data : (data.products || []))
+        .filter(p => !p.hidden)
+        .sort((a, b) =>
+          (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
+          (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
+          (a.order ?? 999) - (b.order ?? 999));
+      const fresh = products.filter(p => !knownProductIds.has(productKey(p)));
+      if (!fresh.length) return;
+
+      const grid = document.getElementById('productsGrid');
+      const query = searchInput.value.trim().toLowerCase();
+      const beforeY = window.scrollY;
+      const beforeHeight = document.documentElement.scrollHeight;
+
+      const fragment = document.createDocumentFragment();
+      fresh.forEach(p => {
+        knownProductIds.add(productKey(p));
+        const card = buildProductCard(p);
+        const title = card.querySelector('.card-title').textContent.toLowerCase();
+        const matchesTab = activeTab === 'all'
+          ? true
+          : activeTab === 'deals'
+            ? (parseFloat((card.querySelector('.price-current')?.textContent || '').replace(/[^\d.]/g, '')) || 0) < 500
+            : card.dataset.cat === activeTab;
+        const matchesSearch = query === '' || title.includes(query);
+        const matches = matchesTab && matchesSearch;
+        card.style.display = matches ? 'flex' : 'none';
+        if (matches) filteredCards.unshift(card);
+        fragment.appendChild(card);
+      });
+      grid.insertBefore(fragment, grid.firstChild);
+
+      if (beforeY > 0) {
+        const delta = document.documentElement.scrollHeight - beforeHeight;
+        if (delta > 0) window.scrollTo({ top: beforeY + delta, behavior: 'instant' });
+      }
+    } catch (_) {
+      // Silent by design — a failed background poll shouldn't surface anything.
+    }
+  }
+  setInterval(pollForNewDeals, 5 * 60 * 1000);
 
   // Pull-to-refresh loader: slides down from above the header, spins, slides
   // back up. Page content never shifts — the loader is a fixed overlay.
