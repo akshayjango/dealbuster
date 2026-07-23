@@ -1024,7 +1024,7 @@
             <div class="hot-deal-title">${p.title}</div>
             <div class="hot-deal-price-row">
               <span class="hot-deal-price-current">${p.price}</span>
-              ${p.mrp && p.mrp !== p.price ? `<span class="hot-deal-price-original">${p.mrp}</span>` : ''}
+              ${p.mrp && p.mrp !== p.price && String(p.mrp).replace(/[^\d]/g, '').length < 6 ? `<span class="hot-deal-price-original">${p.mrp}</span>` : ''}
             </div>
             <button class="hot-deal-btn">VIEW DEAL</button>
           </a>
