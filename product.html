@@ -321,8 +321,9 @@
 
     /* PRICE HISTORY */
     .price-history-wrap { max-width: 960px; margin: 50px auto 0; padding: 0 20px; }
+    .ph-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 24px; }
     .price-history-wrap h2 {
-      font-size: 1.4rem; font-weight: 800; margin-bottom: 24px; color: var(--text);
+      font-size: 1.4rem; font-weight: 800; margin-bottom: 0; color: var(--text);
       display: inline-flex; align-items: center; gap: 8px;
       background: none; border: none; padding: 0 0 8px 0;
       border-bottom: 4px solid var(--accent); box-shadow: none;
@@ -346,15 +347,15 @@
     .ph-chart-box { width: 100%; overflow-x: auto; }
     .ph-chart-box svg { display: block; width: 100%; height: auto; min-width: 320px; }
     .ph-new-badge {
-      display: none; align-items: center; gap: 6px;
+      display: none; align-items: center; gap: 4px;
       background: var(--primary-soft); color: var(--primary);
-      font-size: .82rem; font-weight: 700;
-      padding: 5px 12px 5px 10px; border-radius: 999px;
-      margin-bottom: 12px; width: fit-content;
+      font-size: .68rem; font-weight: 700;
+      padding: 3px 9px 3px 7px; border-radius: 999px;
+      width: fit-content; flex-shrink: 0;
     }
-    .ph-new-badge svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .ph-new-badge svg { width: 11px; height: 11px; flex-shrink: 0; }
     .ph-note { font-size: .78rem; color: var(--muted); margin: 0; text-align: left; font-weight: 500; line-height: 1.5; }
-    .ph-divider { border: none; border-top: 1px dashed var(--border-c); margin: 10px 0; }
+    .ph-divider { border: none; border-top: 1px dashed var(--border-c); margin: 10px 0 20px; }
     .ph-keepa-btn {
       display: none; align-items: center; justify-content: space-between; gap: 10px;
       margin-top: 0; padding: 14px 18px;
@@ -707,7 +708,13 @@
 
 <!-- PRICE HISTORY -->
 <div class="price-history-wrap" id="priceHistoryWrap" style="display:none;">
-  <h2>Price History</h2>
+  <div class="ph-header">
+    <h2>Price History</h2>
+    <span class="ph-new-badge" id="phNewBadge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      New
+    </span>
+  </div>
   <div class="price-history-card">
     <div class="ph-stats" id="phStats">
       <div class="ph-stat is-low"><span class="ph-stat-label">Lowest</span><span class="ph-stat-value" id="phLow">–</span></div>
@@ -715,10 +722,6 @@
       <div class="ph-stat is-high"><span class="ph-stat-label">Highest</span><span class="ph-stat-value" id="phHigh">–</span></div>
     </div>
     <div class="ph-chart-box" id="phChartBox"></div>
-    <span class="ph-new-badge" id="phNewBadge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-      New
-    </span>
     <p class="ph-note" id="phNote"></p>
     <hr class="ph-divider">
     <a class="ph-keepa-btn" id="phKeepaBtn" target="_blank" rel="noopener" style="display:none;">
