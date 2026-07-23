@@ -465,8 +465,10 @@
         transition: background-color .2s ease, box-shadow .2s ease;
       }
       .floating-actions.solid {
-        background: #fff;
-        box-shadow: 0 6px 16px rgba(23,25,43,.12);
+        background: rgba(255, 255, 255, .72);
+        backdrop-filter: blur(14px) saturate(150%);
+        -webkit-backdrop-filter: blur(14px) saturate(150%);
+        box-shadow: 0 2px 8px rgba(23,25,43,.08);
         border-radius: 0 0 20px 20px;
       }
       .discount-pill { top: auto; bottom: 14px; left: 14px; }
