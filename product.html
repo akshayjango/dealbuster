@@ -173,7 +173,7 @@
       position: absolute; top: 12px; left: 12px;
       background: var(--lime); color: var(--text);
       font-size: .95rem; font-weight: 800; padding: 5px 14px;
-      border: none; border-radius: 999px; box-shadow: var(--shadow-sm);
+      border: none; border-radius: 6px; box-shadow: var(--shadow-sm);
       z-index: 10;
     }
 
@@ -201,6 +201,7 @@
     /* desktop: show below, hide overlay */
     .updated-pill--overlay { display: none; }
     .updated-pill--below   { display: inline-flex; }
+    .badges-row { display: flex; align-items: center; gap: 8px; }
     @keyframes pulse {
       0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(209, 255, 0, 0.7); }
       70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(209, 255, 0, 0); }
@@ -222,16 +223,18 @@
       border-radius: var(--radius-lg);
       padding: 24px; box-shadow: var(--shadow-sm);
     }
-    .price-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .price-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
     .price-current {
       font-size: 2.4rem; font-weight: 800; color: var(--text);
       background: none; border: none; padding: 0;
       display: inline-block; box-shadow: none;
     }
+    .price-meta { display: flex; flex-direction: column; gap: 2px; }
     .price-original { font-size: 1.1rem; color: var(--muted); text-decoration: line-through; font-weight: 500; }
     .savings-tag {
       background: #E8F8F0; color: #12925A; border: none; border-radius: 999px;
       font-size: .8rem; font-weight: 700; padding: 5px 12px;
+      width: fit-content;
     }
 
     .verdict {
@@ -466,7 +469,7 @@
 
       .breadcrumb { display: none; }
 
-      .product-wrap { grid-template-columns: 1fr; margin: 0 auto 16px; padding: 0; gap: 20px; }
+      .product-wrap { grid-template-columns: 1fr; margin: 0 auto 16px; padding: 0; gap: 6px; }
 
       /* Hero image: full-bleed, covers under the status bar, floating action buttons on top */
       .img-col { width: 100%; max-width: 100%; gap: 0; padding: 0 14px; }
@@ -489,16 +492,26 @@
         box-shadow: 0 2px 8px rgba(23,25,43,.08);
         border-radius: 0 0 20px 20px;
       }
-      .discount-pill { top: auto; bottom: 14px; left: 14px; }
+      .badges-row { margin: 16px 0 0; gap: 6px; }
+      .discount-pill {
+        position: static; font-size: .72rem; font-weight: 800;
+        padding: 4px 10px; box-shadow: none;
+      }
+      .updated-pill--below {
+        display: inline-flex !important; position: static;
+        font-size: .68rem; padding: 4px 10px 4px 8px; gap: 5px;
+      }
+      .updated-pill--below .dot { width: 6px; height: 6px; }
 
       .product-title { font-size: 1rem; margin: 0 14px; }
 
       .price-card { padding: 0 14px; border: none; box-shadow: none; background: transparent; }
-      .price-row { margin-bottom: 10px; gap: 8px; }
+      .price-row { margin-bottom: 4px; gap: 8px; }
       .price-current {
-        font-size: 1.5rem; background: #E8F8F0; color: #12925A;
-        padding: 4px 10px; border-radius: 8px;
-        box-shadow: 0 2px 6px rgba(18,146,90,.25);
+        font-size: 1.5rem; background: var(--primary); color: #fff;
+        padding: 4px 14px; border-radius: 8px;
+        border: none;
+        box-shadow: 0 3px 8px rgba(108,71,255,.35);
       }
       .price-original { font-size: .9rem; }
       .price-original::before { content: 'MRP '; text-decoration: none; display: inline-block; color: var(--muted); font-weight: 600; }
@@ -513,7 +526,7 @@
       body { padding-bottom: 74px; }
 
       /* Highlights: compact, no icons/bullets */
-      .highlights-card { padding: 14px; margin: 0 14px; border-radius: var(--radius); }
+      .highlights-card { padding: 14px; margin: -14px 14px 0; border-radius: var(--radius); }
       .highlights-card h3::before { content: ''; }
       .highlights-card h3 { font-size: .9rem; margin-bottom: 8px; }
       .highlights-list { gap: 6px; }
@@ -591,16 +604,8 @@
       .cta-btn:hover { box-shadow: var(--shadow-sm) !important; background: var(--accent) !important; }
       .footer-disclaimer { display: none !important; }
 
-      /* updated tag: move inside image corner on mobile */
-      .updated-pill--below   { display: none !important; }
-      .updated-pill--overlay {
-        display: inline-flex !important;
-        position: absolute;
-        top: auto; right: 14px; bottom: 14px; left: auto;
-        font-size: .7rem; padding: 6px 12px;
-        border: none;
-        z-index: 10;
-      }
+      /* updated tag: shown compact, in-flow above the title (badges-row), not overlaid on the image */
+      .updated-pill--overlay { display: none !important; }
 
       /* Price/availability disclaimer hidden on mobile */
       .cta-disclaimer { display: none !important; }
@@ -669,8 +674,10 @@
       <span class="img-placeholder-text">Product Image</span>
       <div class="updated-pill updated-pill--overlay"><span class="dot"></span> <span id="updatedText">Just Updated</span></div>
     </div>
-    <span class="discount-pill" id="discountPill">-75%</span>
-    <div class="updated-pill updated-pill--below"><span class="dot"></span> <span id="updatedText2">Just Updated</span></div>
+    <div class="badges-row">
+      <span class="discount-pill" id="discountPill">-75%</span>
+      <div class="updated-pill updated-pill--below"><span class="dot"></span> <span id="updatedText2">Just Updated</span></div>
+    </div>
   </div>
 
   <!-- RIGHT -->
@@ -682,13 +689,15 @@
     <div class="price-card">
       <div class="price-row">
         <span class="price-current" id="priceCurrent">₹–</span>
-        <span class="price-original" id="priceOriginal">₹–</span>
-        <span class="savings-tag" id="savingsTag">You save –</span>
+        <div class="price-meta">
+          <span class="price-original" id="priceOriginal">₹–</span>
+          <span class="savings-tag" id="savingsTag">You save –</span>
+        </div>
       </div>
 
       <div class="cta-row">
         <a href="#" class="cta-btn" id="ctaBtn" target="_blank" rel="noopener noreferrer">
-          <span>Buy at Amazon</span>
+          <span>Buy on Amazon</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H9M17 7V15"/></svg>
         </a>
         <button class="share-btn" id="shareBtn" onclick="shareDeal(this)" aria-label="Share deal">
