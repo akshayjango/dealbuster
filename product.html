@@ -183,7 +183,7 @@
       width: 40px; height: 40px; border-radius: 50%;
       background: rgba(255,255,255,.95); display: flex; align-items: center;
       justify-content: center; box-shadow: var(--shadow-sm); color: var(--text);
-      text-decoration: none; border: none; cursor: pointer; flex-shrink: 0;
+      text-decoration: none; border: 1px solid rgba(23,25,43,.1); cursor: pointer; flex-shrink: 0;
     }
     .fa-btn svg { width: 20px; height: 20px; }
     .fa-group { display: flex; gap: 10px; }
@@ -259,7 +259,7 @@
       transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
       letter-spacing: 0.01em;
     }
-    .cta-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .cta-btn svg { width: 1.05rem; height: 1.05rem; flex-shrink: 0; position: relative; top: 1.2px; }
     .cta-btn:hover {
       background: var(--accent-hover);
       transform: translateY(-1px);
@@ -669,7 +669,7 @@
       <div class="cta-row">
         <a href="#" class="cta-btn" id="ctaBtn" target="_blank" rel="noopener noreferrer">
           <span>Buy at Amazon</span>
-          <svg viewBox="0 0 512 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M479 0H92.1004C73.9004 0 59.1004 14.8 59.1004 33C59.1004 51.2 73.9004 66 92.1004 66H399.2L9.70039 455.6C-3.19961 468.5 -3.19961 489.4 9.70039 502.3C22.6004 515.2 43.5004 515.2 56.4004 502.3L445.9 112.7V419.8C445.9 438 460.7 452.8 478.9 452.8C497.1 452.8 511.9 438 511.9 419.8V33C512 14.8 497.2 0 479 0Z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H9M17 7V15"/></svg>
         </a>
         <button class="share-btn" id="shareBtn" onclick="shareDeal(this)" aria-label="Share deal">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
