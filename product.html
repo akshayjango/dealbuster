@@ -491,15 +491,17 @@
       }
       .discount-pill { top: auto; bottom: 14px; left: 14px; }
 
-      .product-title { font-size: 1.15rem; margin: 0 14px; }
+      .product-title { font-size: 1rem; margin: 0 14px; }
 
       .price-card { padding: 0 14px; border: none; box-shadow: none; background: transparent; }
       .price-row { margin-bottom: 10px; gap: 8px; }
       .price-current {
         font-size: 1.5rem; background: #E8F8F0; color: #12925A;
         padding: 4px 10px; border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(18,146,90,.25);
       }
       .price-original { font-size: .9rem; }
+      .price-original::before { content: 'MRP '; text-decoration: none; display: inline-block; color: var(--muted); font-weight: 600; }
       .savings-tag { background: none; padding: 0; color: #12925A; font-size: .82rem; }
 
       .verdict { margin: 0 14px 14px; }
@@ -606,7 +608,7 @@
 
     @media(max-width: 400px) {
       .price-current { font-size: 1.6rem; padding: 2px 8px; }
-      .product-title { font-size: 1.1rem; }
+      .product-title { font-size: .95rem; }
     }
 
   </style>
