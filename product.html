@@ -345,14 +345,28 @@
     .ph-stat.is-high .ph-stat-value { color: #E5484D; }
     .ph-chart-box { width: 100%; overflow-x: auto; }
     .ph-chart-box svg { display: block; width: 100%; height: auto; min-width: 320px; }
-    .ph-note { font-size: .82rem; color: var(--muted); margin: 0; text-align: center; font-weight: 500; }
-    .ph-keepa-btn {
-      display: block; text-align: center;
-      margin-top: 16px; padding: 0; border: none; background: none;
-      color: var(--primary); font-size: .85rem; font-weight: 700;
-      text-decoration: underline; text-underline-offset: 3px;
+    .ph-new-badge {
+      display: none; align-items: center; gap: 6px;
+      background: var(--primary-soft); color: var(--primary);
+      font-size: .82rem; font-weight: 700;
+      padding: 5px 12px 5px 10px; border-radius: 999px;
+      margin-bottom: 12px; width: fit-content;
     }
-    .ph-keepa-btn:hover { color: var(--primary-dark); }
+    .ph-new-badge svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .ph-note { font-size: .9rem; color: var(--muted); margin: 0; text-align: left; font-weight: 500; line-height: 1.5; }
+    .ph-divider { border: none; border-top: 1px dashed var(--border-c); margin: 20px 0; }
+    .ph-keepa-btn {
+      display: none; align-items: center; justify-content: space-between; gap: 10px;
+      margin-top: 0; padding: 14px 18px;
+      border: 1.5px solid #D9CBFF; border-radius: var(--radius);
+      background: var(--primary-soft);
+      color: var(--primary); font-size: .95rem; font-weight: 700;
+      text-decoration: none; transition: background .15s ease, border-color .15s ease;
+    }
+    .ph-keepa-btn-left { display: inline-flex; align-items: center; gap: 10px; }
+    .ph-keepa-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .ph-keepa-btn .ph-chevron { width: 16px; height: 16px; }
+    .ph-keepa-btn:hover { background: #E6DCFF; border-color: var(--primary); }
 
     /* SIMILAR PRODUCTS (mobile-only for now, reuses hot-deal-card styling) */
     .similar-products-wrap { display: none; }
@@ -700,8 +714,19 @@
       <div class="ph-stat is-high"><span class="ph-stat-label">Highest</span><span class="ph-stat-value" id="phHigh">–</span></div>
     </div>
     <div class="ph-chart-box" id="phChartBox"></div>
+    <span class="ph-new-badge" id="phNewBadge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      New
+    </span>
     <p class="ph-note" id="phNote"></p>
-    <a class="ph-keepa-btn" id="phKeepaBtn" target="_blank" rel="noopener" style="display:none;">See Full Price History on Keepa</a>
+    <hr class="ph-divider">
+    <a class="ph-keepa-btn" id="phKeepaBtn" target="_blank" rel="noopener" style="display:none;">
+      <span class="ph-keepa-btn-left">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+        See Full Price History on Keepa
+      </span>
+      <svg class="ph-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </a>
   </div>
 </div>
 
@@ -867,10 +892,11 @@
     const chartBox = document.getElementById('phChartBox');
     const note = document.getElementById('phNote');
     const keepaBtn = document.getElementById('phKeepaBtn');
+    const newBadge = document.getElementById('phNewBadge');
 
     if (product && product.asin) {
       keepaBtn.href = 'https://keepa.com/#!product/10-' + product.asin.toUpperCase();
-      keepaBtn.style.display = '';
+      keepaBtn.style.display = 'flex';
     } else {
       keepaBtn.style.display = 'none';
     }
@@ -888,6 +914,7 @@
     if (points.length < 2) {
       statsEl.style.display = 'none';
       chartBox.innerHTML = '';
+      newBadge.style.display = 'inline-flex';
       note.textContent = "We just started tracking this deal's price — check back later to see how it's moved.";
       return;
     }
@@ -901,6 +928,7 @@
     document.getElementById('phLow').textContent = '₹' + low.toLocaleString('en-IN');
     document.getElementById('phHigh').textContent = '₹' + high.toLocaleString('en-IN');
     document.getElementById('phCurrent').textContent = '₹' + cur.toLocaleString('en-IN');
+    newBadge.style.display = 'none';
     note.textContent = '';
 
     const W = 700, H = 260, padL = 60, padR = 16, padT = 20, padB = 34;
