@@ -1299,7 +1299,7 @@
     #searchOverlay {
       display: none;
       position: fixed; inset: 0; z-index: 1200;
-      background: linear-gradient(180deg, #DCF7DA 0%, var(--bg) 340px, var(--bg) 100%);
+      background: linear-gradient(180deg, #DCF7DA 0%, var(--bg) 130px, var(--bg) 100%);
       flex-direction: column;
     }
     #searchOverlay.open { display: flex; }
@@ -1308,6 +1308,13 @@
       padding: 14px 12px;
       flex-shrink: 0;
       background: transparent;
+      transition: background .25s ease;
+    }
+    .so-header.is-scrolled {
+      background: linear-gradient(180deg, rgba(220, 247, 218, 0.9) 0%, rgba(246, 247, 251, 0.9) 100%);
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+      box-shadow: 0 4px 16px -6px rgba(23, 25, 43, 0.12);
     }
     .so-box {
       flex: 1; min-width: 0; height: 45px;
@@ -1315,13 +1322,6 @@
       background: #fff; border: 1.5px solid #D9DCE3;
       border-radius: 14px;
       padding: 0 6px;
-      transition: background .25s ease, box-shadow .25s ease;
-    }
-    .so-box.is-scrolled {
-      background: linear-gradient(180deg, rgba(220, 247, 218, 0.9) 0%, rgba(246, 247, 251, 0.9) 100%);
-      backdrop-filter: blur(14px) saturate(160%);
-      -webkit-backdrop-filter: blur(14px) saturate(160%);
-      box-shadow: 0 4px 16px -6px rgba(23, 25, 43, 0.12);
     }
     .so-back {
       flex-shrink: 0; width: 34px; height: 34px;
@@ -1671,8 +1671,8 @@
 
 <!-- MOBILE FULL-SCREEN SEARCH (position:fixed — must sit before the scripts that wire it up) -->
 <div id="searchOverlay" role="dialog" aria-label="Search deals">
-  <div class="so-header">
-    <div class="so-box" id="soBox">
+  <div class="so-header" id="soHeader">
+    <div class="so-box">
       <button class="so-back" id="soBack" aria-label="Close search">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
@@ -2224,15 +2224,15 @@
     const soClear = document.getElementById('soClear');
     const soGrid  = document.getElementById('soGrid');
     const soHint  = document.getElementById('soHint');
-    const soBox = document.getElementById('soBox');
+    const soHeader = document.getElementById('soHeader');
     const soResults = document.getElementById('soResults');
 
     // The green wash lives on the page while empty/at rest; once the results
-    // list scrolls, the same gradient moves into the search pill's own
-    // (blurred) background — confined to the bar itself, not the header
-    // padding around it — so it reads as one continuous surface.
+    // list scrolls, the same gradient moves into the nav bar's own (blurred)
+    // background — never the search pill itself, and bounded to the bar's
+    // own box so it can't spread into the page below it.
     soResults.addEventListener('scroll', () => {
-      soBox.classList.toggle('is-scrolled', soResults.scrollTop > 4);
+      soHeader.classList.toggle('is-scrolled', soResults.scrollTop > 4);
     });
 
     function renderResults() {
@@ -2287,7 +2287,7 @@
       refreshSoPlaceholder();
       renderResults();
       soResults.scrollTop = 0;
-      soBox.classList.remove('is-scrolled');
+      soHeader.classList.remove('is-scrolled');
     }
     // Hardware/browser back: pop our history entry → close just the overlay.
     window.addEventListener('popstate', () => {
