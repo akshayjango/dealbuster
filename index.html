@@ -442,9 +442,11 @@
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: #d6ff00;
-      border: var(--border);
-      box-shadow: var(--shadow);
+      background: rgba(26, 29, 46, 0.55);
+      backdrop-filter: blur(10px) saturate(160%);
+      -webkit-backdrop-filter: blur(10px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 4px 16px -4px rgba(23, 25, 43, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -453,17 +455,20 @@
       opacity: 0;
       visibility: hidden;
       transform: translateY(14px);
-      transition: opacity .25s ease, transform .25s ease, visibility .25s;
+      transition: opacity .25s ease, transform .2s ease, visibility .25s, background .2s ease, box-shadow .2s ease;
     }
     .scroll-top-btn.show {
       opacity: 1;
       visibility: visible;
       transform: translateY(0);
     }
-    .scroll-top-btn:hover { background: var(--accent); }
+    .scroll-top-btn:hover {
+      background: rgba(108, 71, 255, 0.65);
+      box-shadow: 0 6px 20px -4px rgba(108, 71, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
     .scroll-top-btn:active {
-      transform: scale(0.95);
-      box-shadow: var(--shadow-sm);
+      transform: scale(0.93);
+      box-shadow: 0 2px 8px -2px rgba(23, 25, 43, 0.3);
     }
     @media(max-width: 768px) {
       .scroll-top-btn { right: 14px; bottom: 18px; width: 44px; height: 44px; }
@@ -2615,7 +2620,7 @@
 </script>
 
 <button id="scrollTopBtn" class="scroll-top-btn" aria-label="Scroll to top" title="Back to top">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
 </button>
 <script>
 (() => {
