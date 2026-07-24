@@ -329,6 +329,17 @@
     }
     .hl-icon { font-size: 1.1rem; margin-top: -1px; flex-shrink: 0; color: var(--primary); }
     .hl-text { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+    .hl-view-more-wrap { display: none; justify-content: center; margin-top: 16px; }
+    .hl-view-more {
+      display: inline-flex; align-items: center; gap: 2px; line-height: 1;
+      background: none; color: var(--primary);
+      border: 1px solid var(--border-c); border-radius: 999px;
+      font-size: .78rem; font-weight: 700; padding: 3px 6px 3px 10px;
+      cursor: pointer; font-family: inherit;
+    }
+    .hl-view-more #hlViewMoreLabel { margin-top: -2px; }
+    .hl-view-more svg { width: 14px; height: 14px; flex-shrink: 0; transition: transform .2s ease; }
+    .hl-view-more.is-open svg { transform: rotate(180deg); }
 
     /* PRICE HISTORY */
     .price-history-wrap { max-width: 960px; margin: 50px auto 0; padding: 0 20px; }
@@ -368,7 +379,7 @@
       width: fit-content; flex-shrink: 0;
     }
     .ph-new-badge svg { width: 10px; height: 10px; flex-shrink: 0; }
-    .ph-note { font-size: .78rem; color: var(--muted); margin: 0; text-align: left; font-weight: 500; line-height: 1.5; }
+    .ph-note { font-size: .78rem; color: var(--text); margin: 0; text-align: left; font-weight: 500; line-height: 1.5; }
     .ph-divider { border: none; border-top: 1px dashed var(--border-c); margin: 10px 0 14px; }
     .ph-keepa-btn {
       display: none; align-items: center; justify-content: flex-start; gap: 8px;
@@ -550,6 +561,11 @@
       .highlights-list { gap: 6px; }
       .highlights-list li { font-size: .74rem; line-height: 1.5; }
       .hl-icon { display: none; }
+      .highlights-list li.hl-extra { display: none; }
+      .highlights-list.hl-expanded li.hl-extra { display: flex; }
+      .hl-view-more-wrap.hl-has-more { display: flex; }
+      .hl-view-more-wrap { margin-top: 12px; }
+      .hl-view-more { font-size: .72rem; padding: 3px 10px; }
 
       /* Price History: boxed card look and heading size matching Highlights */
       .price-history-wrap {
@@ -735,6 +751,12 @@
       <ul class="highlights-list" id="highlightsList">
         <li><span class="hl-icon">•</span> Loading description…</li>
       </ul>
+      <div class="hl-view-more-wrap" id="hlViewMoreWrap">
+        <button type="button" class="hl-view-more" id="hlViewMoreBtn">
+          <span id="hlViewMoreLabel">View more</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -906,14 +928,30 @@
   ];
   const isPlaceholder = h => !h || !h.trim() || h.trim().toLowerCase() === 'great deal on amazon';
   const hlList = document.getElementById('highlightsList');
+  const hlViewMoreWrap = document.getElementById('hlViewMoreWrap');
+  const hlViewMoreBtn = document.getElementById('hlViewMoreBtn');
+  const hlViewMoreLabel = document.getElementById('hlViewMoreLabel');
+  const HL_VISIBLE_COUNT = 2;
+
+  function renderHighlights(items) {
+    hlList.innerHTML = items.map((h, i) =>
+      `<li${i >= HL_VISIBLE_COUNT ? ' class="hl-extra"' : ''}><span class="hl-icon">•</span> <span class="hl-text">${h}</span></li>`
+    ).join('');
+    hlList.classList.remove('hl-expanded');
+    hlViewMoreBtn.classList.remove('is-open');
+    hlViewMoreLabel.textContent = 'View more';
+    hlViewMoreWrap.classList.toggle('hl-has-more', items.length > HL_VISIBLE_COUNT);
+  }
+  hlViewMoreBtn.onclick = () => {
+    const isOpen = hlList.classList.toggle('hl-expanded');
+    hlViewMoreBtn.classList.toggle('is-open', isOpen);
+    hlViewMoreLabel.textContent = isOpen ? 'View less' : 'View more';
+  };
+
   if (highlights.length && !highlights.every(isPlaceholder)) {
-    hlList.innerHTML = highlights.map(h =>
-      `<li><span class="hl-icon">•</span> <span class="hl-text">${h}</span></li>`
-    ).join('');
+    renderHighlights(highlights);
   } else {
-    hlList.innerHTML = GENERIC_HIGHLIGHTS.map(h =>
-      `<li><span class="hl-icon">•</span> <span class="hl-text">${h}</span></li>`
-    ).join('');
+    renderHighlights(GENERIC_HIGHLIGHTS);
   }
 
   // Renders the price-history chart as a hand-drawn SVG (straight segments,
