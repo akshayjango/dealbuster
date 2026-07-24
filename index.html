@@ -338,6 +338,7 @@
       transition: opacity .15s ease;
     }
     .animated-placeholder.is-hidden { opacity: 0; }
+    .ap-prefix { position: relative; top: -0.5px; }
     .ap-word-clip {
       display: inline-block;
       overflow: hidden;
@@ -1318,7 +1319,7 @@
     .so-box {
       flex: 1; min-width: 0; height: 45px;
       display: flex; align-items: center; gap: 2px;
-      background: #fff; border: 1.5px solid #ABB1BE;
+      background: #fff; border: 1.5px solid #D9DCE3;
       border-radius: 14px;
       padding: 0 6px;
     }
@@ -1516,7 +1517,7 @@
     <div class="search-input-wrap">
       <input type="text" aria-label="Search for products" autocomplete="off" />
       <div class="animated-placeholder" id="mainAnimPlaceholder" aria-hidden="true">
-        <span>Search for </span><span class="ap-word-clip"><span class="ap-word"></span></span>
+        <span class="ap-prefix">Search for </span><span class="ap-word-clip"><span class="ap-word"></span></span>
       </div>
     </div>
     <button aria-label="Search">
@@ -1678,7 +1679,7 @@
       <div class="search-input-wrap">
         <input id="soInput" type="text" aria-label="Search for products" autocomplete="off" />
         <div class="animated-placeholder" id="soAnimPlaceholder" aria-hidden="true">
-          <span>Search for </span><span class="ap-word-clip"><span class="ap-word"></span></span>
+          <span class="ap-prefix">Search for </span><span class="ap-word-clip"><span class="ap-word"></span></span>
         </div>
       </div>
       <button class="so-clear" id="soClear" aria-label="Clear search">
