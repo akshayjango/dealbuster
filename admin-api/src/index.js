@@ -63,7 +63,7 @@ async function handleSearch(query, env) {
     const mrp = listing?.dealDetails?.originalPrice?.amount || price;
     const disc = price && mrp && mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
     return {
-      asin: item.asin, title: item.itemInfo?.title?.displayValue || '',
+      asin: item.asin, title: decodeHtmlEntities(item.itemInfo?.title?.displayValue || ''),
       image: item.images?.primary?.large?.url || '',
       price: price ? `₹${Math.round(price)}` : '', mrp: mrp ? `₹${Math.round(mrp)}` : '',
       disc: disc ? `-${disc}%` : '0%', link: `https://www.amazon.in/dp/${item.asin}?tag=${env.PA_PARTNER_TAG}`,
@@ -596,7 +596,11 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
 // ── IndiaFreeStuff sync (10 deals / 10 min, Amazon-only) ─────────────────────
 
 function decodeHtmlEntities(str) {
-  return str.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&#124;/g,'|').replace(/&#8211;/g,'-').replace(/&#8217;/g,"'").replace(/&#8220;/g,'"').replace(/&#8221;/g,'"');
+  return str
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+    .replace(/&amp;/g,'&');
 }
 
 function parseTimeAgo(text, baseTime) {
