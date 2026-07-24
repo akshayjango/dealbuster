@@ -138,9 +138,11 @@
       box-shadow: none;
       transition: none;
     }
-    .logo-wrap:hover {
-      transform: none;
-      box-shadow: none;
+    @media (hover: hover) {
+      .logo-wrap:hover {
+        transform: none;
+        box-shadow: none;
+      }
     }
     .logo-text {
       font-size: 1.3rem;
@@ -168,9 +170,11 @@
       padding: 6px 12px;
       transition: all .15s ease;
     }
-    nav a:not(.btn-join):hover {
-      background: var(--primary-soft);
-      color: var(--primary);
+    @media (hover: hover) {
+      nav a:not(.btn-join):hover {
+        background: var(--primary-soft);
+        color: var(--primary);
+      }
     }
     .join-label {
       display: none;
@@ -197,9 +201,11 @@
       background: #37EE7B !important;
       box-shadow: var(--shadow-sm) !important;
     }
-    .btn-join:hover {
-      transform: translateY(-1px) !important;
-      box-shadow: var(--shadow) !important;
+    @media (hover: hover) {
+      .btn-join:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: var(--shadow) !important;
+      }
     }
     .btn-join:active {
       transform: translateY(0) !important;
@@ -315,8 +321,10 @@
       font-weight: 700;
       transition: background .15s ease;
     }
-    .search-box button:hover {
-      background: var(--primary-dark);
+    @media (hover: hover) {
+      .search-box button:hover {
+        background: var(--primary-dark);
+      }
     }
     /* Icon variant of the search button — mobile only, swapped in via CSS */
     .search-btn-icon { display: none; }
@@ -343,11 +351,13 @@
       box-shadow: var(--shadow-sm);
       font-family: inherit;
     }
-    .chip:hover {
-      border-color: var(--primary);
-      color: var(--primary);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow);
+    @media (hover: hover) {
+      .chip:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+      }
     }
     .chip.chip-active {
       background: var(--text);
@@ -386,10 +396,12 @@
       margin-bottom: -1px;
       transition: all .15s ease;
     }
-    .tab-btn:hover {
-      color: var(--primary);
-      background: var(--primary-soft);
-      border-radius: 10px 10px 0 0;
+    @media (hover: hover) {
+      .tab-btn:hover {
+        color: var(--primary);
+        background: var(--primary-soft);
+        border-radius: 10px 10px 0 0;
+      }
     }
     .tab-btn.active {
       color: var(--text);
@@ -462,9 +474,11 @@
       visibility: visible;
       transform: translateY(0);
     }
-    .scroll-top-btn:hover {
-      background: rgba(108, 71, 255, 0.65);
-      box-shadow: 0 6px 20px -4px rgba(108, 71, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    @media (hover: hover) {
+      .scroll-top-btn:hover {
+        background: rgba(108, 71, 255, 0.65);
+        box-shadow: 0 6px 20px -4px rgba(108, 71, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      }
     }
     .scroll-top-btn:active {
       transform: scale(0.93);
@@ -494,10 +508,12 @@
       position: relative;
       min-width: 0;
     }
-    .product-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow);
-      border-color: #DDDAF2;
+    @media (hover: hover) {
+      .product-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow);
+        border-color: #DDDAF2;
+      }
     }
     .product-card:active {
       transform: none;
@@ -678,10 +694,12 @@
       z-index: 10;
       transition: box-shadow 0.15s ease, background-color 0.15s ease;
     }
-    .slider-arrow:hover {
-      background-color: #fff;
-      transform: translateY(-50%);
-      box-shadow: var(--shadow-lift);
+    @media (hover: hover) {
+      .slider-arrow:hover {
+        background-color: #fff;
+        transform: translateY(-50%);
+        box-shadow: var(--shadow-lift);
+      }
     }
     .slider-arrow:active {
       transform: translateY(-50%);
@@ -746,9 +764,11 @@
       flex-direction: column;
       transition: transform 0.18s ease, box-shadow 0.18s ease;
     }
-    .blog-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow);
+    @media (hover: hover) {
+      .blog-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow);
+      }
     }
     .blog-card:active {
       transform: none;
@@ -801,9 +821,11 @@
       align-items: center;
       transition: color 0.15s;
     }
-    .blog-body a:hover {
-      color: var(--primary-dark);
-      text-decoration: underline;
+    @media (hover: hover) {
+      .blog-body a:hover {
+        color: var(--primary-dark);
+        text-decoration: underline;
+      }
     }
 
     /* ── FAQ ── */
@@ -828,8 +850,10 @@
     .faq-item:last-child {
       border-bottom: none;
     }
-    .faq-item:hover {
-      background: #fafafa;
+    @media (hover: hover) {
+      .faq-item:hover {
+        background: #fafafa;
+      }
     }
     .faq-q {
       width: 100%;
@@ -897,8 +921,10 @@
       color: var(--footer-text);
       text-decoration: none;
     }
-    .footer-links a:hover {
-      color: #fff;
+    @media (hover: hover) {
+      .footer-links a:hover {
+        color: #fff;
+      }
     }
     .footer-divider {
       border-color: #2d3748;
@@ -971,7 +997,6 @@
         align-items: center;
         box-shadow: var(--shadow-sm) !important;
       }
-      .btn-join:hover,
       .btn-join:active {
         transform: none !important;
         box-shadow: var(--shadow-sm) !important;
@@ -1006,9 +1031,6 @@
         border-left: none;
         background: transparent;
       }
-      #mobileSticky .search-box button:hover {
-        background: transparent;
-      }
       #mobileSticky .search-btn-text { display: none; }
       #mobileSticky .search-btn-icon { display: block; }
 
@@ -1025,7 +1047,6 @@
         z-index: 500;
         background-color: var(--bg);
       }
-      .tab-btn:hover { background: none !important; }
       .tab-btn.active { background: none !important; }
       #mobileSticky .search-wrap { margin: 0 !important; padding: 8px 12px !important; }
       #mobileSticky .search-box { max-width: 100% !important; box-shadow: var(--shadow-sm) !important; }
@@ -1139,8 +1160,7 @@
       .slider-arrow {
         display: flex; /* Show scroll arrows on mobile/tablet horizontal scroll wrap */
       }
-      /* Prevent transform hover/clicks on touch screens for arrows */
-      .slider-arrow:hover,
+      /* Prevent transform on touch-screen taps for arrows */
       .slider-arrow:active {
         transform: translateY(-50%) !important;
         box-shadow: var(--shadow) !important;
@@ -1164,11 +1184,7 @@
       #loadMoreWrap { display: none !important; }
 
 
-      /* NEUTRALIZE HOVER & CLICK TRANSFORMS ON MOBILE VIEW */
-      nav a:hover,
-      .chip:hover,
-      .product-card:hover,
-      .blog-card:hover,
+      /* NEUTRALIZE CLICK TRANSFORMS ON MOBILE VIEW (hover is gated via @media(hover:hover) at each rule's definition) */
       .chip:active,
       .btn-view:active,
       .blog-card:active {
@@ -1186,9 +1202,6 @@
       }
       .section-title h2 { box-shadow: none !important; }
       .btn-view, .btn-view:active { box-shadow: none !important; }
-      nav a:hover { box-shadow: none !important; border-color: transparent !important; background: none !important; }
-      .chip:hover { box-shadow: var(--shadow-sm) !important; }
-      #loadMoreBtn:hover { box-shadow: var(--shadow-sm) !important; background: var(--accent) !important; }
       .footer-disclaimer { display: none !important; }
     }
 
@@ -1225,10 +1238,12 @@
       white-space: nowrap;
       flex-shrink: 0;
     }
-    #loadMoreBtn:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow);
-      background: var(--accent-hover);
+    @media (hover: hover) {
+      #loadMoreBtn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+        background: var(--accent-hover);
+      }
     }
     #loadMoreBtn:active {
       transform: translateY(0);
