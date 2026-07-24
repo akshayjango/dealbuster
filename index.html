@@ -299,8 +299,16 @@
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(108, 71, 255, 0.15), var(--shadow-sm);
     }
+    .search-input-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+    }
     .search-box input {
       flex: 1;
+      min-width: 0;
       border: none;
       outline: none;
       padding: 8px 16px;
@@ -308,6 +316,38 @@
       font-weight: 500;
       color: var(--text);
       background: transparent;
+      position: relative;
+      z-index: 1;
+    }
+    .search-box .animated-placeholder {
+      padding: 8px 16px;
+      font-size: .97rem;
+      font-weight: 500;
+    }
+    .so-box .search-input-wrap { align-self: stretch; }
+    .so-box .animated-placeholder { font-size: 1rem; font-weight: 500; }
+    .animated-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+      pointer-events: none;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity .15s ease;
+    }
+    .animated-placeholder.is-hidden { opacity: 0; }
+    .ap-word-clip {
+      display: inline-block;
+      overflow: hidden;
+      height: 1.3em;
+      line-height: 1.3em;
+      vertical-align: middle;
+    }
+    .ap-word {
+      display: inline-block;
+      transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .35s ease;
     }
     .search-box button {
       background: var(--primary);
@@ -1011,6 +1051,7 @@
 
       .search-wrap { padding: 0 16px; margin: 16px 0 20px; }
       .search-box input { padding: 9px 14px; font-size: .93rem; }
+      .search-box .animated-placeholder { padding: 9px 14px; font-size: .93rem; }
       .search-box button { padding: 9px 14px; font-size: .88rem; }
 
       /* Slim icon-only search bar — same look in default and stuck (scrolled)
@@ -1289,6 +1330,7 @@
       flex: 1; min-width: 0; border: none; outline: none;
       font-family: inherit; font-size: 1rem; font-weight: 500;
       color: var(--text); background: transparent;
+      position: relative; z-index: 1;
     }
     .so-clear {
       flex-shrink: 0; width: 30px; height: 30px; display: none;
@@ -1468,7 +1510,12 @@
 <!-- SEARCH -->
 <div class="search-wrap">
   <div class="search-box">
-    <input type="text" placeholder="Search for products (e.g. AirPods)..." />
+    <div class="search-input-wrap">
+      <input type="text" aria-label="Search for products" autocomplete="off" />
+      <div class="animated-placeholder" id="mainAnimPlaceholder" aria-hidden="true">
+        <span>Search for &quot;</span><span class="ap-word-clip"><span class="ap-word"></span></span><span>&quot;</span>
+      </div>
+    </div>
     <button aria-label="Search">
       <span class="search-btn-text">Search</span>
       <svg class="search-btn-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
@@ -1625,7 +1672,12 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="so-box">
-      <input id="soInput" type="text" placeholder="Search for products..." autocomplete="off" />
+      <div class="search-input-wrap">
+        <input id="soInput" type="text" aria-label="Search for products" autocomplete="off" />
+        <div class="animated-placeholder" id="soAnimPlaceholder" aria-hidden="true">
+          <span>Search for &quot;</span><span class="ap-word-clip"><span class="ap-word"></span></span><span>&quot;</span>
+        </div>
+      </div>
       <button class="so-clear" id="soClear" aria-label="Clear search">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -2075,15 +2127,35 @@
   const searchInput = document.querySelector('.search-box input');
   const searchBtn = document.querySelector('.search-box button');
 
-  function updateSearchPlaceholder() {
-    if (window.innerWidth <= 640) {
-      searchInput.placeholder = "Search for products...";
-    } else {
-      searchInput.placeholder = "Search for products (e.g. AirPods)...";
-    }
+  // Rotating "Search for "X"" placeholder — cycles through a few example
+  // queries so the search bar hints at what people actually look for.
+  const ROTATING_SEARCH_WORDS = ['Shoes', 'Shampoo', 'Watch', 'Deodorant', 'Body Lotion'];
+  function setupAnimatedPlaceholder(input, overlay) {
+    const wordEl = overlay.querySelector('.ap-word');
+    let i = 0;
+    wordEl.textContent = ROTATING_SEARCH_WORDS[0];
+    setInterval(() => {
+      wordEl.style.transform = 'translateY(-100%)';
+      wordEl.style.opacity = '0';
+      setTimeout(() => {
+        i = (i + 1) % ROTATING_SEARCH_WORDS.length;
+        wordEl.textContent = ROTATING_SEARCH_WORDS[i];
+        wordEl.style.transition = 'none';
+        wordEl.style.transform = 'translateY(100%)';
+        void wordEl.offsetWidth;
+        wordEl.style.transition = '';
+        wordEl.style.transform = 'translateY(0)';
+        wordEl.style.opacity = '1';
+      }, 350);
+    }, 2200);
+
+    const refresh = () => overlay.classList.toggle('is-hidden', input.value.length > 0);
+    input.addEventListener('input', refresh);
+    refresh();
+    return refresh;
   }
-  updateSearchPlaceholder();
-  window.addEventListener('resize', updateSearchPlaceholder);
+  const refreshMainPlaceholder = setupAnimatedPlaceholder(searchInput, document.getElementById('mainAnimPlaceholder'));
+  const refreshSoPlaceholder = setupAnimatedPlaceholder(document.getElementById('soInput'), document.getElementById('soAnimPlaceholder'));
 
   let activeTab = 'all';
   const ITEMS_PER_PAGE = 180;
@@ -2198,6 +2270,7 @@
       // Start fresh next time — a stale query with stale result cards under
       // the finger is what caused accidental taps on reopen.
       soInput.value = '';
+      refreshSoPlaceholder();
       renderResults();
     }
     // Hardware/browser back: pop our history entry → close just the overlay.
@@ -2241,7 +2314,7 @@
       openOverlay();
     });
     soInput.addEventListener('input', renderResults);
-    soClear.addEventListener('click', () => { soInput.value = ''; renderResults(); soInput.focus(); });
+    soClear.addEventListener('click', () => { soInput.value = ''; refreshSoPlaceholder(); renderResults(); soInput.focus(); });
     document.getElementById('soBack').addEventListener('click', requestClose);
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && overlay.classList.contains('open')) requestClose();
@@ -2283,6 +2356,7 @@
       if (type === 'all') document.querySelector('.tab-btn[data-tab="all"]')?.classList.add('active');
       activeTab = 'all';
       searchInput.value = '';
+      refreshMainPlaceholder();
     });
   });
 
