@@ -2116,7 +2116,7 @@
 </footer>
 
 <script>
-  // Wire up "View @ Amazon" buttons on static cards
+  // Wire up "View on Amazon" buttons on static cards
   document.querySelectorAll('.product-card').forEach(card => {
     const btn = card.querySelector('.btn-view');
     if (!btn) return;
@@ -2410,7 +2410,7 @@
           ${(p.mrp && p.mrp !== '₹0' && p.mrp !== '₹') ? `<div class="price-original">${p.mrp}</div>` : ''}
           ${(p.price && p.price !== '₹0' && p.price !== '₹') ? `<div class="price-current">${p.price}</div>` : `<div class="price-current" style="font-size:.75rem;opacity:.6;font-weight:500;">Price unavailable</div>`}
         </div>
-        <button class="btn-view" onclick="event.stopPropagation();window.open(this.dataset.link,'_blank','noopener')" data-link="${p.link}">View @ Amazon</button>
+        <button class="btn-view" onclick="event.stopPropagation();window.open(this.dataset.link,'_blank','noopener')" data-link="${p.link}">View on Amazon</button>
       </div>`;
     return el;
   }
