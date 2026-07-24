@@ -382,7 +382,9 @@
     .ph-keepa-btn-left { display: inline-flex; align-items: center; gap: 8px; }
     .ph-keepa-btn svg { width: 18px; height: 18px; flex-shrink: 0; fill: var(--primary); }
     .ph-keepa-btn .ph-chevron { width: 18px; height: 18px; fill: none; }
-    .ph-keepa-btn:hover { background: none; border-color: transparent; opacity: .75; }
+    @media (hover: hover) {
+      .ph-keepa-btn:hover { background: none; border-color: transparent; opacity: .75; }
+    }
 
     /* SIMILAR PRODUCTS (mobile-only for now, reuses hot-deal-card styling) */
     .similar-products-wrap { display: none; }
