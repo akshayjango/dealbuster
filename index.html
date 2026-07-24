@@ -527,6 +527,7 @@
       justify-content: center;
       background: #ffffff;
       padding: 16px;
+      overflow: hidden;
     }
     .card-img-wrap img {
       max-width: 100% !important;
@@ -626,7 +627,7 @@
       border: none;
       border-radius: 10px;
       padding: 14px 10px;
-      font-size: 0.8rem;
+      font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 0.01em;
       white-space: nowrap;
@@ -1121,7 +1122,7 @@
       .card-title { font-size: 11px; margin-bottom: 8px; height: 2.7em; }
       .price-current { font-size: .95rem; font-weight: 900; padding: 1px 4px; }
       .price-original { font-size: .68rem; }
-      .btn-view { padding: 11px 8px; font-size: .72rem; }
+      .btn-view { padding: 11px 8px; font-size: .65rem; }
 
       .section-title h2 { font-size: 1.5rem; }
 
@@ -2307,7 +2308,7 @@
     el.href = 'product.html?' + params.toString();
     el.innerHTML = `
       <div class="card-img-wrap">
-        <img src="${p.image}" alt="${displayTitle.replace(/"/g,'&quot;')}">
+        <img src="${p.image}" alt="${displayTitle.replace(/"/g,'&quot;')}" onerror="this.style.display='none'">
         <span class="discount-badge"><span class="db-num">${String(p.disc).replace(/^-/, '').replace(/%$/, '')}<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
       </div>
       <div class="card-body">
