@@ -344,6 +344,7 @@
       height: 1.3em;
       line-height: 1.3em;
       vertical-align: middle;
+      margin-left: .3em;
     }
     .ap-word {
       display: inline-block;
@@ -1513,7 +1514,7 @@
     <div class="search-input-wrap">
       <input type="text" aria-label="Search for products" autocomplete="off" />
       <div class="animated-placeholder" id="mainAnimPlaceholder" aria-hidden="true">
-        <span>Search for &quot;</span><span class="ap-word-clip"><span class="ap-word"></span></span><span>&quot;</span>
+        <span>Search for </span><span class="ap-word-clip"><span class="ap-word"></span></span>
       </div>
     </div>
     <button aria-label="Search">
@@ -1675,7 +1676,7 @@
       <div class="search-input-wrap">
         <input id="soInput" type="text" aria-label="Search for products" autocomplete="off" />
         <div class="animated-placeholder" id="soAnimPlaceholder" aria-hidden="true">
-          <span>Search for &quot;</span><span class="ap-word-clip"><span class="ap-word"></span></span><span>&quot;</span>
+          <span>Search for </span><span class="ap-word-clip"><span class="ap-word"></span></span>
         </div>
       </div>
       <button class="so-clear" id="soClear" aria-label="Clear search">
@@ -2133,13 +2134,13 @@
   function setupAnimatedPlaceholder(input, overlay) {
     const wordEl = overlay.querySelector('.ap-word');
     let i = 0;
-    wordEl.textContent = ROTATING_SEARCH_WORDS[0];
+    wordEl.textContent = '"' + ROTATING_SEARCH_WORDS[0] + '"';
     setInterval(() => {
       wordEl.style.transform = 'translateY(-100%)';
       wordEl.style.opacity = '0';
       setTimeout(() => {
         i = (i + 1) % ROTATING_SEARCH_WORDS.length;
-        wordEl.textContent = ROTATING_SEARCH_WORDS[i];
+        wordEl.textContent = '"' + ROTATING_SEARCH_WORDS[i] + '"';
         wordEl.style.transition = 'none';
         wordEl.style.transform = 'translateY(100%)';
         void wordEl.offsetWidth;
