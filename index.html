@@ -1298,35 +1298,41 @@
     #searchOverlay {
       display: none;
       position: fixed; inset: 0; z-index: 1200;
-      background-color: var(--bg);
+      background: linear-gradient(180deg, #DCF7DA 0%, var(--bg) 340px, var(--bg) 100%);
       flex-direction: column;
     }
     #searchOverlay.open { display: flex; }
     .so-header {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 14px;
-      background: #fff; border-bottom: 1px solid var(--border-c);
+      display: flex; align-items: center;
+      padding: 8px 12px;
       flex-shrink: 0;
+      background: transparent;
+      transition: background .25s ease;
     }
-    .so-back {
-      flex-shrink: 0; width: 42px; height: 42px;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--lime); border: none; border-radius: 50%;
-      box-shadow: var(--shadow-sm); cursor: pointer; padding: 0;
+    .so-header.is-scrolled {
+      background: linear-gradient(180deg, rgba(220, 247, 218, 0.9) 0%, rgba(246, 247, 251, 0.9) 100%);
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+      box-shadow: 0 4px 16px -6px rgba(23, 25, 43, 0.12);
     }
-    .so-back:active { transform: scale(0.96); box-shadow: none; }
     .so-box {
-      flex: 1; min-width: 0; height: 42px;
-      display: flex; align-items: center; gap: 6px;
-      background: #fff; border: 1px solid var(--border-c);
-      border-radius: 999px;
-      box-shadow: var(--shadow-sm);
-      padding: 0 6px 0 14px;
+      flex: 1; min-width: 0; height: 45px;
+      display: flex; align-items: center; gap: 2px;
+      background: #fff; border: 1.5px solid #ABB1BE;
+      border-radius: 14px;
+      padding: 0 6px;
     }
     .so-box:focus-within {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(108, 71, 255, 0.15);
     }
+    .so-back {
+      flex-shrink: 0; width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: none; border-radius: 50%;
+      cursor: pointer; padding: 0;
+    }
+    .so-back:active { opacity: .55; }
     .so-box input {
       flex: 1; min-width: 0; border: none; outline: none;
       font-family: inherit; font-size: 1rem; font-weight: 500;
@@ -1668,11 +1674,11 @@
 
 <!-- MOBILE FULL-SCREEN SEARCH (position:fixed — must sit before the scripts that wire it up) -->
 <div id="searchOverlay" role="dialog" aria-label="Search deals">
-  <div class="so-header">
-    <button class="so-back" id="soBack" aria-label="Close search">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
+  <div class="so-header" id="soHeader">
     <div class="so-box">
+      <button class="so-back" id="soBack" aria-label="Close search">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
       <div class="search-input-wrap">
         <input id="soInput" type="text" aria-label="Search for products" autocomplete="off" />
         <div class="animated-placeholder" id="soAnimPlaceholder" aria-hidden="true">
@@ -1684,7 +1690,7 @@
       </button>
     </div>
   </div>
-  <div class="so-results">
+  <div class="so-results" id="soResults">
     <div class="so-hint" id="soHint">Type to search all live deals…</div>
     <div class="so-grid" id="soGrid"></div>
   </div>
@@ -2221,6 +2227,15 @@
     const soClear = document.getElementById('soClear');
     const soGrid  = document.getElementById('soGrid');
     const soHint  = document.getElementById('soHint');
+    const soHeader = document.getElementById('soHeader');
+    const soResults = document.getElementById('soResults');
+
+    // The green wash lives on the page while empty/at rest; once the results
+    // list scrolls, the same gradient moves into the sticky bar's own
+    // (blurred) background so it reads as one continuous surface.
+    soResults.addEventListener('scroll', () => {
+      soHeader.classList.toggle('is-scrolled', soResults.scrollTop > 4);
+    });
 
     function renderResults() {
       const q = soInput.value.trim().toLowerCase();
@@ -2273,6 +2288,8 @@
       soInput.value = '';
       refreshSoPlaceholder();
       renderResults();
+      soResults.scrollTop = 0;
+      soHeader.classList.remove('is-scrolled');
     }
     // Hardware/browser back: pop our history entry → close just the overlay.
     window.addEventListener('popstate', () => {
