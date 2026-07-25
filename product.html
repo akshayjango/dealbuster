@@ -352,7 +352,7 @@
     }
     .price-history-wrap h2::before { content: '📈 '; }
     .price-history-card {
-      background: linear-gradient(180deg, rgba(140, 105, 255, 0.09) 0%, rgba(140, 105, 255, 0.02) 55%, var(--card-bg) 100%);
+      background: linear-gradient(180deg, var(--card-bg) 0%, var(--card-bg) 65%, rgba(140, 105, 255, 0.09) 100%);
       border: 1px solid var(--border-c);
       border-radius: var(--radius-lg);
       padding: 24px; box-shadow: var(--shadow-sm);
@@ -372,16 +372,17 @@
     .ph-note { font-size: .78rem; color: var(--text); margin: 0; text-align: left; font-weight: 500; line-height: 1.5; }
     .ph-divider { border: none; border-top: 1px dashed var(--border-c); margin: 10px 0 14px; }
     .ph-keepa-btn {
-      display: none; align-items: center; justify-content: flex-start; gap: 8px;
+      display: none; align-items: center; justify-content: space-between; gap: 8px;
       margin-top: 0; padding: 0;
       border: none; border-radius: 0;
       background: none;
       color: var(--primary); font-size: .8rem; font-weight: 700;
       text-decoration: none; transition: opacity .15s ease;
-      white-space: nowrap; width: fit-content;
+      white-space: nowrap; width: 100%;
     }
     .ph-keepa-btn-left { display: inline-flex; align-items: center; gap: 8px; }
     .ph-keepa-btn svg { width: 18px; height: 18px; flex-shrink: 0; fill: var(--primary); }
+    .ph-keepa-btn svg.ph-trend-icon { width: 21px; height: 12.7px; }
     .ph-keepa-btn .ph-chevron { width: 18px; height: 18px; fill: none; position: relative; top: 0.5px; }
     @media (hover: hover) {
       .ph-keepa-btn:hover { background: none; border-color: transparent; opacity: .75; }
@@ -559,7 +560,7 @@
 
       /* Price History: boxed card look and heading size matching Highlights */
       .price-history-wrap {
-        background: linear-gradient(180deg, rgba(140, 105, 255, 0.09) 0%, rgba(140, 105, 255, 0.02) 55%, var(--card-bg) 100%);
+        background: linear-gradient(180deg, var(--card-bg) 0%, var(--card-bg) 65%, rgba(140, 105, 255, 0.09) 100%);
         border: 1px solid var(--border-c); border-radius: var(--radius);
         box-shadow: var(--shadow-sm); padding: 10px 14px 14px; margin: 8px 14px 0; overflow: hidden;
       }
@@ -767,7 +768,7 @@
     <hr class="ph-divider">
     <a class="ph-keepa-btn" id="phKeepaBtn" target="_blank" rel="noopener" style="display:none;">
       <span class="ph-keepa-btn-left">
-        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="14" width="4" height="8" rx="1"/><rect x="9" y="9" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="19" rx="1"/></svg>
+        <svg class="ph-trend-icon" viewBox="0 0 96 58"><circle cx="82.7" cy="12.8" r="12.8" fill="currentColor" opacity=".18"/><path d="M10.8 51.2L6.5 47.4L33 17.5L57.7 36.9L80.5 11L84.9 14.8L58.5 44.8L33.7 25.4L10.8 51.2Z" fill="currentColor"/><circle cx="8.6" cy="49.3" r="5.8" fill="var(--card-bg)"/><circle cx="8.6" cy="49.3" r="5.75" fill="none" stroke="currentColor" stroke-width="5.7"/><circle cx="33.4" cy="22.3" r="5.8" fill="var(--card-bg)"/><circle cx="33.4" cy="22.3" r="5.75" fill="none" stroke="currentColor" stroke-width="5.7"/><circle cx="58" cy="40.6" r="5.8" fill="var(--card-bg)"/><circle cx="58" cy="40.6" r="5.75" fill="none" stroke="currentColor" stroke-width="5.7"/><circle cx="82.7" cy="12.9" r="5.8" fill="var(--card-bg)"/><circle cx="82.7" cy="12.9" r="5.75" fill="none" stroke="currentColor" stroke-width="5.7"/></svg>
         See Full Price History on Keepa
       </span>
       <svg class="ph-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="19" y2="12"/><polyline points="13 5 20 12 13 19"/></svg>
