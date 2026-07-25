@@ -370,7 +370,10 @@
     .ph-chart-box { width: 100%; overflow-x: auto; }
     .ph-chart-box svg { display: block; width: 100%; height: auto; min-width: 320px; }
     .ph-note { font-size: .78rem; color: var(--text); margin: 0; text-align: left; font-weight: 500; line-height: 1.5; }
-    .ph-divider { border: none; border-top: 1px dashed var(--border-c); margin: 10px 0 14px; }
+    .ph-divider {
+      border: none; height: 1px; margin: 10px 0 14px;
+      background: repeating-linear-gradient(to right, var(--border-c) 0 10px, transparent 10px 18px);
+    }
     .ph-keepa-btn {
       display: none; align-items: center; justify-content: space-between; gap: 8px;
       margin-top: 0; padding: 0;
