@@ -1024,7 +1024,12 @@
   // ── Load Hot Deals Right Now + this product's own Price History ──
   (async () => {
     try {
-      const resp = await fetch('products.json?t=' + Date.now());
+      // No cache-busting here — this is a 5MB+ file, and busting the URL every
+      // load forced a full re-download on every product page visit instead of
+      // letting the browser reuse/revalidate its cached copy (the same one
+      // this session likely already fetched from index.html or another
+      // product page), which was the main cause of this section loading slowly.
+      const resp = await fetch('products.json');
       if (!resp.ok) return;
       const data = await resp.json();
       const allProducts = Array.isArray(data) ? data : (data.products || []);
