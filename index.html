@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Dealbuster - Best Deals in India</title>
   <meta name="description" content="Dealbuster handpicks the best deals in India daily — electronics, fashion, beauty, home & health. No fake discounts, no inflated MRPs. Just real savings." />
   <meta name="keywords" content="best deals india, online deals, discount products, electronics deals, amazon deals india, dealbuster" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://dealbuster.in/" />
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#f6f6f6" />
+  <meta name="theme-color" content="#4A1B96" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -38,6 +38,8 @@
   <link rel="dns-prefetch" href="https://dealbuster-admin-api.vakshay083.workers.dev">
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,900;1,900&family=Poppins:wght@500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,900;1,900&family=Poppins:wght@500;600&display=swap" rel="stylesheet"></noscript>
   <link rel="icon" type="image/png" href="favicon-tab.png">
   <link rel="shortcut icon" href="favicon-tab.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -275,6 +277,174 @@
       max-width: 540px;
       font-weight: 500;
       line-height: 1.6;
+    }
+
+    /* ── DEAL BUSTER ANIMATED BANNER (mobile only, replaces .hero-track) ──
+       Ported from /Deal buster banner animation. All coordinates come from
+       the 1080x880 reference canvas; VW(px) = px/10.8 keeps x & y in sync
+       since the container's aspect-ratio is locked to 1080:880. */
+    .db-top-wrap { position: relative; }
+    .db-banner { display: none; }
+    .db-banner-clip { display: none; }
+    @media (max-width: 640px) {
+      .db-top-wrap {
+        position: relative;
+        padding-top: env(safe-area-inset-top, 0px);
+        background: linear-gradient(177deg, #4A1B96 0%, #2E0F63 44%, #170733 100%);
+        border-radius: 0 0 4.8148vw 4.8148vw;
+        overflow: hidden;
+      }
+      .db-top-wrap header {
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border-bottom: none !important;
+        position: static !important;
+      }
+      .db-top-wrap .logo-text { color: #ffffff; }
+      .db-top-wrap .join-label { color: #ffffff; }
+      .hero-track { display: none; }
+      .hero { padding: 0 !important; }
+      /* Clips the (taller, 1080:880) banner down to ~30% of the screen height.
+         #dbBanner is scaled down uniformly via JS (sizeDbBanner) so every
+         vw-based child coordinate stays proportional — no distortion. */
+      .db-banner-clip {
+        display: block;
+        position: relative;
+        width: 100%;
+        height: 30vh;
+        overflow: hidden;
+      }
+      .db-banner {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 100%;
+        aspect-ratio: 1080 / 880;
+        overflow: hidden;
+        transform-origin: top center;
+        transform: translateX(-50%);
+      }
+      /* Search bar relocated (via JS) to sit between the header and the
+         animated banner, directly on the dark gradient — matches reference. */
+      .db-top-wrap .search-wrap { margin: 4px 16px 16px !important; position: relative; z-index: 5; }
+    }
+    @media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+      .db-scene-cal, .db-glow { display: none !important; }
+      .db-scene-hero { opacity: 1 !important; transform: none !important; }
+    }
+
+    .db-star {
+      position: absolute; left: var(--x); top: var(--y);
+      width: var(--s); height: var(--s); background: #fff;
+      clip-path: polygon(50% 0%,57% 43%,100% 50%,57% 57%,50% 100%,43% 57%,0% 50%,43% 43%);
+      will-change: opacity, transform;
+    }
+    .db-halo {
+      position: absolute; left: 52%; top: 38%; width: 120.37vw; height: 90.74vw;
+      transform: translate(-50%,-50%); opacity: .5;
+      background: radial-gradient(closest-side, rgba(150,90,255,.42) 0%, rgba(0,0,0,0) 72%);
+    }
+    .db-vignette {
+      position: absolute; inset: 0;
+      background: radial-gradient(120% 80% at 50% 108%, rgba(0,0,0,.34) 0%, rgba(0,0,0,0) 60%);
+    }
+
+    .db-scene-hero, .db-scene-cal { position: absolute; inset: 0; will-change: opacity, transform; }
+    .db-panel-wrap { position: absolute; inset: 0; will-change: opacity, transform; }
+    .db-panel {
+      position: absolute; left: 27.7778vw; top: 8.8889vw; width: 48.1481vw; height: 43.5185vw;
+      background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.01));
+      clip-path: polygon(4% 0%, 96% 0%, 88% 100%, 12% 100%);
+    }
+    .db-string { position: absolute; top: 9.6296vw; width: .1852vw; height: 18.5185vw; background: rgba(255,255,255,.16); }
+    .db-string-l { left: 34.4444vw; transform: rotate(-7deg); }
+    .db-string-r { left: 68.7037vw; transform: rotate(7deg); }
+    .db-hook {
+      position: absolute; top: 7.2222vw; width: 4.8148vw; height: 4.8148vw; border-radius: 50%;
+      border: .8333vw solid rgba(20,6,45,.9); border-top-color: rgba(0,0,0,0); transform: rotate(35deg);
+    }
+    .db-hook-l { left: 32.5926vw; }
+    .db-hook-r { left: 66.4815vw; }
+
+    .db-box {
+      position: absolute; left: 29.8148vw; top: 24.8148vw; width: 61.4815vw; height: 26.6667vw;
+      border: .463vw solid #B6F24C; border-radius: 1.8519vw; box-shadow: 0 0 2.4vw rgba(182,242,76,.2);
+      will-change: opacity, transform;
+    }
+    .db-introducing {
+      position: absolute; left: 29.8148vw; top: 18.1481vw; width: 61.4815vw; text-align: center;
+      font: 600 3.1481vw/1 'Poppins', sans-serif; letter-spacing: .3em; color: #F2ECFF;
+      will-change: opacity, transform;
+    }
+    .db-headline { position: absolute; left: 29.8148vw; top: 29.0741vw; width: 61.4815vw; text-align: center; }
+    .db-deal, .db-buster {
+      font-family: 'Montserrat', sans-serif; font-style: italic; font-weight: 900; color: #B6F24C;
+      will-change: opacity, transform;
+    }
+    .db-deal {
+      font-size: 12.2222vw; line-height: .94; letter-spacing: -.015em;
+      text-shadow: 0 .55vw 0 rgba(0,0,0,.35), 0 0 3.1vw rgba(182,242,76,.33);
+    }
+    .db-buster {
+      font-size: 8.5185vw; line-height: 1; letter-spacing: .02em; color: #fff; margin-top: 1.1111vw;
+      text-shadow: 0 .46vw 0 rgba(0,0,0,.32);
+    }
+    .db-gift {
+      position: absolute; left: 6.8519vw; top: 26.4815vw; width: 27.7778vw; height: 27.7778vw;
+      filter: drop-shadow(0 1.67vw 2.4vw rgba(0,0,0,.45)); will-change: opacity, transform;
+    }
+    .db-cta {
+      position: absolute; left: 33.8889vw; width: 34.4444vw; border-radius: 999px;
+      background: linear-gradient(180deg, #B6F24C, #8FCF20);
+      display: flex; align-items: center; justify-content: center;
+      font: 600 4.0741vw/1 'Poppins', sans-serif; color: #17200A;
+      box-shadow: 0 1.11vw 2.8vw rgba(0,0,0,.35), 0 0 0 .56vw rgba(182,242,76,.12);
+      will-change: opacity, transform; cursor: pointer;
+    }
+    .db-cta-hero { top: 57.5926vw; height: 9.6296vw; }
+    .db-cta-cal { top: 61.2963vw; height: 9.2593vw; }
+
+    .db-glow {
+      position: absolute; box-sizing: border-box; opacity: 0; pointer-events: none;
+      filter: drop-shadow(0 0 1.1vw #DFFF8A) drop-shadow(0 0 3.1vw #DFFF8A);
+    }
+    .db-glow-box { left: 29.4444vw; top: 24.4444vw; width: 62.2222vw; height: 27.4074vw; border-radius: 2.2222vw; padding: .6481vw; }
+    .db-glow-btn { left: 33.5185vw; top: 57.2222vw; width: 35.1852vw; height: 10.3704vw; border-radius: 999px; padding: .5556vw; }
+    .db-glow-inner {
+      width: 100%; height: 100%; border-radius: inherit;
+      -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+      -webkit-mask-composite: xor; mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000); mask-composite: exclude;
+      box-sizing: border-box; padding: inherit;
+    }
+
+    .db-popper { position: absolute; width: 17.5926vw; height: 17.5926vw; overflow: visible; }
+    .db-popper-l { left: 10.9259vw; top: 24.8148vw; }
+    .db-popper-r { left: 71.4815vw; top: 24.8148vw; transform: scaleX(-1); }
+
+    .db-cal-fly { position: absolute; left: 0; right: 0; top: 16.4815vw; height: 33.3333vw; filter: drop-shadow(0 2.4vw 2.8vw rgba(0,0,0,.45)); will-change: opacity, transform; }
+    .db-cal-persp { display: flex; justify-content: center; perspective: 138.9vw; height: 100%; }
+    .db-cal-3d { display: flex; transform-style: preserve-3d; transform: rotateX(11deg) rotateZ(-3.5deg); }
+    .db-flap { width: 11.8519vw; height: 31.4815vw; transform: rotateY(52deg); transform-origin: 100% 50%; background: #CBB292; }
+    .db-face { width: 39.2593vw; height: 31.4815vw; transform: rotateY(-11deg); transform-origin: 0% 50%; background: linear-gradient(180deg,#F2E2C9,#E2CDAC); position: relative; }
+    .db-band { height: 5vw; background: linear-gradient(180deg,#7CBE3A,#63A128); }
+    .db-flap .db-band { background: #5E9A2C; }
+    .db-ring { position: absolute; top: -2.037vw; width: 3.1481vw; height: 3.1481vw; border: .7407vw solid #1D3A16; border-radius: 50%; border-bottom-color: rgba(0,0,0,0); }
+    .db-ring-l { left: 7.963vw; transform: rotate(-18deg); }
+    .db-ring-r { right: 7.963vw; transform: rotate(18deg); }
+    .db-grid { position: absolute; left: 0; right: 0; top: 7.2222vw; display: grid; grid-template-columns: repeat(3, 8.1481vw); gap: 1.8519vw; justify-content: center; }
+    .db-tick-cell { width: 8.1481vw; height: 6.8519vw; }
+    .db-tick {
+      width: 8.1481vw; height: 6.8519vw; border-radius: .9259vw;
+      background: linear-gradient(180deg, #7CC03C, #5E9A2C); border: .2778vw solid rgba(255,255,255,.9);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 .37vw .93vw rgba(0,0,0,.25); opacity: 0; will-change: opacity, transform;
+    }
+    .db-tick svg { width: 5vw; height: 3.8889vw; }
+    .db-caption {
+      position: absolute; left: 0; right: 0; top: 53.5185vw; text-align: center;
+      font: 500 4.2593vw/1 'Poppins', sans-serif; color: #EFE9FF; will-change: opacity, transform;
     }
 
     /* ── SEARCH ── */
@@ -1061,15 +1231,20 @@
 
       /* Slim icon-only search bar — same look in default and stuck (scrolled)
          states, so nothing changes shape when .stuck toggles. */
-      #mobileSticky .search-box {
+      #mobileSticky .search-box,
+      .db-top-wrap .search-box {
         border-width: 1px;
         border-color: var(--border-c);
-        box-shadow: none !important;
+        box-shadow: var(--shadow) !important;
       }
-      #mobileSticky .search-box:focus-within { box-shadow: none !important; }
-      #mobileSticky .search-box input { font-weight: 500; }
-      #mobileSticky .search-box input::placeholder { font-weight: 400; }
-      #mobileSticky .search-box button {
+      #mobileSticky .search-box:focus-within,
+      .db-top-wrap .search-box:focus-within { box-shadow: var(--shadow) !important; }
+      #mobileSticky .search-box input,
+      .db-top-wrap .search-box input { font-weight: 500; }
+      #mobileSticky .search-box input::placeholder,
+      .db-top-wrap .search-box input::placeholder { font-weight: 400; }
+      #mobileSticky .search-box button,
+      .db-top-wrap .search-box button {
         padding: 0;
         width: 40px;
         align-self: stretch;
@@ -1079,8 +1254,10 @@
         border-left: none;
         background: transparent;
       }
-      #mobileSticky .search-btn-text { display: none; }
-      #mobileSticky .search-btn-icon { display: block; }
+      #mobileSticky .search-btn-text,
+      .db-top-wrap .search-btn-text { display: none; }
+      #mobileSticky .search-btn-icon,
+      .db-top-wrap .search-btn-icon { display: block; }
 
       .chips { padding: 0 12px; gap: 8px; margin-bottom: 24px; }
       .chip { font-size: .78rem; padding: 6px 14px; }
@@ -1452,6 +1629,7 @@
   })();
 </script>
 
+<div class="db-top-wrap">
 <!-- HEADER -->
 <header>
   <a class="logo-wrap" href="index.html">
@@ -1484,7 +1662,293 @@
     <div class="hero-slide" data-c="coral" aria-hidden="true">India's Smartest Deals <span>Live &bull; Verified &bull; Updated</span></div>
     <div class="hero-slide" data-c="green" aria-hidden="true">Never Miss a Deal <span>New Offers Daily</span></div>
   </div>
+
+  <!-- Mobile-only animated DEAL BUSTER banner (see /Deal buster banner animation) -->
+  <div class="db-banner-clip">
+  <div class="db-banner" id="dbBanner" role="img" aria-label="Introducing Deal Buster — new deals updated daily">
+    <div class="db-halo"></div>
+    <div class="db-vignette"></div>
+    <div class="db-star" id="dbStar0" style="--x:5.7407vw;--y:18.1481vw;--s:2.7778vw;--o:.85"></div>
+    <div class="db-star" id="dbStar1" style="--x:11.8519vw;--y:57.4074vw;--s:2.037vw;--o:.6"></div>
+    <div class="db-star" id="dbStar2" style="--x:91.8519vw;--y:14.8148vw;--s:3.1481vw;--o:.9"></div>
+    <div class="db-star" id="dbStar3" style="--x:87.5926vw;--y:64.8148vw;--s:1.6667vw;--o:.5"></div>
+    <div class="db-star" id="dbStar4" style="--x:48.1481vw;--y:10.3704vw;--s:1.2963vw;--o:.4"></div>
+
+    <div class="db-scene-hero" id="dbSceneHero">
+      <div class="db-panel-wrap" id="dbPanelWrap">
+        <div class="db-panel"></div>
+        <div class="db-string db-string-l"></div>
+        <div class="db-string db-string-r"></div>
+        <div class="db-hook db-hook-l"></div>
+        <div class="db-hook db-hook-r"></div>
+      </div>
+      <div class="db-box" id="dbBox"></div>
+      <div class="db-introducing" id="dbIntroducing">INTRODUCING</div>
+      <div class="db-headline">
+        <div class="db-deal" id="dbDeal">DEAL</div>
+        <div class="db-buster" id="dbBuster">BUSTER</div>
+      </div>
+      <img class="db-gift" id="dbGift" src="images/banner/gift.svg" alt="" />
+      <div class="db-cta db-cta-hero" id="dbCtaHero">Check it out</div>
+      <div class="db-glow db-glow-box" id="dbGlowBox"><div class="db-glow-inner"></div></div>
+      <div class="db-glow db-glow-btn" id="dbGlowBtn"><div class="db-glow-inner"></div></div>
+    </div>
+
+    <div class="db-scene-cal" id="dbSceneCal" style="opacity:0">
+      <div class="db-popper db-popper-l" id="dbPopL">
+        <svg viewBox="0 0 190 190" width="100%" height="100%">
+          <path d="M14 168 C 52 66, 150 44, 146 96 C 143 138, 78 122, 112 62" fill="none" stroke="#B6F24C" stroke-width="8" stroke-linecap="round" id="dbPopLPath1" />
+          <path d="M4 128 L 44 118" fill="none" stroke="#B6F24C" stroke-width="8" stroke-linecap="round" id="dbPopLPath2" />
+        </svg>
+      </div>
+      <div class="db-popper db-popper-r" id="dbPopR">
+        <svg viewBox="0 0 190 190" width="100%" height="100%">
+          <path d="M14 168 C 52 66, 150 44, 146 96 C 143 138, 78 122, 112 62" fill="none" stroke="#B6F24C" stroke-width="8" stroke-linecap="round" id="dbPopRPath1" />
+          <path d="M4 128 L 44 118" fill="none" stroke="#B6F24C" stroke-width="8" stroke-linecap="round" id="dbPopRPath2" />
+        </svg>
+      </div>
+
+      <div class="db-cal-fly" id="dbCalFly">
+        <div class="db-cal-persp">
+          <div class="db-cal-3d">
+            <div class="db-flap"><div class="db-band"></div></div>
+            <div class="db-face">
+              <div class="db-band"></div>
+              <div class="db-ring db-ring-l"></div>
+              <div class="db-ring db-ring-r"></div>
+              <div class="db-grid" id="dbGrid">
+                <div class="db-tick-cell"><div class="db-tick" id="dbTick0"><svg viewBox="0 0 54 42"><polyline points="6,22 20,34 47,7" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" id="dbTickPath0" /></svg></div></div>
+                <div class="db-tick-cell"><div class="db-tick" id="dbTick1"><svg viewBox="0 0 54 42"><polyline points="6,22 20,34 47,7" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" id="dbTickPath1" /></svg></div></div>
+                <div class="db-tick-cell"><div class="db-tick" id="dbTick2"><svg viewBox="0 0 54 42"><polyline points="6,22 20,34 47,7" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" id="dbTickPath2" /></svg></div></div>
+                <div class="db-tick-cell"><div class="db-tick" id="dbTick3"><svg viewBox="0 0 54 42"><polyline points="6,22 20,34 47,7" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" id="dbTickPath3" /></svg></div></div>
+                <div class="db-tick-cell"><div class="db-tick" id="dbTick4"><svg viewBox="0 0 54 42"><polyline points="6,22 20,34 47,7" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" id="dbTickPath4" /></svg></div></div>
+                <div class="db-tick-cell"><div class="db-tick" id="dbTick5"><svg viewBox="0 0 54 42"><polyline points="6,22 20,34 47,7" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" id="dbTickPath5" /></svg></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="db-caption" id="dbCaption">New deals updated daily</div>
+      <div class="db-cta db-cta-cal" id="dbCtaCal">Check it out</div>
+    </div>
+  </div>
+  </div><!-- end .db-banner-clip -->
 </section>
+<script>
+(function () {
+  var banner = document.getElementById('dbBanner');
+  if (!banner) return;
+
+  // Scale the (naturally tall, 1080:880) banner down to fit the clip
+  // container's height (~30% of the screen) without distorting anything —
+  // every child coordinate is in vw, so a uniform transform:scale() shrinks
+  // the whole composition proportionally instead of stretching it.
+  var clip = banner.parentElement;
+  function sizeDbBanner() {
+    if (!clip || clip.offsetParent === null && getComputedStyle(clip).display === 'none') return;
+    var natW = clip.clientWidth;
+    var natH = (natW * 880) / 1080;
+    var targetH = clip.clientHeight;
+    if (!natW || !natH || !targetH) return;
+    var scale = targetH / natH;
+    banner.style.transform = 'translateX(-50%) scale(' + scale + ')';
+  }
+  sizeDbBanner();
+  window.addEventListener('resize', sizeDbBanner);
+  window.addEventListener('orientationchange', sizeDbBanner);
+
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return; // CSS shows the settled hero frame statically
+
+  var E = {
+    outCubic: function (p) { return 1 - Math.pow(1 - p, 3); },
+    inOutCubic: function (p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; },
+    outBack: function (p) { var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); },
+    inCubic: function (p) { return p * p * p; },
+    inQuad: function (p) { return p * p; },
+  };
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function seg(p, s, e, ease) { return ease(clamp((p - s) / (e - s), 0, 1)); }
+  var enter = function (p, s, e) { return seg(p, s, e, E.outCubic); };
+  var draw = function (p, s, e) { return seg(p, s, e, E.inOutCubic); };
+  var pop = function (p, s, e) { return seg(p, s, e, E.outBack); };
+
+  function set(el, opacity, transform) {
+    if (!el) return;
+    if (opacity !== undefined) el.style.opacity = opacity;
+    if (transform !== undefined) el.style.transform = transform;
+  }
+
+  var el = {};
+  ['dbPanelWrap','dbBox','dbIntroducing','dbDeal','dbBuster','dbGift','dbCtaHero','dbGlowBox','dbGlowBtn',
+   'dbSceneHero','dbSceneCal','dbCalFly','dbCaption','dbCtaCal','dbPopL','dbPopR',
+   'dbPopLPath1','dbPopLPath2','dbPopRPath1','dbPopRPath2'].forEach(function (id) { el[id] = document.getElementById(id); });
+  for (var i = 0; i < 6; i++) { el['dbTick' + i] = document.getElementById('dbTick' + i); el['dbTickPath' + i] = document.getElementById('dbTickPath' + i); }
+
+  var CHECK_LEN = 46, POP_LEN = 340;
+  [0,1,2,3,4,5].forEach(function (i) {
+    var p = el['dbTickPath' + i];
+    if (p) { p.style.strokeDasharray = CHECK_LEN; p.style.strokeDashoffset = CHECK_LEN; }
+  });
+  [el.dbPopLPath1, el.dbPopRPath1].forEach(function (p) {
+    if (p) { p.style.strokeDasharray = POP_LEN; p.style.strokeDashoffset = -POP_LEN; }
+  });
+  [el.dbPopLPath2, el.dbPopRPath2].forEach(function (p) { if (p) p.style.opacity = 0; });
+
+  function renderHero(reveal, shrink) {
+    var r = clamp(reveal, 0, 1);
+    var panel = draw(r, 0, 0.3), gift = pop(r, 0.1, 0.56), intro = draw(r, 0.2, 0.42),
+        box = draw(r, 0.24, 0.5), deal = pop(r, 0.32, 0.64), buster = pop(r, 0.42, 0.74), btn = pop(r, 0.6, 0.92);
+
+    set(el.dbPanelWrap, panel * 0.9, 'translateY(' + ((1 - panel) * -40) + 'px)');
+    set(el.dbBox, box, 'scale(' + (0.94 + box * 0.06) + ')');
+    el.dbBox.style.transformOrigin = '0% 50%';
+    set(el.dbIntroducing, intro, 'translateY(' + ((1 - intro) * 16) + 'px)');
+    set(el.dbDeal, deal, 'translateY(' + ((1 - deal) * -54) + 'px) scale(' + (0.86 + deal * 0.14) + ')');
+    set(el.dbBuster, buster, 'translateY(' + ((1 - buster) * 48) + 'px) scale(' + (0.86 + buster * 0.14) + ')');
+    set(el.dbGift, clamp(gift * 1.4, 0, 1), 'translateX(' + ((1 - gift) * -230 / 10.8) + 'vw) rotate(' + ((1 - gift) * -22) + 'deg) scale(' + (0.8 + gift * 0.2) + ')');
+    set(el.dbCtaHero, btn, 'scale(' + (0.7 + btn * 0.3) + ')');
+
+    if (shrink > 0) {
+      var s = E.inCubic(clamp(shrink, 0, 1)), sc = 1 - s * 0.96;
+      var o = seg(shrink, 0.5, 1, E.inQuad);
+      el.dbSceneHero.style.transform = 'scale(' + sc + ')';
+      el.dbSceneHero.style.transformOrigin = '50% 46%';
+      el.dbSceneHero.style.opacity = 1 - o;
+    } else {
+      el.dbSceneHero.style.transform = 'none';
+      el.dbSceneHero.style.opacity = 1;
+    }
+  }
+
+  function ring(p1, angle, opacity, color) {
+    if (!p1) return;
+    var inner = p1.querySelector('.db-glow-inner');
+    p1.style.opacity = opacity;
+    if (opacity <= 0.001) return;
+    inner.style.background = 'conic-gradient(from ' + angle + 'deg, rgba(255,255,255,0) 0deg, rgba(255,255,255,0) 232deg, ' + color + '00 240deg, ' + color + ' 340deg, #ffffff 358deg, rgba(255,255,255,0) 360deg)';
+  }
+
+  function renderGlow(p) {
+    var boxOn = clamp(draw(p, 0.04, 0.12) - draw(p, 0.44, 0.52), 0, 1);
+    var btnOn = clamp(draw(p, 0.5, 0.58) - draw(p, 0.9, 0.99), 0, 1);
+    ring(el.dbGlowBox, draw(p, 0.04, 0.5) * 360, boxOn, '#DFFF8A');
+    ring(el.dbGlowBtn, draw(p, 0.5, 0.96) * 360, btnOn, '#DFFF8A');
+  }
+
+  function renderCalendar(reveal, shrink, tickPFn, popperP) {
+    var r = clamp(reveal, 0, 1);
+    var inFly = pop(r, 0, 0.34), cap = draw(r, 0.3, 0.52), btn = pop(r, 0.4, 0.7);
+
+    set(el.dbCalFly, clamp(inFly * 2, 0, 1), 'scale(' + (0.06 + inFly * 0.94) + ') translateY(' + ((1 - inFly) * 40 / 10.8) + 'vw)');
+    el.dbCalFly.style.transformOrigin = '50% 50%';
+    set(el.dbCaption, cap, 'translateY(' + ((1 - cap) * 20 / 10.8) + 'vw)');
+    set(el.dbCtaCal, btn, 'scale(' + (0.7 + btn * 0.3) + ')');
+
+    for (var i = 0; i < 6; i++) {
+      var p = clamp(tickPFn(i), 0, 1);
+      var tick = el['dbTick' + i], path = el['dbTickPath' + i];
+      if (p <= 0) { tick.style.opacity = 0; continue; }
+      var a = pop(p, 0, 1);
+      tick.style.opacity = clamp(p * 3, 0, 1);
+      tick.style.transform = 'translateY(' + ((1 - a) * -46 / 10.8) + 'vw) scale(' + (0.55 + a * 0.45) + ')';
+      path.style.strokeDashoffset = CHECK_LEN * (1 - draw(p, 0.25, 1));
+    }
+
+    var pp = clamp(popperP, 0, 1);
+    [[el.dbPopLPath1, el.dbPopLPath2], [el.dbPopRPath1, el.dbPopRPath2]].forEach(function (pair) {
+      pair[0].style.opacity = clamp(pp * 4, 0, 1);
+      pair[0].style.strokeDashoffset = -POP_LEN * (1 - draw(pp, 0, 0.8));
+      pair[1].style.opacity = clamp((pp - 0.6) * 4, 0, 1);
+    });
+
+    if (shrink > 0) {
+      var s = E.inCubic(clamp(shrink, 0, 1)), sc = 1 - s * 0.96;
+      var o = seg(shrink, 0.5, 1, E.inQuad);
+      el.dbSceneCal.style.transform = 'scale(' + sc + ')';
+      el.dbSceneCal.style.transformOrigin = '50% 46%';
+      el.dbSceneCal.style.opacity = 1 - o;
+    } else {
+      el.dbSceneCal.style.transform = 'none';
+    }
+  }
+
+  var SCENES = [
+    { name: 'intro', dur: 3.2 },
+    { name: 'glow', dur: 2.8 },
+    { name: 'collapse', dur: 0.9 },
+    { name: 'calendar', dur: 5.2 },
+    { name: 'reset', dur: 0.9 },
+  ];
+  var TOTAL = SCENES.reduce(function (a, s) { return a + s.dur; }, 0);
+
+  var stars = [];
+  for (var si = 0; si < 5; si++) { var st = document.getElementById('dbStar' + si); if (st) stars.push(st); }
+  var starPhase = [0, 0.34, 0.62, 0.18, 0.8];
+
+  function tickStars(t) {
+    stars.forEach(function (star, i) {
+      var w = (Math.sin((t * 1.15 + starPhase[i]) * Math.PI * 2) + 1) / 2;
+      var k = 0.22 + w * 0.78;
+      var base = parseFloat(star.style.getPropertyValue('--o')) || 1;
+      star.style.opacity = base * k;
+      star.style.transform = 'scale(' + (0.62 + k * 0.5) + ') rotate(' + (w * 24 - 12) + 'deg)';
+      star.style.filter = 'drop-shadow(0 0 ' + (4 + k * 12) / 10.8 + 'vw rgba(255,255,255,' + (0.35 * k) + '))';
+    });
+  }
+
+  var visible = true;
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) { visible = entries[0].isIntersecting; }, { threshold: 0.01 }).observe(banner);
+  }
+
+  var start = null;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (!visible || document.hidden) { start = null; return; }
+    if (start === null) start = now;
+    var t = ((now - start) / 1000) % TOTAL;
+    tickStars(t);
+
+    var acc = 0, scene = SCENES[0], local = 0;
+    for (var i = 0; i < SCENES.length; i++) {
+      if (t < acc + SCENES[i].dur || i === SCENES.length - 1) { scene = SCENES[i]; local = clamp((t - acc) / SCENES[i].dur, 0, 1); break; }
+      acc += SCENES[i].dur;
+    }
+
+    var showHero = (scene.name === 'intro' || scene.name === 'glow' || scene.name === 'collapse');
+    el.dbSceneHero.style.display = showHero ? 'block' : 'none';
+    el.dbSceneCal.style.display = showHero ? 'none' : 'block';
+    el.dbSceneCal.style.opacity = showHero ? 0 : 1;
+
+    if (scene.name === 'intro') {
+      renderHero(draw(local, 0, 0.94), 0);
+      renderGlow(0);
+    } else if (scene.name === 'glow') {
+      renderHero(1, 0);
+      renderGlow(local);
+    } else if (scene.name === 'collapse') {
+      renderHero(1, local);
+      renderGlow(0);
+    } else if (scene.name === 'calendar') {
+      var tickP = function (i) { return (local - (0.5 + i * 0.055)) / 0.14; };
+      renderCalendar(draw(local, 0, 0.5), 0, tickP, clamp((local - 0.86) / 0.13, 0, 1));
+    } else if (scene.name === 'reset') {
+      renderCalendar(1, local, function () { return 1; }, 1);
+    }
+  }
+  requestAnimationFrame(frame);
+
+  function goToSearch() {
+    var input = document.querySelector('.search-box input');
+    if (!input) return;
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(function () { input.focus({ preventScroll: true }); }, 350);
+  }
+  [el.dbCtaHero, el.dbCtaCal].forEach(function (btn) { if (btn) btn.addEventListener('click', goToSearch); });
+})();
+</script>
 <script>
 (function () {
   var slides = document.querySelectorAll('.hero-slide');
@@ -1510,6 +1974,7 @@
   }, 4000);
 })();
 </script>
+</div><!-- end .db-top-wrap -->
 
 <!-- MOBILE STICKY WRAPPER: search + chips + tabs -->
 <div id="mobileSticky">
@@ -1767,6 +2232,31 @@
 </div>
 
 </div><!-- end #mobileSticky -->
+
+<script>
+(function () {
+  // On mobile, relocate the search bar so it sits between the header and the
+  // animated DEAL BUSTER banner (on the dark gradient), instead of below it
+  // alongside the chips/tabs. Desktop keeps its original position.
+  var searchWrap = document.querySelector('.search-wrap');
+  var banner = document.getElementById('dbBanner');
+  var heroSection = banner ? banner.closest('.hero') : null;
+  if (!searchWrap || !heroSection || !heroSection.parentNode) return;
+  var originalParent = searchWrap.parentNode;
+  var originalNext = searchWrap.nextSibling;
+  var mq = window.matchMedia('(max-width: 640px)');
+  function place(isMobile) {
+    if (isMobile) {
+      heroSection.parentNode.insertBefore(searchWrap, heroSection);
+    } else if (searchWrap.parentNode !== originalParent) {
+      originalParent.insertBefore(searchWrap, originalNext);
+    }
+  }
+  place(mq.matches);
+  if (mq.addEventListener) mq.addEventListener('change', function (e) { place(e.matches); });
+  else if (mq.addListener) mq.addListener(function (e) { place(e.matches); });
+})();
+</script>
 
 <!-- MOBILE FULL-SCREEN SEARCH (position:fixed — must sit before the scripts that wire it up) -->
 <div id="searchOverlay" role="dialog" aria-label="Search deals">

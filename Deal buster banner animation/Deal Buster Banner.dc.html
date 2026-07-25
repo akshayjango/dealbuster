@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,900;1,800;1,900&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #0d0420; }
+    a { color: #B6F24C; text-decoration: none; }
+    a:hover { color: #DFFF8A; }
+  </style>
+  <script>window.OM_SCENES = '[{"name":"Intro","dur":3.2},{"name":"Glow line","dur":2.8},{"name":"Collapse","dur":0.9},{"name":"Calendar","dur":5.2},{"name":"Reset","dur":0.9}]';</script>
+  <script>window.OM_PLAYBACK = '{"mode":"loop"}';</script>
+  <script>window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "accent": "#B6F24C",
+    "palette": "violet",
+    "glowOn": true,
+    "roundBottom": true,
+    "motionEditor": true
+  }/*EDITMODE-END*/;</script>
+</helmet>
+<div style="width:1080px;height:880px;position:relative;overflow:hidden;background:#170733">
+  <x-import component-from-global-scope="DealBusterBanner" from="./animations-v2.jsx ./tweaks-panel.jsx ./banner-scenes.jsx" hint-size="1080px,880px"></x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:880}}"></script>
+</body>
+</html>
