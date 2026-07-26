@@ -1648,6 +1648,14 @@
   (function () {
     var splash = document.getElementById('pwaSplash');
     if (!splash) return;
+    // Arriving here to jump straight into search (e.g. the search icon on a
+    // product page, which reloads index.html?openSearch=1) should feel
+    // instant — skip the splash entirely instead of making the user wait
+    // through it before the search overlay even opens.
+    if (/[?&]openSearch=1(&|$)/.test(location.search)) {
+      splash.remove();
+      return;
+    }
     function dismiss() {
       splash.classList.add('hide');
       setTimeout(function () { splash.remove(); }, 500);
