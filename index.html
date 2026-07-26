@@ -438,10 +438,10 @@
       filter: drop-shadow(0 0 1.1vw #DFFF8A) drop-shadow(0 0 3.1vw #DFFF8A);
     }
     .db-glow-box { left: 29.4444vw; top: 24.4444vw; width: 62.2222vw; height: 27.4074vw; border-radius: 2.2222vw; padding: .6481vw; }
-    /* db-cta-hero is plain text now (no pill), so its glow ring no longer
-       has a border to trace — hidden rather than left showing a mismatched
-       pill-shaped outline floating over the text. */
-    .db-glow-btn { display: none; }
+    /* db-cta-hero is plain text now (no pill fill) but keeps its rotating
+       glow-ring animation, resized to trace around the wider text instead
+       of the old, narrower pill. */
+    .db-glow-btn { left: 29.4444vw; top: 57.2222vw; width: 62.2222vw; height: 10.3704vw; border-radius: 2.2222vw; padding: .6481vw; }
     .db-glow-inner {
       width: 100%; height: 100%; border-radius: inherit;
       -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
