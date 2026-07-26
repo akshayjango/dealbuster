@@ -1910,10 +1910,14 @@
     }
 
     var pp = clamp(popperP, 0, 1);
+    // Fades back out fast once fully drawn (pp -> 1) instead of lingering
+    // on screen for the rest of the scene (and into the static reset frame,
+    // which pins popperP at 1).
+    var popFadeOut = clamp((pp - 0.85) / 0.15, 0, 1);
     [[el.dbPopLPath1, el.dbPopLPath2], [el.dbPopRPath1, el.dbPopRPath2]].forEach(function (pair) {
-      pair[0].style.opacity = clamp(pp * 4, 0, 1);
+      pair[0].style.opacity = clamp(pp * 4, 0, 1) * (1 - popFadeOut);
       pair[0].style.strokeDashoffset = -POP_LEN * (1 - draw(pp, 0, 0.8));
-      pair[1].style.opacity = clamp((pp - 0.6) * 4, 0, 1);
+      pair[1].style.opacity = clamp((pp - 0.6) * 4, 0, 1) * (1 - popFadeOut);
     });
 
     if (shrink > 0) {
