@@ -312,7 +312,7 @@
         display: block;
         position: relative;
         width: 100%;
-        height: 30vh;
+        height: 26vh;
         overflow: hidden;
       }
       .db-banner {
@@ -327,8 +327,29 @@
         transform: translateX(-50%);
       }
       /* Search bar relocated (via JS) to sit between the header and the
-         animated banner, directly on the dark gradient — matches reference. */
-      .db-top-wrap .search-wrap { margin: 4px 16px 16px !important; position: relative; z-index: 5; }
+         animated banner, directly on the dark gradient — matches reference.
+         Uses padding (not margin) for its inset so the exact same box, with
+         the exact same spacing, can pick up a solid background once pinned
+         (see .pinned below) without leaving gaps a margin would — this keeps
+         the pinned/sticky bar and the normal on-banner bar visually identical,
+         just the position + background flip. */
+      .db-top-wrap .search-wrap { padding: 4px 16px 16px !important; margin: 0 !important; position: relative; z-index: 5; }
+      /* Placeholder JS swaps in to hold the search bar's flow space once the
+         bar itself switches to position:fixed (see .db-hero-search.pinned). */
+      .db-hero-search-placeholder { padding: 4px 16px 16px !important; }
+      /* Once scrolled far enough that the search bar would otherwise scroll
+         off the top, it switches to position:fixed so it stays pinned for the
+         rest of the page (sticky can't do this — it's nested in the short
+         banner card and can never stay pinned past its own parent's bottom
+         edge) and picks up a solid bg so the banner visibly scrolls away
+         behind it instead of showing through. Same padding as the unpinned
+         state above — same style, just fixed to the viewport top. */
+      .db-hero-search.pinned {
+        position: fixed !important;
+        top: 0; left: 0; right: 0;
+        z-index: 495;
+        background: var(--bg);
+      }
     }
     @media (max-width: 640px) and (prefers-reduced-motion: reduce) {
       .db-scene-cal, .db-glow { display: none !important; }
@@ -378,7 +399,7 @@
       font: 600 3.1481vw/1 'Poppins', sans-serif; letter-spacing: .3em; color: #F2ECFF;
       will-change: opacity, transform;
     }
-    .db-headline { position: absolute; left: 29.8148vw; top: 29.0741vw; width: 61.4815vw; text-align: center; }
+    .db-headline { position: absolute; left: 29.8148vw; top: 27.0741vw; width: 61.4815vw; text-align: center; }
     .db-deal, .db-buster {
       font-family: 'Montserrat', sans-serif; font-style: italic; font-weight: 900; color: #B6F24C;
       will-change: opacity, transform;
@@ -392,8 +413,9 @@
       text-shadow: 0 .46vw 0 rgba(0,0,0,.32);
     }
     .db-gift {
-      position: absolute; left: 6.8519vw; top: 26.4815vw; width: 27.7778vw; height: 27.7778vw;
+      position: absolute; left: 6.8519vw; top: 22.9815vw; width: 27.7778vw; height: 27.7778vw;
       filter: drop-shadow(0 1.67vw 2.4vw rgba(0,0,0,.45)); will-change: opacity, transform;
+      z-index: 2;
     }
     .db-cta {
       position: absolute; left: 33.8889vw; width: 34.4444vw; border-radius: 999px;
@@ -419,9 +441,9 @@
       box-sizing: border-box; padding: inherit;
     }
 
-    .db-popper { position: absolute; width: 17.5926vw; height: 17.5926vw; overflow: visible; }
-    .db-popper-l { left: 10.9259vw; top: 24.8148vw; }
-    .db-popper-r { left: 71.4815vw; top: 24.8148vw; transform: scaleX(-1); }
+    .db-popper { position: absolute; width: 9vw; height: 9vw; overflow: visible; }
+    .db-popper-l { left: 11.22vw; top: 29.11vw; }
+    .db-popper-r { left: 79.78vw; top: 29.11vw; transform: scaleX(-1); }
 
     .db-cal-fly { position: absolute; left: 0; right: 0; top: 16.4815vw; height: 33.3333vw; filter: drop-shadow(0 2.4vw 2.8vw rgba(0,0,0,.45)); will-change: opacity, transform; }
     .db-cal-persp { display: flex; justify-content: center; perspective: 138.9vw; height: 100%; }
@@ -1232,19 +1254,19 @@
       /* Slim icon-only search bar — same look in default and stuck (scrolled)
          states, so nothing changes shape when .stuck toggles. */
       #mobileSticky .search-box,
-      .db-top-wrap .search-box {
+      .db-hero-search .search-box {
         border-width: 1px;
         border-color: var(--border-c);
         box-shadow: var(--shadow) !important;
       }
       #mobileSticky .search-box:focus-within,
-      .db-top-wrap .search-box:focus-within { box-shadow: var(--shadow) !important; }
+      .db-hero-search .search-box:focus-within { box-shadow: var(--shadow) !important; }
       #mobileSticky .search-box input,
-      .db-top-wrap .search-box input { font-weight: 500; }
+      .db-hero-search .search-box input { font-weight: 500; }
       #mobileSticky .search-box input::placeholder,
-      .db-top-wrap .search-box input::placeholder { font-weight: 400; }
+      .db-hero-search .search-box input::placeholder { font-weight: 400; }
       #mobileSticky .search-box button,
-      .db-top-wrap .search-box button {
+      .db-hero-search .search-box button {
         padding: 0;
         width: 40px;
         align-self: stretch;
@@ -1255,9 +1277,9 @@
         background: transparent;
       }
       #mobileSticky .search-btn-text,
-      .db-top-wrap .search-btn-text { display: none; }
+      .db-hero-search .search-btn-text { display: none; }
       #mobileSticky .search-btn-icon,
-      .db-top-wrap .search-btn-icon { display: block; }
+      .db-hero-search .search-btn-icon { display: block; }
 
       .chips { padding: 0 12px; gap: 8px; margin-bottom: 24px; }
       .chip { font-size: .78rem; padding: 6px 14px; }
@@ -1265,12 +1287,14 @@
       /* Quick chips hidden on mobile */
       .chips { display: none !important; }
 
-      /* Mobile search/tabs wrapper — pinned to the top while scrolling */
+      /* Mobile search/tabs wrapper — pinned to the top while scrolling, right
+         below the (separately sticky) hero search bar — see .db-hero-search. */
       #mobileSticky {
         position: sticky;
-        top: 0;
-        z-index: 500;
+        top: var(--db-search-h, 0px);
+        z-index: 490;
         background-color: var(--bg);
+        padding-top: 14px;
       }
       .tab-btn.active { background: none !important; }
       #mobileSticky .search-wrap { margin: 0 !important; padding: 8px 12px !important; }
@@ -1327,6 +1351,7 @@
          row layout instead of stacked, so the strip stays compact. Width
          per tab matches the base state above, so this only collapses the
          icon/row-layout — the strip itself doesn't reflow. */
+      #mobileSticky.stuck { padding-top: 0; }
       #mobileSticky.stuck .tab-icon { display: none; }
       #mobileSticky.stuck .tab-btn {
         flex-direction: row !important;
@@ -1751,7 +1776,17 @@
     var natH = (natW * 880) / 1080;
     var targetH = clip.clientHeight;
     if (!natW || !natH || !targetH) return;
-    var scale = targetH / natH;
+    // Nudge the whole composition up within the clip (crops blank top margin,
+    // eats into the blank bottom margin below the CTA) without touching the
+    // clip/header/search bar, which live outside #dbBanner. The clip itself
+    // (.db-banner-clip) is shorter than a plain fit-to-content box would be,
+    // which is what actually makes everything read smaller/tighter — shrinking
+    // the composition instead (leaving the clip height alone) always leaves a
+    // dead gap at the top or bottom, since it can't stretch to fill a fixed
+    // box it's now smaller than.
+    var shift = targetH * 0.15;
+    var scale = (targetH + shift) / natH;
+    banner.style.top = -shift + 'px';
     banner.style.transform = 'translateX(-50%) scale(' + scale + ')';
   }
   sizeDbBanner();
@@ -1841,7 +1876,8 @@
     var r = clamp(reveal, 0, 1);
     var inFly = pop(r, 0, 0.34), cap = draw(r, 0.3, 0.52), btn = pop(r, 0.4, 0.7);
 
-    set(el.dbCalFly, clamp(inFly * 2, 0, 1), 'scale(' + (0.06 + inFly * 0.94) + ') translateY(' + ((1 - inFly) * 40 / 10.8) + 'vw)');
+    var CAL_SHRINK = 0.82;
+    set(el.dbCalFly, clamp(inFly * 2, 0, 1), 'scale(' + ((0.06 + inFly * 0.94) * CAL_SHRINK) + ') translateY(' + ((1 - inFly) * 40 / 10.8) + 'vw)');
     el.dbCalFly.style.transformOrigin = '50% 50%';
     set(el.dbCaption, cap, 'translateY(' + ((1 - cap) * 20 / 10.8) + 'vw)');
     set(el.dbCtaCal, btn, 'scale(' + (0.7 + btn * 0.3) + ')');
@@ -2245,16 +2281,60 @@
   var originalParent = searchWrap.parentNode;
   var originalNext = searchWrap.nextSibling;
   var mq = window.matchMedia('(max-width: 640px)');
+
+  // Sentinel sits right after the search bar's normal (unpinned) position on
+  // the banner. Once it scrolls above the viewport, the search bar would
+  // otherwise scroll away too — that's the "hits the navbar" moment — so we
+  // switch it from its normal in-flow spot to position:fixed (sticky can't
+  // do this: it's nested in the short banner card and can never stay pinned
+  // past its own parent's bottom edge). A placeholder takes its place in the
+  // flow so nothing else on the page jumps when it comes out of flow.
+  var sentinel = document.createElement('div');
+  sentinel.style.cssText = 'height:1px;pointer-events:none;';
+  var placeholder = document.createElement('div');
+  placeholder.className = 'db-hero-search-placeholder';
+  placeholder.style.cssText = 'pointer-events:none;visibility:hidden;';
+  var observer = null;
+
+  function pin() {
+    if (searchWrap.classList.contains('pinned')) return;
+    placeholder.style.height = searchWrap.offsetHeight + 'px';
+    searchWrap.parentNode.insertBefore(placeholder, searchWrap);
+    searchWrap.classList.add('pinned');
+    document.documentElement.style.setProperty('--db-search-h', searchWrap.offsetHeight + 'px');
+  }
+  function unpin() {
+    if (!searchWrap.classList.contains('pinned')) return;
+    searchWrap.classList.remove('pinned');
+    if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+    document.documentElement.style.removeProperty('--db-search-h');
+  }
+
   function place(isMobile) {
     if (isMobile) {
       heroSection.parentNode.insertBefore(searchWrap, heroSection);
-    } else if (searchWrap.parentNode !== originalParent) {
-      originalParent.insertBefore(searchWrap, originalNext);
+      searchWrap.parentNode.insertBefore(sentinel, searchWrap.nextSibling);
+      searchWrap.classList.add('db-hero-search');
+    } else {
+      unpin();
+      if (sentinel.parentNode) sentinel.parentNode.removeChild(sentinel);
+      searchWrap.classList.remove('db-hero-search');
+      if (searchWrap.parentNode !== originalParent) originalParent.insertBefore(searchWrap, originalNext);
     }
   }
   place(mq.matches);
   if (mq.addEventListener) mq.addEventListener('change', function (e) { place(e.matches); });
   else if (mq.addListener) mq.addListener(function (e) { place(e.matches); });
+
+  if ('IntersectionObserver' in window) {
+    observer = new IntersectionObserver(function (entries) {
+      var e = entries[0];
+      if (!mq.matches) return;
+      if (!e.isIntersecting && e.boundingClientRect.top < 0) pin();
+      else unpin();
+    });
+    observer.observe(sentinel);
+  }
 })();
 </script>
 
