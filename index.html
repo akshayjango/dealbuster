@@ -2304,6 +2304,13 @@
   placeholder.style.cssText = 'pointer-events:none;visibility:hidden;';
   var observer = null;
 
+  // The phone's own status bar takes its color from this meta tag — swap it
+  // to match the pinned search bar's solid bg so the status bar doesn't stay
+  // purple once the banner has scrolled away behind it.
+  var themeMeta = document.querySelector('meta[name="theme-color"]');
+  var THEME_BANNER = themeMeta ? themeMeta.getAttribute('content') : null;
+  var THEME_PINNED = '#F6F7FB';
+
   function pin() {
     if (searchWrap.classList.contains('pinned')) return;
     searchWrap.parentNode.insertBefore(placeholder, searchWrap);
@@ -2315,12 +2322,14 @@
     var pinnedHeight = searchWrap.offsetHeight;
     placeholder.style.height = pinnedHeight + 'px';
     document.documentElement.style.setProperty('--db-search-h', pinnedHeight + 'px');
+    if (themeMeta) themeMeta.setAttribute('content', THEME_PINNED);
   }
   function unpin() {
     if (!searchWrap.classList.contains('pinned')) return;
     searchWrap.classList.remove('pinned');
     if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
     document.documentElement.style.removeProperty('--db-search-h');
+    if (themeMeta && THEME_BANNER) themeMeta.setAttribute('content', THEME_BANNER);
   }
 
   function place(isMobile) {
