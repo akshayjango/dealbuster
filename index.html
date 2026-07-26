@@ -2311,7 +2311,6 @@
   var placeholder = document.createElement('div');
   placeholder.className = 'db-hero-search-placeholder';
   placeholder.style.cssText = 'pointer-events:none;visibility:hidden;';
-  var observer = null;
 
   // The phone's own status bar takes its color from this meta tag — swap it
   // to match the pinned search bar's solid bg so the status bar doesn't stay
@@ -2320,16 +2319,23 @@
   var THEME_BANNER = themeMeta ? themeMeta.getAttribute('content') : null;
   var THEME_PINNED = '#F6F7FB';
 
+  // Cached with the searchWrap in its normal (unpinned) state. The
+  // placeholder MUST always use this fixed value, never the pinned bar's
+  // (taller, due to its extra status-bar padding) height — otherwise the
+  // placeholder's height changes depending on pin state, which shifts the
+  // sentinel's position depending on pin state, which feeds back into
+  // whether checkPin() thinks it should pin: a loop that flip-flops
+  // pinned/unpinned every other frame right at the transition point.
+  var cachedUnpinnedHeight = searchWrap.offsetHeight;
+
   function pin() {
     if (searchWrap.classList.contains('pinned')) return;
+    placeholder.style.height = cachedUnpinnedHeight + 'px';
     searchWrap.parentNode.insertBefore(placeholder, searchWrap);
     searchWrap.classList.add('pinned');
-    // Measured *after* adding .pinned — its extra top padding (clearing the
-    // status bar) makes it taller than the unpinned bar, and both the
-    // placeholder (holding its old flow space) and #mobileSticky (sitting
-    // right below it) need that real, final height, not the shorter one.
+    // The pinned bar's own (taller) height is still what #mobileSticky needs
+    // for its offset, so it sits right below the bar and not overlapping it.
     var pinnedHeight = searchWrap.offsetHeight;
-    placeholder.style.height = pinnedHeight + 'px';
     document.documentElement.style.setProperty('--db-search-h', pinnedHeight + 'px');
     if (themeMeta) themeMeta.setAttribute('content', THEME_PINNED);
   }
@@ -2339,6 +2345,10 @@
     if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
     document.documentElement.style.removeProperty('--db-search-h');
     if (themeMeta && THEME_BANNER) themeMeta.setAttribute('content', THEME_BANNER);
+    // Deliberately NOT re-measuring cachedUnpinnedHeight here — re-measuring
+    // on every unpin (i.e. on every scroll-up crossing of the boundary) fed
+    // back into the same oscillation this cache was meant to fix. It's only
+    // refreshed on resize, a genuine layout change.
   }
 
   function place(isMobile) {
@@ -2357,15 +2367,33 @@
   if (mq.addEventListener) mq.addEventListener('change', function (e) { place(e.matches); });
   else if (mq.addListener) mq.addListener(function (e) { place(e.matches); });
 
-  if ('IntersectionObserver' in window) {
-    observer = new IntersectionObserver(function (entries) {
-      var e = entries[0];
-      if (!mq.matches) return;
-      if (!e.isIntersecting && e.boundingClientRect.top < 0) pin();
-      else unpin();
-    });
-    observer.observe(sentinel);
+  // Driven directly off scroll position (rAF-throttled) rather than
+  // IntersectionObserver — the observer's callback lands a frame or more
+  // late on slow scrolls, letting the search bar visibly vanish for a
+  // moment between "scrolled past its normal spot" and "JS pins it fixed".
+  // Checking every animation frame keeps the switch imperceptible, and
+  // since #mobileSticky's offset (--db-search-h) updates in the same pin()
+  // call, the tabs strip below it moves in lockstep too.
+  function checkPin() {
+    if (!mq.matches || !sentinel.parentNode) return;
+    if (sentinel.getBoundingClientRect().top <= 0) pin();
+    else unpin();
   }
+  var pinCheckQueued = false;
+  function queuePinCheck() {
+    if (pinCheckQueued) return;
+    pinCheckQueued = true;
+    requestAnimationFrame(function () {
+      pinCheckQueued = false;
+      checkPin();
+    });
+  }
+  window.addEventListener('scroll', queuePinCheck, { passive: true });
+  window.addEventListener('resize', function () {
+    if (!searchWrap.classList.contains('pinned')) cachedUnpinnedHeight = searchWrap.offsetHeight;
+    queuePinCheck();
+  });
+  queuePinCheck();
 })();
 </script>
 
