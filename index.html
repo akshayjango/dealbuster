@@ -349,8 +349,8 @@
         top: 0; left: 0; right: 0;
         z-index: 495;
         background: var(--bg);
-        padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
-        padding-bottom: 6px;
+        /* Matches the inner search page's .so-header padding exactly. */
+        padding: 14px 12px !important;
       }
     }
     @media (max-width: 640px) and (prefers-reduced-motion: reduce) {
