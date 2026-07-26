@@ -349,6 +349,7 @@
         top: 0; left: 0; right: 0;
         z-index: 495;
         background: var(--bg);
+        padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
       }
     }
     @media (max-width: 640px) and (prefers-reduced-motion: reduce) {
@@ -2298,10 +2299,15 @@
 
   function pin() {
     if (searchWrap.classList.contains('pinned')) return;
-    placeholder.style.height = searchWrap.offsetHeight + 'px';
     searchWrap.parentNode.insertBefore(placeholder, searchWrap);
     searchWrap.classList.add('pinned');
-    document.documentElement.style.setProperty('--db-search-h', searchWrap.offsetHeight + 'px');
+    // Measured *after* adding .pinned — its extra top padding (clearing the
+    // status bar) makes it taller than the unpinned bar, and both the
+    // placeholder (holding its old flow space) and #mobileSticky (sitting
+    // right below it) need that real, final height, not the shorter one.
+    var pinnedHeight = searchWrap.offsetHeight;
+    placeholder.style.height = pinnedHeight + 'px';
+    document.documentElement.style.setProperty('--db-search-h', pinnedHeight + 'px');
   }
   function unpin() {
     if (!searchWrap.classList.contains('pinned')) return;
