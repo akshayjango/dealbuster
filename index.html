@@ -759,6 +759,33 @@
     @media(max-width: 768px) {
       .scroll-top-btn { right: 14px; bottom: 18px; width: 44px; height: 44px; }
     }
+    /* New-deals dot: lights up on the scroll-to-top button when a background
+       poll inserts fresh cards while the user is scrolled down, so they know
+       to head back to the top. Clears on click or once they scroll up. */
+    .scroll-top-dot {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--lime);
+      border: 2px solid #fff;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity .2s ease, transform .2s ease;
+      pointer-events: none;
+    }
+    .scroll-top-dot.show {
+      opacity: 1;
+      transform: scale(1);
+      animation: scrollDotPulse 1.6s ease-out infinite;
+    }
+    @keyframes scrollDotPulse {
+      0% { box-shadow: 0 0 0 0 rgba(209, 255, 0, 0.55); }
+      70% { box-shadow: 0 0 0 8px rgba(209, 255, 0, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(209, 255, 0, 0); }
+    }
     .products-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -3435,6 +3462,7 @@
       if (beforeY > 0) {
         const delta = document.documentElement.scrollHeight - beforeHeight;
         if (delta > 0) window.scrollTo({ top: beforeY + delta, behavior: 'instant' });
+        window.markNewDealsAvailable?.();
       }
     } catch (_) {
       // Silent by design — a failed background poll shouldn't surface anything.
@@ -3542,10 +3570,13 @@
 
 <button id="scrollTopBtn" class="scroll-top-btn" aria-label="Scroll to top" title="Back to top">
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#33364a" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+  <span class="scroll-top-dot" id="scrollTopDot" aria-hidden="true"></span>
 </button>
 <script>
 (() => {
   const btn = document.getElementById('scrollTopBtn');
+  const dot = document.getElementById('scrollTopDot');
+  window.markNewDealsAvailable = () => dot.classList.add('show');
   // Sentinel at the 400px mark: the button shows once it scrolls above the
   // viewport. IntersectionObserver fires on every kind of scroll (touch,
   // keyboard, programmatic) without the cost of a scroll listener.
@@ -3553,9 +3584,14 @@
   sentinel.style.cssText = 'position:absolute;top:400px;left:0;width:1px;height:1px;pointer-events:none;';
   document.body.prepend(sentinel);
   new IntersectionObserver(([e]) => {
-    btn.classList.toggle('show', !e.isIntersecting && e.boundingClientRect.top < 0);
+    const scrolledDown = !e.isIntersecting && e.boundingClientRect.top < 0;
+    btn.classList.toggle('show', scrolledDown);
+    if (!scrolledDown) dot.classList.remove('show');
   }).observe(sentinel);
-  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  btn.addEventListener('click', () => {
+    dot.classList.remove('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 })();
 
 // Toggle the search bar's slim "pinned" style: a sentinel sits just above
