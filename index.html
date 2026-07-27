@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Dealbuster - Best Deals in India</title>
   <meta name="description" content="Dealbuster handpicks the best deals in India daily — electronics, fashion, beauty, home & health. No fake discounts, no inflated MRPs. Just real savings." />
   <meta name="keywords" content="best deals india, online deals, discount products, electronics deals, amazon deals india, dealbuster" />
@@ -78,6 +78,26 @@
       color: var(--text);
       -webkit-font-smoothing: antialiased;
       overscroll-behavior-y: none;
+    }
+
+    /* Kill the native WebView long-press menu (open in Chrome tab / copy link /
+       save image) so links and images behave like a real app, not a browser
+       tab. Inputs/editable fields opt back into selection below. */
+    html, body {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: pan-x pan-y;
+    }
+    input, textarea, [contenteditable] {
+      -webkit-touch-callout: default;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    img, a {
+      -webkit-touch-callout: none;
+      -webkit-user-drag: none;
+      user-drag: none;
     }
 
     /* ── PULL-TO-REFRESH LOADER ── */
@@ -1637,6 +1657,17 @@
   </style>
 </head>
 <body>
+<script>
+  // Belt-and-suspenders for WebView installs: some WebViews still fire the
+  // native long-press context menu (open in tab / save image / copy link)
+  // even with the CSS touch-callout/user-select rules above. Block it outright
+  // except on inputs/editable fields, where users still need copy/paste.
+  document.addEventListener('contextmenu', function (e) {
+    var t = e.target;
+    if (t.closest && t.closest('input, textarea, [contenteditable]')) return;
+    e.preventDefault();
+  });
+</script>
 
 <div id="pwaSplash" aria-hidden="true">
   <div class="splash-logo">
@@ -1656,6 +1687,14 @@
       splash.remove();
       return;
     }
+    // Pull-to-refresh in the installed app does a full page reload, which would
+    // otherwise replay this splash every time. Show it once per session (real
+    // cold launch) and skip it on any reload within that same session.
+    if (sessionStorage.getItem('splashShown')) {
+      splash.remove();
+      return;
+    }
+    sessionStorage.setItem('splashShown', '1');
     function dismiss() {
       splash.classList.add('hide');
       setTimeout(function () { splash.remove(); }, 500);
@@ -3397,6 +3436,13 @@
     }
   }
   setInterval(pollForNewDeals, 5 * 60 * 1000);
+  // Mobile browsers throttle/pause setInterval while the app is backgrounded,
+  // so the 5-min timer alone can miss ticks for a while — resuming the app
+  // (tab switch back, app reopen) used to show stale deals until the user
+  // manually pulled to refresh. Poll immediately on foreground resume too.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') pollForNewDeals();
+  });
 
   // Pull-to-refresh loader: slides down from above the header, spins, slides
   // back up. Page content never shifts — the loader is a fixed overlay.

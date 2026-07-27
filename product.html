@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="icon" type="image/png" href="favicon-tab.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta name="theme-color" content="#ffffff">
@@ -37,6 +37,26 @@
     html, body {
       overflow-x: hidden;
       max-width: 100%;
+    }
+
+    /* Kill the native WebView long-press menu (open in Chrome tab / copy link /
+       save image) so links and images behave like a real app, not a browser
+       tab. Inputs/editable fields opt back into selection below. */
+    html, body {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: pan-x pan-y;
+    }
+    input, textarea, [contenteditable] {
+      -webkit-touch-callout: default;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    img, a {
+      -webkit-touch-callout: none;
+      -webkit-user-drag: none;
+      user-drag: none;
     }
     body {
       font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -649,6 +669,17 @@
   </style>
 </head>
 <body>
+<script>
+  // Belt-and-suspenders for WebView installs: some WebViews still fire the
+  // native long-press context menu (open in tab / save image / copy link)
+  // even with the CSS touch-callout/user-select rules above. Block it outright
+  // except on inputs/editable fields, where users still need copy/paste.
+  document.addEventListener('contextmenu', function (e) {
+    var t = e.target;
+    if (t.closest && t.closest('input, textarea, [contenteditable]')) return;
+    e.preventDefault();
+  });
+</script>
 
 <header>
   <a class="logo" href="index.html">Deal<span>buster</span></a>
