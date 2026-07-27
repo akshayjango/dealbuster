@@ -89,6 +89,11 @@
       user-select: none;
       touch-action: pan-x pan-y;
     }
+    /* Kill the default blue tap-highlight flash the WebView shows on
+       tap/long-press of links, buttons and cards. */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
     input, textarea, [contenteditable] {
       -webkit-touch-callout: default;
       -webkit-user-select: text;
