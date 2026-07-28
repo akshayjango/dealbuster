@@ -799,8 +799,13 @@ async function checkAndCleanDeals(env) {
   try { token = await getAccessToken(env.PA_ACCESS_KEY, env.PA_SECRET_KEY); }
   catch (e) { throw new Error(`Auth failed: ${e.message}`); }
 
-  // Rotate through products: check oldest-checked first, up to 100
-  const withAsin = products.filter(p => p.asin);
+  // Rotate through products: check oldest-checked first, up to 100.
+  // Scoped to only the first 720 live products by `order` — the live cap can
+  // grow (see capLiveAndBury) without deepening/thinning this rotation; deals
+  // beyond slot 720 stay visible but keep whatever price/stock state they had
+  // until the feeds or the 1440 cap drop them.
+  const live = products.filter(p => !isDead(p)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).slice(0, 720);
+  const withAsin = live.filter(p => p.asin);
   const sorted = [...withAsin].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
   const toCheck = sorted.slice(0, 100);
 
@@ -1478,14 +1483,17 @@ function isDead(p) {
 function makeTombstone(p) {
   return { ...p, hidden: true, outOfStock: true, dead: new Date().toISOString() };
 }
-// Cap live products at 720. EVERY evictee becomes a tombstone — in-stock ones
-// too, not just dead ones. At current add volume the cap evicts in ~1-3 days
-// while the DR feed still lists a deal for ~2+ days, so clearing TG marks at
-// eviction time re-DM'd even healthy deals when the feed re-added them the
-// next cycle. The ledger clear now happens when a tombstone EXPIRES (4 days):
-// by then the feeds have long dropped the deal, so if it ever comes back it's
-// a genuine return and posts to Telegram as new.
-async function capLiveAndBury(all, env, cap = 720) {
+// Cap live products at 1440. EVERY evictee becomes a tombstone — in-stock
+// ones too, not just dead ones. At current add volume the cap evicts in ~1-3
+// days while the DR feed still lists a deal for ~2+ days, so clearing TG
+// marks at eviction time re-DM'd even healthy deals when the feed re-added
+// them the next cycle. The ledger clear now happens when a tombstone EXPIRES
+// (4 days): by then the feeds have long dropped the deal, so if it ever
+// comes back it's a genuine return and posts to Telegram as new.
+// NOTE: price/OOS checking (checkAndCleanDeals) is intentionally NOT scaled
+// to this cap — it stays scoped to the first 720 live products by `order` so
+// check depth/frequency doesn't change just because more deals stay visible.
+async function capLiveAndBury(all, env, cap = 1440) {
   const now = Date.now();
   const live = [], tombs = [], expired = [];
   for (const p of all) {
