@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    // Grid is rebuilt from scratch on every load (skeleton → async
+    // products.json fetch → real cards), so it's briefly much shorter than
+    // its final height. The browser's own back/forward scroll restore fires
+    // during that short window and clamps near the top, then never
+    // re-applies once the real cards land — landing back on a product's
+    // card after Back looked like "refreshing to the top of home" instead
+    // of returning to where you left off. Taking restoration over manually
+    // (below, once the real grid is in) and doing it ourselves after the
+    // real content is in place fixes that race.
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Dealbuster - Best Deals in India</title>
@@ -3236,6 +3248,18 @@
     return el;
   }
 
+  // Manual scroll restore to replace the native one disabled up in <head>.
+  // Only fires for actual Back/Forward navigations — a plain link click
+  // into this page (logo, "All Deals") should land at the top like any
+  // fresh visit, not wherever a previous visit happened to be scrolled.
+  const isBackForward = performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
+  function restoreScrollIfBack() {
+    if (!isBackForward) return;
+    const y = +sessionStorage.getItem('db_scrollY');
+    if (y > 0) requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+  }
+  window.addEventListener('pagehide', () => sessionStorage.setItem('db_scrollY', window.scrollY));
+
   (async () => {
     // Show shimmer skeletons while fetching — and hide the static fallback
     // cards so the WHOLE grid shimmers, not just a prepended strip with stale
@@ -3294,11 +3318,13 @@
       grid.insertBefore(fragment, grid.firstChild);
       // Re-init filter with new cards included
       applyFilters();
+      restoreScrollIfBack();
     } catch (_) {
       // Offline / fetch failed — fall back to the static cards
       document.getElementById('skeletonWrap')?.remove();
       unhideStatic();
       applyFilters();
+      restoreScrollIfBack();
     }
   })();
 
