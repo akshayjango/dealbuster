@@ -254,6 +254,18 @@ async function getSyncErrors(env) {
   catch { return []; }
 }
 
+// Drop stale errors for a source once it succeeds again, so the dashboard's
+// notification bell doesn't keep showing a 403/timeout from hours ago after
+// the next cron tick already recovered on its own.
+async function clearSyncError(source, env) {
+  if (!env.KV) return;
+  try {
+    const existing = await env.KV.get('syncErrors', 'json') || [];
+    if (!existing.some(e => e.source === source)) return; // nothing to clear, skip the write
+    await env.KV.put('syncErrors', JSON.stringify(existing.filter(e => e.source !== source)));
+  } catch (e) { console.error('Failed to clear sync error:', e.message); }
+}
+
 // ── Web Push (RFC 8291/8188 aes128gcm) — no npm deps, pure Web Crypto ───────
 // One admin subscription stored in KV under 'pushSubscription'. Sending costs
 // zero KV writes (read-only); only (re)subscribing writes.
@@ -626,7 +638,12 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   try {
     const r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (!r.ok) {
+      const cfMitigated = r.headers.get('cf-mitigated') || 'none';
+      const cfRay = r.headers.get('cf-ray') || 'none';
+      const bodySnippet = (await r.text().catch(() => '')).slice(0, 300).replace(/\s+/g, ' ');
+      throw new Error(`HTTP ${r.status} (cf-mitigated=${cfMitigated}, cf-ray=${cfRay}) body="${bodySnippet}"`);
+    }
     const html = await r.text();
 
     const blocks = html.split(/<div class="product-item">/g);
@@ -750,6 +767,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   }
 
   if (added.length === 0 && updated.length === 0) {
+    await clearSyncError('IndiaFreeStuff', env);
     return { success: true, count: 0, message: 'IndiaFreeStuff: no new Amazon deals.' };
   }
 
@@ -759,6 +777,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   const msg = `IndiaFreeStuff sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
+  await clearSyncError('IndiaFreeStuff', env);
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
