@@ -637,12 +637,20 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const blockedBrands = await getBlockedBrands(env);
 
   try {
-    const r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    // Their Cloudflare bot-management occasionally 403s a single request, then
+    // clears within seconds (transient, not a real block) — one retry after a
+    // short delay resolves that within this same cron tick instead of leaving
+    // a stale-looking error for up to 10 min until the next one fires.
+    let r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    if (!r.ok) {
+      await new Promise(res => setTimeout(res, 3000));
+      r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    }
     if (!r.ok) {
       const cfMitigated = r.headers.get('cf-mitigated') || 'none';
       const cfRay = r.headers.get('cf-ray') || 'none';
       const bodySnippet = (await r.text().catch(() => '')).slice(0, 300).replace(/\s+/g, ' ');
-      throw new Error(`HTTP ${r.status} (cf-mitigated=${cfMitigated}, cf-ray=${cfRay}) body="${bodySnippet}"`);
+      throw new Error(`HTTP ${r.status} after retry (cf-mitigated=${cfMitigated}, cf-ray=${cfRay}) body="${bodySnippet}"`);
     }
     const html = await r.text();
 
