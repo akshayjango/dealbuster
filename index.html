@@ -400,22 +400,6 @@
     }
 
     .db-scene-hero, .db-scene-cal { position: absolute; inset: 0; will-change: opacity, transform; }
-    .db-panel-wrap { position: absolute; inset: 0; will-change: opacity, transform; }
-    .db-panel {
-      position: absolute; left: 27.7778vw; top: 8.8889vw; width: 48.1481vw; height: 43.5185vw;
-      background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.01));
-      clip-path: polygon(4% 0%, 96% 0%, 88% 100%, 12% 100%);
-    }
-    .db-string { position: absolute; top: 9.6296vw; width: .1852vw; height: 18.5185vw; background: rgba(255,255,255,.16); }
-    .db-string-l { left: 34.4444vw; transform: rotate(-7deg); }
-    .db-string-r { left: 68.7037vw; transform: rotate(7deg); }
-    .db-hook {
-      position: absolute; top: 7.2222vw; width: 4.8148vw; height: 4.8148vw; border-radius: 50%;
-      border: .8333vw solid rgba(20,6,45,.9); border-top-color: rgba(0,0,0,0); transform: rotate(35deg);
-    }
-    .db-hook-l { left: 32.5926vw; }
-    .db-hook-r { left: 66.4815vw; }
-
     .db-box {
       position: absolute; left: 20.0148vw; top: 27.0148vw; width: 61.4815vw; height: 26.6667vw;
       border: .463vw solid #B6F24C; border-radius: 1.8519vw; box-shadow: 0 0 2.4vw rgba(182,242,76,.2);
@@ -1788,13 +1772,6 @@
     <div class="db-star" id="dbStar4" style="--x:48.1481vw;--y:10.3704vw;--s:1.2963vw;--o:.4"></div>
 
     <div class="db-scene-hero" id="dbSceneHero">
-      <div class="db-panel-wrap" id="dbPanelWrap">
-        <div class="db-panel"></div>
-        <div class="db-string db-string-l"></div>
-        <div class="db-string db-string-r"></div>
-        <div class="db-hook db-hook-l"></div>
-        <div class="db-hook db-hook-r"></div>
-      </div>
       <div class="db-box" id="dbBox"></div>
       <div class="db-introducing" id="dbIntroducing">INTRODUCING</div>
       <div class="db-headline">
@@ -1904,7 +1881,7 @@
   }
 
   var el = {};
-  ['dbPanelWrap','dbBox','dbIntroducing','dbDeal','dbBuster','dbGift','dbCtaHero','dbGlowBox','dbGlowBtn',
+  ['dbBox','dbIntroducing','dbDeal','dbBuster','dbGift','dbCtaHero','dbGlowBox','dbGlowBtn',
    'dbSceneHero','dbSceneCal','dbCalFly','dbCaption','dbCtaCal','dbPopL','dbPopR',
    'dbPopLPath1','dbPopLPath2','dbPopRPath1','dbPopRPath2'].forEach(function (id) { el[id] = document.getElementById(id); });
   for (var i = 0; i < 6; i++) { el['dbTick' + i] = document.getElementById('dbTick' + i); el['dbTickPath' + i] = document.getElementById('dbTickPath' + i); }
@@ -1921,10 +1898,9 @@
 
   function renderHero(reveal, shrink) {
     var r = clamp(reveal, 0, 1);
-    var panel = draw(r, 0, 0.3), gift = pop(r, 0.1, 0.56), intro = draw(r, 0.2, 0.42),
+    var gift = pop(r, 0.1, 0.56), intro = draw(r, 0.2, 0.42),
         box = draw(r, 0.24, 0.5), deal = pop(r, 0.32, 0.64), buster = pop(r, 0.42, 0.74), btn = pop(r, 0.6, 0.92);
 
-    set(el.dbPanelWrap, panel * 0.9, 'translateY(' + ((1 - panel) * -40) + 'px)');
     set(el.dbBox, box, 'scale(' + (0.94 + box * 0.06) + ')');
     el.dbBox.style.transformOrigin = '0% 50%';
     set(el.dbIntroducing, intro, 'translateY(' + ((1 - intro) * 16) + 'px)');
@@ -3055,6 +3031,14 @@
     const soHeader = document.getElementById('soHeader');
     const soResults = document.getElementById('soResults');
 
+    // Status bar otherwise stays whatever color the home page left it in
+    // (purple banner, or the pinned bar's off-white) — swap it to match the
+    // overlay's own green wash so the status bar reads as part of the page
+    // instead of a leftover purple strip, then restore on close.
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    const THEME_SEARCH = '#DCF7DA';
+    let themeBeforeSearch = null;
+
     // The green wash lives on the page while empty/at rest; once the results
     // list scrolls, the same gradient moves into the nav bar's own (blurred)
     // background — never the search pill itself, and bounded to the bar's
@@ -3100,6 +3084,10 @@
       overlay.classList.add('open');
       document.body.style.overflow = 'hidden';
       openedAt = Date.now();
+      if (themeMeta) {
+        themeBeforeSearch = themeMeta.getAttribute('content');
+        themeMeta.setAttribute('content', THEME_SEARCH);
+      }
       renderResults();
       // History entry so the phone's hardware back button closes the overlay
       // instead of leaving the site. Deep links (product.html's search icon)
@@ -3115,6 +3103,7 @@
     function closeOverlay() {
       overlay.classList.remove('open');
       document.body.style.overflow = '';
+      if (themeMeta && themeBeforeSearch) themeMeta.setAttribute('content', themeBeforeSearch);
       // Start fresh next time — a stale query with stale result cards under
       // the finger is what caused accidental taps on reopen.
       soInput.value = '';
