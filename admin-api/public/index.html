@@ -413,7 +413,8 @@
             <option value="">All Sources</option>
             <option value="manual">Manual</option>
             <option value="dealsradar">DealsRadar</option>
-            <option value="indiafree">IndiaFreeStuff</option>
+            <option value="dotd">DealOfTheDayIndia</option>
+            <option value="indiafree">IndiaFreeStuff (legacy)</option>
           </select>
           <select id="dashCat" onchange="renderList()">
             <option value="">All Categories</option>
@@ -437,7 +438,6 @@
             <button class="btn btn-outline btn-sm" onclick="pushZeroPriceToBottom()" id="pushZeroPriceBtn" style="border-color:#d97706;color:#d97706;">⬇ Push ₹0 to Bottom</button>
             <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
             <button class="btn btn-outline btn-sm" onclick="syncDealsRadar()" id="syncDealsRadarBtn">Sync DealsRadar</button>
-            <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIfsBtn">Sync IndiaFreeStuff</button>
             <button class="btn btn-outline btn-sm" onclick="syncDotd()" id="syncDotdBtn">Sync DealOfTheDayIndia</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
             <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
@@ -1021,8 +1021,9 @@ function renderList() {
     const matchCat = !cat || p.category === cat;
     const matchSrc = !src ||
       (src === 'dealsradar' ? (p.id || '').startsWith('dr_') :
+      src === 'dotd' ? (p.id || '').startsWith('dotd_') :
       src === 'indiafree' ? (p.id || '').startsWith('ifs_') :
-      src === 'manual' ? (!(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('amzdeal_')) :
+      src === 'manual' ? (!(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('dotd_') && !(p.id || '').startsWith('amzdeal_')) :
       true);
     const matchOOS = !oosFilterActive || p.outOfStock;
     const noPrice = !p.price || p.price === '₹0' || p.price === '₹';
@@ -2184,25 +2185,6 @@ function copyAssocLink(asin) {
   }).catch(() => {
     prompt('Copy this link:', link);
   });
-}
-
-async function syncIndiaFreeStuff() {
-  const btn = document.getElementById('syncIfsBtn');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Syncing…';
-  try {
-    const resp = await apiFetch('/sync-indiafreestuff');
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    alert(data.message || 'Sync complete!');
-    await loadProducts();
-  } catch (e) {
-    alert('Sync failed: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
 }
 
 async function syncDotd() {

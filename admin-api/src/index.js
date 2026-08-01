@@ -614,188 +614,12 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
-// ── IndiaFreeStuff sync (10 deals / 10 min, Amazon-only) ─────────────────────
-
 function decodeHtmlEntities(str) {
   return str
     .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
     .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
     .replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>')
     .replace(/&amp;/g,'&');
-}
-
-function parseTimeAgo(text, baseTime) {
-  const now = baseTime || Date.now();
-  const t = text.toLowerCase().trim();
-  const num = n => parseInt(t.match(/\d+/)?.[0] || String(n));
-  if (t.includes('second')) return now - num(1) * 1000;
-  if (t.includes('minute')) return now - num(1) * 60 * 1000;
-  if (t.includes('hour'))   return now - num(1) * 60 * 60 * 1000;
-  if (t.includes('day'))    return now - num(1) * 24 * 60 * 60 * 1000;
-  if (t.includes('week'))   return now - num(1) * 7 * 24 * 60 * 60 * 1000;
-  if (t.includes('month'))  return now - num(1) * 30 * 24 * 60 * 60 * 1000;
-  const parsed = new Date(text);
-  return isNaN(parsed.getTime()) ? now : parsed.getTime();
-}
-
-async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
-  // Server-rendered. 1 fetch for /trending (40 deals) + 1 redirect-follow per NEW Amazon deal for ASIN.
-  // Filter: only blocks containing /stores/amazon link.
-  // Image: extract Amazon image hash from their thumbnail filename — no extra fetch.
-  const matchesMap = new Map();
-  const blockedBrands = await getBlockedBrands(env);
-
-  try {
-    // Their Cloudflare bot-management occasionally 403s a single request, then
-    // clears within seconds (transient, not a real block) — one retry after a
-    // short delay resolves that within this same cron tick instead of leaving
-    // a stale-looking error for up to 10 min until the next one fires.
-    let r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
-    if (!r.ok) {
-      await new Promise(res => setTimeout(res, 3000));
-      r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
-    }
-    if (!r.ok) {
-      const cfMitigated = r.headers.get('cf-mitigated') || 'none';
-      const cfRay = r.headers.get('cf-ray') || 'none';
-      const bodySnippet = (await r.text().catch(() => '')).slice(0, 300).replace(/\s+/g, ' ');
-      throw new Error(`HTTP ${r.status} after retry (cf-mitigated=${cfMitigated}, cf-ray=${cfRay}) body="${bodySnippet}"`);
-    }
-    const html = await r.text();
-
-    const blocks = html.split(/<div class="product-item">/g);
-    for (let i = 1; i < blocks.length; i++) {
-      const block = blocks[i];
-
-      // Amazon-only filter — block must link to /stores/amazon
-      if (!block.includes('/stores/amazon')) continue;
-
-      // Title from item-title anchor
-      const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
-      if (!titleM) continue;
-      let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-      // Strip trailing " Rs. NNN - Amazon" suffix sites append
-      title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Amazon\s*$/i, '').trim();
-      if (!title || title.length < 5) continue;
-      if (isBrandBlocked(title, blockedBrands)) continue;
-
-      // Image: extract Amazon image hash from their thumbnail filename
-      // e.g. thumb_f8ec8aef_61NiiBDN0yL.SX522.jpg → 61NiiBDN0yL → Amazon CDN image
-      const thumbM = block.match(/data-original="([^"]+images\.indiafreestuff\.in[^"]+)"/i);
-      let image = '';
-      if (thumbM) {
-        const fname = thumbM[1].split('/').pop();
-        const hashM = fname.match(/thumb_[a-f0-9]+_([A-Za-z0-9]{11})\./);
-        image = hashM
-          ? `https://m.media-amazon.com/images/I/${hashM[1]}._SL500_.jpg`
-          : thumbM[1]; // fallback to their CDN thumbnail
-      }
-
-      // Prices
-      const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
-      const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
-      const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
-      const mrp   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : price;
-
-      // rto redirect URL → will resolve to ASIN later for new deals only
-      const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
-      if (!rtoM) continue;
-      const rtoParam = rtoM[1];
-
-      const key = rtoParam; // dedupe by rto param until we have ASIN
-      if (!matchesMap.has(key)) {
-        matchesMap.set(key, { title, image, price, mrp, rtoParam });
-      }
-    }
-  } catch (e) {
-    const msg = `IndiaFreeStuff fetch failed: ${e.message}`;
-    await saveSyncError('IndiaFreeStuff', msg, env);
-    return { success: false, count: 0, message: msg };
-  }
-
-  if (matchesMap.size === 0) {
-    const msg = 'IndiaFreeStuff: no Amazon deals found (structure may have changed)';
-    await saveSyncError('IndiaFreeStuff', msg, env);
-    return { success: false, count: 0, message: msg };
-  }
-
-  const { products, sha } = await getProductsFile(env);
-  let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
-  const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
-  const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
-  // Same product can show up under multiple rto tracking params on the trending
-  // page — existingByAsin (built once, above) never sees ASINs added earlier in
-  // THIS run, so without this guard every repeat also looks "new" and gets its
-  // own duplicate entry.
-  const seenThisRun = new Set();
-
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
-  const added = [];
-  const updated = [];
-
-  for (const { title, image, price, mrp, rtoParam } of matchesMap.values()) {
-    if (added.length >= limit) break;
-
-    // No scraped price = unavailable product. Skip before spending the redirect
-    // subrequest — a ₹0/blank-price entry is unpostable and recycles forever
-    // (price sync → bottom → cap eviction → feed re-adds it at the top as new).
-    if (!(price > 0)) continue;
-
-    // Follow redirect (manual) — 1 subrequest, gets Location header with Amazon URL → ASIN
-    let asin = '';
-    try {
-      const red = await fetchWithTimeout(`https://www.indiafreestuff.in/?rto=${rtoParam}`, {
-        redirect: 'manual',
-        headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
-      });
-      const loc = red.headers.get('location') || '';
-      if (!loc.includes('amazon.in')) continue; // skip non-Amazon redirects
-      const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
-      if (asinM) asin = asinM[1].toUpperCase();
-    } catch { continue; }
-
-    if (!asin || deletedSet.has(asin)) continue;
-    if (seenThisRun.has(asin)) continue;
-    seenThisRun.add(asin);
-
-    const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
-    const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
-    const mrpStr   = mrp   > 0 ? '₹' + mrp.toLocaleString('en-IN')   : priceStr;
-    const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
-    const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
-
-    // Already on site — leave it completely alone. No position bump, no addedAt
-    // refresh, ever. The trending page mostly re-shows the same deals every cycle,
-    // so touching it here (even just on a price drop) repeatedly resurfaces old
-    // deals and re-floods Telegram/subscribers. checkAndCleanDeals (same 10-min
-    // cron, runs right after this) independently refreshes prices from Amazon's
-    // own API, so price freshness isn't lost by skipping it here.
-    if (existingByAsin.has(asin)) continue;
-
-    const category = detectCategoryFromTitle(title);
-
-    added.push({
-      id: `ifs_${Date.now()}_${added.length}`,
-      asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
-      image, link, category, highlights: ['Great deal on Amazon'],
-      lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-      order: 0, addedAt: new Date().toISOString(),
-    });
-  }
-
-  if (added.length === 0 && updated.length === 0) {
-    await clearSyncError('IndiaFreeStuff', env);
-    return { success: true, count: 0, message: 'IndiaFreeStuff: no new Amazon deals.' };
-  }
-
-  const updatedAsinSet = new Set(updated.map(p => p.asin.toUpperCase()));
-  const base = products.filter(p => !p.asin || !updatedAsinSet.has(p.asin.toUpperCase()));
-  const final = await capLiveAndBury([...added, ...updated, ...base], env);
-
-  const msg = `IndiaFreeStuff sync: +${added.length} new, ${updated.length} updated`;
-  await saveProductsFile(final, sha, msg, env);
-  await clearSyncError('IndiaFreeStuff', env);
-  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
 // ── DealOfTheDayIndia sync (Amazon-only) ──────────────────────────────────────
@@ -2755,17 +2579,6 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
-      // ── /sync-indiafreestuff ─────────────────────────────────────────────────
-      if (url.pathname === '/sync-indiafreestuff' && request.method === 'GET') {
-        try {
-          const r = await scrapeAndSyncIndiaFreeStuff(env, 20);
-          if (r.addedProducts?.length) {
-            await postDealsAndTrack(r.addedProducts.slice(0, 5), env).catch(e => console.error('TG post IFS manual:', e.message));
-          }
-          return json(r);
-        } catch (e) { return json({ error: e.message }, 502); }
-      }
-
       // ── /sync-dotd ───────────────────────────────────────────────────────────
       if (url.pathname === '/sync-dotd' && request.method === 'GET') {
         try {
@@ -2779,8 +2592,8 @@ export default {
 
       // ── /sync-all ────────────────────────────────────────────────────────────
       if (url.pathname === '/sync-all' && request.method === 'GET') {
-        const results = await Promise.allSettled([scrapeAndSyncDealsRadar(env, 40), scrapeAndSyncIndiaFreeStuff(env, 20), scrapeAndSyncDealOfTheDayIndia(env, 10)]);
-        return json({ success: true, results: results.map((r,i) => ({ site: ['DealsRadar','IndiaFreeStuff','DealOfTheDayIndia'][i], status: r.status, result: r.status==='fulfilled'?r.value:{error:r.reason.message} })) });
+        const results = await Promise.allSettled([scrapeAndSyncDealsRadar(env, 40), scrapeAndSyncDealOfTheDayIndia(env, 10)]);
+        return json({ success: true, results: results.map((r,i) => ({ site: ['DealsRadar','DealOfTheDayIndia'][i], status: r.status, result: r.status==='fulfilled'?r.value:{error:r.reason.message} })) });
       }
 
       // ── /clean-deals ─────────────────────────────────────────────────────────
@@ -3089,22 +2902,6 @@ export default {
       ctx.waitUntil(
         withCronLock('cron_10min', 180, env, async () => {
           try {
-            console.log('IndiaFreeStuff sync start');
-            const r = await scrapeAndSyncIndiaFreeStuff(env, 20);
-            console.log('IndiaFreeStuff sync:', r.message);
-          } catch (e) {
-            console.error('IndiaFreeStuff sync error:', e.message);
-            await saveSyncError('IndiaFreeStuff', e.message, env);
-          }
-          try {
-            console.log('DealOfTheDayIndia sync start');
-            const r = await scrapeAndSyncDealOfTheDayIndia(env, 10);
-            console.log('DealOfTheDayIndia sync:', r.message);
-          } catch (e) {
-            console.error('DealOfTheDayIndia sync error:', e.message);
-            await saveSyncError('DealOfTheDayIndia', e.message, env);
-          }
-          try {
             console.log('Price check start');
             const r = await checkAndCleanDeals(env);
             console.log('Price check:', r.message);
@@ -3115,10 +2912,14 @@ export default {
       );
     }
 
-    // Every 15 min (at :08,:23,:38,:53): sync DealsRadar + 1 Amazon deal + badge check (15 products)
-    if (event.cron === '8,23,38,53 * * * *') {
+    // Every 5 min (offset :03,:08,:13,...) — DealsRadar + DealOfTheDayIndia.
+    // Split out from the old 15-min DealsRadar tick so bumping their frequency
+    // doesn't also speed up the Amazon-deals-page import below, which is
+    // deliberately paced at 1/run (not a time-based throttle — see its own
+    // comment) and would otherwise scale with however often this fires.
+    if (event.cron === '3,8,13,18,23,28,33,38,43,48,53,58 * * * *') {
       ctx.waitUntil(
-        withCronLock('cron_hourly', 300, env, async () => {
+        withCronLock('cron_radar_dotd', 180, env, async () => {
           try {
             console.log('DealsRadar sync start');
             const r = await scrapeAndSyncDealsRadar(env);
@@ -3127,6 +2928,23 @@ export default {
             console.error('DealsRadar sync error:', e.message);
             await saveSyncError('DealsRadar', e.message, env);
           }
+          try {
+            console.log('DealOfTheDayIndia sync start');
+            const r = await scrapeAndSyncDealOfTheDayIndia(env, 10);
+            console.log('DealOfTheDayIndia sync:', r.message);
+          } catch (e) {
+            console.error('DealOfTheDayIndia sync error:', e.message);
+            await saveSyncError('DealOfTheDayIndia', e.message, env);
+          }
+        })
+      );
+    }
+
+    // Every 15 min (at :08,:23,:38,:53): 1 Amazon deal (24/day by design, see
+    // syncAmazonDealsToProducts) + badge check (15 products)
+    if (event.cron === '8,23,38,53 * * * *') {
+      ctx.waitUntil(
+        withCronLock('cron_hourly', 300, env, async () => {
           try {
             console.log('Amazon deals sync start (1/hr)');
             const r = await syncAmazonDealsToProducts(env, 1);
