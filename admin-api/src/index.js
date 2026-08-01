@@ -240,12 +240,21 @@ function isBrandBlocked(title, blockedBrands) {
 
 async function saveSyncError(source, message, env) {
   if (!env.KV) return;
+  // A sustained upstream block (e.g. IndiaFreeStuff's Cloudflare WAF blocking
+  // Worker traffic outright — confirmed by identical 403s from different CF
+  // colos, so it's not a single-PoP IP issue) fails every 10-min tick for
+  // hours. Without this, that's a fresh push notification every single tick
+  // for what's really one ongoing incident. Push once per source per hour;
+  // every occurrence still lands in the KV log for the dashboard bell.
+  let shouldNotify = true;
   try {
     const existing = await env.KV.get('syncErrors', 'json') || [];
+    const prior = existing.find(e => e.source === source);
+    if (prior && (Date.now() - new Date(prior.time).getTime()) < 60 * 60 * 1000) shouldNotify = false;
     existing.unshift({ id: Date.now().toString(), source, message, time: new Date().toISOString() });
     await env.KV.put('syncErrors', JSON.stringify(existing.slice(0, 20)));
   } catch (e) { console.error('Failed to save sync error:', e.message); }
-  await notifyAdminPush(`Sync error: ${source}`, message.slice(0, 180), env);
+  if (shouldNotify) await notifyAdminPush(`Sync error: ${source}`, message.slice(0, 180), env);
 }
 
 async function getSyncErrors(env) {
