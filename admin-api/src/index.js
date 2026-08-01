@@ -632,12 +632,22 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   const blockedBrands = await getBlockedBrands(env);
   let html;
   try {
-    let r = await fetchWithTimeout('https://dealofthedayindia.com/store/amazon/', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    // Their site serves this listing page through a server-side page cache
+    // (Jetpack Boost, on Hostinger) that can lag well behind what's actually
+    // posted — a plain fetch here can return the SAME snapshot for 20+
+    // minutes (confirmed: two plain fetches minutes apart came back
+    // byte-identical, `X-Jetpack-Boost-Cache: hit`, while a request with a
+    // cache-busting query param came back `miss` with fresher deals). The
+    // random param forces a cache miss so every cron tick sees the real
+    // current page instead of a stale one.
+    const bust = `?_cb=${Date.now()}`;
+    let r = await fetchWithTimeout('https://dealofthedayindia.com/store/amazon/' + bust, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
     if (!r.ok) {
       await new Promise(res => setTimeout(res, 3000));
-      r = await fetchWithTimeout('https://dealofthedayindia.com/store/amazon/', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+      r = await fetchWithTimeout('https://dealofthedayindia.com/store/amazon/' + bust, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
     }
     if (!r.ok) throw new Error(`HTTP ${r.status} after retry`);
+    console.log('DOTD debug: jetpack-cache=' + (r.headers.get('x-jetpack-boost-cache') || 'n/a') + ' hcdn-status=' + (r.headers.get('x-hcdn-cache-status') || 'n/a'));
     html = await r.text();
   } catch (e) {
     const msg = `DealOfTheDayIndia fetch failed: ${e.message}`;
@@ -684,6 +694,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
+  console.log('DOTD debug: matchesMap=' + matchesMap.size + ' productsLoaded=' + products.length + ' asins=' + [...matchesMap.keys()].join(',') + ' | alreadyExisting=' + [...matchesMap.keys()].filter(a => existingByAsin.has(a)).join(',') + ' | deleted=' + [...matchesMap.keys()].filter(a => deletedSet.has(a)).join(','));
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
@@ -1431,10 +1442,13 @@ function isZeroPrice(p) {
 // lap; one geyser did 20 laps in two days). Tombstones block the re-add via
 // the syncs' existingByAsin check while hidden:true keeps them off the site
 // and out of the TG queue. They don't count toward the 720 live cap and are
-// pruned after 4 days — the observed recycle window was ~2 days (the "20
-// laps" case above), so 4 is a comfortable 2x margin above that without
-// sitting on dead weight for two full weeks like the original 14 did.
-const TOMBSTONE_TTL_MS = 4 * 24 * 60 * 60 * 1000;
+// pruned after 3 days — the observed recycle window was ~2 days (the "20
+// laps" case above), so 3 keeps a 1.5x margin above that (was 4/2x; dropped
+// deliberately, not down to 2/zero-margin, since matching the worst
+// observed case exactly is what caused this same spam loop to ship broken
+// twice before) without sitting on dead weight for two full weeks like the
+// original 14 did.
+const TOMBSTONE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 function isDead(p) {
   return !!p.dead;
 }
