@@ -2912,34 +2912,6 @@ export default {
       );
     }
 
-    // Every 5 min (offset :03,:08,:13,...) — DealsRadar + DealOfTheDayIndia.
-    // Split out from the old 15-min DealsRadar tick so bumping their frequency
-    // doesn't also speed up the Amazon-deals-page import below, which is
-    // deliberately paced at 1/run (not a time-based throttle — see its own
-    // comment) and would otherwise scale with however often this fires.
-    if (event.cron === '3,8,13,18,23,28,33,38,43,48,53,58 * * * *') {
-      ctx.waitUntil(
-        withCronLock('cron_radar_dotd', 180, env, async () => {
-          try {
-            console.log('DealsRadar sync start');
-            const r = await scrapeAndSyncDealsRadar(env);
-            console.log('DealsRadar sync:', r.message);
-          } catch (e) {
-            console.error('DealsRadar sync error:', e.message);
-            await saveSyncError('DealsRadar', e.message, env);
-          }
-          try {
-            console.log('DealOfTheDayIndia sync start');
-            const r = await scrapeAndSyncDealOfTheDayIndia(env, 10);
-            console.log('DealOfTheDayIndia sync:', r.message);
-          } catch (e) {
-            console.error('DealOfTheDayIndia sync error:', e.message);
-            await saveSyncError('DealOfTheDayIndia', e.message, env);
-          }
-        })
-      );
-    }
-
     // Every 15 min (at :08,:23,:38,:53): 1 Amazon deal (24/day by design, see
     // syncAmazonDealsToProducts) + badge check (15 products)
     if (event.cron === '8,23,38,53 * * * *') {
@@ -2985,6 +2957,38 @@ export default {
     if (event.cron === '0,5,10,15,20,25,30,35,40,45,50,55 * * * *') {
       ctx.waitUntil(
         postNewDealsToTelegramLocked(env).catch(e => console.error('TG cron error:', e.message))
+      );
+
+      // DealsRadar + DealOfTheDayIndia, every 5 min. Piggybacked on this tick
+      // (rather than its own trigger) specifically because 0,5,10,...,55 is
+      // the only minute-set that never exactly coincides with cron_10min's
+      // (2,12,...,52) or cron_hourly's (8,23,...,53) — both of which share
+      // the SAME products.json-SHA lock this uses. An earlier attempt gave
+      // this its own "3,8,13,...,58" trigger, which hit cron_hourly's exact
+      // minute 4 times/hour and got starved by its lock every single time
+      // (confirmed live via wrangler tail: "Global cron lock held (by
+      // cron_hourly), skipping cron_radar_dotd") — this doesn't share a
+      // lock with the Telegram-posting call above, only with the OTHER
+      // trigger's jobs, which this minute-set is the best fit against.
+      ctx.waitUntil(
+        withCronLock('cron_radar_dotd', 180, env, async () => {
+          try {
+            console.log('DealsRadar sync start');
+            const r = await scrapeAndSyncDealsRadar(env);
+            console.log('DealsRadar sync:', r.message);
+          } catch (e) {
+            console.error('DealsRadar sync error:', e.message);
+            await saveSyncError('DealsRadar', e.message, env);
+          }
+          try {
+            console.log('DealOfTheDayIndia sync start');
+            const r = await scrapeAndSyncDealOfTheDayIndia(env, 10);
+            console.log('DealOfTheDayIndia sync:', r.message);
+          } catch (e) {
+            console.error('DealOfTheDayIndia sync error:', e.message);
+            await saveSyncError('DealOfTheDayIndia', e.message, env);
+          }
+        })
       );
     }
   },
