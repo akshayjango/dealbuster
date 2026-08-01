@@ -438,6 +438,7 @@
             <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
             <button class="btn btn-outline btn-sm" onclick="syncDealsRadar()" id="syncDealsRadarBtn">Sync DealsRadar</button>
             <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIfsBtn">Sync IndiaFreeStuff</button>
+            <button class="btn btn-outline btn-sm" onclick="syncDotd()" id="syncDotdBtn">Sync DealOfTheDayIndia</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
             <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
             <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
@@ -2192,6 +2193,25 @@ async function syncIndiaFreeStuff() {
   btn.textContent = 'Syncing…';
   try {
     const resp = await apiFetch('/sync-indiafreestuff');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Sync complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function syncDotd() {
+  const btn = document.getElementById('syncDotdBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const resp = await apiFetch('/sync-dotd');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     alert(data.message || 'Sync complete!');
