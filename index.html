@@ -3311,10 +3311,19 @@
   // into this page (logo, "All Deals") should land at the top like any
   // fresh visit, not wherever a previous visit happened to be scrolled.
   const isBackForward = performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
-  function restoreScrollIfBack() {
+  function restoreScrollIfBack(force) {
     if (!isBackForward) return;
     const y = +sessionStorage.getItem('db_scrollY');
-    if (y > 0) requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+    if (y <= 0) return;
+    // Cards now build in chunks (see renderProducts) — right after the first
+    // chunk, the page may not be tall enough yet to actually reach a deep
+    // scroll position (e.g. scrolled down to card #300 of 1440), so
+    // scrollTo silently clamps near the top instead of restoring it. Skip
+    // until there's enough height, unless force is set (used once the full
+    // set has finished building, as a guaranteed final correction).
+    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    if (!force && maxScroll < y) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
   }
   window.addEventListener('pagehide', () => sessionStorage.setItem('db_scrollY', window.scrollY));
 
@@ -3395,7 +3404,7 @@
       // again once everything's in so "load more"/search counts the full set.
       renderProducts(cached,
         () => { applyFilters(); restoreScrollIfBack(); },
-        () => applyFilters());
+        () => { applyFilters(); restoreScrollIfBack(true); });
     } else {
       // Nothing cached yet this tab (first visit) — show shimmer skeletons
       // while fetching, and hide the static fallback cards so the WHOLE grid
@@ -3433,14 +3442,14 @@
           applyFilters();
           restoreScrollIfBack();
         },
-        () => applyFilters());
+        () => { applyFilters(); restoreScrollIfBack(true); });
     } catch (_) {
       // Offline / fetch failed — fall back to whatever's already on screen
       // (cache render above, or the static cards if there was no cache)
       document.getElementById('skeletonWrap')?.remove();
       unhideStatic();
       applyFilters();
-      restoreScrollIfBack();
+      restoreScrollIfBack(true);
     }
   })();
 
