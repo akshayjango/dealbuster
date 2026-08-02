@@ -1732,16 +1732,44 @@
   </div>
   <h2>No Internet Connection</h2>
   <p>Check your Wi-Fi or mobile data and try again — your deals will be right here waiting.</p>
-  <button onclick="location.reload()">Retry</button>
+  <button id="offlineRetryBtn">Retry</button>
 </div>
 <script>
   (function () {
     var el = document.getElementById('offlineScreen');
+    var btn = document.getElementById('offlineRetryBtn');
     function show() { el.classList.add('show'); }
     function hide() { el.classList.remove('show'); }
     if (!navigator.onLine) show();
     window.addEventListener('offline', show);
     window.addEventListener('online', hide);
+
+    // Reloading unconditionally here (the obvious "Retry" implementation) is
+    // exactly what broke this: a real navigation while still offline either
+    // fails outright to the browser's own native error page, or (since sw.js
+    // falls back to a cached page on a failed navigate) serves a stale cached
+    // copy of the site — neither is this page's own JS, so the custom offline
+    // screen never gets a chance to show correctly. Doing a real network probe
+    // first and only reloading on success keeps Retry on THIS screen (with a
+    // brief "still offline" flash) whenever the connection genuinely isn't back.
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      var original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Checking…';
+      fetch('https://dealbuster-admin-api.vakshay083.workers.dev/public/products.json', { method: 'GET', cache: 'no-store' })
+        .then(function (r) {
+          if (r.ok) { location.reload(); return; }
+          throw new Error('not reachable');
+        })
+        .catch(function () {
+          btn.textContent = 'Still offline';
+          setTimeout(function () {
+            btn.textContent = original;
+            btn.disabled = false;
+          }, 1500);
+        });
+    });
   })();
 </script>
 
