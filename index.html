@@ -13,6 +13,19 @@
     // real content is in place fixes that race.
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   </script>
+  <script>
+    // Deep link from product.html's search icon (?openSearch=1). Without this,
+    // the browser paints the whole home page first (hero, tabs, grid) and only
+    // then does the later overlay-opening script run and cover it — a visible
+    // "home flashes, then search" flicker that a same-page overlay toggle (the
+    // home page's own search icon) never has. Flagging this here, as early as
+    // possible in <head>, lets CSS hide everything except the overlay before
+    // the browser paints anything, so this deep link feels exactly as instant
+    // as opening search from the home page itself.
+    if (/[?&]openSearch=1(&|$)/.test(location.search)) {
+      document.documentElement.classList.add('pending-search');
+    }
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Dealbuster - Best Deals in India</title>
@@ -1565,6 +1578,11 @@
       flex-direction: column;
     }
     #searchOverlay.open { display: flex; }
+    /* Deep link from product.html (?openSearch=1, flagged in the early <head>
+       script above): show the overlay and hide everything else before first
+       paint, so there's no flash of the home page before search appears. */
+    html.pending-search body > *:not(#searchOverlay) { display: none !important; }
+    html.pending-search #searchOverlay { display: flex !important; }
     .so-header {
       display: flex; align-items: center;
       padding: 14px 12px;
@@ -3049,6 +3067,10 @@
     }
     function closeOverlay() {
       overlay.classList.remove('open');
+      // Deep-link CSS (html.pending-search, added in <head>) forces the
+      // overlay open and hides the rest of the page until this is removed —
+      // otherwise closing the overlay would leave the home page stuck hidden.
+      document.documentElement.classList.remove('pending-search');
       document.body.style.overflow = '';
       if (themeMeta && themeBeforeSearch) themeMeta.setAttribute('content', themeBeforeSearch);
       // Start fresh next time — a stale query with stale result cards under
