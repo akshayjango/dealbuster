@@ -3390,59 +3390,88 @@
   function renderProducts(products, onFirstChunk, onDone) {
     const myGeneration = ++renderGeneration;
     const grid = document.getElementById('productsGrid');
-    // Replace whatever's currently shown (a prior cache-render, or legacy
-    // static cards) with this set. Remove-then-insert instead of diffing —
-    // this runs at most twice per load (cache render, then fresh fetch), so
-    // simplicity wins over avoiding a rebuild.
-    grid.querySelectorAll('.product-card[data-managed]').forEach(c => c.remove());
-    // Remove legacy static cards that are now managed via products.json
-    // Dedup by ASIN (long links) OR by link value (short links like amzn.to)
     const managedAsins = new Set(products.map(p => p.asin).filter(Boolean));
     const managedLinks = new Set(products.map(p => p.link).filter(Boolean));
-    grid.querySelectorAll('.product-card').forEach(c => {
-      const href = decodeURIComponent(c.getAttribute('href') || '');
-      // Check ASIN in card href
-      const m = href.match(/\/dp\/([A-Z0-9]{10})/i);
-      if (m && managedAsins.has(m[1])) { c.remove(); return; }
-      // Check link param (catches short-link products)
-      try {
-        const linkParam = decodeURIComponent(new URLSearchParams(href.split('?')[1] || '').get('link') || '');
-        if (linkParam && managedLinks.has(linkParam)) { c.remove(); return; }
-        // Also check ASIN inside the link param (long-link stored as link)
-        const linkAsin = linkParam.match(/\/dp\/([A-Z0-9]{10})/i)?.[1];
-        if (linkAsin && managedAsins.has(linkAsin)) c.remove();
-      } catch {}
-    });
+    function removeLegacyStatics() {
+      // Remove legacy static cards that are now managed via products.json.
+      // Dedup by ASIN (long links) OR by link value (short links like amzn.to)
+      grid.querySelectorAll('.product-card:not([data-managed])').forEach(c => {
+        const href = decodeURIComponent(c.getAttribute('href') || '');
+        const m = href.match(/\/dp\/([A-Z0-9]{10})/i);
+        if (m && managedAsins.has(m[1])) { c.remove(); return; }
+        try {
+          const linkParam = decodeURIComponent(new URLSearchParams(href.split('?')[1] || '').get('link') || '');
+          if (linkParam && managedLinks.has(linkParam)) { c.remove(); return; }
+          const linkAsin = linkParam.match(/\/dp\/([A-Z0-9]{10})/i)?.[1];
+          if (linkAsin && managedAsins.has(linkAsin)) c.remove();
+        } catch {}
+      });
+    }
 
-    // Building every card as a real DOM node in one synchronous pass measured
-    // at ~800ms of blocking script time for the full catalog — and that cost
-    // was paid on EVERY Back-navigation reload (this page isn't bfcache-
-    // eligible, so Back re-runs all this from scratch every time). Only a
-    // page's worth of cards is ever visible at once — applyFilters() just
-    // hides the rest via display:none, it doesn't limit what gets built —
-    // so there's no reason to pay that cost in one blocking chunk. Building
-    // in small batches across idle time keeps first paint fast without
-    // changing the end state once everything settles.
-    const anchor = grid.firstChild;
     const CHUNK = 60;
     let i = 0;
-    let firstChunkDone = false;
     const idle = window.requestIdleCallback || function (fn) { setTimeout(fn, 0); };
-    function buildChunk() {
-      if (myGeneration !== renderGeneration) return; // superseded — stop silently
-      const frag = document.createDocumentFragment();
-      const end = Math.min(i + CHUNK, products.length);
-      for (; i < end; i++) {
-        const p = products[i];
-        knownProductIds.add(productKey(p));
-        frag.appendChild(buildProductCard(p));
+    const hasExistingManaged = !!grid.querySelector('.product-card[data-managed]');
+
+    if (!hasExistingManaged) {
+      // Nothing live to disrupt yet (first content this page load — either a
+      // genuine first visit, or the cache-render when there's no cache at
+      // all) — build straight into the DOM incrementally so first paint is
+      // as fast as possible. Building all ~1440 cards in one synchronous
+      // pass measured at ~800ms of blocking script time; only a page's
+      // worth is ever visible at once (applyFilters() just hides the rest),
+      // so there's no reason to pay that cost in one blocking chunk.
+      removeLegacyStatics();
+      const anchor = grid.firstChild;
+      let firstChunkDone = false;
+      function buildChunkLive() {
+        if (myGeneration !== renderGeneration) return; // superseded — stop silently
+        const frag = document.createDocumentFragment();
+        const end = Math.min(i + CHUNK, products.length);
+        for (; i < end; i++) {
+          const p = products[i];
+          knownProductIds.add(productKey(p));
+          frag.appendChild(buildProductCard(p));
+        }
+        grid.insertBefore(frag, anchor);
+        if (!firstChunkDone) { firstChunkDone = true; if (onFirstChunk) onFirstChunk(); }
+        if (i < products.length) idle(buildChunkLive, { timeout: 200 });
+        else if (onDone) onDone();
       }
-      grid.insertBefore(frag, anchor);
-      if (!firstChunkDone) { firstChunkDone = true; if (onFirstChunk) onFirstChunk(); }
-      if (i < products.length) idle(buildChunk, { timeout: 200 });
-      else if (onDone) onDone();
+      buildChunkLive();
+    } else {
+      // Replacing an already-visible, already-scrolled-into-place render (the
+      // background fetch reconciling fresh data over the instant cache-
+      // render). Removing the old cards immediately and rebuilding gradually
+      // used to leave the page collapsed to a fraction of its real height
+      // for the ~1-2s the chunked build took -- when already scrolled deep
+      // (mid Back-navigation restore), the browser force-clamps scrollY the
+      // instant content shrinks below the current offset, which is what
+      // made Back sometimes land at the top instead of the saved position,
+      // even though restoreScrollIfBack() itself was correct. Building into
+      // a detached fragment and swapping it in atomically once the full set
+      // is ready keeps the live page's height (and scroll position)
+      // completely undisturbed until the single instant the switch happens.
+      const detached = document.createDocumentFragment();
+      function buildChunkDetached() {
+        if (myGeneration !== renderGeneration) return; // superseded — stop silently
+        const end = Math.min(i + CHUNK, products.length);
+        for (; i < end; i++) {
+          const p = products[i];
+          knownProductIds.add(productKey(p));
+          detached.appendChild(buildProductCard(p));
+        }
+        if (i < products.length) {
+          idle(buildChunkDetached, { timeout: 200 });
+        } else {
+          grid.querySelectorAll('.product-card[data-managed]').forEach(c => c.remove());
+          removeLegacyStatics();
+          grid.insertBefore(detached, grid.firstChild);
+          if (onDone) onDone();
+        }
+      }
+      buildChunkDetached();
     }
-    buildChunk();
   }
 
   (async () => {
