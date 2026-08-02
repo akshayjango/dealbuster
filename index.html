@@ -3219,6 +3219,21 @@
   // tell brand-new deals apart from ones already on the page.
   const knownProductIds = new Set();
 
+  // Last successful fetch, cached per-tab so a reload (e.g. Back from
+  // product.html landing on a fresh load instead of a bfcache restore) can
+  // render instantly instead of blanking to the shimmer skeleton again. A
+  // background fetch always still runs and silently corrects anything stale.
+  const PRODUCTS_CACHE_KEY = 'db_products_cache_v1';
+  function getCachedProducts() {
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(PRODUCTS_CACHE_KEY));
+      return Array.isArray(parsed) ? parsed : null;
+    } catch { return null; }
+  }
+  function setCachedProducts(products) {
+    try { sessionStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(products)); } catch {}
+  }
+
   function buildProductCard(p) {
     const displayTitle = p.title.split('|')[0].trim();
     const cat = (p.category || 'other').toLowerCase();
@@ -3230,8 +3245,12 @@
     const el = document.createElement('a');
     el.className = 'product-card';
     el.dataset.cat = cat;
+    el.dataset.managed = '1';
     if (p.featured) el.dataset.featured = '1';
-    el.href = 'product.html?' + params.toString();
+    // Link straight to the clean URL — product.html 307-redirects to /product,
+    // and that redirect hop is a known bfcache-eligibility risk that was
+    // forcing a full reload (skeleton flash and all) on Back navigation.
+    el.href = '/product?' + params.toString();
     el.innerHTML = `
       <div class="card-img-wrap">
         <img src="${p.image}" alt="${displayTitle.replace(/"/g,'&quot;')}" loading="lazy" decoding="async" onerror="this.style.display='none'">
@@ -3260,19 +3279,64 @@
   }
   window.addEventListener('pagehide', () => sessionStorage.setItem('db_scrollY', window.scrollY));
 
-  (async () => {
-    // Show shimmer skeletons while fetching — and hide the static fallback
-    // cards so the WHOLE grid shimmers, not just a prepended strip with stale
-    // cards visible below it. They come back if the fetch fails (offline).
+  function renderProducts(products) {
     const grid = document.getElementById('productsGrid');
-    const SKELETON_COUNT = 18;
-    const skeletonHtml = `<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>`;
-    const skeletonWrap = document.createElement('div');
-    skeletonWrap.id = 'skeletonWrap';
-    skeletonWrap.style.cssText = 'display:contents';
-    skeletonWrap.innerHTML = skeletonHtml.repeat(SKELETON_COUNT);
-    grid.querySelectorAll('.product-card').forEach(c => c.classList.add('preload-hidden'));
-    grid.prepend(skeletonWrap);
+    // Replace whatever's currently shown (a prior cache-render, or legacy
+    // static cards) with this set. Remove-then-insert instead of diffing —
+    // this runs at most twice per load (cache render, then fresh fetch), so
+    // simplicity wins over avoiding a rebuild.
+    grid.querySelectorAll('.product-card[data-managed]').forEach(c => c.remove());
+    // Remove legacy static cards that are now managed via products.json
+    // Dedup by ASIN (long links) OR by link value (short links like amzn.to)
+    const managedAsins = new Set(products.map(p => p.asin).filter(Boolean));
+    const managedLinks = new Set(products.map(p => p.link).filter(Boolean));
+    grid.querySelectorAll('.product-card').forEach(c => {
+      const href = decodeURIComponent(c.getAttribute('href') || '');
+      // Check ASIN in card href
+      const m = href.match(/\/dp\/([A-Z0-9]{10})/i);
+      if (m && managedAsins.has(m[1])) { c.remove(); return; }
+      // Check link param (catches short-link products)
+      try {
+        const linkParam = decodeURIComponent(new URLSearchParams(href.split('?')[1] || '').get('link') || '');
+        if (linkParam && managedLinks.has(linkParam)) { c.remove(); return; }
+        // Also check ASIN inside the link param (long-link stored as link)
+        const linkAsin = linkParam.match(/\/dp\/([A-Z0-9]{10})/i)?.[1];
+        if (linkAsin && managedAsins.has(linkAsin)) c.remove();
+      } catch {}
+    });
+    const fragment = document.createDocumentFragment();
+    products.forEach(p => {
+      knownProductIds.add(productKey(p));
+      fragment.appendChild(buildProductCard(p));
+    });
+    grid.insertBefore(fragment, grid.firstChild);
+  }
+
+  (async () => {
+    const grid = document.getElementById('productsGrid');
+    const cached = getCachedProducts();
+
+    if (cached && cached.length) {
+      // Instant render from the last successful fetch on this tab — no
+      // shimmer flash (this is what fixed Back-from-product.html landing on
+      // a full reload instead of an instant bfcache restore). The fetch
+      // below still runs and silently corrects anything stale.
+      renderProducts(cached);
+      applyFilters();
+      restoreScrollIfBack();
+    } else {
+      // Nothing cached yet this tab (first visit) — show shimmer skeletons
+      // while fetching, and hide the static fallback cards so the WHOLE grid
+      // shimmers. They come back if the fetch fails (offline).
+      const SKELETON_COUNT = 18;
+      const skeletonHtml = `<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>`;
+      const skeletonWrap = document.createElement('div');
+      skeletonWrap.id = 'skeletonWrap';
+      skeletonWrap.style.cssText = 'display:contents';
+      skeletonWrap.innerHTML = skeletonHtml.repeat(SKELETON_COUNT);
+      grid.querySelectorAll('.product-card').forEach(c => c.classList.add('preload-hidden'));
+      grid.prepend(skeletonWrap);
+    }
     const unhideStatic = () => grid.querySelectorAll('.preload-hidden').forEach(c => c.classList.remove('preload-hidden'));
 
     try {
@@ -3288,39 +3352,16 @@
           (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
           (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
           (a.order ?? 999) - (b.order ?? 999));
-      // Remove old static HTML cards that are now managed via products.json
-      grid.querySelectorAll('.product-card[data-managed]').forEach(c => c.remove());
-      // Remove legacy static cards that are now managed via products.json
-      // Dedup by ASIN (long links) OR by link value (short links like amzn.to)
-      const managedAsins = new Set(products.map(p => p.asin).filter(Boolean));
-      const managedLinks = new Set(products.map(p => p.link).filter(Boolean));
-      grid.querySelectorAll('.product-card').forEach(c => {
-        const href = decodeURIComponent(c.getAttribute('href') || '');
-        // Check ASIN in card href
-        const m = href.match(/\/dp\/([A-Z0-9]{10})/i);
-        if (m && managedAsins.has(m[1])) { c.remove(); return; }
-        // Check link param (catches short-link products)
-        try {
-          const linkParam = decodeURIComponent(new URLSearchParams(href.split('?')[1] || '').get('link') || '');
-          if (linkParam && managedLinks.has(linkParam)) { c.remove(); return; }
-          // Also check ASIN inside the link param (long-link stored as link)
-          const linkAsin = linkParam.match(/\/dp\/([A-Z0-9]{10})/i)?.[1];
-          if (linkAsin && managedAsins.has(linkAsin)) c.remove();
-        } catch {}
-      });
-      const fragment = document.createDocumentFragment();
-      products.forEach(p => {
-        knownProductIds.add(productKey(p));
-        fragment.appendChild(buildProductCard(p));
-      });
+      setCachedProducts(products);
+      renderProducts(products);
       document.getElementById('skeletonWrap')?.remove();
       unhideStatic();
-      grid.insertBefore(fragment, grid.firstChild);
       // Re-init filter with new cards included
       applyFilters();
       restoreScrollIfBack();
     } catch (_) {
-      // Offline / fetch failed — fall back to the static cards
+      // Offline / fetch failed — fall back to whatever's already on screen
+      // (cache render above, or the static cards if there was no cache)
       document.getElementById('skeletonWrap')?.remove();
       unhideStatic();
       applyFilters();
