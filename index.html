@@ -26,6 +26,28 @@
       document.documentElement.classList.add('pending-search');
     }
   </script>
+  <script>
+    // Deep scroll restore (see restoreScrollIfBack in the main script below):
+    // product cards now build in chunks, so on Back to a deep scroll position
+    // the page can briefly sit at the top for a moment while enough chunks
+    // land to actually reach that position — showing the WRONG (top)
+    // content for that window, which read as more broken than showing
+    // nothing would. Flag it here, as early as possible, so CSS can hide
+    // the real content behind a shimmer until the scroll position is ready,
+    // then reveal already-scrolled-into-place instead of visibly jumping.
+    (function () {
+      var isBF = performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
+      var savedY = +sessionStorage.getItem('db_scrollY');
+      if (isBF && savedY > 300) {
+        document.documentElement.classList.add('pending-scroll-restore');
+        // Safety net: never leave the page hidden forever if restoration
+        // somehow never fires (e.g. a fetch that silently hangs).
+        setTimeout(function () {
+          document.documentElement.classList.remove('pending-scroll-restore');
+        }, 4000);
+      }
+    })();
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Dealbuster - Best Deals in India</title>
@@ -1583,6 +1605,22 @@
        paint, so there's no flash of the home page before search appears. */
     html.pending-search body > *:not(#searchOverlay) { display: none !important; }
     html.pending-search #searchOverlay { display: flex !important; }
+    /* Deep scroll restore (flagged in the early <head> script above): hide
+       the real page (which starts at the top, wrong, until enough chunked
+       cards land) behind a shimmer instead, revealed only once the saved
+       scroll position is actually reachable. visibility (not display) so
+       layout/scrollHeight stay real underneath — scrolling still needs to work. */
+    #scrollRestoreShimmer { display: none; }
+    html.pending-scroll-restore body > *:not(#scrollRestoreShimmer) { visibility: hidden; }
+    html.pending-scroll-restore #scrollRestoreShimmer {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      position: fixed; inset: 0; z-index: 6000;
+      background: var(--bg);
+      padding: 20px 12px;
+      overflow: hidden;
+    }
     .so-header {
       display: flex; align-items: center;
       padding: 14px 12px;
@@ -1733,6 +1771,14 @@
   <h2>No Internet Connection</h2>
   <p>Check your Wi-Fi or mobile data and try again — your deals will be right here waiting.</p>
   <button id="offlineRetryBtn">Retry</button>
+</div>
+<div id="scrollRestoreShimmer" aria-hidden="true">
+  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
 </div>
 <script>
   (function () {
@@ -3311,19 +3357,28 @@
   // into this page (logo, "All Deals") should land at the top like any
   // fresh visit, not wherever a previous visit happened to be scrolled.
   const isBackForward = performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
+  function revealFromScrollRestore() {
+    document.documentElement.classList.remove('pending-scroll-restore');
+  }
   function restoreScrollIfBack(force) {
     if (!isBackForward) return;
     const y = +sessionStorage.getItem('db_scrollY');
-    if (y <= 0) return;
+    if (y <= 0) { revealFromScrollRestore(); return; }
     // Cards now build in chunks (see renderProducts) — right after the first
     // chunk, the page may not be tall enough yet to actually reach a deep
     // scroll position (e.g. scrolled down to card #300 of 1440), so
     // scrollTo silently clamps near the top instead of restoring it. Skip
     // until there's enough height, unless force is set (used once the full
-    // set has finished building, as a guaranteed final correction).
+    // set has finished building, as a guaranteed final correction). The
+    // early <head> script hides the page behind a shimmer for exactly this
+    // wait — only reveal once the scroll below actually lands correctly,
+    // so the wrong (top) position is never visible.
     const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
     if (!force && maxScroll < y) return;
-    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.scrollTo(0, y);
+      revealFromScrollRestore();
+    }));
   }
   window.addEventListener('pagehide', () => sessionStorage.setItem('db_scrollY', window.scrollY));
 
