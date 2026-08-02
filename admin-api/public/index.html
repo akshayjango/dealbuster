@@ -414,7 +414,7 @@
             <option value="manual">Manual</option>
             <option value="dealsradar">DealsRadar</option>
             <option value="dotd">DealOfTheDayIndia</option>
-            <option value="indiafree">IndiaFreeStuff (legacy)</option>
+            <option value="indiafree">IndiaFreeStuff</option>
           </select>
           <select id="dashCat" onchange="renderList()">
             <option value="">All Categories</option>
@@ -439,6 +439,7 @@
             <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
             <button class="btn btn-outline btn-sm" onclick="syncDealsRadar()" id="syncDealsRadarBtn">Sync DealsRadar</button>
             <button class="btn btn-outline btn-sm" onclick="syncDotd()" id="syncDotdBtn">Sync DealOfTheDayIndia</button>
+            <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIndiaFreeStuffBtn">Sync IndiaFreeStuff</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
             <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
             <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
@@ -2194,6 +2195,25 @@ async function syncDotd() {
   btn.textContent = 'Syncing…';
   try {
     const resp = await apiFetch('/sync-dotd');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Sync complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function syncIndiaFreeStuff() {
+  const btn = document.getElementById('syncIndiaFreeStuffBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const resp = await apiFetch('/sync-indiafreestuff');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     alert(data.message || 'Sync complete!');

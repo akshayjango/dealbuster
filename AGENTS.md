@@ -9,7 +9,7 @@ This file is the tool-agnostic counterpart to `CLAUDE.md` (kept in sync — if y
 - **Static site**: root HTML files, deployed via GitHub Pages/Actions from this repo. `products.json` is the product database — bots commit to it constantly, so `git push` gets rejected often; do `git pull --no-edit` then push, don't force.
 - **Backend**: Cloudflare Worker in `admin-api/` (single file: `admin-api/src/index.js`). Deploy with `npx wrangler deploy` from `admin-api/`. Deploying does NOT require a git commit, but always commit+push code changes first, or the next deploy from a stale checkout will wipe them.
 - **KV**: product sync state, dedup ledgers. Free tier: 1,000 writes/day, usage sits ~80% — be stingy with new KV writes.
-- **Cron schedule** (`admin-api/wrangler.toml`): IndiaFreeStuff every 10 min, DealsRadar+Amazon+badges every 15 min, Amazon deals page 2x/day, Telegram posting every 5 min.
+- **Cron schedule** (`admin-api/wrangler.toml`): price-check every 10 min, Amazon-deals-page (1/run) + badge check every 15 min, Amazon deals sweep 2x/day, Telegram posting + DealsRadar + DealOfTheDayIndia every 5 min (piggybacked on the same tick), IndiaFreeStuff every 30 min (at :14 and :44).
 
 ## Telegram posting — CRITICAL RULES
 
