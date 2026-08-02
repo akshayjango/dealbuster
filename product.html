@@ -574,7 +574,7 @@
       body { padding-bottom: 74px; }
 
       /* Highlights: compact, no icons/bullets */
-      .highlights-card { padding: 14px; margin: -10px 14px 0; border-radius: var(--radius); }
+      .highlights-card { padding: 14px; margin: -10px 14px 0; border-radius: var(--radius); border: none; }
       .highlights-card h3::before { content: ''; }
       .highlights-card h3 { font-size: .9rem; margin-bottom: 8px; }
       .highlights-list { gap: 6px; }
@@ -589,7 +589,7 @@
       /* Price History: boxed card look and heading size matching Highlights */
       .price-history-wrap {
         background: linear-gradient(180deg, var(--card-bg) 0%, var(--card-bg) 60%, rgba(140, 105, 255, 0.09) 100%);
-        border: 1px solid var(--border-c); border-radius: var(--radius);
+        border: none; border-radius: var(--radius);
         box-shadow: var(--shadow-sm); padding: 10px 14px 14px; margin: 8px 14px 0; overflow: hidden;
       }
       .price-history-wrap h2 {
@@ -628,7 +628,7 @@
       /* Same card look as the mobile home grid (.product-card), scaled down a notch with a tighter gap */
       .hot-deal-card {
         min-width: 128px; max-width: 128px; flex-shrink: 0; scroll-snap-align: start;
-        background: var(--card-bg); border: 1px solid var(--border-c); border-radius: 12px;
+        background: var(--card-bg); border: none; border-radius: 12px;
         box-shadow: var(--shadow-sm); padding: 0; margin: 0;
       }
       .hot-deal-btn { display: none; }
