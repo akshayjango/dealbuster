@@ -3318,7 +3318,13 @@
   }
   window.addEventListener('pagehide', () => sessionStorage.setItem('db_scrollY', window.scrollY));
 
-  function renderProducts(products) {
+  // Bumped on every renderProducts() call so a superseded in-progress chunked
+  // build (see below) can tell it's been replaced and stop quietly instead of
+  // continuing to insert stale cards after newer data has already landed.
+  let renderGeneration = 0;
+
+  function renderProducts(products, onFirstChunk, onDone) {
+    const myGeneration = ++renderGeneration;
     const grid = document.getElementById('productsGrid');
     // Replace whatever's currently shown (a prior cache-render, or legacy
     // static cards) with this set. Remove-then-insert instead of diffing —
@@ -3343,12 +3349,36 @@
         if (linkAsin && managedAsins.has(linkAsin)) c.remove();
       } catch {}
     });
-    const fragment = document.createDocumentFragment();
-    products.forEach(p => {
-      knownProductIds.add(productKey(p));
-      fragment.appendChild(buildProductCard(p));
-    });
-    grid.insertBefore(fragment, grid.firstChild);
+
+    // Building every card as a real DOM node in one synchronous pass measured
+    // at ~800ms of blocking script time for the full catalog — and that cost
+    // was paid on EVERY Back-navigation reload (this page isn't bfcache-
+    // eligible, so Back re-runs all this from scratch every time). Only a
+    // page's worth of cards is ever visible at once — applyFilters() just
+    // hides the rest via display:none, it doesn't limit what gets built —
+    // so there's no reason to pay that cost in one blocking chunk. Building
+    // in small batches across idle time keeps first paint fast without
+    // changing the end state once everything settles.
+    const anchor = grid.firstChild;
+    const CHUNK = 60;
+    let i = 0;
+    let firstChunkDone = false;
+    const idle = window.requestIdleCallback || function (fn) { setTimeout(fn, 0); };
+    function buildChunk() {
+      if (myGeneration !== renderGeneration) return; // superseded — stop silently
+      const frag = document.createDocumentFragment();
+      const end = Math.min(i + CHUNK, products.length);
+      for (; i < end; i++) {
+        const p = products[i];
+        knownProductIds.add(productKey(p));
+        frag.appendChild(buildProductCard(p));
+      }
+      grid.insertBefore(frag, anchor);
+      if (!firstChunkDone) { firstChunkDone = true; if (onFirstChunk) onFirstChunk(); }
+      if (i < products.length) idle(buildChunk, { timeout: 200 });
+      else if (onDone) onDone();
+    }
+    buildChunk();
   }
 
   (async () => {
@@ -3359,10 +3389,13 @@
       // Instant render from the last successful fetch on this tab — no
       // shimmer flash (this is what fixed Back-from-product.html landing on
       // a full reload instead of an instant bfcache restore). The fetch
-      // below still runs and silently corrects anything stale.
-      renderProducts(cached);
-      applyFilters();
-      restoreScrollIfBack();
+      // below still runs and silently corrects anything stale. Cards build
+      // in chunks (see renderProducts) — apply filters/scroll after the
+      // first chunk so the visible viewport is correct immediately, and
+      // again once everything's in so "load more"/search counts the full set.
+      renderProducts(cached,
+        () => { applyFilters(); restoreScrollIfBack(); },
+        () => applyFilters());
     } else {
       // Nothing cached yet this tab (first visit) — show shimmer skeletons
       // while fetching, and hide the static fallback cards so the WHOLE grid
@@ -3392,12 +3425,15 @@
           (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
           (a.order ?? 999) - (b.order ?? 999));
       setCachedProducts(products);
-      renderProducts(products);
-      document.getElementById('skeletonWrap')?.remove();
-      unhideStatic();
-      // Re-init filter with new cards included
-      applyFilters();
-      restoreScrollIfBack();
+      renderProducts(products,
+        () => {
+          document.getElementById('skeletonWrap')?.remove();
+          unhideStatic();
+          // Re-init filter with new cards included
+          applyFilters();
+          restoreScrollIfBack();
+        },
+        () => applyFilters());
     } catch (_) {
       // Offline / fetch failed — fall back to whatever's already on screen
       // (cache render above, or the static cards if there was no cache)
