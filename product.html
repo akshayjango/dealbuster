@@ -206,8 +206,9 @@
       z-index: 10;
     }
 
-    /* MOBILE FLOATING ACTIONS (back / search / share over the hero image, sticky on scroll) */
-    .floating-actions { display: none; }
+    /* Share button overlaid on the hero image (mobile — see .img-share-btn
+       positioning in the mobile media query below). Kept as a plain inline
+       button on desktop, where the image doesn't need an overlay control. */
     .fa-btn {
       width: 40px; height: 40px; border-radius: 50%;
       background: rgba(255,255,255,.95); display: flex; align-items: center;
@@ -215,7 +216,10 @@
       text-decoration: none; border: 1px solid rgba(23,25,43,.1); cursor: pointer; flex-shrink: 0;
     }
     .fa-btn svg { width: 20px; height: 20px; }
-    .fa-group { display: flex; gap: 10px; }
+
+    /* Mobile popup presentation (backdrop / close button / sheet) — no-op
+       on desktop, where this page is a normal full page. */
+    .popup-backdrop, .popup-close-btn { display: none; }
 
     .updated-pill {
       background: #DCF7DA; border: none; border-radius: 6px;
@@ -416,81 +420,6 @@
       .ph-keepa-btn:hover { background: none; border-color: transparent; opacity: .75; }
     }
 
-    /* SIMILAR PRODUCTS (mobile-only for now, reuses hot-deal-card styling) */
-    .similar-products-wrap { display: none; }
-    @media(min-width: 769px) {
-      .similar-products-wrap { display: none !important; }
-    }
-
-    /* HOT DEALS SECTION */
-    .hot-deals-wrap { max-width: 960px; margin: 50px auto 60px; padding: 0 20px; }
-    .hot-deals-wrap h2 {
-      font-size: 1.4rem; font-weight: 800; margin-bottom: 24px; color: var(--text);
-      display: inline-flex; align-items: center; gap: 8px;
-      background: none; border: none; padding: 0 0 8px 0;
-      border-bottom: 4px solid var(--accent); box-shadow: none;
-    }
-    .hot-deals-wrap h2::before { content: '🔥 '; }
-    /* minmax(0,1fr) + min-width:0 — plain 1fr lets a card with wide content
-       (long prices, unbreakable title tokens) blow out its column and push
-       the neighbouring cards off the viewport on mobile */
-    .hot-deals-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
-
-    .hot-deal-card {
-      background: var(--card-bg); border: 1px solid var(--border-c); border-radius: var(--radius-lg); padding: 14px;
-      box-shadow: var(--shadow-sm); text-decoration: none; color: inherit;
-      display: flex; flex-direction: column; transition: transform 0.18s ease, box-shadow 0.18s ease;
-      min-width: 0; overflow: hidden;
-    }
-    .hot-deal-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow);
-    }
-    .hot-deal-card:active {
-      transform: none;
-      box-shadow: var(--shadow-sm);
-    }
-    .hot-deal-img-box {
-      width: 100%; height: 130px; display: flex; align-items: center; justify-content: center;
-      background: #fff; border-bottom: 1px solid #F0F0F6; overflow: hidden; margin-bottom: 14px;
-      position: relative; padding: 8px; margin-top: -14px; margin-left: -14px; width: calc(100% + 28px);
-    }
-    .hot-deal-img-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .hot-deal-disc {
-      position: absolute; top: -8px; left: -8px; width: 52px; height: 51px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 110 109'%3E%3Cdefs%3E%3ClinearGradient id='dbGrad' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23B6F24C'/%3E%3Cstop offset='1' stop-color='%23DCF7DA'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M87.2793 0C88.4037 1.42926e-05 89.5054 0.316178 90.459 0.912109L101.355 7.72168C103.535 9.08375 104.604 11.6831 104.016 14.1846L103.766 15.2461C103.29 17.2687 103.894 19.394 105.363 20.8633L108.14 23.6396C110.108 25.6085 110.465 28.6736 108.999 31.041L106.504 35.0703C105.553 36.6074 105.345 38.4918 105.938 40.1992L107.879 45.7754C108.574 47.7746 108.164 49.9923 106.801 51.6113L102.41 56.8252C101.499 57.9068 101 59.2755 101 60.6895V66.792C101 69.0644 99.7161 71.1418 97.6836 72.1582L91.4688 75.2656C89.9023 76.0489 88.756 77.4777 88.3311 79.1768L86.4609 86.6562C85.8781 88.9874 83.9606 90.7463 81.5879 91.126L75.8154 92.0498C74.0339 92.335 72.4753 93.4064 71.5713 94.9678L69.2334 99.0059C68.1607 100.859 66.1819 102 64.041 102H55.8164C54.6319 102 53.4738 102.351 52.4883 103.008L46.2217 107.186C44.5254 108.316 42.3706 108.509 40.501 107.696L34.5059 105.089C32.9142 104.397 31.1002 104.429 29.5332 105.175L25.3262 107.178C23.0329 108.27 20.3001 107.8 18.5039 106.004L16.2578 103.758C15.1326 102.633 13.6059 102 12.0146 102H9.28125C6.97069 102 4.86507 100.673 3.86816 98.5889L0.586914 91.7275C0.200453 90.9194 0 90.0345 0 89.1387V0H87.2793Z' fill='url(%23dbGrad)'/%3E%3C/svg%3E");
-      background-size: 100% 100%; background-repeat: no-repeat;
-      color: var(--text); border: none; border-radius: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      text-align: center; padding: 8px 4px 6px 6px; z-index: 5;
-    }
-    .hot-deal-disc .db-num { font-size: .68rem; font-weight: 700; line-height: 1; }
-    .hot-deal-disc .db-num .db-pct { font-weight: 500; }
-    .hot-deal-disc .db-off { font-size: .62rem; font-weight: 700; letter-spacing: .3px; line-height: 1; margin-top: 1px; }
-    .hot-deal-title {
-      font-size: 0.8rem; font-weight: 700; line-height: 1.45; margin-bottom: 14px;
-      overflow-wrap: anywhere;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-      overflow: hidden; text-overflow: ellipsis; height: 2.9em; color: var(--text);
-    }
-    .hot-deal-price-row {
-      display: flex; align-items: center; gap: 4px 8px; margin-top: auto; margin-bottom: 14px;
-      flex-wrap: wrap;
-    }
-    .hot-deal-price-current {
-      font-size: 1rem; font-weight: 800; color: var(--text);
-      background: none; border: none; padding: 0;
-    }
-    .hot-deal-price-original { font-size: 0.78rem; color: var(--muted); text-decoration: line-through; font-weight: 600; }
-
-    .hot-deal-btn {
-      display: block; width: 100%; background: var(--primary-soft); color: var(--primary);
-      border: none; border-radius: 10px; padding: 9px 10px; font-size: 0.8rem; font-weight: 700;
-      text-align: center; letter-spacing: 0.01em; white-space: nowrap; cursor: pointer;
-      box-shadow: none; transition: background .15s ease, color .15s ease;
-    }
-    .hot-deal-card:hover .hot-deal-btn { background: var(--primary); color: #fff; }
-
     /* AFFILIATE NOTE */
     .affiliate-note {
       max-width: 960px; margin: 0 auto 40px; padding: 16px 20px;
@@ -526,20 +455,34 @@
         margin: 0 -14px; width: calc(100% + 28px);
         aspect-ratio: 1/1;
       }
-      .floating-actions {
-        display: flex; position: fixed; left: 0; right: 0; top: 0;
-        padding: 14px 14px calc(14px + env(safe-area-inset-top,0px));
-        justify-content: space-between; z-index: 30;
-        background: transparent; box-shadow: none;
-        transition: background-color .2s ease, box-shadow .2s ease;
+      /* Share button overlaid on the top-right corner of the hero image —
+         14px right/top gap, matching the old floating-actions bar's edge
+         padding, so the button lands in the same spot it always has. */
+      .img-share-btn { position: absolute; top: 14px; right: 14px; z-index: 5; }
+
+      /* Popup presentation: blurred backdrop (the hero image itself, blurred
+         and scaled up to hide edge artifacts) behind a floating close
+         button and a rounded-top sheet holding all the product content.
+         Scroll happens inside .popup-sheet, not the page. */
+      .popup-backdrop {
+        display: block; position: fixed; inset: 0; z-index: 1;
+        background-color: var(--bg); background-size: cover; background-position: center;
+        filter: blur(35px) brightness(.7); transform: scale(1.2);
       }
-      .floating-actions.solid {
-        background: rgba(255, 255, 255, .72);
-        backdrop-filter: blur(14px) saturate(150%);
-        -webkit-backdrop-filter: blur(14px) saturate(150%);
-        box-shadow: 0 2px 8px rgba(23,25,43,.08);
-        border-radius: 0 0 20px 20px;
+      .popup-close-btn {
+        display: flex; align-items: center; justify-content: center;
+        position: fixed; left: 50%; transform: translateX(-50%);
+        top: calc(64px + env(safe-area-inset-top, 0px));
+        width: 40px; height: 40px; border-radius: 50%;
+        background: rgba(0,0,0,.6); border: none; z-index: 40; padding: 0;
       }
+      .popup-sheet {
+        position: fixed; left: 0; right: 0; bottom: 0;
+        top: calc(92px + env(safe-area-inset-top, 0px));
+        background: var(--bg); border-radius: 24px 24px 0 0;
+        overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 10;
+      }
+      html, body { height: 100%; overflow: hidden; }
       .badges-row { margin: 16px 0 0 -6px; gap: 6px; }
       .discount-pill {
         position: static; font-size: .72rem; font-weight: 800;
@@ -597,54 +540,16 @@
       }
       .price-history-wrap h2::before { content: ''; display: none; }
 
-      /* Similar Products / Hot Deals: no section box, just an inset heading + horizontal scroll row */
-      .similar-products-wrap,
-      .hot-deals-wrap { padding: 0 14px; margin: 28px 0 0; }
-      .hot-deals-wrap:not(.similar-products-wrap) { margin-bottom: 100px; }
-      .similar-products-wrap h2,
-      .hot-deals-wrap h2 {
-        font-size: .8rem; font-weight: 600; margin-bottom: 8px; padding-bottom: 0; border-bottom: none;
-      }
-      .similar-products-wrap h2::before,
-      .hot-deals-wrap h2::before { content: ''; }
-
-      /* Similar Products: horizontal scroll, mobile-only section */
-      .similar-products-wrap { display: block; }
-
       /* Price History: nested card is now flush — the wrap itself is the box; left-align its details */
       .price-history-card { padding: 0; border: none; box-shadow: none; background: transparent; }
       .ph-stat { text-align: left; }
       .ph-note { text-align: left; }
       .ph-keepa-btn { text-align: left; }
       .ph-stat-value { font-size: 1.05rem; }
-
-      /* Hot Deals + Similar Products: horizontal scroll cards, no CTA button on the card itself */
-      .hot-deals-grid {
-        display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 8px;
-        scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch;
-        padding-bottom: 2px;
-      }
-      .hot-deals-grid::-webkit-scrollbar { display: none; }
-      /* Same card look as the mobile home grid (.product-card), scaled down a notch with a tighter gap */
-      .hot-deal-card {
-        min-width: 128px; max-width: 128px; flex-shrink: 0; scroll-snap-align: start;
-        background: var(--card-bg); border: none; border-radius: 12px;
-        box-shadow: var(--shadow-sm); padding: 0; margin: 0;
-      }
-      .hot-deal-btn { display: none; }
-      .hot-deal-img-box {
-        width: 100%; height: 90px; margin: 0; padding: 8px;
-        border-bottom: none; background: #fff;
-      }
-      .hot-deal-disc {
-        width: 44px; height: 43px; top: -6px; left: -6px; padding: 7px 4px 5px 5px;
-      }
-      .hot-deal-disc .db-num { font-size: .58rem; }
-      .hot-deal-disc .db-off { font-size: .54rem; }
-      .hot-deal-title { font-size: .68rem; line-height: 1.4; height: 2.6em; margin: 8px 8px 6px; }
-      .hot-deal-price-row { margin: 0 8px 8px; }
-      .hot-deal-price-current { font-size: .85rem; font-weight: 900; }
-      .hot-deal-price-original { font-size: .62rem; }
+      /* Popup sheet has its own bottom padding requirement — content needs
+         clearance above the fixed CTA bar, same 100px the old Hot Deals
+         section used to provide via its own margin-bottom. */
+      .price-history-wrap { margin-bottom: 100px; }
 
       .affiliate-note { display: none !important; }
       .cta-note { display: none !important; }
@@ -768,6 +673,15 @@
   })();
 </script>
 
+<!-- Mobile popup presentation: blurred backdrop + floating close button.
+     See .popup-backdrop/.popup-close-btn/.popup-sheet CSS (mobile media
+     query) — hidden entirely on desktop, where this page still renders as
+     a normal full page. -->
+<div class="popup-backdrop" id="popupBackdrop"></div>
+<button class="popup-close-btn" id="popupCloseBtn" aria-label="Close" onclick="if(document.referrer.includes('dealbuster.in')||document.referrer.includes('localhost')){event.preventDefault();history.back();}else{location.href='index.html';}">
+  <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+
 <header>
   <a class="logo" href="index.html">Deal<span>buster</span></a>
             <nav>
@@ -795,25 +709,20 @@
   <span id="bc-title">Loading…</span>
 </div>
 
+<!-- Mobile popup sheet: wraps the product content below in a scrollable,
+     rounded-top white card over the blurred backdrop above. No-op on
+     desktop (plain block, no fixed/scroll/rounding applied there). -->
+<div class="popup-sheet" id="popupSheet">
+
 <!-- PRODUCT -->
 <div class="product-wrap">
 
   <!-- LEFT -->
   <div class="img-col">
-    <div class="floating-actions">
-      <a class="fa-btn" href="index.html" aria-label="Back" onclick="if(document.referrer.includes('dealbuster.in')||document.referrer.includes('localhost')){event.preventDefault();history.back();}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-      </a>
-      <div class="fa-group">
-        <a class="fa-btn" href="index.html?openSearch=1" aria-label="Search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        </a>
-        <button class="fa-btn" onclick="shareDeal(this)" aria-label="Share deal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
-        </button>
-      </div>
-    </div>
     <div class="product-img-box" id="imgBox">
+      <button class="fa-btn img-share-btn" onclick="shareDeal(this)" aria-label="Share deal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+      </button>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
         <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -897,17 +806,7 @@
   </div>
 </div>
 
-<!-- SIMILAR PRODUCTS (mobile-only) -->
-<div class="hot-deals-wrap similar-products-wrap" id="similarWrap" style="display:none;">
-  <h2>Deals You May Like</h2>
-  <div class="hot-deals-grid" id="similarGrid"></div>
-</div>
-
-<!-- HOT DEALS RIGHT NOW -->
-<div class="hot-deals-wrap">
-  <h2>Hot Deals Right Now</h2>
-  <div class="hot-deals-grid" id="hotDealsGrid"></div>
-</div>
+</div> <!-- /popup-sheet -->
 
 <!-- FOOTER -->
 <footer>
@@ -985,13 +884,10 @@
       document.querySelector('.img-placeholder-text').style.display = 'none';
     };
     document.getElementById('imgBox').prepend(img);
+    // Popup backdrop (mobile only, no-op element on desktop): the same hero
+    // image, blurred behind the sheet — see .popup-backdrop CSS.
+    document.getElementById('popupBackdrop').style.backgroundImage = `url("${imgSrc}")`;
   }
-
-  // Floating action bar: goes solid with a drop shadow once the hero image scrolls past
-  const floatingActions = document.querySelector('.floating-actions');
-  window.addEventListener('scroll', () => {
-    floatingActions.classList.toggle('solid', window.scrollY > 40);
-  }, { passive: true });
 
   // Discount pill
   document.getElementById('discountPill').textContent = discount + ' OFF';
@@ -1139,7 +1035,10 @@
     `;
   }
 
-  // ── Load Hot Deals Right Now + this product's own Price History ──
+  // ── Load this product's own Price History ──
+  // (Hot Deals Right Now / Deals You May Like removed from this page — this
+  // fetch used to also build those sections' cards; trimmed to just the
+  // price-history lookup they shared it with.)
   (async () => {
     try {
       // No cache-busting here — this is a 5MB+ file, and busting the URL every
@@ -1159,57 +1058,8 @@
       const asin = asinMatch ? asinMatch[1].toUpperCase() : null;
       const self = asin ? allProducts.find(x => (x.asin || '').toUpperCase() === asin) : null;
       renderPriceHistory(self, current);
-
-      const products = allProducts
-        .filter(p => !p.hidden && p.title !== title && p.price && p.price !== '₹0' && p.price !== '₹');
-
-      function cardHTML(p) {
-        const url = 'product.html?' + new URLSearchParams({
-          title: p.title,
-          cat: p.category || 'All Deals',
-          price: p.price,
-          mrp: p.mrp || p.price,
-          disc: p.disc || '0%',
-          updated: p.addedAt || '',
-          img: p.image,
-          link: p.link,
-          hl: (p.highlights || []).join('|')
-        }).toString();
-
-        return `
-          <a class="hot-deal-card" href="${url}">
-            <div class="hot-deal-img-box">
-              <img src="${p.image}" alt="${p.title}" loading="lazy">
-              ${p.disc && p.disc !== '0%' ? `<span class="hot-deal-disc"><span class="db-num">${String(p.disc).replace(/^-/, '').replace(/%$/, '')}<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>` : ''}
-            </div>
-            <div class="hot-deal-title">${p.title}</div>
-            <div class="hot-deal-price-row">
-              <span class="hot-deal-price-current">${p.price}</span>
-              ${p.mrp && p.mrp !== p.price && String(p.mrp).replace(/[^\d]/g, '').length < 6 ? `<span class="hot-deal-price-original">${p.mrp}</span>` : ''}
-            </div>
-            <button class="hot-deal-btn">VIEW DEAL</button>
-          </a>
-        `;
-      }
-
-      // Similar Products — same category as this deal, latest 8 (mobile-only section)
-      const productKey = p => (p.asin || p.link || p.title);
-      const catLower = cat.toLowerCase();
-      const similarSelected = products.filter(p => (p.category || '').toLowerCase() === catLower).slice(0, 8);
-      const similarWrap = document.getElementById('similarWrap');
-      if (similarSelected.length) {
-        document.getElementById('similarGrid').innerHTML = similarSelected.map(cardHTML).join('');
-        similarWrap.style.display = '';
-      } else {
-        similarWrap.style.display = 'none';
-      }
-
-      // Hot Deals Right Now — latest 8, excluding anything already shown in Similar Products
-      const similarKeys = new Set(similarSelected.map(productKey));
-      const hotSelected = products.filter(p => !similarKeys.has(productKey(p))).slice(0, 8);
-      document.getElementById('hotDealsGrid').innerHTML = hotSelected.map(cardHTML).join('');
     } catch (e) {
-      console.error('Failed to load hot deals:', e);
+      console.error('Failed to load price history:', e);
     }
   })();
 
