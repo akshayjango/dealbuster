@@ -185,7 +185,11 @@
       object-fit: contain;
       background: #fff;
     }
-    .product-img-box svg {
+    /* Direct child only — the share button's own icon is also an <svg>
+       inside .product-img-box (nested in its button), but as a grandchild,
+       not a direct child, so it's correctly excluded from this placeholder-
+       icon-only styling (and from the onload handler's selector below). */
+    .product-img-box > svg {
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
@@ -472,7 +476,7 @@
       .popup-close-btn {
         display: flex; align-items: center; justify-content: center;
         position: fixed; left: 50%; transform: translateX(-50%);
-        top: calc(64px + env(safe-area-inset-top, 0px));
+        top: calc(54px + env(safe-area-inset-top, 0px));
         width: 40px; height: 40px; border-radius: 50%;
         background: rgba(0,0,0,.6); border: none; z-index: 40; padding: 0;
       }
@@ -880,7 +884,10 @@
     img.alt = title;
     img.onload = () => {
       img.classList.add('loaded');
-      document.querySelector('.product-img-box svg').style.display = 'none';
+      // Direct-child selector — this used to also match the share button's
+      // own (nested, grandchild) svg, hiding the share icon instead of the
+      // placeholder one, since querySelector returns the first DOM match.
+      document.querySelector('.product-img-box > svg').style.display = 'none';
       document.querySelector('.img-placeholder-text').style.display = 'none';
     };
     document.getElementById('imgBox').prepend(img);
