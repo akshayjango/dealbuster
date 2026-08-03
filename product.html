@@ -452,16 +452,17 @@
 
       .product-wrap { grid-template-columns: 1fr; margin: 0 auto 16px; padding: 0; gap: 6px; }
 
-      /* Hero image: full-bleed, covers under the status bar, floating action buttons on top */
+      /* Hero image: inset card (see .product-img-box below), share icon overlaid on top */
       .img-col { width: 100%; max-width: 100%; gap: 0; padding: 0 14px; }
       .product-img-box {
-        border-radius: 0; border: none; box-shadow: none;
-        margin: 0 -14px; width: calc(100% + 28px);
-        /* Shorter than square (was 1/1) — the full-square frame was taking
-           up most of the screen before any product info was visible;
-           object-fit:contain on the image (below) still shows it in full,
-           just smaller within a more compact frame, matching the reference. */
-        aspect-ratio: 3/2;
+        /* Square, inset within the sheet's normal left/right padding (no
+           more full-bleed margin/width), rounded corners — same card look
+           as the deal cards on the home page (.product-card), instead of
+           spanning edge-to-edge with square corners. */
+        aspect-ratio: 1/1;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-c);
+        box-shadow: var(--shadow-sm);
       }
       /* Share button overlaid on the bottom-right corner of the hero image —
          same 14px right gap it always had (originally the floating-actions
