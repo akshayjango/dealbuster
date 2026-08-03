@@ -2493,7 +2493,16 @@
   // sentinel's position depending on pin state, which feeds back into
   // whether checkPin() thinks it should pin: a loop that flip-flops
   // pinned/unpinned every other frame right at the transition point.
-  var cachedUnpinnedHeight = searchWrap.offsetHeight;
+  // Measured below, AFTER place(mq.matches) has actually reparented
+  // searchWrap into its mobile "hero search" spot — measuring it here,
+  // before that move, was capturing the bar's height in its original
+  // (non-mobile) slot instead. That stale, too-small value then got baked
+  // into the placeholder the very first time pin() fired: the page lost
+  // however many pixels the estimate was short by right as the user
+  // scrolled past the pin boundary, and the browser clamped the scroll
+  // position back up toward the top to compensate — a scroll-down-then-
+  // snap-to-top flicker on the first pin crossing of each fresh load.
+  var cachedUnpinnedHeight;
 
   function pin() {
     if (searchWrap.classList.contains('pinned')) return;
@@ -2531,8 +2540,23 @@
     }
   }
   place(mq.matches);
+  cachedUnpinnedHeight = searchWrap.offsetHeight;
   if (mq.addEventListener) mq.addEventListener('change', function (e) { place(e.matches); });
   else if (mq.addListener) mq.addListener(function (e) { place(e.matches); });
+
+  // The measurement above still runs synchronously during page parse,
+  // typically before the custom webfont has finished loading — right when
+  // that's most likely (a fresh reload, e.g. pull-to-refresh, with no font
+  // cache warm yet), the fallback font's line height gets cached instead of
+  // the real one, then the swap-in reflows text taller after the fact.
+  // One correction once fonts are confirmed ready fixes that without
+  // reintroducing the resize handler's oscillation risk (this only ever
+  // runs once, outside of any pin/unpin cycle).
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      if (!searchWrap.classList.contains('pinned')) cachedUnpinnedHeight = searchWrap.offsetHeight;
+    });
+  }
 
   // Driven directly off scroll position (rAF-throttled) rather than
   // IntersectionObserver — the observer's callback lands a frame or more
