@@ -3357,11 +3357,23 @@
   // into this page (logo, "All Deals") should land at the top like any
   // fresh visit, not wherever a previous visit happened to be scrolled.
   const isBackForward = performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
+  // While true, the mobile infinite-scroll loop (below) won't auto-append
+  // clones. The saved scrollY reflects whatever clone-inflated height the
+  // page happened to have when the user left, which no longer matches the
+  // freshly-built (clone-free) grid on this reload — restoring to it can
+  // land right at/near the real list's bottom, and without this guard that
+  // instantly re-triggers the infinite-scroll append with no user input,
+  // which then fires more scroll events that made the sticky tab bar's pin
+  // state and the scroll-to-top button's visibility flicker/glitch on every
+  // repeated Back cycle. Cleared once the restore's own scrollTo has landed
+  // and had a frame to settle.
+  window.__dbRestoringScroll = isBackForward && +sessionStorage.getItem('db_scrollY') > 0;
   function revealFromScrollRestore() {
     document.documentElement.classList.remove('pending-scroll-restore');
+    requestAnimationFrame(() => { window.__dbRestoringScroll = false; });
   }
   function restoreScrollIfBack(force) {
-    if (!isBackForward) return;
+    if (!isBackForward) { window.__dbRestoringScroll = false; return; }
     const y = +sessionStorage.getItem('db_scrollY');
     if (y <= 0) { revealFromScrollRestore(); return; }
     // Cards now build in chunks (see renderProducts) — right after the first
@@ -3569,6 +3581,7 @@
 
     window.addEventListener('scroll', function() {
       if (window.innerWidth > 640) return;
+      if (window.__dbRestoringScroll) return;
       const y = window.scrollY;
 
       // Infinite loop: append when within 500px of bottom.
@@ -3801,35 +3814,41 @@
   const btn = document.getElementById('scrollTopBtn');
   const dot = document.getElementById('scrollTopDot');
   window.markNewDealsAvailable = () => dot.classList.add('show');
-  // Sentinel at the 400px mark: the button shows once it scrolls above the
-  // viewport. IntersectionObserver fires on every kind of scroll (touch,
-  // keyboard, programmatic) without the cost of a scroll listener.
-  const sentinel = document.createElement('div');
-  sentinel.style.cssText = 'position:absolute;top:400px;left:0;width:1px;height:1px;pointer-events:none;';
-  document.body.prepend(sentinel);
-  new IntersectionObserver(([e]) => {
-    const scrolledDown = !e.isIntersecting && e.boundingClientRect.top < 0;
+  const sticky = document.getElementById('mobileSticky');
+  // Sentinel sits just above #mobileSticky — once it's scrolled off the top
+  // of the viewport, the bar has actually stuck.
+  const stickySentinel = sticky ? document.createElement('div') : null;
+  if (stickySentinel) {
+    stickySentinel.style.cssText = 'position:absolute;width:1px;height:1px;pointer-events:none;';
+    sticky.parentNode.insertBefore(stickySentinel, sticky);
+  }
+  // Driven directly off scroll position (rAF-throttled) rather than
+  // IntersectionObserver for both the button and the sticky bar's "stuck"
+  // style — the observer's callback can land a frame or more late on fast
+  // scrolls, which was intermittently leaving the button hidden and the tab
+  // bar in the wrong (unstuck) style even on a plain scroll. Same fix
+  // already applied to the search bar's own pin()/unpin() above; this
+  // brings the button and .stuck toggle in line with it.
+  let queued = false;
+  function check() {
+    queued = false;
+    const scrolledDown = window.scrollY > 400;
     btn.classList.toggle('show', scrolledDown);
     if (!scrolledDown) dot.classList.remove('show');
-  }).observe(sentinel);
+    if (stickySentinel) sticky.classList.toggle('stuck', stickySentinel.getBoundingClientRect().top <= 0);
+  }
+  function queueCheck() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(check);
+  }
+  window.addEventListener('scroll', queueCheck, { passive: true });
+  window.addEventListener('resize', queueCheck);
+  queueCheck();
   btn.addEventListener('click', () => {
     dot.classList.remove('show');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-})();
-
-// Toggle the search bar's slim "pinned" style: a sentinel sits just above
-// #mobileSticky, so the moment the bar actually sticks to the viewport top
-// the sentinel is off-screen and .stuck switches the styling.
-(() => {
-  const sticky = document.getElementById('mobileSticky');
-  if (!sticky) return;
-  const sentinel = document.createElement('div');
-  sentinel.style.cssText = 'position:absolute;width:1px;height:1px;pointer-events:none;';
-  sticky.parentNode.insertBefore(sentinel, sticky);
-  new IntersectionObserver(([e]) => {
-    sticky.classList.toggle('stuck', !e.isIntersecting && e.boundingClientRect.top < 0);
-  }).observe(sentinel);
 })();
 </script>
 
