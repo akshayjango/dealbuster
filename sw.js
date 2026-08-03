@@ -1,4 +1,4 @@
-const CACHE = 'dealbuster-v2';
+const CACHE = 'dealbuster-v1';
 
 self.addEventListener('install', e => {
   e.waitUntil(
