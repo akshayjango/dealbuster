@@ -119,6 +119,14 @@
 
     html {
       overscroll-behavior-y: none;
+      /* The page does its own scroll-position math everywhere (clone
+         pruning, new-deal insertion, search-bar pin/unpin height swaps) and
+         re-applies it via explicit scrollTo calls. The browser's automatic
+         scroll anchoring tries to do the same job independently whenever
+         off-screen content changes size, and the two corrections racing
+         each other is what produced the snap-to-top/snap-to-bottom jumps —
+         this makes the manual math the single source of truth. */
+      overflow-anchor: none;
     }
     body {
       font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -698,6 +706,7 @@
       border-bottom: 3px solid transparent;
       margin-bottom: -1px;
       transition: all .15s ease;
+      touch-action: manipulation;
     }
     @media (hover: hover) {
       .tab-btn:hover {
@@ -838,6 +847,22 @@
       cursor: pointer;
       position: relative;
       min-width: 0;
+      /* Mobile shows the whole catalog unpaginated (often 1000+ cards at
+         once) plus infinite-scroll clones — the browser was laying out and
+         painting every one of them on every scroll frame, which is the main
+         source of the stutter/flicker while scrolling. content-visibility
+         skips layout+paint work for cards nowhere near the viewport and
+         restores it just before they'd become visible; contain-intrinsic-
+         size gives it a placeholder height (self-corrects to the real
+         height after first layout) so scrollHeight/scroll position math
+         elsewhere on the page stays accurate even for never-yet-rendered
+         cards. touch-action: manipulation drops the browser's built-in tap-
+         delay/double-tap-zoom gesture detection on cards, which is what
+         produces "ghost touch" — a tap registering late or on the wrong
+         card after the page has shifted slightly during a scroll. */
+      content-visibility: auto;
+      contain-intrinsic-size: auto 300px;
+      touch-action: manipulation;
     }
     @media (hover: hover) {
       .product-card:hover {
@@ -967,6 +992,7 @@
       text-decoration: none;
       transition: background 0.15s ease, color 0.15s ease;
       box-shadow: none;
+      touch-action: manipulation;
     }
     @media (hover: hover) {
       .product-card:hover .btn-view {
@@ -1455,8 +1481,13 @@
 
       .products-section { padding: 20px 12px 40px; }
       .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-      .product-card { border: none; }
-      
+      /* Tighter contain-intrinsic-size estimate for this breakpoint's actual
+         (smaller) card height — mobile is where the catalog is unpaginated
+         and content-visibility's fallback placeholder height actually
+         matters at scale; desktop is capped by pagination so its estimate
+         further up matters less. */
+      .product-card { border: none; contain-intrinsic-size: auto 257px; }
+
       .card-img-wrap { height: 130px; padding: 10px; }
       .discount-badge .db-num { font-size: .62rem; }
       .discount-badge .db-off { font-size: .58rem; }
