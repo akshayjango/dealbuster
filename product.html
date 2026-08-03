@@ -457,7 +457,11 @@
       .product-img-box {
         border-radius: 0; border: none; box-shadow: none;
         margin: 0 -14px; width: calc(100% + 28px);
-        aspect-ratio: 1/1;
+        /* Shorter than square (was 1/1) — the full-square frame was taking
+           up most of the screen before any product info was visible;
+           object-fit:contain on the image (below) still shows it in full,
+           just smaller within a more compact frame, matching the reference. */
+        aspect-ratio: 3/2;
       }
       /* Share button overlaid on the bottom-right corner of the hero image —
          same 14px right gap it always had (originally the floating-actions
