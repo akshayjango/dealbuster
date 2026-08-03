@@ -461,7 +461,6 @@
            spanning edge-to-edge with square corners. */
         aspect-ratio: 1/1;
         border-radius: var(--radius-lg);
-        border: 1px solid var(--border-c);
         box-shadow: var(--shadow-sm);
       }
       /* Share button overlaid on the bottom-right corner of the hero image —
@@ -492,6 +491,12 @@
         position: fixed; inset: 0; z-index: 10;
         transform: translateY(100%);
         transition: transform .32s cubic-bezier(.32,.72,0,1);
+        /* Covers the full viewport (needed so its fixed-position children keep
+           their coordinates through the slide transform — see comment above),
+           but has nothing to show above the sheet, so let clicks in that gap
+           fall through to .popup-backdrop underneath instead of silently
+           swallowing them. Children re-enable pointer events for themselves. */
+        pointer-events: none;
       }
       .popup-container.open { transform: translateY(0); }
       .popup-close-btn {
@@ -501,12 +506,14 @@
         width: 40px; height: 40px; border-radius: 50%;
         background: rgba(0,0,0,.75); border: none; z-index: 40; padding: 0;
         cursor: pointer;
+        pointer-events: auto;
       }
       .popup-sheet {
         position: fixed; left: 0; right: 0; bottom: 0;
         top: calc(92px + env(safe-area-inset-top, 0px));
         background: var(--bg); border-radius: 24px 24px 0 0;
         overflow-y: auto; -webkit-overflow-scrolling: touch;
+        pointer-events: auto;
       }
       html, body { height: 100%; overflow: hidden; }
       .badges-row { margin: 16px 0 0 -6px; gap: 6px; }
