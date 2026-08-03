@@ -459,10 +459,10 @@
         margin: 0 -14px; width: calc(100% + 28px);
         aspect-ratio: 1/1;
       }
-      /* Share button overlaid on the top-right corner of the hero image —
-         14px right/top gap, matching the old floating-actions bar's edge
-         padding, so the button lands in the same spot it always has. */
-      .img-share-btn { position: absolute; top: 14px; right: 14px; z-index: 5; }
+      /* Share button overlaid on the bottom-right corner of the hero image —
+         same 14px right gap it always had (originally the floating-actions
+         bar's edge padding), just anchored to the bottom instead of the top. */
+      .img-share-btn { position: absolute; bottom: 14px; right: 14px; z-index: 5; }
 
       /* Popup presentation: blurred backdrop (the hero image itself, blurred
          and scaled up to hide edge artifacts) behind a floating close
@@ -703,7 +703,7 @@
      single animated transform moves both together — see CSS. -->
 <div class="popup-container" id="popupContainer">
 <button class="popup-close-btn" id="popupCloseBtn" aria-label="Close" onclick="closePopup(event)">
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 </button>
 <script>
   // Popup open/close animation (mobile only — these elements are display:none
