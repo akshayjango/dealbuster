@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <script>
-    // Grid is rebuilt from scratch on every load (skeleton → async
+    // Grid is rebuilt from scratch on every load (empty → async
     // products.json fetch → real cards), so it's briefly much shorter than
     // its final height. The browser's own back/forward scroll restore fires
     // during that short window and clamps near the top, then never
@@ -33,8 +33,9 @@
     // land to actually reach that position — showing the WRONG (top)
     // content for that window, which read as more broken than showing
     // nothing would. Flag it here, as early as possible, so CSS can hide
-    // the real content behind a shimmer until the scroll position is ready,
-    // then reveal already-scrolled-into-place instead of visibly jumping.
+    // the real content behind a blank cover until the scroll position is
+    // ready, then reveal already-scrolled-into-place instead of visibly
+    // jumping.
     (function () {
       var isBF = performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
       var savedY = +sessionStorage.getItem('db_scrollY');
@@ -1465,14 +1466,6 @@
       .price-original { font-size: .68rem; }
       .btn-view { padding: 11px 8px; font-size: .72rem; }
 
-      /* Skeleton mirrors the card-size overrides directly above — same
-         numbers, so it never drifts out of sync with the real card again. */
-      .skeleton-img-wrap { height: 130px; padding: 10px; }
-      .skeleton-badge { width: 32px; height: 32px; top: 6px; left: 6px; }
-      .skeleton-body { padding: 10px; }
-      .skeleton-line.title1, .skeleton-line.title2 { height: 10px; }
-      .skeleton-btn { height: 38px; }
-
       .section-title h2 { font-size: 1.5rem; }
 
       .blogs-section { padding: 0 0 40px; }
@@ -1615,21 +1608,17 @@
     html.pending-search #searchOverlay { display: flex !important; }
     /* Deep scroll restore (flagged in the early <head> script above): hide
        the real page (which starts at the top, wrong, until enough chunked
-       cards land) behind a shimmer instead, revealed only once the saved
-       scroll position is actually reachable. visibility (not display) so
-       layout/scrollHeight stay real underneath — scrolling still needs to work. */
-    /* Shares .products-grid's own grid-template-columns/gap (and its
-       responsive overrides below) instead of a hardcoded column count, so
-       this overlay's card size always matches whatever the real grid is
-       currently showing at this viewport — no separate numbers to keep
-       in sync. */
-    #scrollRestoreShimmer { display: none; }
-    html.pending-scroll-restore body > *:not(#scrollRestoreShimmer) { visibility: hidden; }
-    html.pending-scroll-restore #scrollRestoreShimmer {
-      display: grid;
+       cards land) behind a plain blank cover instead, revealed only once the
+       saved scroll position is actually reachable. visibility (not display)
+       so layout/scrollHeight stay real underneath — scrolling still needs
+       to work. No placeholder cards here — just the page's own background;
+       showing nothing is preferable to showing fake content. */
+    #scrollRestoreCover { display: none; }
+    html.pending-scroll-restore body > *:not(#scrollRestoreCover) { visibility: hidden; }
+    html.pending-scroll-restore #scrollRestoreCover {
+      display: block;
       position: fixed; inset: 0; z-index: 6000;
       background: var(--bg);
-      padding: 20px 12px;
       overflow: hidden;
     }
     .so-header {
@@ -1678,61 +1667,6 @@
       padding: 48px 24px; font-size: .92rem; line-height: 1.6;
     }
     .so-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-
-    /* ── SHIMMER SKELETON ──
-       One shared template, deliberately mirroring .product-card's own
-       structure/measurements 1:1 (img-wrap height+padding, badge position,
-       two title lines, price row, button) so the placeholder never jumps
-       or resizes once real cards swap in. Reused verbatim by: the initial
-       products.json fetch, a tab switch, and the deep-scroll-restore
-       overlay below — one definition, so they can't drift out of sync
-       with each other or with .product-card again. */
-    .preload-hidden { display: none !important; }
-    .skeleton-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-c);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      box-shadow: var(--shadow-sm);
-      display: flex;
-      flex-direction: column;
-    }
-    .skeleton-img-wrap {
-      position: relative;
-      height: 180px;
-      padding: 16px;
-      background: #fff;
-    }
-    .skeleton-badge {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      z-index: 1;
-    }
-    .skeleton-img { width: 100%; height: 100%; border-radius: 8px; }
-    .skeleton-body { padding: 14px; flex: 1; display: flex; flex-direction: column; }
-    .skeleton-line { border-radius: 6px; }
-    .skeleton-line.title1 { height: 12px; width: 90%; margin-bottom: 7px; }
-    .skeleton-line.title2 { height: 12px; width: 60%; margin-bottom: 12px; }
-    .skeleton-prices { margin-top: auto; margin-bottom: 14px; display: flex; align-items: baseline; gap: 8px; }
-    .skeleton-price-current { width: 54px; height: 18px; border-radius: 6px; }
-    .skeleton-price-original { width: 38px; height: 11px; border-radius: 6px; }
-    .skeleton-btn { height: 44px; border-radius: 10px; }
-    /* Diagonal shine sweep, eased rather than linear so it reads as a soft
-       pulse of light rather than a mechanical scan. */
-    @keyframes shimmer {
-      0% { background-position: 130% 0; }
-      100% { background-position: -30% 0; }
-    }
-    .skeleton-badge, .skeleton-img, .skeleton-line, .skeleton-price-current,
-    .skeleton-price-original, .skeleton-btn {
-      background: linear-gradient(100deg, #ECEAF4 28%, #F9F8FD 48%, #ECEAF4 68%);
-      background-size: 250% 100%;
-      animation: shimmer 1.7s ease-in-out infinite;
-    }
 
   </style>
 </head>
@@ -1792,17 +1726,7 @@
   <p>Check your Wi-Fi or mobile data and try again — your deals will be right here waiting.</p>
   <button id="offlineRetryBtn">Retry</button>
 </div>
-<div id="scrollRestoreShimmer" class="products-grid" aria-hidden="true">
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
-</div>
+<div id="scrollRestoreCover" aria-hidden="true"></div>
 <script>
   (function () {
     var el = document.getElementById('offlineScreen');
@@ -2881,12 +2805,6 @@
     loadMoreWrap.style.display = filteredCards.length > visibleCount ? 'flex' : 'none';
   }
 
-  // Single shared template — reused for the tab-switch skeleton below and
-  // the initial products.json fetch skeleton further down, so the two can
-  // never drift out of sync with each other (they used to be separately
-  // hand-written copies).
-  const skeletonCardHtml = `<div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>`;
-
   function switchTab(btn) {
     if (btn.classList.contains('active')) return;
     tabBtns.forEach(b => b.classList.remove('active'));
@@ -2899,39 +2817,24 @@
     // often mid-list, or short enough to collapse the page height out from
     // under the scroll position (which snapped the whole page back to the
     // hero and popped the sticky nav out of its "stuck" state). Instead:
-    // flash the shimmer skeleton and jump (no scroll animation) straight to
-    // the top of the grid, flush against the sticky bar, so the new tab's
-    // deals always start from its first card. Only needed once the nav is
-    // actually pinned (scrolled past the hero) — at rest / from the default
+    // jump (no scroll animation) straight to the top of the grid, flush
+    // against the sticky bar, THEN filter — both synchronous, same tick, so
+    // the browser paints the end result directly with no intermediate
+    // collapsed-height frame to flash. Only needed once the nav is actually
+    // pinned (scrolled past the hero) — at rest / from the default
     // top-of-page state there's nothing to preserve, so switch instantly.
     const stickyEl = document.getElementById('mobileSticky');
     const isStuck = stickyEl && stickyEl.classList.contains('stuck');
     if (window.innerWidth > 640 || !isStuck) { applyFilters(); return; }
 
     const grid = document.getElementById('productsGrid');
-
-    document.getElementById('tabSkeletonWrap')?.remove();
-    const skeletonWrap = document.createElement('div');
-    skeletonWrap.id = 'tabSkeletonWrap';
-    skeletonWrap.style.cssText = 'display:contents';
-    skeletonWrap.innerHTML = skeletonCardHtml.repeat(20);
-    cards().forEach(c => c.style.display = 'none');
     document.querySelectorAll('#productsGrid [data-clone]').forEach(c => c.remove());
-    grid.prepend(skeletonWrap);
 
     const stickyHeight = stickyEl.getBoundingClientRect().height;
     const TOP_GAP = 12; // breathing room between the pinned bar and the first card
     const gridTop = grid.getBoundingClientRect().top + window.scrollY - stickyHeight - TOP_GAP;
     window.scrollTo({ top: Math.max(0, gridTop), behavior: 'auto' });
-
-    setTimeout(() => {
-      // Show the new tab's real cards BEFORE removing the skeleton, so the
-      // grid is never briefly empty between the two — that gap was what
-      // collapsed the page height mid-scroll and flashed the sticky nav out
-      // of its stuck state (scrollY momentarily clamped to 0).
-      applyFilters();
-      skeletonWrap.remove();
-    }, 300);
+    applyFilters();
   }
 
   tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn)));
@@ -3135,8 +3038,8 @@
 
   // Last successful fetch, cached per-tab so a reload (e.g. Back from
   // product.html landing on a fresh load instead of a bfcache restore) can
-  // render instantly instead of blanking to the shimmer skeleton again. A
-  // background fetch always still runs and silently corrects anything stale.
+  // render instantly instead of sitting empty again. A background fetch
+  // always still runs and silently corrects anything stale.
   const PRODUCTS_CACHE_KEY = 'db_products_cache_v1';
   function getCachedProducts() {
     try {
@@ -3163,7 +3066,7 @@
     if (p.featured) el.dataset.featured = '1';
     // Link straight to the clean URL — product.html 307-redirects to /product,
     // and that redirect hop is a known bfcache-eligibility risk that was
-    // forcing a full reload (skeleton flash and all) on Back navigation.
+    // forcing a full reload on Back navigation.
     el.href = '/product?' + params.toString();
     el.innerHTML = `
       <div class="card-img-wrap">
@@ -3211,9 +3114,9 @@
     // scrollTo silently clamps near the top instead of restoring it. Skip
     // until there's enough height, unless force is set (used once the full
     // set has finished building, as a guaranteed final correction). The
-    // early <head> script hides the page behind a shimmer for exactly this
-    // wait — only reveal once the scroll below actually lands correctly,
-    // so the wrong (top) position is never visible.
+    // early <head> script hides the page behind a blank cover for exactly
+    // this wait — only reveal once the scroll below actually lands
+    // correctly, so the wrong (top) position is never visible.
     const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
     if (!force && maxScroll < y) return;
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -3320,9 +3223,7 @@
     const cached = getCachedProducts();
 
     if (cached && cached.length) {
-      // Instant render from the last successful fetch on this tab — no
-      // shimmer flash (this is what fixed Back-from-product.html landing on
-      // a full reload instead of an instant bfcache restore). The fetch
+      // Instant render from the last successful fetch on this tab. The fetch
       // below still runs and silently corrects anything stale. Cards build
       // in chunks (see renderProducts) — apply filters/scroll after the
       // first chunk so the visible viewport is correct immediately, and
@@ -3330,19 +3231,10 @@
       renderProducts(cached,
         () => { applyFilters(); restoreScrollIfBack(); },
         () => { applyFilters(); restoreScrollIfBack(true); });
-    } else {
-      // Nothing cached yet this tab (first visit) — show shimmer skeletons
-      // while fetching, and hide the static fallback cards so the WHOLE grid
-      // shimmers. They come back if the fetch fails (offline).
-      const SKELETON_COUNT = 18;
-      const skeletonWrap = document.createElement('div');
-      skeletonWrap.id = 'skeletonWrap';
-      skeletonWrap.style.cssText = 'display:contents';
-      skeletonWrap.innerHTML = skeletonCardHtml.repeat(SKELETON_COUNT);
-      grid.querySelectorAll('.product-card').forEach(c => c.classList.add('preload-hidden'));
-      grid.prepend(skeletonWrap);
     }
-    const unhideStatic = () => grid.querySelectorAll('.preload-hidden').forEach(c => c.classList.remove('preload-hidden'));
+    // else: nothing cached yet this tab (first visit) — grid stays empty
+    // until the fetch below resolves and renderProducts builds the real
+    // cards straight in.
 
     try {
       const resp = await fetch(PRODUCTS_URL, { cache: 'no-cache' });
@@ -3360,8 +3252,6 @@
       setCachedProducts(products);
       renderProducts(products,
         () => {
-          document.getElementById('skeletonWrap')?.remove();
-          unhideStatic();
           // Re-init filter with new cards included
           applyFilters();
           restoreScrollIfBack();
@@ -3369,9 +3259,7 @@
         () => { applyFilters(); restoreScrollIfBack(true); });
     } catch (_) {
       // Offline / fetch failed — fall back to whatever's already on screen
-      // (cache render above, or the static cards if there was no cache)
-      document.getElementById('skeletonWrap')?.remove();
-      unhideStatic();
+      // (the cache render above, or nothing if there was no cache)
       applyFilters();
       restoreScrollIfBack(true);
     }
