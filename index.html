@@ -1608,18 +1608,40 @@
     html.pending-search #searchOverlay { display: flex !important; }
     /* Deep scroll restore (flagged in the early <head> script above): hide
        the real page (which starts at the top, wrong, until enough chunked
-       cards land) behind a plain blank cover instead, revealed only once the
+       cards land) behind a skeleton grid instead, revealed only once the
        saved scroll position is actually reachable. visibility (not display)
        so layout/scrollHeight stay real underneath — scrolling still needs
-       to work. No placeholder cards here — just the page's own background;
-       showing nothing is preferable to showing fake content. */
+       to work. Shares .products-grid's own grid-template-columns/gap (and
+       its responsive overrides) instead of a hardcoded column count, so
+       this overlay's card size always matches whatever the real grid is
+       currently showing at this viewport. */
     #scrollRestoreCover { display: none; }
     html.pending-scroll-restore body > *:not(#scrollRestoreCover) { visibility: hidden; }
     html.pending-scroll-restore #scrollRestoreCover {
-      display: block;
+      display: grid;
       position: fixed; inset: 0; z-index: 6000;
       background: var(--bg);
+      padding: 20px 12px;
       overflow: hidden;
+    }
+    /* ── SKELETON ──
+       Deliberately reuses .product-card/.card-img-wrap/.card-title/
+       .price-current/.btn-view verbatim (just swapping their content for a
+       shimmer fill) instead of hand-measuring placeholder sizes, so a
+       skeleton card can never drift out of height from a real one at any
+       breakpoint — one definition, shared by the initial products.json
+       fetch and the scroll-restore overlay above. */
+    .skeleton-card { pointer-events: none; }
+    .skel-block {
+      border-radius: 8px;
+      background: linear-gradient(100deg, #ECEAF4 28%, #F9F8FD 48%, #ECEAF4 68%) !important;
+      background-size: 250% 100% !important;
+      color: transparent !important;
+      animation: db-shimmer 1.7s ease-in-out infinite;
+    }
+    @keyframes db-shimmer {
+      0% { background-position: 130% 0; }
+      100% { background-position: -30% 0; }
     }
     .so-header {
       display: flex; align-items: center;
@@ -1726,7 +1748,16 @@
   <p>Check your Wi-Fi or mobile data and try again — your deals will be right here waiting.</p>
   <button id="offlineRetryBtn">Retry</button>
 </div>
-<div id="scrollRestoreCover" aria-hidden="true"></div>
+<div id="scrollRestoreCover" class="products-grid" aria-hidden="true">
+  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
+  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
+  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
+  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
+  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
+  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
+  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
+  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
+</div>
 <script>
   (function () {
     var el = document.getElementById('offlineScreen');
@@ -3030,6 +3061,9 @@
 
   // Load dynamic products from products.json (admin-published)
   const PRODUCTS_URL = 'https://dealbuster-admin-api.vakshay083.workers.dev/public/products.json';
+  // Single shared template — same markup as #scrollRestoreCover's static
+  // skeleton cards above, so the two can't drift out of sync.
+  const skeletonCardHtml = `<div class="product-card skeleton-card" aria-hidden="true"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>`;
   const zeroPrice = p => !p.price || p.price === '₹0' || p.price === '₹';
   const productKey = p => p.asin || p.link;
   // Populated as products are rendered — lets the silent 5-min poll below
@@ -3231,10 +3265,15 @@
       renderProducts(cached,
         () => { applyFilters(); restoreScrollIfBack(); },
         () => { applyFilters(); restoreScrollIfBack(true); });
+    } else {
+      // Nothing cached yet this tab (first visit) — show a skeleton grid
+      // while the fetch below resolves, instead of leaving the grid blank.
+      const skeletonWrap = document.createElement('div');
+      skeletonWrap.id = 'skeletonWrap';
+      skeletonWrap.style.cssText = 'display:contents';
+      skeletonWrap.innerHTML = skeletonCardHtml.repeat(18);
+      grid.prepend(skeletonWrap);
     }
-    // else: nothing cached yet this tab (first visit) — grid stays empty
-    // until the fetch below resolves and renderProducts builds the real
-    // cards straight in.
 
     try {
       const resp = await fetch(PRODUCTS_URL, { cache: 'no-cache' });
@@ -3256,10 +3295,15 @@
           applyFilters();
           restoreScrollIfBack();
         },
-        () => { applyFilters(); restoreScrollIfBack(true); });
+        () => {
+          document.getElementById('skeletonWrap')?.remove();
+          applyFilters();
+          restoreScrollIfBack(true);
+        });
     } catch (_) {
       // Offline / fetch failed — fall back to whatever's already on screen
       // (the cache render above, or nothing if there was no cache)
+      document.getElementById('skeletonWrap')?.remove();
       applyFilters();
       restoreScrollIfBack(true);
     }
