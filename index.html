@@ -1465,6 +1465,14 @@
       .price-original { font-size: .68rem; }
       .btn-view { padding: 11px 8px; font-size: .72rem; }
 
+      /* Skeleton mirrors the card-size overrides directly above — same
+         numbers, so it never drifts out of sync with the real card again. */
+      .skeleton-img-wrap { height: 130px; padding: 10px; }
+      .skeleton-badge { width: 32px; height: 32px; top: 6px; left: 6px; }
+      .skeleton-body { padding: 10px; }
+      .skeleton-line.title1, .skeleton-line.title2 { height: 10px; }
+      .skeleton-btn { height: 38px; }
+
       .section-title h2 { font-size: 1.5rem; }
 
       .blogs-section { padding: 0 0 40px; }
@@ -1610,12 +1618,15 @@
        cards land) behind a shimmer instead, revealed only once the saved
        scroll position is actually reachable. visibility (not display) so
        layout/scrollHeight stay real underneath — scrolling still needs to work. */
+    /* Shares .products-grid's own grid-template-columns/gap (and its
+       responsive overrides below) instead of a hardcoded column count, so
+       this overlay's card size always matches whatever the real grid is
+       currently showing at this viewport — no separate numbers to keep
+       in sync. */
     #scrollRestoreShimmer { display: none; }
     html.pending-scroll-restore body > *:not(#scrollRestoreShimmer) { visibility: hidden; }
     html.pending-scroll-restore #scrollRestoreShimmer {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
       position: fixed; inset: 0; z-index: 6000;
       background: var(--bg);
       padding: 20px 12px;
@@ -1668,15 +1679,15 @@
     }
     .so-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 
-    /* ── SHIMMER SKELETON ── */
-    /* Static fallback cards are hidden behind this while products.json loads,
-       so the whole grid shimmers instead of showing stale baked-in cards.
-       !important so applyFilters' inline display can't reveal them early. */
+    /* ── SHIMMER SKELETON ──
+       One shared template, deliberately mirroring .product-card's own
+       structure/measurements 1:1 (img-wrap height+padding, badge position,
+       two title lines, price row, button) so the placeholder never jumps
+       or resizes once real cards swap in. Reused verbatim by: the initial
+       products.json fetch, a tab switch, and the deep-scroll-restore
+       overlay below — one definition, so they can't drift out of sync
+       with each other or with .product-card again. */
     .preload-hidden { display: none !important; }
-    @keyframes shimmer {
-      0% { background-position: -600px 0; }
-      100% { background-position: 600px 0; }
-    }
     .skeleton-card {
       background: var(--card-bg);
       border: 1px solid var(--border-c);
@@ -1686,32 +1697,41 @@
       display: flex;
       flex-direction: column;
     }
-    .skeleton-img {
+    .skeleton-img-wrap {
+      position: relative;
       height: 180px;
-      background: linear-gradient(90deg, #EFEFF5 25%, #F8F8FC 50%, #EFEFF5 75%);
-      background-size: 600px 100%;
-      animation: shimmer 1.4s infinite linear;
-      border-bottom: 1px solid #F0F0F6;
+      padding: 16px;
+      background: #fff;
     }
-    .skeleton-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-    .skeleton-line {
-      height: 12px;
-      border-radius: 6px;
-      background: linear-gradient(90deg, #EFEFF5 25%, #F8F8FC 50%, #EFEFF5 75%);
-      background-size: 600px 100%;
-      animation: shimmer 1.4s infinite linear;
-      border: none;
-    }
-    .skeleton-line.short { width: 50%; }
-    .skeleton-line.medium { width: 70%; }
-    .skeleton-btn {
+    .skeleton-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 40px;
       height: 40px;
-      margin-top: 12px;
       border-radius: 10px;
-      background: linear-gradient(90deg, #EFEFF5 25%, #F8F8FC 50%, #EFEFF5 75%);
-      background-size: 600px 100%;
-      animation: shimmer 1.4s infinite linear;
-      border: none;
+      z-index: 1;
+    }
+    .skeleton-img { width: 100%; height: 100%; border-radius: 8px; }
+    .skeleton-body { padding: 14px; flex: 1; display: flex; flex-direction: column; }
+    .skeleton-line { border-radius: 6px; }
+    .skeleton-line.title1 { height: 12px; width: 90%; margin-bottom: 7px; }
+    .skeleton-line.title2 { height: 12px; width: 60%; margin-bottom: 12px; }
+    .skeleton-prices { margin-top: auto; margin-bottom: 14px; display: flex; align-items: baseline; gap: 8px; }
+    .skeleton-price-current { width: 54px; height: 18px; border-radius: 6px; }
+    .skeleton-price-original { width: 38px; height: 11px; border-radius: 6px; }
+    .skeleton-btn { height: 44px; border-radius: 10px; }
+    /* Diagonal shine sweep, eased rather than linear so it reads as a soft
+       pulse of light rather than a mechanical scan. */
+    @keyframes shimmer {
+      0% { background-position: 130% 0; }
+      100% { background-position: -30% 0; }
+    }
+    .skeleton-badge, .skeleton-img, .skeleton-line, .skeleton-price-current,
+    .skeleton-price-original, .skeleton-btn {
+      background: linear-gradient(100deg, #ECEAF4 28%, #F9F8FD 48%, #ECEAF4 68%);
+      background-size: 250% 100%;
+      animation: shimmer 1.7s ease-in-out infinite;
     }
 
   </style>
@@ -1772,13 +1792,16 @@
   <p>Check your Wi-Fi or mobile data and try again — your deals will be right here waiting.</p>
   <button id="offlineRetryBtn">Retry</button>
 </div>
-<div id="scrollRestoreShimmer" aria-hidden="true">
-  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
-  <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>
+<div id="scrollRestoreShimmer" class="products-grid" aria-hidden="true">
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
+  <div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>
 </div>
 <script>
   (function () {
@@ -2834,7 +2857,11 @@
     loadMoreWrap.style.display = filteredCards.length > visibleCount ? 'flex' : 'none';
   }
 
-  const skeletonCardHtml = `<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>`;
+  // Single shared template — reused for the tab-switch skeleton below and
+  // the initial products.json fetch skeleton further down, so the two can
+  // never drift out of sync with each other (they used to be separately
+  // hand-written copies).
+  const skeletonCardHtml = `<div class="skeleton-card"><div class="skeleton-img-wrap"><div class="skeleton-badge"></div><div class="skeleton-img"></div></div><div class="skeleton-body"><div class="skeleton-line title1"></div><div class="skeleton-line title2"></div><div class="skeleton-prices"><div class="skeleton-price-current"></div><div class="skeleton-price-original"></div></div><div class="skeleton-btn"></div></div></div>`;
 
   function switchTab(btn) {
     if (btn.classList.contains('active')) return;
@@ -3284,11 +3311,10 @@
       // while fetching, and hide the static fallback cards so the WHOLE grid
       // shimmers. They come back if the fetch fails (offline).
       const SKELETON_COUNT = 18;
-      const skeletonHtml = `<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div><div class="skeleton-line short"></div><div class="skeleton-btn"></div></div></div>`;
       const skeletonWrap = document.createElement('div');
       skeletonWrap.id = 'skeletonWrap';
       skeletonWrap.style.cssText = 'display:contents';
-      skeletonWrap.innerHTML = skeletonHtml.repeat(SKELETON_COUNT);
+      skeletonWrap.innerHTML = skeletonCardHtml.repeat(SKELETON_COUNT);
       grid.querySelectorAll('.product-card').forEach(c => c.classList.add('preload-hidden'));
       grid.prepend(skeletonWrap);
     }
