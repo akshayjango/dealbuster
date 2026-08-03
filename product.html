@@ -475,17 +475,29 @@
       }
       .popup-close-btn {
         display: flex; align-items: center; justify-content: center;
-        position: fixed; left: 50%; transform: translateX(-50%);
+        position: fixed; left: 50%;
         top: calc(42px + env(safe-area-inset-top, 0px));
         width: 40px; height: 40px; border-radius: 50%;
         background: rgba(0,0,0,.75); border: none; z-index: 40; padding: 0;
+        cursor: pointer;
+        /* Entrance/exit animation — see .popup-sheet.open below, same idea:
+           fades and rises into place in sync with the sheet sliding up. */
+        opacity: 0; transform: translateX(-50%) translateY(10px);
+        transition: opacity .32s ease, transform .32s cubic-bezier(.32,.72,0,1);
       }
+      .popup-close-btn.open { opacity: 1; transform: translateX(-50%) translateY(0); }
       .popup-sheet {
         position: fixed; left: 0; right: 0; bottom: 0;
         top: calc(92px + env(safe-area-inset-top, 0px));
         background: var(--bg); border-radius: 24px 24px 0 0;
         overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 10;
+        /* Starts off-screen (below the viewport) and slides up once .open is
+           added (a frame after load, so the transition actually plays), and
+           back down before the page navigates away on close. */
+        transform: translateY(100%);
+        transition: transform .32s cubic-bezier(.32,.72,0,1);
       }
+      .popup-sheet.open { transform: translateY(0); }
       html, body { height: 100%; overflow: hidden; }
       .badges-row { margin: 16px 0 0 -6px; gap: 6px; }
       .discount-pill {
@@ -681,10 +693,39 @@
      See .popup-backdrop/.popup-close-btn/.popup-sheet CSS (mobile media
      query) — hidden entirely on desktop, where this page still renders as
      a normal full page. -->
-<div class="popup-backdrop" id="popupBackdrop"></div>
-<button class="popup-close-btn" id="popupCloseBtn" aria-label="Close" onclick="if(document.referrer.includes('dealbuster.in')||document.referrer.includes('localhost')){event.preventDefault();history.back();}else{location.href='index.html';}">
+<div class="popup-backdrop" id="popupBackdrop" onclick="closePopup(event)"></div>
+<button class="popup-close-btn" id="popupCloseBtn" aria-label="Close" onclick="closePopup(event)">
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 </button>
+<script>
+  // Popup open/close animation (mobile only — these elements are display:none
+  // on desktop, so this is a harmless no-op there). Sheet starts translated
+  // fully off-screen (see .popup-sheet CSS); adding .open a frame after load
+  // triggers the slide-up transition. Closing reverses it — slide back down
+  // — and only navigates once that's actually finished playing, instead of
+  // cutting straight to the next page mid-animation.
+  (function () {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        document.getElementById('popupSheet')?.classList.add('open');
+        document.getElementById('popupCloseBtn')?.classList.add('open');
+      });
+    });
+  })();
+  function closePopup(e) {
+    if (e) e.preventDefault();
+    var sheet = document.getElementById('popupSheet');
+    var btn = document.getElementById('popupCloseBtn');
+    var navigate = function () {
+      if (document.referrer.includes('dealbuster.in') || document.referrer.includes('localhost')) history.back();
+      else location.href = 'index.html';
+    };
+    if (!sheet) { navigate(); return; }
+    sheet.classList.remove('open');
+    if (btn) btn.classList.remove('open');
+    setTimeout(navigate, 320);
+  }
+</script>
 
 <header>
   <a class="logo" href="index.html">Deal<span>buster</span></a>
