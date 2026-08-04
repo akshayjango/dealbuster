@@ -1,0 +1,26 @@
+name: dealbuster_app
+description: A native Android application for Dealbuster.
+version: 1.0.0+1
+
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  cached_network_image: ^3.3.1
+  url_launcher: ^6.3.0
+  share_plus: ^10.0.0
+  flutter_svg: ^2.0.10+1
+  shared_preferences: ^2.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
