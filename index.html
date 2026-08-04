@@ -1681,10 +1681,13 @@
     .skeleton-card { pointer-events: none; }
     .skel-block {
       border-radius: 8px;
-      background: linear-gradient(100deg, #ECEAF4 28%, #F9F8FD 48%, #ECEAF4 68%) !important;
+      /* Tighter stop spread (30/50/70 vs the old 28/48/68) plus a
+         near-white peak instead of #F9F8FD makes the sweeping highlight
+         read as a brighter, sharper band against the base lavender. */
+      background: linear-gradient(100deg, #E1DEF0 30%, #FFFFFF 50%, #E1DEF0 70%) !important;
       background-size: 250% 100% !important;
       color: transparent !important;
-      animation: db-shimmer 1.7s ease-in-out infinite;
+      animation: db-shimmer 1s ease-in-out infinite;
     }
     @keyframes db-shimmer {
       /* background-position sweeping from a large positive % down to a
@@ -1706,15 +1709,12 @@
     }
     .skel-line { height: 9px; }
     .skel-line-short { width: 62%; }
-    /* Price row: a short accent bar (current price) next to a shorter,
-       lighter one (struck-through MRP) — mirrors the real .card-prices
-       layout instead of a single generic block. */
+    /* Price row: a short bar (current price) next to a shorter one
+       (struck-through MRP) — mirrors the real .card-prices layout instead
+       of a single generic block. Both use the same base shimmer color as
+       every other skel-block — no distinct accent tone. */
     .skeleton-card .price-current { width: 68px; }
     .skeleton-card .price-original { width: 48px; }
-    .skel-accent {
-      background: linear-gradient(100deg, #B7A6F0 28%, #D6CCF9 48%, #B7A6F0 68%) !important;
-      background-size: 250% 100% !important;
-    }
     .so-header {
       display: flex; align-items: center;
       padding: 14px 12px;
@@ -1826,7 +1826,7 @@
   // can populate #scrollRestoreCover immediately below; the main script
   // further down reuses this exact same string for the first-load skeleton
   // grid instead of keeping its own separate copy.
-  window.DB_SKELETON_CARD = '<div class="product-card skeleton-card" aria-hidden="true"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title"><span class="skel-block skel-line"></span><span class="skel-block skel-line skel-line-short"></span></div><div class="card-prices"><div class="price-current skel-block skel-accent">&nbsp;</div><div class="price-original skel-block">&nbsp;</div></div><div class="btn-view skel-block">&nbsp;</div></div></div>';
+  window.DB_SKELETON_CARD = '<div class="product-card skeleton-card" aria-hidden="true"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title"><span class="skel-block skel-line"></span><span class="skel-block skel-line skel-line-short"></span></div><div class="card-prices"><div class="price-current skel-block">&nbsp;</div><div class="price-original skel-block">&nbsp;</div></div><div class="btn-view skel-block">&nbsp;</div></div></div>';
 </script>
 <div id="scrollRestoreCover" class="products-grid" aria-hidden="true"></div>
 <script>
