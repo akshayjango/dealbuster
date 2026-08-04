@@ -107,7 +107,8 @@ jobs:
       - name: Build Debug APK
         run: |
           cd dealbuster_app
-          flutter build apk --debug
+          # Capture output to log file and output last 150 lines on failure
+          flutter build apk --debug > build_log.txt 2>&1 || (tail -n 150 build_log.txt && exit 1)
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
