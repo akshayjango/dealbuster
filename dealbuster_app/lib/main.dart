@@ -7,7 +7,7 @@ void main() {
   
   // Set system bar styling to match the website's dark status header
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemOverlayStyle(
+    const SystemUiOverlayStyle(
       statusBarColor: Color(0xFF4A1B96), // Matches purple top wrap
       statusBarIconBrightness: Brightness.light, // Light icons
       statusBarBrightness: Brightness.dark, // iOS Status bar color theme

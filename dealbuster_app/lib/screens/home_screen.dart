@@ -152,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               // ── 1. Scrollable Header (Logo + JOIN badges) ──
-              SliverToBoxHeader(
+              SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   child: Row(
@@ -247,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               // ── 2. Animated Deal Buster Banner ──
-              SliverToBoxHeader(
+              SliverToBoxAdapter(
                 child: AnimatedBanner(
                   onTap: () {
                     // Tap focuses on search input or resets search
@@ -287,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── 2-Column Grid Layout with Infinite Scroll Logic ──
   Widget _buildProductGrid() {
     if (_filteredProducts.isEmpty) {
-      return SliverToBoxHeader(
+      return SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 16),
           child: Column(
@@ -297,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               Text(
                 'No deals found for "${_searchController.text.trim()}"',
-                textAlign: Center,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontFamily: 'Plus Jakarta Sans',
                   fontWeight: FontWeight.w600,

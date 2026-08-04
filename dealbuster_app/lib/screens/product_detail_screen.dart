@@ -146,14 +146,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     children: [
                                       // Image
                                       Positioned.fill(
-                                        padding: const EdgeInsets.all(20),
-                                        child: CachedNetworkImage(
-                                          imageUrl: product.image,
-                                          fit: BoxFit.contain,
-                                          errorWidget: (context, url, error) => const Icon(
-                                            Icons.image_not_supported_outlined,
-                                            size: 48,
-                                            color: Color(0xFF6E7385),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(20),
+                                          child: CachedNetworkImage(
+                                            imageUrl: product.image,
+                                            fit: BoxFit.contain,
+                                            errorWidget: (context, url, error) => const Icon(
+                                              Icons.image_not_supported_outlined,
+                                              size: 48,
+                                              color: Color(0xFF6E7385),
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -713,7 +715,7 @@ class BrutalistChartPainter extends CustomPainter {
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 
-    canvas.drawLine(const Offset(padL, padT), const Offset(padL, padT + plotH), axisPaint);
+    canvas.drawLine(const Offset(padL, padT), Offset(padL, padT + plotH), axisPaint);
     canvas.drawLine(Offset(padL, padT + plotH), Offset(padL + plotW, padT + plotH), axisPaint);
 
     // 2. Render Text Labels (Min / Max Prices)
