@@ -2882,6 +2882,8 @@
   function applyFilters() {
     const query = searchInput.value.trim().toLowerCase();
     filteredCards = [];
+    const _mob = window.innerWidth <= 640;
+    let shownSoFar = 0;
     cards().forEach(card => {
       const title = card.querySelector('.card-title').textContent.toLowerCase();
       let matchesTab = false;
@@ -2892,11 +2894,27 @@
         matchesTab = price > 0 && price < 500;
       } else { matchesTab = card.dataset.cat === activeTab; }
       const matchesSearch = query === '' || title.includes(query);
-      card.style.display = 'none';
-      if (matchesTab && matchesSearch) filteredCards.push(card);
+      let show = false;
+      if (matchesTab && matchesSearch) {
+        filteredCards.push(card);
+        show = _mob || shownSoFar < visibleCount;
+        shownSoFar++;
+      }
+      // Set each card's FINAL display value directly instead of hiding
+      // every card first and revealing a subset after. With ~1440 cards on
+      // mobile, that hide-everything-then-reveal-a-subset pattern forced a
+      // real (if brief) collapse of the whole grid down to near-zero
+      // height on every single call — and the browser clamps scrollY to 0
+      // the instant a page that short exists, with no event fired for it,
+      // so nothing could catch and undo it. That's what made Back
+      // navigation land at the top even after a scroll restore had already
+      // landed correctly: applyFilters() runs again right after (onDone),
+      // silently zeroing the scroll it had just fixed. A card that's
+      // already showing and still matches now goes straight from
+      // flex→flex — never through none in between — so the grid's height
+      // never actually dips.
+      card.style.display = show ? 'flex' : 'none';
     });
-    const _mob = window.innerWidth <= 640;
-    filteredCards.slice(0, _mob ? filteredCards.length : visibleCount).forEach(c => c.style.display = 'flex');
     loadMoreWrap.style.display = (!_mob && filteredCards.length > visibleCount) ? 'flex' : 'none';
     if (_mob) {
       mobileLoop.offset = 0;
@@ -3109,21 +3127,29 @@
       const type = chip.dataset.chip;
       visibleCount = ITEMS_PER_PAGE;
       filteredCards = [];
+      let shownSoFar = 0;
       cards().forEach(card => {
         const priceText = card.querySelector('.price-current').textContent.replace(/[^\d]/g, '');
         const price = parseInt(priceText);
         const discText = card.querySelector('.discount-badge').textContent.replace(/[^\d]/g, '');
         const disc = parseInt(discText);
         const cat = card.dataset.cat;
+        let matches = false;
+        if (type === 'all') matches = true;
+        else if (type === 'hot') matches = disc >= 60;
+        else if (type === 'under500') matches = price <= 500;
+        else if (type === 'electronics') matches = cat === 'electronics';
+        // Same fix as applyFilters(): set the FINAL display value directly
+        // instead of hiding every card then revealing a subset — avoids a
+        // transient full-grid collapse that clamps scrollY to 0.
         let show = false;
-        if (type === 'all') show = true;
-        else if (type === 'hot') show = disc >= 60;
-        else if (type === 'under500') show = price <= 500;
-        else if (type === 'electronics') show = cat === 'electronics';
-        card.style.display = 'none';
-        if (show) filteredCards.push(card);
+        if (matches) {
+          filteredCards.push(card);
+          show = shownSoFar < visibleCount;
+          shownSoFar++;
+        }
+        card.style.display = show ? 'flex' : 'none';
       });
-      filteredCards.slice(0, visibleCount).forEach(c => c.style.display = 'flex');
       loadMoreWrap.style.display = filteredCards.length > visibleCount ? 'flex' : 'none';
       tabBtns.forEach(b => b.classList.remove('active'));
       if (type === 'all') document.querySelector('.tab-btn[data-tab="all"]')?.classList.add('active');
@@ -3329,9 +3355,22 @@
         if (i < products.length) {
           idle(buildChunkDetached, { timeout: 200 });
         } else {
-          grid.querySelectorAll('.product-card[data-managed]').forEach(c => c.remove());
-          removeLegacyStatics();
+          // Insert the new set BEFORE removing the old one, not after — for
+          // one synchronous instant the grid would otherwise be completely
+          // empty, and the browser force-clamps scrollY to 0 the moment
+          // content that short exists (this isn't scroll anchoring, it's
+          // just "you can't be scrolled past the bottom of the page" — no
+          // event fires for it, so there's nothing to catch and undo). That
+          // clamp is exactly what made Back sometimes land at the top
+          // instead of the saved position, even though restoreScrollIfBack()
+          // had already run correctly right before this swap. Capture the
+          // old cards first (querying again after insertBefore would also
+          // match the new ones, since buildProductCard sets data-managed on
+          // every card) so the grid is never shorter than it needs to be.
+          const oldManaged = Array.from(grid.querySelectorAll('.product-card[data-managed]'));
           grid.insertBefore(detached, grid.firstChild);
+          oldManaged.forEach(c => c.remove());
+          removeLegacyStatics();
           if (onDone) onDone();
         }
       }
