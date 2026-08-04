@@ -5,7 +5,7 @@ on:
     paths:
       - 'dealbuster_app/**'
       - '.github/workflows/build-apk.yml'
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,6 +27,77 @@ jobs:
         with:
           channel: 'stable'
           cache: true
+
+      - name: Recreate Android Project Structure
+        run: |
+          cd dealbuster_app
+          # Remove the manual android folder
+          rm -rf android
+          # Run flutter create to generate standard Android configuration files
+          flutter create --platforms=android --org com.dealbuster --project-name=dealbuster_app .
+
+      - name: Overwrite custom Android configurations
+        run: |
+          # Create kotlin folder if needed (it matches package com.dealbuster.dealbuster_app)
+          mkdir -p dealbuster_app/android/app/src/main/kotlin/com/dealbuster/dealbuster_app
+          
+          # Overwrite MainActivity.kt with the correct package name com.dealbuster.dealbuster_app
+          cat << 'EOF' > dealbuster_app/android/app/src/main/kotlin/com/dealbuster/dealbuster_app/MainActivity.kt
+          package com.dealbuster.dealbuster_app
+
+          import io.flutter.embedding.android.FlutterActivity
+
+          class MainActivity: FlutterActivity() {
+          }
+          EOF
+
+          # Overwrite AndroidManifest.xml to set custom label "Dealbuster" and Internet permissions
+          cat << 'EOF' > dealbuster_app/android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.dealbuster.dealbuster_app">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+              <application
+                  android:label="Dealbuster"
+                  android:name="${applicationName}"
+                  android:icon="@android:drawable/sym_def_app_icon">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data
+                        android:name="io.flutter.embedding.android.NormalTheme"
+                        android:resource="@style/NormalTheme"
+                        />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
+          EOF
+
+          # Overwrite styles.xml to avoid asset missing errors
+          mkdir -p dealbuster_app/android/app/src/main/res/values
+          cat << 'EOF' > dealbuster_app/android/app/src/main/res/values/styles.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="LaunchTheme" parent="android:Theme.Light.NoActionBar">
+                  <item name="android:windowBackground">@android:color/white</item>
+              </style>
+              <style name="NormalTheme" parent="android:Theme.Light.NoActionBar">
+                  <item name="android:windowBackground">@android:color/white</item>
+              </style>
+          </resources>
+          EOF
 
       - name: Install dependencies
         run: |
