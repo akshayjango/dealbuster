@@ -1650,6 +1650,19 @@
     html.pending-scroll-restore body > *:not(#scrollRestoreCover) { visibility: hidden; }
     html.pending-scroll-restore #scrollRestoreCover {
       display: grid;
+      /* Without this, the grid's implicit "auto" row tracks get squeezed to
+         evenly fill the fixed viewport height instead of sizing to their
+         content — on real phones (~700-850px tall) that's nowhere near
+         enough for 4 rows of full-size cards, so every skeleton card
+         compressed into an illegible sliver (align-content:start alone
+         does not prevent this — .product-card's own overflow:hidden zeroes
+         its automatic minimum size, which is what the auto tracks were
+         collapsing against). A minmax floor matching the shortest real
+         mobile card height hard-stops that collapse; anything past the
+         viewport just gets clipped by overflow:hidden below instead of
+         shrinking to fit. */
+      grid-auto-rows: minmax(260px, auto);
+      align-content: start;
       position: fixed; inset: 0; z-index: 6000;
       background: var(--bg);
       padding: 20px 12px;
@@ -1657,11 +1670,14 @@
     }
     /* ── SKELETON ──
        Deliberately reuses .product-card/.card-img-wrap/.card-title/
-       .price-current/.btn-view verbatim (just swapping their content for a
-       shimmer fill) instead of hand-measuring placeholder sizes, so a
-       skeleton card can never drift out of height from a real one at any
-       breakpoint — one definition, shared by the initial products.json
-       fetch and the scroll-restore overlay above. */
+       .price-current/.price-original/.btn-view verbatim (just swapping
+       their content for a shimmer fill) instead of hand-measuring
+       placeholder sizes, so a skeleton card can never drift out of height
+       from a real one at any breakpoint. There is exactly ONE markup
+       template for this (window.DB_SKELETON_CARD, defined right before
+       #scrollRestoreCover below) — both the initial products.json fetch's
+       skeleton grid and the scroll-restore overlay render from it, so the
+       two can never show different skeleton styles again. */
     .skeleton-card { pointer-events: none; }
     .skel-block {
       border-radius: 8px;
@@ -1671,8 +1687,33 @@
       animation: db-shimmer 1.7s ease-in-out infinite;
     }
     @keyframes db-shimmer {
+      /* background-position sweeping from a large positive % down to a
+         negative one drags the gradient's bright band across the element
+         left-to-right as the animation plays (see the math in the PR that
+         added this, or just trust the visual: it reads left-to-right). */
       0% { background-position: 130% 0; }
       100% { background-position: -30% 0; }
+    }
+    /* Title: two thinner line-bars instead of one thick block, closer to
+       how two lines of real text actually look. Sits inside .card-title so
+       it inherits that class's fixed, per-breakpoint-responsive height —
+       flex + space-between distributes the two lines inside that box
+       without needing its own hand-tuned height per breakpoint. */
+    .skeleton-card .card-title {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .skel-line { height: 9px; }
+    .skel-line-short { width: 62%; }
+    /* Price row: a short accent bar (current price) next to a shorter,
+       lighter one (struck-through MRP) — mirrors the real .card-prices
+       layout instead of a single generic block. */
+    .skeleton-card .price-current { width: 68px; }
+    .skeleton-card .price-original { width: 48px; }
+    .skel-accent {
+      background: linear-gradient(100deg, #B7A6F0 28%, #D6CCF9 48%, #B7A6F0 68%) !important;
+      background-size: 250% 100% !important;
     }
     .so-header {
       display: flex; align-items: center;
@@ -1779,16 +1820,18 @@
   <p>Check your Wi-Fi or mobile data and try again — your deals will be right here waiting.</p>
   <button id="offlineRetryBtn">Retry</button>
 </div>
-<div id="scrollRestoreCover" class="products-grid" aria-hidden="true">
-  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
-  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
-  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
-  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
-  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
-  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
-  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
-  <div class="product-card skeleton-card"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>
-</div>
+<script>
+  // Single canonical skeleton-card template — see the CSS comment above
+  // (search "SKELETON"). Defined here, as early in body as possible, so it
+  // can populate #scrollRestoreCover immediately below; the main script
+  // further down reuses this exact same string for the first-load skeleton
+  // grid instead of keeping its own separate copy.
+  window.DB_SKELETON_CARD = '<div class="product-card skeleton-card" aria-hidden="true"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title"><span class="skel-block skel-line"></span><span class="skel-block skel-line skel-line-short"></span></div><div class="card-prices"><div class="price-current skel-block skel-accent">&nbsp;</div><div class="price-original skel-block">&nbsp;</div></div><div class="btn-view skel-block">&nbsp;</div></div></div>';
+</script>
+<div id="scrollRestoreCover" class="products-grid" aria-hidden="true"></div>
+<script>
+  document.getElementById('scrollRestoreCover').innerHTML = window.DB_SKELETON_CARD.repeat(8);
+</script>
 <script>
   (function () {
     var el = document.getElementById('offlineScreen');
@@ -3092,9 +3135,9 @@
 
   // Load dynamic products from products.json (admin-published)
   const PRODUCTS_URL = 'https://dealbuster-admin-api.vakshay083.workers.dev/public/products.json';
-  // Single shared template — same markup as #scrollRestoreCover's static
-  // skeleton cards above, so the two can't drift out of sync.
-  const skeletonCardHtml = `<div class="product-card skeleton-card" aria-hidden="true"><div class="card-img-wrap skel-block"></div><div class="card-body"><div class="card-title skel-block"></div><div class="card-prices"><span class="price-current skel-block">&nbsp;</span></div><div class="btn-view skel-block">&nbsp;</div></div></div>`;
+  // Same string #scrollRestoreCover populated itself from above — one
+  // canonical template, so the two can't drift out of sync.
+  const skeletonCardHtml = window.DB_SKELETON_CARD;
   const zeroPrice = p => !p.price || p.price === '₹0' || p.price === '₹';
   const productKey = p => p.asin || p.link;
   // Populated as products are rendered — lets the silent 5-min poll below
