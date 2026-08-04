@@ -342,7 +342,7 @@ class _AnimatedBannerState extends State<AnimatedBanner>
                         width: 300 * scaleFactor,
                         height: 300 * scaleFactor,
                         decoration: BoxDecoration(
-                          shadows: [
+                          boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.45),
                               blurRadius: 26 * scaleFactor,
