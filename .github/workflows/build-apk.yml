@@ -51,7 +51,8 @@ jobs:
           }
           EOF
 
-          # Overwrite AndroidManifest.xml to set custom label "Dealbuster" and Internet permissions
+          # Overwrite AndroidManifest.xml with correct package, name, and standard launcher icon
+          # This matches the generated styles.xml and mipmaps created by flutter create
           cat << 'EOF' > dealbuster_app/android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.dealbuster.dealbuster_app">
@@ -60,7 +61,7 @@ jobs:
               <application
                   android:label="Dealbuster"
                   android:name="${applicationName}"
-                  android:icon="@android:drawable/sym_def_app_icon">
+                  android:icon="@mipmap/ic_launcher">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -83,20 +84,6 @@ jobs:
                       android:value="2" />
               </application>
           </manifest>
-          EOF
-
-          # Overwrite styles.xml to avoid asset missing errors
-          mkdir -p dealbuster_app/android/app/src/main/res/values
-          cat << 'EOF' > dealbuster_app/android/app/src/main/res/values/styles.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="LaunchTheme" parent="android:Theme.Light.NoActionBar">
-                  <item name="android:windowBackground">@android:color/white</item>
-              </style>
-              <style name="NormalTheme" parent="android:Theme.Light.NoActionBar">
-                  <item name="android:windowBackground">@android:color/white</item>
-              </style>
-          </resources>
           EOF
 
       - name: Install dependencies
