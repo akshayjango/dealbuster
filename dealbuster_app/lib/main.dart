@@ -33,7 +33,6 @@ class DealbusterApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6C47FF),
           primary: const Color(0xFF6C47FF),
-          background: const Color(0xFFF6F7FB),
         ),
         textTheme: const TextTheme(
           bodyLarge: TextStyle(fontFamily: 'Plus Jakarta Sans'),
