@@ -3165,14 +3165,26 @@
   // repeated Back cycle. Cleared once the restore's own scrollTo has landed
   // and had a frame to settle.
   window.__dbRestoringScroll = isBackForward && +sessionStorage.getItem('db_scrollY') > 0;
+  // Index.html renders TWICE per Back navigation — once instantly from the
+  // sessionStorage cache, then again once the background products.json
+  // fetch resolves and swaps in fresh cards — and both passes call
+  // restoreScrollIfBack(). Without this guard, the second pass forces
+  // window.scrollTo(0, y) again regardless of whether the first restore
+  // already landed or the user has since scrolled away on their own —
+  // if the fetch is slow enough to resolve after the user resumes
+  // scrolling, it yanks them back to the stale saved position out of
+  // nowhere. Restoration is only ever meant to happen once per load; once
+  // it's actually been committed, every later call is a no-op.
+  let scrollRestoreCommitted = false;
   function revealFromScrollRestore() {
     document.documentElement.classList.remove('pending-scroll-restore');
     requestAnimationFrame(() => { window.__dbRestoringScroll = false; });
   }
   function restoreScrollIfBack(force) {
     if (!isBackForward) { window.__dbRestoringScroll = false; return; }
+    if (scrollRestoreCommitted) return;
     const y = +sessionStorage.getItem('db_scrollY');
-    if (y <= 0) { revealFromScrollRestore(); return; }
+    if (y <= 0) { scrollRestoreCommitted = true; revealFromScrollRestore(); return; }
     // Cards now build in chunks (see renderProducts) — right after the first
     // chunk, the page may not be tall enough yet to actually reach a deep
     // scroll position (e.g. scrolled down to card #300 of 1440), so
@@ -3184,6 +3196,7 @@
     // correctly, so the wrong (top) position is never visible.
     const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
     if (!force && maxScroll < y) return;
+    scrollRestoreCommitted = true;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       window.scrollTo(0, y);
       revealFromScrollRestore();
