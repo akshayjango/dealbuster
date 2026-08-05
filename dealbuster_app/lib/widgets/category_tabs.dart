@@ -31,7 +31,7 @@ class CategoryTabs extends StatelessWidget {
     final tabWidth = (screenWidth - 6) / 5;
 
     return Container(
-      height: isStuck ? 44 : 76,
+      height: isStuck ? 44 : 80,
       decoration: const BoxDecoration(
         color: Color(0xFFF6F7FB),
       ),
@@ -65,12 +65,14 @@ class CategoryTabs extends StatelessWidget {
                     // Tab Content (collapsing icons based on scroll state)
                     Padding(
                       padding: EdgeInsets.symmetric(
-                        vertical: isStuck ? 12 : 8,
+                        vertical: isStuck ? 12 : 2,
                         horizontal: 6,
                       ),
                       child: isStuck
                           ? Text(
                               label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontFamily: 'Plus Jakarta Sans',
                                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
@@ -95,6 +97,8 @@ class CategoryTabs extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontFamily: 'Plus Jakarta Sans',
                                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
