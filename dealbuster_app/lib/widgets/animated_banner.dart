@@ -229,7 +229,7 @@ class _AnimatedBannerState extends State<AnimatedBanner>
                       borderRadius: BorderRadius.circular(20 * scaleFactor),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFB6F24C).withOpacity(0.2),
+                          color: const Color(0xFFB6F24C).withValues(alpha: 0.2),
                           blurRadius: 26 * scaleFactor,
                           spreadRadius: 2 * scaleFactor,
                         ),
@@ -278,11 +278,11 @@ class _AnimatedBannerState extends State<AnimatedBanner>
                             color: const Color(0xFFB6F24C),
                             shadows: [
                               Shadow(
-                                color: Colors.black.withOpacity(0.35),
+                                color: Colors.black.withValues(alpha: 0.35),
                                 offset: Offset(0, 6 * scaleFactor),
                               ),
                               Shadow(
-                                color: const Color(0xFFB6F24C).withOpacity(0.35),
+                                color: const Color(0xFFB6F24C).withValues(alpha: 0.35),
                                 blurRadius: 34 * scaleFactor,
                               ),
                             ],
@@ -316,7 +316,7 @@ class _AnimatedBannerState extends State<AnimatedBanner>
                             color: Colors.white,
                             shadows: [
                               Shadow(
-                                color: Colors.black.withOpacity(0.32),
+                                color: Colors.black.withValues(alpha: 0.32),
                                 offset: Offset(0, 5 * scaleFactor),
                               ),
                             ],
@@ -344,7 +344,7 @@ class _AnimatedBannerState extends State<AnimatedBanner>
                         decoration: BoxDecoration(
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.45),
+                              color: Colors.black.withValues(alpha: 0.45),
                               blurRadius: 26 * scaleFactor,
                               offset: Offset(0, 18 * scaleFactor),
                             ),
@@ -381,12 +381,12 @@ class _AnimatedBannerState extends State<AnimatedBanner>
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.35),
+                            color: Colors.black.withValues(alpha: 0.35),
                             blurRadius: 30 * scaleFactor,
                             offset: Offset(0, 12 * scaleFactor),
                           ),
                           BoxShadow(
-                            color: const Color(0xFFB6F24C).withOpacity(0.12),
+                            color: const Color(0xFFB6F24C).withValues(alpha: 0.12),
                             spreadRadius: 6 * scaleFactor,
                           ),
                         ],
@@ -481,7 +481,7 @@ class _AnimatedBannerState extends State<AnimatedBanner>
                     decoration: BoxDecoration(
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.45),
+                          color: Colors.black.withValues(alpha: 0.45),
                           blurRadius: 30 * scaleFactor,
                           offset: Offset(0, 26 * scaleFactor),
                         ),
@@ -575,12 +575,12 @@ class _AnimatedBannerState extends State<AnimatedBanner>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.35),
+                          color: Colors.black.withValues(alpha: 0.35),
                           blurRadius: 30 * scaleFactor,
                           offset: Offset(0, 12 * scaleFactor),
                         ),
                         BoxShadow(
-                          color: const Color(0xFFB6F24C).withOpacity(0.12),
+                          color: const Color(0xFFB6F24C).withValues(alpha: 0.12),
                           spreadRadius: 6 * scaleFactor,
                         ),
                       ],
@@ -637,7 +637,7 @@ class StarsPainter extends CustomPainter {
       final opacity = star.baseO * k;
       final scaleSize = star.size * (0.62 + k * 0.5);
 
-      paint.color = Colors.white.withOpacity(opacity.clamp(0.0, 1.0));
+      paint.color = Colors.white.withValues(alpha: opacity.clamp(0.0, 1.0));
 
       canvas.save();
       // Center translate
@@ -659,7 +659,7 @@ class StarsPainter extends CustomPainter {
 
       // Shadow drawing simulating dropshadow
       final shadowPaint = Paint()
-        ..color = Colors.white.withOpacity(0.35 * opacity)
+        ..color = Colors.white.withValues(alpha: 0.35 * opacity)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, (4 + k * 12) / scale);
 
       canvas.drawPath(path, shadowPaint);
@@ -705,7 +705,7 @@ class TrapezoidPainter extends CustomPainter {
 
     // 1. Strings
     final linePaint = Paint()
-      ..color = Colors.white.withOpacity(0.16)
+      ..color = Colors.white.withValues(alpha: 0.16)
       ..strokeWidth = 3 * scaleFactor
       ..strokeCap = StrokeCap.round;
 
@@ -735,8 +735,8 @@ class TrapezoidPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Colors.white.withOpacity(0.075),
-          Colors.white.withOpacity(0.01),
+          Colors.white.withValues(alpha: 0.075),
+          Colors.white.withValues(alpha: 0.01),
         ],
       ).createShader(Rect.fromLTWH(0, 0, w, h));
 
@@ -744,7 +744,7 @@ class TrapezoidPainter extends CustomPainter {
 
     // 3. Round Hooks
     final hookPaint = Paint()
-      ..color = Colors.black.withOpacity(0.6)
+      ..color = Colors.black.withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 9 * scaleFactor;
 
@@ -800,12 +800,12 @@ class GlowBorderPainter extends CustomPainter {
       ..shader = SweepGradient(
         transform: GradientRotation(angle * math.pi / 180),
         colors: [
-          Colors.white.withOpacity(0.0),
-          Colors.white.withOpacity(0.0),
-          const Color(0xFFDFFF8A).withOpacity(0.2),
-          const Color(0xFFDFFF8A).withOpacity(0.8 * opacity),
-          Colors.white.withOpacity(opacity),
-          Colors.white.withOpacity(0.0),
+          Colors.white.withValues(alpha: 0.0),
+          Colors.white.withValues(alpha: 0.0),
+          const Color(0xFFDFFF8A).withValues(alpha: 0.2),
+          const Color(0xFFDFFF8A).withValues(alpha: 0.8 * opacity),
+          Colors.white.withValues(alpha: opacity),
+          Colors.white.withValues(alpha: 0.0),
         ],
         stops: const [0.0, 0.65, 0.78, 0.94, 0.99, 1.0],
       ).createShader(rect);
@@ -954,7 +954,7 @@ class Calendar3DPainter extends CustomPainter {
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3 * scaleFactor
-        ..color = Colors.white.withOpacity(0.9);
+        ..color = Colors.white.withValues(alpha: 0.9);
 
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -1024,7 +1024,7 @@ class PopperPainter extends CustomPainter {
     final opacity = (p * 4.0).clamp(0.0, 1.0) * (1.0 - popFadeOut);
 
     final burstPaint = Paint()
-      ..color = const Color(0xFFB6F24C).withOpacity(opacity)
+      ..color = const Color(0xFFB6F24C).withValues(alpha: opacity)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8 * scaleFactor
       ..strokeCap = StrokeCap.round;
@@ -1047,7 +1047,7 @@ class PopperPainter extends CustomPainter {
     if (p > 0.6) {
       final tickOpacity = ((p - 0.6) * 4.0).clamp(0.0, 1.0) * (1.0 - popFadeOut);
       final tickPaint = Paint()
-        ..color = const Color(0xFFB6F24C).withOpacity(tickOpacity)
+        ..color = const Color(0xFFB6F24C).withValues(alpha: tickOpacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 8 * scaleFactor
         ..strokeCap = StrokeCap.round;

@@ -93,7 +93,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: 35, sigmaY: 35),
               child: Container(
-                color: const Color(0xFFF6F7FB).withOpacity(0.7),
+                color: const Color(0xFFF6F7FB).withValues(alpha: 0.7),
               ),
             ),
           ),
@@ -136,7 +136,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF17192B).withOpacity(0.05),
+                                        color: const Color(0xFF17192B).withValues(alpha: 0.05),
                                         blurRadius: 2,
                                         offset: const Offset(0, 1),
                                       ),
@@ -298,7 +298,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF6C47FF).withOpacity(0.35),
+                                          color: const Color(0xFF6C47FF).withValues(alpha: 0.35),
                                           blurRadius: 8,
                                           offset: const Offset(0, 3),
                                         ),
@@ -457,7 +457,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF17192B).withOpacity(0.12),
+                    color: const Color(0xFF17192B).withValues(alpha: 0.12),
                     blurRadius: 16,
                     offset: const Offset(0, -4),
                   ),
@@ -510,7 +510,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: FloatingActionButton(
                   heroTag: 'close_fab_detail',
                   elevation: 0,
-                  backgroundColor: Colors.black.withOpacity(0.75),
+                  backgroundColor: Colors.black.withValues(alpha: 0.75),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -597,7 +597,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Icon(
                         Icons.trending_up_outlined,
                         size: 20,
-                        color: const Color(0xFF6C47FF).withOpacity(0.85),
+                        color: const Color(0xFF6C47FF).withValues(alpha: 0.85),
                       ),
                       const SizedBox(width: 8),
                       const Text(

@@ -75,12 +75,12 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF17192B).withOpacity(0.06),
+            color: const Color(0xFF17192B).withValues(alpha: 0.06),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
           BoxShadow(
-            color: const Color(0xFF17192B).withOpacity(0.04),
+            color: const Color(0xFF17192B).withValues(alpha: 0.04),
             blurRadius: 24,
             offset: const Offset(0, 8),
             spreadRadius: -8,
