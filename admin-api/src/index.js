@@ -2941,8 +2941,17 @@ export default {
       }
 
       // ── GET /products ────────────────────────────────────────────────────────
+      // ?live=1 excludes hidden/tombstoned products — the dashboard's default
+      // view, so it doesn't have to download+parse+render dead weight (tombstones
+      // are ~60% of the file and only need to exist for capLiveAndBury's 3-day
+      // dedup window, not for the admin UI's normal product list).
       if (url.pathname === '/products' && request.method === 'GET') {
-        try { const { products } = await getProductsFile(env); return json({ products }); }
+        try {
+          const { products } = await getProductsFile(env);
+          const live = url.searchParams.get('live') === '1';
+          const filtered = live ? products.filter(p => !p.hidden) : products;
+          return json({ products: filtered, totalCount: products.length, hiddenCount: products.filter(p => p.hidden).length });
+        }
         catch (e) { return json({ error: e.message }, 502); }
       }
 

@@ -434,6 +434,7 @@
           <div class="toolbar-row toolbar-actions">
             <button class="btn btn-ghost btn-sm" id="oosFilterBtn" onclick="toggleOOSFilter()" title="Show Out of Stock">⚠ OOS</button>
             <button class="btn btn-ghost btn-sm" id="nopriceFilterBtn" onclick="toggleNoPriceFilter()" title="Show Price Unavailable">₹ N/A</button>
+            <button class="btn btn-ghost btn-sm" id="showHiddenBtn" onclick="toggleShowHidden()" title="Include hidden/tombstoned products (slower load)">🗂 Show Hidden</button>
             <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
             <button class="btn btn-outline btn-sm" onclick="pushZeroPriceToBottom()" id="pushZeroPriceBtn" style="border-color:#d97706;color:#d97706;">⬇ Push ₹0 to Bottom</button>
             <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
@@ -913,19 +914,33 @@ function switchSubtab(tab) {
 
 // ── Products CRUD ─────────────────────────────────────────────────────────────
 let tgPostedSet = new Set();
+let showHiddenActive = false;
+let totalProductCount = 0;
+let hiddenProductCount = 0;
 
 function isTgPosted(p) {
   // Same matching as the worker's isAlreadyPosted: raw id, uppercased ASIN
   return tgPostedSet.has(p.id) || (p.asin && tgPostedSet.has(p.asin.toUpperCase()));
 }
 
+function toggleShowHidden() {
+  showHiddenActive = !showHiddenActive;
+  document.getElementById('showHiddenBtn').classList.toggle('btn-outline', showHiddenActive);
+  loadProducts();
+}
+
 async function loadProducts() {
   document.getElementById('productsList').innerHTML = '<div class="loading"><div class="spinner"></div>Loading products…</div>';
   try {
-    const resp = await apiFetch('/products');
+    // Hidden/tombstoned products (~60% of the file) are excluded by default —
+    // they only need to exist in products.json for the 3-day dedup window,
+    // not for the dashboard's normal view. "Show Hidden" opts back in.
+    const resp = await apiFetch(showHiddenActive ? '/products' : '/products?live=1');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     allProducts = data.products || [];
+    totalProductCount = data.totalCount ?? allProducts.length;
+    hiddenProductCount = data.hiddenCount ?? allProducts.filter(p => p.hidden).length;
     // Ask the TgPoster DO which of these actually reached the channel —
     // only those rows go blue (queued-to-bot is not posted-to-channel).
     try {
@@ -944,14 +959,11 @@ async function loadProducts() {
 }
 
 function updateStats() {
-  const total = allProducts.length;
   const featured = allProducts.filter(p => p.featured).length;
-  const hidden = allProducts.filter(p => p.hidden).length;
-  const live = total - hidden;
-  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statTotal').textContent = totalProductCount;
   document.getElementById('statFeatured').textContent = featured;
-  document.getElementById('statHidden').textContent = hidden;
-  document.getElementById('statLive').textContent = live;
+  document.getElementById('statHidden').textContent = hiddenProductCount;
+  document.getElementById('statLive').textContent = totalProductCount - hiddenProductCount;
 }
 
 let oosFilterActive = false;
