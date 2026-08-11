@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>html,body{margin:0;padding:0;background:#eee;}</style>
+</head>
+<body>
+  <canvas id="cv" width="1024" height="500"></canvas>
+  <script>
+    const cv = document.getElementById('cv');
+    const ctx = cv.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, 1024, 500);
+    grad.addColorStop(0, '#2B1055');
+    grad.addColorStop(1, '#B2311C');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 500);
+
+    ctx.save();
+    ctx.translate(72, 125);
+    ctx.scale(12.5, 12.5);
+    const bolt = new Path2D('M13 2 4 14h6l-1 8 9-12h-6l1-8Z');
+    ctx.fillStyle = '#fff';
+    ctx.fill(bolt);
+    ctx.restore();
+
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 76px Arial, sans-serif';
+    ctx.fillText('DealBuster', 279, 186);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = '600 34px Arial, sans-serif';
+    ctx.fillText("Deals that don't wait.", 279, 280);
+
+    window.__pngReady = true;
+  </script>
+</body>
+</html>

@@ -12,6 +12,18 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["wrangler", "dev", "--config", "admin-api/wrangler.toml", "--port", "8787"],
       "port": 8787
+    },
+    {
+      "name": "dealbuster-app-web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d dealbuster_app && flutter run -d web-server --web-port 5959"],
+      "port": 5959
+    },
+    {
+      "name": "dealbuster-app-web-release",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "6060", "dealbuster_app/build/web"],
+      "port": 6060
     }
   ]
 }

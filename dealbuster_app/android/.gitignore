@@ -4,3 +4,8 @@
 GeneratedPluginRegistrant.java
 .cxx/
 *.hprof
+
+# Signing secrets — never commit
+key.properties
+*.jks
+*.keystore

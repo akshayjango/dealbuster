@@ -1,198 +1,125 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+import '../utils/svg_icons.dart';
 
-class CustomSearchBar extends StatefulWidget {
-  final ValueChanged<String> onSearch;
-  final VoidCallback onClear;
-  final TextEditingController controller;
+const _kSuggestions = [
+  'Shoes',
+  'Headphones',
+  'Face wash',
+  'Smart watch',
+  'Backpacks',
+  'Air fryer',
+];
 
-  const CustomSearchBar({
+/// A pill search field. In trigger mode (home screen) it's just a tappable
+/// affordance with a rotating suggestion; in editable mode (search screen)
+/// it's a live [TextField] driving [onChanged].
+class DealSearchBar extends StatefulWidget {
+  const DealSearchBar({
     super.key,
-    required this.onSearch,
-    required this.onClear,
-    required this.controller,
+    this.editable = false,
+    this.onTap,
+    this.onChanged,
+    this.controller,
+    this.autofocus = false,
   });
 
+  final bool editable;
+  final VoidCallback? onTap;
+  final ValueChanged<String>? onChanged;
+  final TextEditingController? controller;
+  final bool autofocus;
+
   @override
-  State<CustomSearchBar> createState() => _CustomSearchBarState();
+  State<DealSearchBar> createState() => _DealSearchBarState();
 }
 
-class _CustomSearchBarState extends State<CustomSearchBar> {
-  static const List<String> _placeholderWords = [
-    'Shoes',
-    'Shampoo',
-    'Watch',
-    'Deodorant',
-    'Body Lotion',
-  ];
-
-  int _currentIndex = 0;
-  Timer? _placeholderTimer;
-  bool _showPlaceholder = true;
-  late FocusNode _focusNode;
+class _DealSearchBarState extends State<DealSearchBar>
+    with SingleTickerProviderStateMixin {
+  int _wordIndex = 0;
+  late final AnimationController _fade;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
-    _startPlaceholderRotation();
-    widget.controller.addListener(_onTextChanged);
+    _fade = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    )..forward();
+    if (!widget.editable) _scheduleNextWord();
+  }
+
+  void _scheduleNextWord() {
+    Future.delayed(const Duration(seconds: 2, milliseconds: 200), () async {
+      if (!mounted) return;
+      await _fade.reverse();
+      if (!mounted) return;
+      setState(() => _wordIndex = (_wordIndex + 1) % _kSuggestions.length);
+      await _fade.forward();
+      _scheduleNextWord();
+    });
   }
 
   @override
   void dispose() {
-    _placeholderTimer?.cancel();
-    widget.controller.removeListener(_onTextChanged);
-    _focusNode.dispose();
+    _fade.dispose();
     super.dispose();
-  }
-
-  void _onTextChanged() {
-    setState(() {
-      _showPlaceholder = widget.controller.text.isEmpty;
-    });
-  }
-
-  void _startPlaceholderRotation() {
-    _placeholderTimer = Timer.periodic(const Duration(milliseconds: 2200), (timer) {
-      if (!mounted) return;
-      setState(() {
-        _currentIndex = (_currentIndex + 1) % _placeholderWords.length;
-      });
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 48,
+    final field = Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFE7E8F0),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF17192B).withValues(alpha: 0.06),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-          BoxShadow(
-            color: const Color(0xFF17192B).withValues(alpha: 0.04),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-            spreadRadius: -8,
-          ),
-        ],
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        boxShadow: cardShadow(),
       ),
-      child: Stack(
-        alignment: Alignment.centerLeft,
+      child: Row(
         children: [
-          // ── Text Input ──
-          TextField(
-            controller: widget.controller,
-            focusNode: _focusNode,
-            onSubmitted: widget.onSearch,
-            style: const TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
-              color: Color(0xFF1A1D2E),
-            ),
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.only(left: 16, right: 80, bottom: 4),
-              border: InputBorder.none,
-              isDense: true,
-              suffixIcon: widget.controller.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: Color(0xFF6E7385),
-                      ),
-                      onPressed: () {
-                        widget.controller.clear();
-                        widget.onClear();
-                      },
-                    )
-                  : null,
-            ),
-          ),
-
-          // ── Rotating Placeholder Animation ──
-          if (_showPlaceholder)
-            IgnorePointer(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Search for ',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontWeight: FontWeight.w400,
-                        fontSize: 14,
-                        color: Color(0xFF6E7385),
-                      ),
+          const SvgIcon(SvgIcons.search, size: 19, color: AppColors.ink400),
+          const SizedBox(width: 10),
+          Expanded(
+            child: widget.editable
+                ? TextField(
+                    controller: widget.controller,
+                    autofocus: widget.autofocus,
+                    onChanged: widget.onChanged,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: 'Search deals',
                     ),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 350),
-                        transitionBuilder: (child, animation) {
-                          return SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.8),
-                              end: Offset.zero,
-                            ).animate(CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                            )),
-                            child: FadeTransition(
-                              opacity: animation,
-                              child: child,
-                            ),
-                          );
-                        },
+                  )
+                : Row(
+                    children: [
+                      Text(
+                        'Search for  ',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      FadeTransition(
+                        opacity: _fade,
                         child: Text(
-                          '"${_placeholderWords[_currentIndex]}"',
-                          key: ValueKey<int>(_currentIndex),
-                          style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                            color: Color(0xFF6E7385),
-                          ),
+                          '"${_kSuggestions[_wordIndex]}"',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
+                              ?.copyWith(
+                                color: AppColors.ink,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // ── Action Icon Button (Right aligned) ──
-          Positioned(
-            right: 4,
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(
-                  Icons.search,
-                  size: 22,
-                  color: Color(0xFF1A1D2E),
-                ),
-                onPressed: () {
-                  widget.onSearch(widget.controller.text);
-                },
-              ),
-            ),
+                    ],
+                  ),
           ),
         ],
       ),
     );
+
+    if (widget.editable) return field;
+    return GestureDetector(onTap: widget.onTap, child: field);
   }
 }

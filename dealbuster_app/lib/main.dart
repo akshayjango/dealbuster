@@ -1,46 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:dealbuster_app/screens/home_screen.dart';
+import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Set system bar styling to match the website's dark status header
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Color(0xFF4A1B96), // Matches purple top wrap
-      statusBarIconBrightness: Brightness.light, // Light icons
-      statusBarBrightness: Brightness.dark, // iOS Status bar color theme
-      systemNavigationBarColor: Color(0xFFF6F7FB), // Matches bottom background
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: AppColors.bg,
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
-  
-  runApp(const DealbusterApp());
+
+  runApp(const DealBusterApp());
 }
 
-class DealbusterApp extends StatelessWidget {
-  const DealbusterApp({super.key});
+class DealBusterApp extends StatelessWidget {
+  const DealBusterApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Dealbuster',
+      title: 'DealBuster',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C47FF),
-          primary: const Color(0xFF6C47FF),
-        ),
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(fontFamily: 'Plus Jakarta Sans'),
-          bodyMedium: TextStyle(fontFamily: 'Plus Jakarta Sans'),
-          titleLarge: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w900),
-        ),
-      ),
+      theme: AppTheme.light,
       home: const HomeScreen(),
     );
   }

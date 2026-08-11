@@ -1,811 +1,427 @@
-import 'dart:math' as math;
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:ui' as ui;
+import 'package:url_launcher/url_launcher.dart';
+
 import '../models/product.dart';
+import '../theme/app_theme.dart';
+import '../widgets/price_chart.dart';
 
 class ProductDetailScreen extends StatefulWidget {
-  final Product product;
-
   const ProductDetailScreen({super.key, required this.product});
+  final Product product;
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  bool _isExpanded = false;
+  bool _highlightsExpanded = false;
 
-  Future<void> _launchUrl(String url) async {
+  Future<void> _launch(String url) async {
     final uri = Uri.parse(url);
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {}
-  }
-
-  void _shareProduct() {
-    final text = '${widget.product.displayTitle} - Amazing deal on Dealbuster!\n${widget.product.link}';
-    Share.share(text);
-  }
-
-  String _getRelativeTime(String timeStr) {
-    if (timeStr.isEmpty) return 'Updated today';
-    try {
-      final date = DateTime.parse(timeStr);
-      final diff = DateTime.now().difference(date);
-      final diffHours = diff.inHours;
-
-      if (diffHours < 24) {
-        if (diffHours < 1) {
-          return 'Updated 1hr ago';
-        }
-        return 'Updated ${diffHours}hr ago';
-      } else {
-        final diffDays = diff.inDays;
-        if (diffDays <= 0) {
-          return 'Updated today';
-        } else if (diffDays == 1) {
-          return 'Updated 1 day ago';
-        } else {
-          return 'Updated $diffDays days ago';
-        }
-      }
-    } catch (_) {
-      return 'Updated today';
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  void _share() {
+    final p = widget.product;
+    Share.share('${p.displayTitle} — spotted on DealBuster!\n${p.link}');
   }
 
   @override
   Widget build(BuildContext context) {
-    final product = widget.product;
-    final relativeTime = _getRelativeTime(product.addedAt);
-    final cleanDisc = product.disc.replaceAll('-', '').replaceAll('%', '');
+    final p = widget.product;
+    final discountPct =
+        int.tryParse(p.disc.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
-    // Capped highlights: default to 2 items unless expanded
-    final displayedHighlights = (product.highlights.isEmpty)
-        ? _genericHighlights
-        : product.highlights;
-    final visibleHighlights = _isExpanded
-        ? displayedHighlights
-        : displayedHighlights.take(2).toList();
-    final hasMoreHighlights = displayedHighlights.length > 2;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
-      body: Stack(
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
         children: [
-          // ── 1. Blurred Backdrop Image ──
-          Positioned.fill(
-            child: CachedNetworkImage(
-              imageUrl: product.image,
-              fit: BoxFit.cover,
-              errorWidget: (context, url, error) => Container(
-                color: const Color(0xFF170733),
-              ),
+          const SizedBox(height: 10),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.hairline,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
             ),
           ),
-          // Blur layer overlay
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 35, sigmaY: 35),
-              child: Container(
-                color: const Color(0xFFF6F7FB).withValues(alpha: 0.7),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.md,
+                AppSpace.md,
+                AppSpace.md,
+                100,
               ),
-            ),
-          ),
-
-          // ── 2. Scrollable Modal Sheet Content ──
-          Positioned.fill(
-            child: SafeArea(
-              bottom: false,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Safe Area Space for close button
-                  const SizedBox(height: 52),
-
-                  // Floating Sliding Sheet Container
-                  Expanded(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF6F7FB),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(24),
-                          topRight: Radius.circular(24),
+                  _ImageBlock(product: p, discountPct: discountPct, onShare: _share),
+                  const SizedBox(height: AppSpace.lg),
+                  Text(
+                    p.category[0].toUpperCase() + p.category.substring(1),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.brand,
                         ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(24),
-                          topRight: Radius.circular(24),
-                        ),
-                        child: ListView(
-                          padding: const EdgeInsets.only(bottom: 110), // Clearance for bottom CTA
-                          children: [
-                            // ── Square Image Card ──
-                            Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: AspectRatio(
-                                aspectRatio: 1.0,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF17192B).withValues(alpha: 0.05),
-                                        blurRadius: 2,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // Image
-                                      Positioned.fill(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(20),
-                                          child: CachedNetworkImage(
-                                            imageUrl: product.image,
-                                            fit: BoxFit.contain,
-                                            errorWidget: (context, url, error) => const Icon(
-                                              Icons.image_not_supported_outlined,
-                                              size: 48,
-                                              color: Color(0xFF6E7385),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Overlaid Floating Share Button (bottom right corner)
-                                      Positioned(
-                                        bottom: 14,
-                                        right: 14,
-                                        child: SizedBox(
-                                          width: 40,
-                                          height: 40,
-                                          child: FloatingActionButton(
-                                            heroTag: 'share_fab_detail',
-                                            elevation: 2,
-                                            backgroundColor: Colors.white,
-                                            foregroundColor: const Color(0xFF1A1D2E),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(20),
-                                              side: const BorderSide(
-                                                color: Color(0xFFE7E8F0),
-                                                width: 1,
-                                              ),
-                                            ),
-                                            onPressed: _shareProduct,
-                                            child: const Icon(Icons.share_outlined, size: 18),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            // ── Badges Row ──
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
-                              child: Row(
-                                children: [
-                                  // Discount tag
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE94444),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      '-$cleanDisc% OFF',
-                                      style: const TextStyle(
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 10,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  // Relative update time badge
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: const Color(0xFFE7E8F0),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 6,
-                                          height: 6,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFF12925A),
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          relativeTime,
-                                          style: const TextStyle(
-                                            fontFamily: 'Plus Jakarta Sans',
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 9.5,
-                                            color: Color(0xFF1A1D2E),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // ── Category Tag & Title ──
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    product.category.toUpperCase(),
-                                    style: const TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 10,
-                                      color: Color(0xFF6C47FF),
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    product.displayTitle,
-                                    style: const TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
-                                      height: 1.4,
-                                      color: Color(0xFF1A1D2E),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // ── Price Pill Card Row ──
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
-                              child: Row(
-                                children: [
-                                  // Current Price Pill
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF6C47FF),
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF6C47FF).withValues(alpha: 0.35),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      product.price,
-                                      style: const TextStyle(
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 20,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Original MRP and Savings info
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (product.mrp.isNotEmpty && product.mrp != '₹0')
-                                        Text(
-                                          'MRP ${product.mrp}',
-                                          style: const TextStyle(
-                                            fontFamily: 'Plus Jakarta Sans',
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 11,
-                                            color: Color(0xFF6E7385),
-                                            decoration: TextDecoration.lineThrough,
-                                          ),
-                                        ),
-                                      if (product.savingsAmount > 0)
-                                        Text(
-                                          'You save ₹${product.savingsAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
-                                          style: const TextStyle(
-                                            fontFamily: 'Plus Jakarta Sans',
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 11,
-                                            color: Color(0xFF12925A),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // ── Highlights Card ──
-                            Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 14),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Highlights',
-                                    style: TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                      color: Color(0xFF1A1D2E),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ListView.builder(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    padding: EdgeInsets.zero,
-                                    itemCount: visibleHighlights.length,
-                                    itemBuilder: (context, index) {
-                                      final item = visibleHighlights[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.only(bottom: 6),
-                                        child: Text(
-                                          '•  $item',
-                                          style: const TextStyle(
-                                            fontFamily: 'Plus Jakarta Sans',
-                                            fontWeight: FontWeight.w400,
-                                            fontSize: 11,
-                                            height: 1.5,
-                                            color: Color(0xFF1A1D2E),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  if (hasMoreHighlights) ...[
-                                    const SizedBox(height: 12),
-                                    Center(
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            _isExpanded = !_isExpanded;
-                                          });
-                                        },
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              _isExpanded ? 'View less' : 'View more',
-                                              style: const TextStyle(
-                                                fontFamily: 'Plus Jakarta Sans',
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 10,
-                                                color: Color(0xFF6C47FF),
-                                              ),
-                                            ),
-                                            Icon(
-                                              _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                                              size: 14,
-                                              color: const Color(0xFF6C47FF),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // ── Price History Section ──
-                            _buildPriceHistory(),
-                          ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(p.displayTitle, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 14),
+                  _PriceRow(product: p),
+                  if (p.highlights.isNotEmpty) ...[
+                    const SizedBox(height: AppSpace.lg),
+                    _Card(
+                      title: 'Highlights',
+                      child: _Highlights(
+                        highlights: p.highlights,
+                        expanded: _highlightsExpanded,
+                        onToggle: () => setState(
+                          () => _highlightsExpanded = !_highlightsExpanded,
                         ),
                       ),
                     ),
+                  ],
+                  if (p.priceHistory.length >= 2) ...[
+                    const SizedBox(height: AppSpace.md),
+                    _Card(
+                      title: 'Price History',
+                      child: _PriceHistory(product: p, onOpenKeepa: _launch),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpace.md),
+                  Text(
+                    'Discounted price shown is off the listed MRP — check the product page on Amazon for the exact current price.',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
           ),
+          _BuyBar(onBuy: () => _launch(p.link)),
+        ],
+      ),
+    );
+  }
+}
 
-          // ── 3. Sticky Bottom CTA Bar ──
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+class _ImageBlock extends StatelessWidget {
+  const _ImageBlock({
+    required this.product,
+    required this.discountPct,
+    required this.onShare,
+  });
+
+  final Product product;
+  final int discountPct;
+  final VoidCallback onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1.15,
+      child: Stack(
+        children: [
+          Positioned.fill(
             child: Container(
-              padding: EdgeInsets.only(
-                left: 14,
-                right: 14,
-                top: 10,
-                bottom: 10 + MediaQuery.of(context).padding.bottom,
-              ),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: const Border(
-                  top: BorderSide(color: Color(0xFFE7E8F0), width: 1),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF17192B).withValues(alpha: 0.12),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                boxShadow: cardShadow(),
               ),
-              child: SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFD000),
-                    foregroundColor: const Color(0xFF1A1D2E),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () => _launchUrl(product.link),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Buy on Amazon',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Transform.rotate(
-                        angle: -math.pi / 4,
-                        child: const Icon(Icons.arrow_forward, size: 16),
-                      ),
-                    ],
-                  ),
-                ),
+              padding: const EdgeInsets.all(20),
+              child: CachedNetworkImage(
+                imageUrl: product.image,
+                fit: BoxFit.contain,
               ),
             ),
           ),
-
-          // ── 4. Circular Pinned Close Button ──
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 42 + MediaQuery.of(context).padding.top,
-            child: Center(
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: FloatingActionButton(
-                  heroTag: 'close_fab_detail',
-                  elevation: 0,
-                  backgroundColor: Colors.black.withValues(alpha: 0.75),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+          if (discountPct > 0)
+            Positioned(
+              top: 14,
+              left: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.brand,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Text(
+                  '$discountPct% OFF',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
                   ),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Icon(Icons.keyboard_arrow_down, size: 24),
                 ),
               ),
             ),
+          Positioned(
+            bottom: 14,
+            right: 14,
+            child: _RoundIconButton(icon: Icons.ios_share_rounded, onTap: onShare),
           ),
         ],
       ),
     );
   }
+}
 
-  // ── Price History Widget ──
-  Widget _buildPriceHistory() {
-    final product = widget.product;
-    final history = product.priceHistory;
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
 
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.ink,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(11),
+          child: Icon(icon, size: 18, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _PriceRow extends StatelessWidget {
+  const _PriceRow({required this.product});
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(product.price, style: Theme.of(context).textTheme.displaySmall),
+        const SizedBox(width: 10),
+        if (product.mrp != product.price)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Text(
+              product.mrp,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    decoration: TextDecoration.lineThrough,
+                  ),
+            ),
+          ),
+        const Spacer(),
+        if (product.savingsAmount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.successSoft,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: Text(
+                'You save ₹${product.savingsAmount}',
+                style: const TextStyle(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  const _Card({required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14),
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpace.md),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: cardShadow(opacity: 0.6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Price History',
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: Color(0xFF1A1D2E),
-            ),
-          ),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
-
-          if (history.length < 2) ...[
-            const Text(
-              "We just started tracking this deal's price — check back later to see how it's moved.",
-              style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
-                fontWeight: FontWeight.w400,
-                fontSize: 11,
-                color: Color(0xFF6E7385),
-                height: 1.5,
-              ),
-            ),
-          ] else ...[
-            // Statistics values (Lowest, Current, Highest)
-            _buildStatRow(),
-            const SizedBox(height: 16),
-
-            // Brutalist custom painted line chart
-            SizedBox(
-              height: 160,
-              child: CustomPaint(
-                painter: BrutalistChartPainter(points: history),
-                child: Container(),
-              ),
-            ),
-          ],
-
-          if (product.asin != null && product.asin!.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            const Divider(color: Color(0xFFE7E8F0)),
-            const SizedBox(height: 6),
-            // Keepa redirect link
-            GestureDetector(
-              onTap: () {
-                final keepaUrl = 'https://keepa.com/#!product/10-${product.asin!.toUpperCase()}';
-                _launchUrl(keepaUrl);
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      // Keepa trend line drawing simulated with icons
-                      Icon(
-                        Icons.trending_up_outlined,
-                        size: 20,
-                        color: const Color(0xFF6C47FF).withValues(alpha: 0.85),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'See Full Price History on Keepa',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                          color: Color(0xFF1A1D2E),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF6E7385)),
-                ],
-              ),
-            ),
-          ],
+          child,
         ],
       ),
     );
   }
+}
 
-  Widget _buildStatRow() {
-    final prices = widget.product.priceHistory.map((p) => p.price).toList();
-    final lowest = prices.reduce(math.min);
-    final highest = prices.reduce(math.max);
-    final current = prices.last;
+class _Highlights extends StatelessWidget {
+  const _Highlights({
+    required this.highlights,
+    required this.expanded,
+    required this.onToggle,
+  });
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  final List<String> highlights;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = expanded ? highlights : highlights.take(4).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildStatCol('Lowest', lowest, isLowest: true),
-        _buildStatCol('Current', current),
-        _buildStatCol('Highest', highest, isHighest: true),
+        for (final h in visible)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Icon(Icons.circle, size: 5, color: AppColors.brand),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(h, style: Theme.of(context).textTheme.bodyLarge),
+                ),
+              ],
+            ),
+          ),
+        if (highlights.length > 4)
+          GestureDetector(
+            onTap: onToggle,
+            child: Text(
+              expanded ? 'Show less' : 'View more',
+              style: const TextStyle(
+                color: AppColors.brand,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
       ],
     );
   }
+}
 
-  Widget _buildStatCol(String label, double value, {bool isLowest = false, bool isHighest = false}) {
-    Color valColor = const Color(0xFF1A1D2E);
-    if (isLowest) valColor = const Color(0xFF12925A); // Green
-    if (isHighest) valColor = const Color(0xFFE94444); // Red
+class _PriceHistory extends StatelessWidget {
+  const _PriceHistory({required this.product, required this.onOpenKeepa});
+  final Product product;
+  final Future<void> Function(String) onOpenKeepa;
+
+  @override
+  Widget build(BuildContext context) {
+    final prices = product.priceHistory.map((p) => p.price).toList();
+    final lowest = prices.reduce((a, b) => a < b ? a : b);
+    final highest = prices.reduce((a, b) => a > b ? a : b);
+    final current = prices.last;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
-            fontWeight: FontWeight.w500,
-            fontSize: 10,
-            color: Color(0xFF6E7385),
-          ),
+        Row(
+          children: [
+            _Stat(label: 'Lowest', value: lowest, color: AppColors.success),
+            _Stat(label: 'Current', value: current, color: AppColors.ink),
+            _Stat(label: 'Highest', value: highest, color: AppColors.brand),
+          ],
         ),
-        const SizedBox(height: 2),
-        Text(
-          '₹${value.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
-          style: TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
-            color: valColor,
+        const SizedBox(height: 16),
+        SizedBox(height: 90, child: PriceChart(points: product.priceHistory)),
+        if (product.asin != null && product.asin!.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          GestureDetector(
+            onTap: () => onOpenKeepa(
+              'https://keepa.com/#!product/10-${product.asin!.toUpperCase()}',
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'See full price history on Keepa',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.brand,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_outward_rounded, size: 14, color: AppColors.brand),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
-
-  // Static generic blurb options when highlights are placeholder
-  static const List<String> _genericHighlights = [
-    'Handpicked deal, verified live on Amazon at the time of posting.',
-    'Discounted price shown is off the listed MRP — check the product page for the exact current price.',
-    'Sold and delivered via Amazon India, so standard Amazon delivery, returns, and warranty terms apply.',
-    'Review full specifications, size/variant options, and buyer ratings on Amazon before purchasing.',
-    'Deal prices and stock can change anytime, so grab it while it lasts.',
-    'One of our daily-curated picks across electronics, fashion, home, beauty, and health deals.'
-  ];
 }
 
-// ── Brutalist Custom Chart Painter ──
-class BrutalistChartPainter extends CustomPainter {
-  final List<PricePoint> points;
-
-  BrutalistChartPainter({required this.points});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.isEmpty) return;
-
-    final prices = points.map((pt) => pt.price).toList();
-    final lowest = prices.reduce(math.min);
-    final highest = prices.reduce(math.max);
-
-    // Padding margins
-    const padL = 60.0;
-    const padR = 16.0;
-    const padT = 20.0;
-    const padB = 34.0;
-
-    final plotW = size.width - padL - padR;
-    final plotH = size.height - padT - padB;
-
-    final yMin = lowest == highest ? lowest - 1.0 : lowest;
-    final yMax = lowest == highest ? highest + 1.0 : highest;
-
-    // Helper functions mapping data coordinate points to custom canvas vectors
-    double xFor(int i) => padL + (points.length == 1 ? 0 : (plotW * i) / (points.length - 1));
-    double yFor(double v) => padT + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
-
-    // 1. Draw Grid Axis Lines (brutalist style: bold, sharp corners)
-    final axisPaint = Paint()
-      ..color = const Color(0xFF1A1D2E)
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawLine(const Offset(padL, padT), Offset(padL, padT + plotH), axisPaint);
-    canvas.drawLine(Offset(padL, padT + plotH), Offset(padL + plotW, padT + plotH), axisPaint);
-
-    // 2. Render Text Labels (Min / Max Prices)
-    final textPainterMax = TextPainter(
-      text: TextSpan(
-        text: '₹${yMax.toInt()}',
-        style: const TextStyle(
-          color: Color(0xFF1A1D2E),
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    textPainterMax.paint(
-      canvas,
-      Offset(padL - textPainterMax.width - 8, padT - textPainterMax.height / 2),
-    );
-
-    final textPainterMin = TextPainter(
-      text: TextSpan(
-        text: '₹${yMin.toInt()}',
-        style: const TextStyle(
-          color: Color(0xFF1A1D2E),
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    textPainterMin.paint(
-      canvas,
-      Offset(padL - textPainterMin.width - 8, padT + plotH - textPainterMin.height / 2),
-    );
-
-    // Render Date Label at start of history
-    final firstDateStr = _formatDate(points.first.date);
-    final textPainterDate = TextPainter(
-      text: TextSpan(
-        text: firstDateStr,
-        style: const TextStyle(
-          color: Color(0xFF6B7280),
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    textPainterDate.paint(
-      canvas,
-      Offset(padL, size.height - textPainterDate.height - 4),
-    );
-
-    // 3. Draw Price Polyline connecting all points
-    final linePaint = Paint()
-      ..color = const Color(0xFF6C47FF)
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke
-      ..strokeJoin = StrokeJoin.miter
-      ..strokeCap = StrokeCap.square;
-
-    final path = Path();
-    path.moveTo(xFor(0), yFor(points[0].price));
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(xFor(i), yFor(points[i].price));
-    }
-    canvas.drawPath(path, linePaint);
-
-    // 4. Draw Square Point Markers
-    final markerFillPaint = Paint()..color = const Color(0xFF6C47FF);
-    final markerStrokePaint = Paint()
-      ..color = const Color(0xFF1A1D2E)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    for (int i = 0; i < points.length; i++) {
-      final x = xFor(i);
-      final y = yFor(points[i].price);
-      final rect = Rect.fromCenter(center: Offset(x, y), width: 8, height: 8);
-      
-      canvas.drawRect(rect, markerFillPaint);
-      canvas.drawRect(rect, markerStrokePaint);
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${date.day} ${months[date.month - 1]}';
-  }
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value, required this.color});
+  final String label;
+  final double value;
+  final Color color;
 
   @override
-  bool shouldRepaint(covariant BrutalistChartPainter oldDelegate) => true;
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            '₹${value.toStringAsFixed(0)}',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: color),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
+class _BuyBar extends StatelessWidget {
+  const _BuyBar({required this.onBuy});
+  final VoidCallback onBuy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(AppSpace.md, 12, AppSpace.md, 20),
+      decoration: const BoxDecoration(
+        color: AppColors.bg,
+        border: Border(top: BorderSide(color: AppColors.hairline)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: onBuy,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Buy on Amazon'),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_outward_rounded, size: 17),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
