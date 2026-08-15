@@ -704,35 +704,49 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
-  const dbg = { total: matchesMap.size, noPrice: 0, redirErr: 0, redirStatus: [], nonAmazon: 0, noAsin: 0, deletedOrDup: 0, alreadyExisting: 0 };
+
+  // Insert a param (e.g. follow_redirect=false) into a "...&url=" proxy prefix,
+  // ahead of the trailing url= placeholder, so it isn't swallowed by encodeURIComponent.
+  function proxyUrlWithParam(base, param) {
+    if (/[?&]url=$/.test(base)) return base.replace(/([?&])url=$/, `$1${param}&url=`);
+    return base + (base.includes('?') ? '&' : '?') + param + '&';
+  }
 
   for (const { title, image, price, mrp, rtoParam } of matchesMap.values()) {
     if (added.length >= limit) break;
 
     // No scraped price = unavailable product. Skip before redirect subrequest.
-    if (!(price > 0)) { dbg.noPrice++; continue; }
+    if (!(price > 0)) continue;
 
-    // Follow redirect (manual) — 1 subrequest, gets Location header with Amazon URL → ASIN
+    // Resolve rto → Amazon ASIN. Prefer a raw redirect (Location header); some
+    // scraping proxies ignore follow_redirect=false and instead follow the
+    // redirect themselves, returning the final Amazon page body with a 200 —
+    // fall back to extracting the ASIN from that body (canonical/og:url/dp link).
     let asin = '';
     try {
       const redirTarget = `https://www.indiafreestuff.in/?rto=${rtoParam}`;
-      const redirProxy = env.SCRAPER_API_URL + encodeURIComponent(redirTarget);
+      const redirProxy = proxyUrlWithParam(env.SCRAPER_API_URL, 'follow_redirect=false') + encodeURIComponent(redirTarget);
 
       const red = await fetchWithTimeout(redirProxy, {
         redirect: 'manual',
         headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
       });
-      if (dbg.redirStatus.length < 3) dbg.redirStatus.push(red.status);
-      const loc = red.headers.get('location') || red.url || '';
-      if (!loc.includes('amazon.in')) { dbg.nonAmazon++; continue; } // skip non-Amazon redirects
-      const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
-      if (asinM) asin = asinM[1].toUpperCase();
-    } catch { dbg.redirErr++; continue; }
+      const loc = red.headers.get('location') || '';
+      if (loc.includes('amazon.in')) {
+        const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
+        if (asinM) asin = asinM[1].toUpperCase();
+      } else if (red.ok) {
+        // Proxy already followed the redirect — the body is the resolved page.
+        const body = await red.text();
+        const bodyM = body.match(/amazon\.in\/(?:[^"'\s]*\/)?dp\/([A-Z0-9]{10})/i)
+          || body.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i);
+        if (bodyM) asin = bodyM[1].toUpperCase();
+      }
+    } catch { continue; }
 
-    if (!asin) { dbg.noAsin++; continue; }
-    if (deletedSet.has(asin) || seenThisRun.has(asin)) { dbg.deletedOrDup++; continue; }
+    if (!asin || deletedSet.has(asin)) continue;
+    if (seenThisRun.has(asin)) continue;
     seenThisRun.add(asin);
-    if (existingByAsin.has(asin)) { dbg.alreadyExisting++; }
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
@@ -753,8 +767,6 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       order: 0, addedAt: new Date().toISOString(),
     });
   }
-
-  console.log('IFS debug:', JSON.stringify(dbg));
 
   if (added.length === 0) {
     await clearSyncError('IndiaFreeStuff', env);
