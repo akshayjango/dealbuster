@@ -704,6 +704,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
+  const dbg = [];
 
   // Insert a param (e.g. follow_redirect=false) into a "...&url=" proxy prefix,
   // ahead of the trailing url= placeholder, so it isn't swallowed by encodeURIComponent.
@@ -763,17 +764,27 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
       });
       const loc = red.headers.get('location') || '';
+      let bodyPrefix = '';
       if (loc.includes('amazon.in')) {
         const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
         if (asinM) asin = asinM[1].toUpperCase();
       } else if (red.ok) {
         // Proxy already followed the redirect — the body is the resolved page.
-        const bodyPrefix = await readHeadPrefix(red);
+        bodyPrefix = await readHeadPrefix(red);
         const bodyM = bodyPrefix.match(/amazon\.in\/(?:[^"'\s]*\/)?dp\/([A-Z0-9]{10})/i)
           || bodyPrefix.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i);
         if (bodyM) asin = bodyM[1].toUpperCase();
       }
-    } catch { continue; }
+      if (dbg.length < 3) {
+        dbg.push({
+          status: red.status,
+          loc: loc.slice(0, 80),
+          bodyLen: bodyPrefix.length,
+          bodySample: bodyPrefix.slice(0, 200).replace(/\s+/g, ' '),
+          asin,
+        });
+      }
+    } catch (e) { if (dbg.length < 3) dbg.push({ err: e.message }); continue; }
 
     if (!asin || deletedSet.has(asin)) continue;
     if (seenThisRun.has(asin)) continue;
@@ -798,6 +809,8 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       order: 0, addedAt: new Date().toISOString(),
     });
   }
+
+  console.log('IFS redir debug:', JSON.stringify(dbg));
 
   if (added.length === 0) {
     await clearSyncError('IndiaFreeStuff', env);
