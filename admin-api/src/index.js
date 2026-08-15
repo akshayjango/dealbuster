@@ -706,8 +706,8 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   }
 
   // To stay within proxy concurrency limits and prevent request timeouts, 
-  // we limit to resolving at most 5 candidates per sync run.
-  const syncLimit = Math.min(limit, 5);
+  // we limit to resolving at most 15 candidates per sync run.
+  const syncLimit = Math.min(candidates.length, 15);
   const targetCandidates = candidates.slice(0, syncLimit);
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
@@ -738,35 +738,41 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     return out;
   }
 
-  // Resolve redirects in parallel to prevent gateway timeouts (524)
-  const resolved = await Promise.all(targetCandidates.map(async (item) => {
-    let asin = '';
-    try {
-      const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
-      const redirProxy = env.SCRAPER_API_URL + encodeURIComponent(redirTarget);
+  // Resolve redirects in batches of 5 to respect proxy concurrency limits
+  const resolved = [];
+  const chunkSize = 5;
+  for (let i = 0; i < targetCandidates.length; i += chunkSize) {
+    const chunk = targetCandidates.slice(i, i + chunkSize);
+    const chunkResolved = await Promise.all(chunk.map(async (item) => {
+      let asin = '';
+      try {
+        const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
+        const redirProxy = env.SCRAPER_API_URL + encodeURIComponent(redirTarget);
 
-      // Use a 15-second timeout for proxy redirect resolving
-      const red = await fetchWithTimeout(redirProxy, {
-        redirect: 'manual',
-        headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
-      }, 15000);
-      
-      const loc = red.headers.get('location') || '';
-      if (loc.includes('amazon.in')) {
-        const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
-        if (asinM) asin = asinM[1].toUpperCase();
-      } else if (red.ok) {
-        const bodyPrefix = await readHeadPrefix(red);
-        const bodyM = bodyPrefix.match(/amazon\.in\/(?:[^"'\s]*\/)?dp\/([A-Z0-9]{10})/i)
-          || bodyPrefix.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i);
-        if (bodyM) asin = bodyM[1].toUpperCase();
+        // Use a 15-second timeout for proxy redirect resolving
+        const red = await fetchWithTimeout(redirProxy, {
+          redirect: 'manual',
+          headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
+        }, 15000);
+        
+        const loc = red.headers.get('location') || '';
+        if (loc.includes('amazon.in')) {
+          const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
+          if (asinM) asin = asinM[1].toUpperCase();
+        } else if (red.ok) {
+          const bodyPrefix = await readHeadPrefix(red);
+          const bodyM = bodyPrefix.match(/amazon\.in\/(?:[^"'\s]*\/)?dp\/([A-Z0-9]{10})/i)
+            || bodyPrefix.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i);
+          if (bodyM) asin = bodyM[1].toUpperCase();
+        }
+        if (dbg.length < 8) dbg.push(asin ? 'ok' : `miss:${red.status}`);
+      } catch (err) {
+        if (dbg.length < 8) dbg.push(`err:${err.message}`);
       }
-      if (dbg.length < 4) dbg.push(asin ? 'ok' : `miss:${red.status}`);
-    } catch (err) {
-      if (dbg.length < 4) dbg.push(`err:${err.message}`);
-    }
-    return { ...item, asin };
-  }));
+      return { ...item, asin };
+    }));
+    resolved.push(...chunkResolved);
+  }
 
   for (const item of resolved) {
     const { asin, title, image, price, mrp } = item;
