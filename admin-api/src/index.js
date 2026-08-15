@@ -627,10 +627,11 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const targetUrl = 'https://www.indiafreestuff.in/trending';
     const proxyUrl = env.SCRAPER_API_URL + encodeURIComponent(targetUrl);
 
-    let r = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    // Fetch trending page with a 20-second timeout to allow the proxy to solve WAF
+    let r = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000);
     if (!r.ok) {
       await new Promise(res => setTimeout(res, 3000));
-      r = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+      r = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000);
     }
     if (!r.ok) {
       const cfMitigated = r.headers.get('cf-mitigated') || 'none';
@@ -651,13 +652,10 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
       if (!titleM) continue;
       let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-      // Strip trailing " Rs. NNN - Amazon" suffix sites append
       title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Amazon\s*$/i, '').trim();
       if (!title || title.length < 5) continue;
       if (isBrandBlocked(title, blockedBrands)) continue;
 
-      // Image: extract Amazon image hash from their thumbnail filename
-      // e.g. thumb_f8ec8aef_61NiiBDN0yL.SX522.jpg → 61NiiBDN0yL → Amazon CDN image
       const thumbM = block.match(/data-original="([^"]+images\.indiafreestuff\.in[^"]+)"/i);
       let image = '';
       if (thumbM) {
@@ -665,21 +663,19 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         const hashM = fname.match(/thumb_[a-f0-9]+_([A-Za-z0-9]{11})\./);
         image = hashM
           ? `https://m.media-amazon.com/images/I/${hashM[1]}._SL500_.jpg`
-          : thumbM[1]; // fallback to their CDN thumbnail
+          : thumbM[1];
       }
 
-      // Prices
       const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
       const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
       const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
       const mrp   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : price;
 
-      // rto redirect URL → will resolve to ASIN later for new deals only
       const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
       if (!rtoM) continue;
       const rtoParam = rtoM[1];
 
-      const key = rtoParam; // dedupe by rto param until we have ASIN
+      const key = rtoParam;
       if (!matchesMap.has(key)) {
         matchesMap.set(key, { title, image, price, mrp, rtoParam });
       }
@@ -700,18 +696,24 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
-  const seenThisRun = new Set();
+
+  // Filter valid candidates from matches
+  const candidates = [];
+  for (const item of matchesMap.values()) {
+    if (item.price > 0) {
+      candidates.push(item);
+    }
+  }
+
+  // To stay within proxy concurrency limits and prevent request timeouts, 
+  // we limit to resolving at most 5 candidates per sync run.
+  const syncLimit = Math.min(limit, 5);
+  const targetCandidates = candidates.slice(0, syncLimit);
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
   const dbg = [];
 
-  // fetchWithTimeout's abort timer is cleared once headers arrive, so it does
-  // NOT bound body reading. The canonical/asin markers we look for land in the
-  // first few KB of an Amazon page's <head>, so read a small prefix with its
-  // own hard deadline instead of buffering the whole (proxy-rendered, possibly
-  // multi-hundred-KB) page — avoids the exact "hung fetch, no timeout" failure
-  // mode called out in CLAUDE.md, just at the body-read stage instead of fetch().
   async function readHeadPrefix(res, maxBytes = 65536, timeoutMs = 4000) {
     if (!res.body) return '';
     const reader = res.body.getReader();
@@ -730,36 +732,25 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         out += decoder.decode(value, { stream: true });
       }
     } catch {
-      // timed out or stream errored — return whatever prefix we got
     } finally {
       try { await reader.cancel(); } catch {}
     }
     return out;
   }
 
-  for (const { title, image, price, mrp, rtoParam } of matchesMap.values()) {
-    if (added.length >= limit) break;
-
-    // No scraped price = unavailable product. Skip before redirect subrequest.
-    if (!(price > 0)) continue;
-
-    // Resolve rto → Amazon ASIN. indiafreestuff.in's WAF returns a hard 403 to
-    // direct requests specifically from Cloudflare Workers' own IP range
-    // (confirmed via diagnostics — same request from a normal IP gets a clean
-    // 302), so this MUST go through the scraping proxy. The proxy follows the
-    // redirect itself and returns the resolved Amazon page with a 200 (no
-    // Location header to read) — extract the ASIN from that page's body
-    // instead (a forced follow_redirect=false was tried and made it worse:
-    // the proxy then returns indiafreestuff's own homepage, never reaching
-    // Amazon at all).
+  // Resolve redirects in parallel to prevent gateway timeouts (524)
+  const resolved = await Promise.all(targetCandidates.map(async (item) => {
     let asin = '';
     try {
-      const redirTarget = `https://www.indiafreestuff.in/?rto=${rtoParam}`;
+      const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
       const redirProxy = env.SCRAPER_API_URL + encodeURIComponent(redirTarget);
+
+      // Use a 15-second timeout for proxy redirect resolving
       const red = await fetchWithTimeout(redirProxy, {
         redirect: 'manual',
         headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
-      });
+      }, 15000);
+      
       const loc = red.headers.get('location') || '';
       if (loc.includes('amazon.in')) {
         const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
@@ -771,21 +762,21 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         if (bodyM) asin = bodyM[1].toUpperCase();
       }
       if (dbg.length < 4) dbg.push(asin ? 'ok' : `miss:${red.status}`);
-    } catch (e) { if (dbg.length < 4) dbg.push(`err:${e.message}`); continue; }
+    } catch (err) {
+      if (dbg.length < 4) dbg.push(`err:${err.message}`);
+    }
+    return { ...item, asin };
+  }));
 
-    if (!asin || deletedSet.has(asin)) continue;
-    if (seenThisRun.has(asin)) continue;
-    seenThisRun.add(asin);
+  for (const item of resolved) {
+    const { asin, title, image, price, mrp } = item;
+    if (!asin || deletedSet.has(asin) || existingByAsin.has(asin)) continue;
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
     const mrpStr   = mrp   > 0 ? '₹' + mrp.toLocaleString('en-IN')   : priceStr;
     const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
     const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
-
-    // Already on site — leave it completely alone.
-    if (existingByAsin.has(asin)) continue;
-
     const category = detectCategoryFromTitle(title);
 
     added.push({
