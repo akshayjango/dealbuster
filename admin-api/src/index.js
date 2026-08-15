@@ -697,10 +697,50 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
 
-  // Filter valid candidates from matches
+  // Filter valid candidates from matches by checking if they are already in the database by Image ID or Title
   const candidates = [];
   for (const item of matchesMap.values()) {
-    if (item.price > 0) {
+    if (item.price <= 0) continue;
+
+    // 1. Image ID duplicate check (100% accurate fallback to Amazon CDN image ID)
+    let isDuplicate = false;
+    if (item.image && item.image.includes('media-amazon.com/images/I/')) {
+      const imgIdM = item.image.match(/\/I\/([A-Za-z0-9]{11})\./);
+      if (imgIdM) {
+        const imgId = imgIdM[1];
+        for (const p of products) {
+          if (p.image && p.image.includes(imgId)) {
+            isDuplicate = true;
+            break;
+          }
+        }
+      }
+    }
+
+    // 2. High-precision Title check (90% word overlap)
+    if (!isDuplicate) {
+      const cleanIfs = item.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+      const ifsWords = cleanIfs.split(/\s+/).filter(w => w.length > 3);
+      if (ifsWords.length >= 2) {
+        for (const p of products) {
+          const cleanExisting = p.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+          if (cleanIfs === cleanExisting) {
+            isDuplicate = true;
+            break;
+          }
+          let matchCount = 0;
+          for (const w of ifsWords) {
+            if (cleanExisting.includes(w)) matchCount++;
+          }
+          if (matchCount / ifsWords.length >= 0.90) {
+            isDuplicate = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!isDuplicate) {
       candidates.push(item);
     }
   }
