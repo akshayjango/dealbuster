@@ -615,14 +615,22 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
 }
 
 async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
+  if (!env.SCRAPER_API_URL) {
+    console.log('IndiaFreeStuff sync skipped: SCRAPER_API_URL not configured.');
+    return { success: true, count: 0, message: 'IndiaFreeStuff: sync skipped (SCRAPER_API_URL not configured)' };
+  }
+
   const matchesMap = new Map();
   const blockedBrands = await getBlockedBrands(env);
 
   try {
-    let r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    const targetUrl = 'https://www.indiafreestuff.in/trending';
+    const proxyUrl = env.SCRAPER_API_URL + encodeURIComponent(targetUrl);
+
+    let r = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
     if (!r.ok) {
       await new Promise(res => setTimeout(res, 3000));
-      r = await fetchWithTimeout('https://www.indiafreestuff.in/trending', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+      r = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
     }
     if (!r.ok) {
       const cfMitigated = r.headers.get('cf-mitigated') || 'none';
@@ -706,11 +714,14 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     // Follow redirect (manual) — 1 subrequest, gets Location header with Amazon URL → ASIN
     let asin = '';
     try {
-      const red = await fetchWithTimeout(`https://www.indiafreestuff.in/?rto=${rtoParam}`, {
+      const redirTarget = `https://www.indiafreestuff.in/?rto=${rtoParam}`;
+      const redirProxy = env.SCRAPER_API_URL + encodeURIComponent(redirTarget);
+
+      const red = await fetchWithTimeout(redirProxy, {
         redirect: 'manual',
         headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
       });
-      const loc = red.headers.get('location') || '';
+      const loc = red.headers.get('location') || red.url || '';
       if (!loc.includes('amazon.in')) continue; // skip non-Amazon redirects
       const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
       if (asinM) asin = asinM[1].toUpperCase();

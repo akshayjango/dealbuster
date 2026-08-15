@@ -14,6 +14,7 @@ id = "c67facdab9664a6189ecf536ddada140"
 TELEGRAM_ADMIN_ID = "715667303"
 VAPID_PUBLIC_KEY = "BBpxbJXp8fXx1OG51wAiVjQ-QrWCqDd0eRyA6sxaw0MllG6RyPO-QHQfsig1VScCEdOfrzl6_vNfXuEBDIcBVaY"
 VAPID_SUBJECT = "mailto:akshay.v@jupitermeta.io"
+SCRAPER_API_URL = "" # (Optional) Prepend scraping proxy URL for IndiaFreeStuff (e.g. "https://api.scraperapi.com?api_key=KEY&url=")
 
 [[durable_objects.bindings]]
 name = "TG_POSTER"
