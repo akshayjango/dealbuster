@@ -3133,6 +3133,11 @@ export default {
   async scheduled(event, env, ctx) {
     // Every 30 min (at :14,:44): sync IndiaFreeStuff
     if (event.cron === '14,44 * * * *') {
+      const istHour = new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours();
+      if (istHour >= 2 && istHour < 7) {
+        console.log('Skipping IndiaFreeStuff sync during sleep hours (2am-7am IST)');
+        return;
+      }
       ctx.waitUntil(
         withCronLock('cron_ifs', 180, env, async () => {
           try {
