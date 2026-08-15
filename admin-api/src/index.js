@@ -746,8 +746,8 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   }
 
   // To stay within proxy concurrency limits and prevent request timeouts, 
-  // we limit to resolving at most 15 candidates per sync run.
-  const syncLimit = Math.min(candidates.length, 15);
+  // we limit to resolving at most 30 candidates per sync run.
+  const syncLimit = Math.min(candidates.length, 30);
   const targetCandidates = candidates.slice(0, syncLimit);
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
