@@ -706,13 +706,6 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const added = [];
   const dbg = [];
 
-  // Insert a param (e.g. follow_redirect=false) into a "...&url=" proxy prefix,
-  // ahead of the trailing url= placeholder, so it isn't swallowed by encodeURIComponent.
-  function proxyUrlWithParam(base, param) {
-    if (/[?&]url=$/.test(base)) return base.replace(/([?&])url=$/, `$1${param}&url=`);
-    return base + (base.includes('?') ? '&' : '?') + param + '&';
-  }
-
   // fetchWithTimeout's abort timer is cleared once headers arrive, so it does
   // NOT bound body reading. The canonical/asin markers we look for land in the
   // first few KB of an Amazon page's <head>, so read a small prefix with its
@@ -750,41 +743,35 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     // No scraped price = unavailable product. Skip before redirect subrequest.
     if (!(price > 0)) continue;
 
-    // Resolve rto → Amazon ASIN. Prefer a raw redirect (Location header); some
-    // scraping proxies ignore follow_redirect=false and instead follow the
-    // redirect themselves, returning the final Amazon page body with a 200 —
-    // fall back to extracting the ASIN from that body (canonical/og:url/dp link).
+    // Resolve rto → Amazon ASIN. indiafreestuff.in's WAF returns a hard 403 to
+    // direct requests specifically from Cloudflare Workers' own IP range
+    // (confirmed via diagnostics — same request from a normal IP gets a clean
+    // 302), so this MUST go through the scraping proxy. The proxy follows the
+    // redirect itself and returns the resolved Amazon page with a 200 (no
+    // Location header to read) — extract the ASIN from that page's body
+    // instead (a forced follow_redirect=false was tried and made it worse:
+    // the proxy then returns indiafreestuff's own homepage, never reaching
+    // Amazon at all).
     let asin = '';
     try {
       const redirTarget = `https://www.indiafreestuff.in/?rto=${rtoParam}`;
-      const redirProxy = proxyUrlWithParam(env.SCRAPER_API_URL, 'follow_redirect=false') + encodeURIComponent(redirTarget);
-
+      const redirProxy = env.SCRAPER_API_URL + encodeURIComponent(redirTarget);
       const red = await fetchWithTimeout(redirProxy, {
         redirect: 'manual',
         headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
       });
       const loc = red.headers.get('location') || '';
-      let bodyPrefix = '';
       if (loc.includes('amazon.in')) {
         const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
         if (asinM) asin = asinM[1].toUpperCase();
       } else if (red.ok) {
-        // Proxy already followed the redirect — the body is the resolved page.
-        bodyPrefix = await readHeadPrefix(red);
+        const bodyPrefix = await readHeadPrefix(red);
         const bodyM = bodyPrefix.match(/amazon\.in\/(?:[^"'\s]*\/)?dp\/([A-Z0-9]{10})/i)
           || bodyPrefix.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i);
         if (bodyM) asin = bodyM[1].toUpperCase();
       }
-      if (dbg.length < 3) {
-        dbg.push({
-          status: red.status,
-          loc: loc.slice(0, 80),
-          bodyLen: bodyPrefix.length,
-          bodySample: bodyPrefix.slice(0, 200).replace(/\s+/g, ' '),
-          asin,
-        });
-      }
-    } catch (e) { if (dbg.length < 3) dbg.push({ err: e.message }); continue; }
+      if (dbg.length < 4) dbg.push(asin ? 'ok' : `miss:${red.status}`);
+    } catch (e) { if (dbg.length < 4) dbg.push(`err:${e.message}`); continue; }
 
     if (!asin || deletedSet.has(asin)) continue;
     if (seenThisRun.has(asin)) continue;
