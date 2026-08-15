@@ -704,12 +704,13 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
+  const dbg = { total: matchesMap.size, noPrice: 0, redirErr: 0, redirStatus: [], nonAmazon: 0, noAsin: 0, deletedOrDup: 0, alreadyExisting: 0 };
 
   for (const { title, image, price, mrp, rtoParam } of matchesMap.values()) {
     if (added.length >= limit) break;
 
     // No scraped price = unavailable product. Skip before redirect subrequest.
-    if (!(price > 0)) continue;
+    if (!(price > 0)) { dbg.noPrice++; continue; }
 
     // Follow redirect (manual) — 1 subrequest, gets Location header with Amazon URL → ASIN
     let asin = '';
@@ -721,15 +722,17 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         redirect: 'manual',
         headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
       });
+      if (dbg.redirStatus.length < 3) dbg.redirStatus.push(red.status);
       const loc = red.headers.get('location') || red.url || '';
-      if (!loc.includes('amazon.in')) continue; // skip non-Amazon redirects
+      if (!loc.includes('amazon.in')) { dbg.nonAmazon++; continue; } // skip non-Amazon redirects
       const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
       if (asinM) asin = asinM[1].toUpperCase();
-    } catch { continue; }
+    } catch { dbg.redirErr++; continue; }
 
-    if (!asin || deletedSet.has(asin)) continue;
-    if (seenThisRun.has(asin)) continue;
+    if (!asin) { dbg.noAsin++; continue; }
+    if (deletedSet.has(asin) || seenThisRun.has(asin)) { dbg.deletedOrDup++; continue; }
     seenThisRun.add(asin);
+    if (existingByAsin.has(asin)) { dbg.alreadyExisting++; }
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
@@ -750,6 +753,8 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       order: 0, addedAt: new Date().toISOString(),
     });
   }
+
+  console.log('IFS debug:', JSON.stringify(dbg));
 
   if (added.length === 0) {
     await clearSyncError('IndiaFreeStuff', env);
