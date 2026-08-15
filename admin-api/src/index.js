@@ -712,6 +712,37 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     return base + (base.includes('?') ? '&' : '?') + param + '&';
   }
 
+  // fetchWithTimeout's abort timer is cleared once headers arrive, so it does
+  // NOT bound body reading. The canonical/asin markers we look for land in the
+  // first few KB of an Amazon page's <head>, so read a small prefix with its
+  // own hard deadline instead of buffering the whole (proxy-rendered, possibly
+  // multi-hundred-KB) page — avoids the exact "hung fetch, no timeout" failure
+  // mode called out in CLAUDE.md, just at the body-read stage instead of fetch().
+  async function readHeadPrefix(res, maxBytes = 65536, timeoutMs = 4000) {
+    if (!res.body) return '';
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    const deadline = Date.now() + timeoutMs;
+    let out = '';
+    try {
+      while (out.length < maxBytes) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        const { done, value } = await Promise.race([
+          reader.read(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('body read timeout')), remaining)),
+        ]);
+        if (done) break;
+        out += decoder.decode(value, { stream: true });
+      }
+    } catch {
+      // timed out or stream errored — return whatever prefix we got
+    } finally {
+      try { await reader.cancel(); } catch {}
+    }
+    return out;
+  }
+
   for (const { title, image, price, mrp, rtoParam } of matchesMap.values()) {
     if (added.length >= limit) break;
 
@@ -737,9 +768,9 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         if (asinM) asin = asinM[1].toUpperCase();
       } else if (red.ok) {
         // Proxy already followed the redirect — the body is the resolved page.
-        const body = await red.text();
-        const bodyM = body.match(/amazon\.in\/(?:[^"'\s]*\/)?dp\/([A-Z0-9]{10})/i)
-          || body.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i);
+        const bodyPrefix = await readHeadPrefix(red);
+        const bodyM = bodyPrefix.match(/amazon\.in\/(?:[^"'\s]*\/)?dp\/([A-Z0-9]{10})/i)
+          || bodyPrefix.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i);
         if (bodyM) asin = bodyM[1].toUpperCase();
       }
     } catch { continue; }
