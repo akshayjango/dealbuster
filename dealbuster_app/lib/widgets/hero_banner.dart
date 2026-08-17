@@ -195,6 +195,7 @@ class _Frame extends StatelessWidget {
                     height: 1.2,
                   ),
                 ),
+                const SizedBox(height: 10),
               ],
             ),
           ),
