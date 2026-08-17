@@ -184,11 +184,12 @@ class _Frame extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  'Fresh price drops tracked around the clock.',
+                  'Fresh price drops tracked\naround the clock.',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
                     fontSize: 12.0,
                     fontWeight: FontWeight.w500,
+                    height: 1.2,
                   ),
                 ),
               ],
