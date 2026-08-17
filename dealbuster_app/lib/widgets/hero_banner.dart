@@ -370,7 +370,7 @@ class _LiveBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -380,25 +380,25 @@ class _LiveBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 7,
-            height: 7,
+            width: 5,
+            height: 5,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: const Color(0xFF6CFFB0).withOpacity(0.75 + 0.25 * ping),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF6CFFB0),
-                  blurRadius: 4 + 3 * ping,
+                  blurRadius: 3 + 2 * ping,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(
             '$count deals live now',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 11.5,
+              fontSize: 10.2,
               fontWeight: FontWeight.w700,
             ),
           ),
