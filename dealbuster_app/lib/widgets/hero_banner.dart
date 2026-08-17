@@ -38,7 +38,7 @@ class _HeroBannerState extends State<HeroBanner>
     return Container(
       margin: const EdgeInsets.fromLTRB(
         AppSpace.md,
-        AppSpace.sm,
+        14,
         AppSpace.md,
         AppSpace.md,
       ),
@@ -52,10 +52,10 @@ class _HeroBannerState extends State<HeroBanner>
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.heroEnd.withValues(alpha: 0.35),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-            spreadRadius: -12,
+            color: AppColors.heroEnd.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+            spreadRadius: -4,
           ),
         ],
       ),
@@ -164,7 +164,6 @@ class _LiveBadgeState extends State<_LiveBadge>
               color: Colors.white,
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
             ),
           ),
         ],

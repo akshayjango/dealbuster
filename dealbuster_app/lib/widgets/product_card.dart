@@ -1,16 +1,25 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../models/product.dart';
 import '../theme/app_theme.dart';
+import '../utils/svg_icons.dart';
+import 'deal_badges.dart';
 
 /// The deal card used across the home grid and search results.
 /// Tapping anywhere opens the detail sheet; the Amazon CTA itself lives
 /// there, keeping the grid a browsing surface rather than a tap-trap.
 class ProductCard extends StatelessWidget {
-  const ProductCard({super.key, required this.product, required this.onTap});
+  const ProductCard({
+    super.key,
+    required this.product,
+    required this.onTap,
+    this.onNetworkError,
+  });
 
   final Product product;
   final VoidCallback onTap;
+  final VoidCallback? onNetworkError;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +33,7 @@ class ProductCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: cardShadow(opacity: 0.7),
         ),
         clipBehavior: Clip.antiAlias,
@@ -33,42 +42,75 @@ class ProductCard extends StatelessWidget {
           children: [
             Stack(
               children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: Container(
-                    color: AppColors.bg,
-                    padding: const EdgeInsets.all(14),
-                    child: CachedNetworkImage(
-                      imageUrl: product.image,
-                      fit: BoxFit.contain,
-                      placeholder: (context, url) => const _ImageSkeleton(),
-                      errorWidget: (context, url, error) => const Icon(
+                Container(
+                  height: 130,
+                  width: double.infinity,
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(10),
+                  child: CachedNetworkImage(
+                    imageUrl: product.image,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const _ImageSkeleton(),
+                    errorWidget: (context, url, error) {
+                      final errStr = error.toString().toLowerCase();
+                      if (errStr.contains('socketexception') ||
+                          errStr.contains('failed host lookup') ||
+                          errStr.contains('network') ||
+                          errStr.contains('connection')) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          onNetworkError?.call();
+                        });
+                      }
+                      return const Icon(
                         Icons.image_not_supported_outlined,
                         color: AppColors.ink400,
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
                 if (discountPct > 0)
                   Positioned(
-                    top: 10,
-                    left: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.brand,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        '$discountPct% OFF',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    top: 0,
+                    left: 0,
+                    child: SizedBox(
+                      width: 36,
+                      height: 35.6,
+                      child: Stack(
+                        children: [
+                          SvgPicture.string(
+                            SvgIcons.discountBadge,
+                            width: 36,
+                            height: 35.6,
+                          ),
+                          Positioned(
+                            top: 7,
+                            left: 7,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '$discountPct%',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                const Text(
+                                  'OFF',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -79,14 +121,21 @@ class ProductCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    product.displayTitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          height: 1.25,
-                        ),
+                  // Fixed to exactly 2 lines' height regardless of how many
+                  // lines the title actually takes, so the price row below
+                  // lands in the same spot for both 1- and 2-line titles.
+                  SizedBox(
+                    height: 11 * 1.4 * 2,
+                    child: Text(
+                      product.displayTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            height: 1.4,
+                          ),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -109,24 +158,21 @@ class ProductCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  if (product.savingsAmount > 0) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.successSoft,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        'Save ₹${product.savingsAmount}',
-                        style: const TextStyle(
-                          color: AppColors.success,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  if (product.lowestPriceText != null &&
+                      product.lowestPriceText!.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    const LowestPriceBadge(),
+                  ] else if (product.couponPercent != null) ...[
+                    const SizedBox(height: 3),
+                    CouponBadge(percent: product.couponPercent!),
+                  ] else if (product.savingsAmount > 0) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      'You save ₹${product.savingsAmount}',
+                      style: const TextStyle(
+                        color: AppColors.success,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],

@@ -1,11 +1,111 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/product.dart';
 import '../theme/app_theme.dart';
-import '../widgets/price_chart.dart';
+import '../utils/svg_icons.dart';
+import '../widgets/deal_badges.dart';
+
+const _kSheetHeightFactor = 0.83;
+
+/// Opens [ProductDetailScreen] as a bottom sheet, with a compact close
+/// button floating over the sheet's top edge instead of a drag handle.
+///
+/// Built on [showGeneralDialog] rather than [showModalBottomSheet] so the
+/// blurred backdrop can fade in/out on its own, independent of the sheet's
+/// slide — with showModalBottomSheet, the backdrop lived inside the same
+/// slide-animated content as the sheet and visibly slid down with it on
+/// dismiss instead of just disappearing.
+void showProductDetailSheet(BuildContext context, Product product) {
+  showGeneralDialog(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: Colors.transparent,
+    transitionDuration: const Duration(milliseconds: 300),
+    // We drive the fade (backdrop) and slide (sheet) ourselves from the same
+    // `animation` inside pageBuilder, so skip the framework's own default
+    // transition here or it'd fade the whole thing a second time.
+    transitionBuilder: (context, animation, secondaryAnimation, child) => child,
+    pageBuilder: (dialogContext, animation, secondaryAnimation) {
+      final sheetHeight =
+          MediaQuery.of(dialogContext).size.height * _kSheetHeightFactor;
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: FadeTransition(
+              opacity: animation,
+              child: GestureDetector(
+                onTap: () => Navigator.of(dialogContext).pop(),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                  child: Container(color: Colors.black.withValues(alpha: 0.35)),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: sheetHeight,
+                    child: ProductDetailScreen(product: product),
+                  ),
+                  Positioned(
+                    bottom: sheetHeight + 16,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: _SheetCloseButton(
+                        onTap: () => Navigator.of(dialogContext).pop(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _SheetCloseButton extends StatelessWidget {
+  const _SheetCloseButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.ink,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: const Padding(
+          padding: EdgeInsets.all(11),
+          child: SvgIcon(SvgIcons.close, size: 20, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
 
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({super.key, required this.product});
@@ -20,8 +120,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _launch(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('Error launching URL: $e');
+    }
+  }
+
+  // Keepa's price history opens in an in-app browser tab (Chrome Custom
+  // Tabs / SFSafariViewController) rather than a full external-app switch —
+  // it's a quick reference link, not a destination like Amazon/Telegram.
+  Future<void> _launchInApp(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    } catch (e) {
+      debugPrint('Error launching in-app URL: $e');
     }
   }
 
@@ -36,7 +150,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final discountPct =
         int.tryParse(p.disc.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
-    return Container(
+    // This screen uses Inter throughout rather than the Sora display font
+    // used elsewhere in the app — overriding both the theme's textTheme
+    // (for Text widgets built from it) and the ambient DefaultTextStyle
+    // (for the few with a raw, font-family-less TextStyle) covers every
+    // label in this subtree.
+    return Material(
+      type: MaterialType.transparency,
+      child: Theme(
+      data: Theme.of(context).copyWith(
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
+      ),
+      child: DefaultTextStyle.merge(
+        style: GoogleFonts.inter(),
+        child: Container(
       decoration: const BoxDecoration(
         color: AppColors.bg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
@@ -44,36 +171,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          const SizedBox(height: 10),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.hairline,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-            ),
-          ),
-          Expanded(
+              Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(
                 AppSpace.md,
+                AppSpace.lg,
                 AppSpace.md,
-                AppSpace.md,
-                100,
+                AppSpace.xl,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _ImageBlock(product: p, discountPct: discountPct, onShare: _share),
                   const SizedBox(height: AppSpace.lg),
-                  Text(
-                    p.category[0].toUpperCase() + p.category.substring(1),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.brand,
-                        ),
+                  _ClampedTitle(
+                    text: p.displayTitle,
+                    maxLines: 2,
+                    // Built directly (not via titleLarge.copyWith) — deriving
+                    // from a style GoogleFonts already resolved at weight 800
+                    // didn't reliably swap in the regular-weight font file,
+                    // so it kept rendering bold despite fontWeight: w400.
+                    style: GoogleFonts.inter(
+                      color: AppColors.ink,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(p.displayTitle, style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 14),
                   _PriceRow(product: p),
                   if (p.highlights.isNotEmpty) ...[
@@ -89,17 +213,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                   ],
-                  if (p.priceHistory.length >= 2) ...[
-                    const SizedBox(height: AppSpace.md),
-                    _Card(
-                      title: 'Price History',
-                      child: _PriceHistory(product: p, onOpenKeepa: _launch),
-                    ),
-                  ],
                   const SizedBox(height: AppSpace.md),
-                  Text(
-                    'Discounted price shown is off the listed MRP — check the product page on Amazon for the exact current price.',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  _Card(
+                    title: 'Price History',
+                    child: _PriceHistory(product: p, onOpenKeepa: _launchInApp),
                   ),
                 ],
               ),
@@ -108,6 +225,97 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           _BuyBar(onBuy: () => _launch(p.link)),
         ],
       ),
+        ),
+      ),
+      ),
+    );
+  }
+}
+
+/// Clamps [text] to [maxLines] on whole-word boundaries, then drops a
+/// trailing word if it's a dangling fragment — lone punctuation, a bare
+/// number, "(" running into a number, or a connector (and/with/for/to/from
+/// etc.) — so a 2-line-clipped title never ends mid-thought on something
+/// like "...P1007," or "...Printer for".
+class _ClampedTitle extends StatelessWidget {
+  const _ClampedTitle({
+    required this.text,
+    required this.style,
+    required this.maxLines,
+  });
+
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+
+  static const _connectors = {
+    'and', 'with', 'for', 'to', 'from', 'of', 'in', 'on', 'the', 'a', 'an',
+    'or', '&',
+  };
+  static const _trailingPunctuation = {
+    '-', ',', '/', '|', '(', ';', '.', '—',
+  };
+
+  static bool _isDanglingWord(String word) {
+    if (word.isEmpty) return true;
+    // No letters at all — a bare number, lone punctuation, or any mix of
+    // the two ("7-", "(2023", "1007,") — none of it reads as a finished
+    // thought on its own.
+    if (!RegExp(r'[A-Za-z]').hasMatch(word)) return true;
+    final letters = word.replaceAll(RegExp(r'[^A-Za-z]'), '').toLowerCase();
+    return _connectors.contains(letters);
+  }
+
+  static String _dropDanglingTail(String fitted) {
+    final words = fitted.split(' ');
+    while (words.isNotEmpty && _isDanglingWord(words.last)) {
+      words.removeLast();
+    }
+    var result = words.join(' ');
+    while (result.isNotEmpty &&
+        _trailingPunctuation.contains(result[result.length - 1])) {
+      result = result.substring(0, result.length - 1).trimRight();
+    }
+    return result.isEmpty ? fitted : result;
+  }
+
+  bool _fitsWithin(String candidate, double maxWidth, TextDirection direction) {
+    final painter = TextPainter(
+      text: TextSpan(text: candidate, style: style),
+      maxLines: maxLines,
+      textDirection: direction,
+    )..layout(maxWidth: maxWidth);
+    return !painter.didExceedMaxLines;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final direction = Directionality.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (_fitsWithin(text, constraints.maxWidth, direction)) {
+          return Text(text, style: style);
+        }
+
+        final words = text.split(' ');
+        var fitted = text;
+        for (var count = words.length - 1; count > 0; count--) {
+          final candidate = words.sublist(0, count).join(' ');
+          if (_fitsWithin(candidate, constraints.maxWidth, direction)) {
+            fitted = candidate;
+            break;
+          }
+        }
+
+        return Text(
+          _dropDanglingTail(fitted),
+          style: style,
+          // Safety net for the pathological single-word-too-wide case,
+          // where the fit-search above can't shrink below whole words.
+          maxLines: maxLines,
+          overflow: TextOverflow.clip,
+        );
+      },
     );
   }
 }
@@ -130,43 +338,88 @@ class _ImageBlock extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: cardShadow(),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: CachedNetworkImage(
-                imageUrl: product.image,
-                fit: BoxFit.contain,
               ),
             ),
           ),
-          if (discountPct > 0)
-            Positioned(
-              top: 14,
-              left: 14,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.brand,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Text(
-                  '$discountPct% OFF',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12.5,
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: CachedNetworkImage(
+                        imageUrl: product.image,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
-                ),
+                  if (discountPct > 0)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: SizedBox(
+                        width: 48,
+                        height: 47.6,
+                        child: Stack(
+                          children: [
+                            SvgPicture.string(
+                              SvgIcons.discountBadge,
+                              width: 48,
+                              height: 47.6,
+                            ),
+                            Positioned(
+                              top: 10,
+                              left: 10,
+                              child: DefaultTextStyle.merge(
+                                style: GoogleFonts.inter(),
+                                child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '$discountPct%',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'OFF',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
+          ),
           Positioned(
             bottom: 14,
             right: 14,
-            child: _RoundIconButton(icon: Icons.ios_share_rounded, onTap: onShare),
+            child: _RoundIconButton(
+              onTap: onShare,
+              child: const SvgIcon(SvgIcons.share, size: 18, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -175,21 +428,32 @@ class _ImageBlock extends StatelessWidget {
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.onTap});
-  final IconData icon;
+  const _RoundIconButton({required this.child, required this.onTap});
+  final Widget child;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.ink,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
-          child: Icon(icon, size: 18, color: Colors.white),
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: cardShadow(opacity: 0.5),
+      ),
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Material(
+            color: AppColors.ink.withValues(alpha: 0.55),
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: Center(
+                child: child,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -202,42 +466,52 @@ class _PriceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    // This row (price, MRP, savings pill) keeps the app's original
+    // Sora/Inter styling rather than this screen's ambient Inter override.
+    return Theme(
+      data: AppTheme.light,
+      child: DefaultTextStyle.merge(
+        style: GoogleFonts.inter(),
+        child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(product.price, style: Theme.of(context).textTheme.displaySmall),
+        Text(
+          product.price,
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                fontSize: 22,
+              ),
+        ),
         const SizedBox(width: 10),
         if (product.mrp != product.price)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 5),
-            child: Text(
-              product.mrp,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    decoration: TextDecoration.lineThrough,
-                  ),
-            ),
-          ),
-        const Spacer(),
-        if (product.savingsAmount > 0)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 5),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.successSoft,
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: Text(
-                'You save ₹${product.savingsAmount}',
-                style: const TextStyle(
-                  color: AppColors.success,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
+          Text(
+            product.mrp,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontSize: 17,
+                  color: AppColors.ink400,
+                  decoration: TextDecoration.lineThrough,
                 ),
-              ),
+          ),
+        if (product.lowestPriceText != null &&
+            product.lowestPriceText!.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          const LowestPriceBadge(fontSize: 12.5),
+        ] else if (product.couponPercent != null) ...[
+          const SizedBox(width: 8),
+          CouponBadge(percent: product.couponPercent!, fontSize: 12.5),
+        ] else if (product.savingsAmount > 0) ...[
+          const SizedBox(width: 6),
+          Text(
+            'You save ₹${product.savingsAmount}',
+            style: const TextStyle(
+              color: AppColors.success,
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
             ),
           ),
+        ],
       ],
+        ),
+      ),
     );
   }
 }
@@ -254,13 +528,18 @@ class _Card extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpace.md),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: cardShadow(opacity: 0.6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontSize: 12.5,
+                ),
+          ),
           const SizedBox(height: 12),
           child,
         ],
@@ -280,9 +559,19 @@ class _Highlights extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
+  // Some feeds prefix highlight bullets with an emoji (✅, 🐄, etc.) — strip
+  // it so bullets read as plain text, matching the rest of the app's copy.
+  static final _leadingEmoji = RegExp(
+    r'^[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\s]+',
+    unicode: true,
+  );
+
+  static String _clean(String text) =>
+      text.replaceFirst(_leadingEmoji, '').trimLeft();
+
   @override
   Widget build(BuildContext context) {
-    final visible = expanded ? highlights : highlights.take(4).toList();
+    final visible = expanded ? highlights : highlights.take(2).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -298,23 +587,55 @@ class _Highlights extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(h, style: Theme.of(context).textTheme.bodyLarge),
+                  child: Text(
+                    _clean(h),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontSize: 13,
+                        ),
+                  ),
                 ),
               ],
             ),
           ),
-        if (highlights.length > 4)
-          GestureDetector(
-            onTap: onToggle,
-            child: Text(
-              expanded ? 'Show less' : 'View more',
-              style: const TextStyle(
-                color: AppColors.brand,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
+        if (highlights.length > 2) ...[
+          const SizedBox(height: 4),
+          Center(
+            child: OutlinedButton(
+              onPressed: onToggle,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.brand,
+                side: const BorderSide(color: AppColors.hairline),
+                padding: const EdgeInsets.fromLTRB(10, 2, 4, 2),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    expanded ? 'Show less' : 'View more',
+                    style: const TextStyle(
+                      color: AppColors.brand,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(width: 1),
+                  Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 14,
+                    color: AppColors.brand,
+                  ),
+                ],
               ),
             ),
           ),
+        ],
       ],
     );
   }
@@ -327,24 +648,19 @@ class _PriceHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final prices = product.priceHistory.map((p) => p.price).toList();
-    final lowest = prices.reduce((a, b) => a < b ? a : b);
-    final highest = prices.reduce((a, b) => a > b ? a : b);
-    final current = prices.last;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            _Stat(label: 'Lowest', value: lowest, color: AppColors.success),
-            _Stat(label: 'Current', value: current, color: AppColors.ink),
-            _Stat(label: 'Highest', value: highest, color: AppColors.brand),
-          ],
+        Text(
+          'We track this deal\'s price around the clock — see the full '
+          'trend, including past highs and lows, on Keepa.',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontSize: 13,
+              ),
         ),
-        const SizedBox(height: 16),
-        SizedBox(height: 90, child: PriceChart(points: product.priceHistory)),
         if (product.asin != null && product.asin!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const _DashedDivider(),
           const SizedBox(height: 14),
           GestureDetector(
             onTap: () => onOpenKeepa(
@@ -352,15 +668,22 @@ class _PriceHistory extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(
-                  'See full price history on Keepa',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.brand,
-                        fontWeight: FontWeight.w700,
-                      ),
+                const SvgIcon(SvgIcons.chart, size: 16, color: AppColors.brand),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'See full price history on Keepa',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.brand,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.arrow_outward_rounded, size: 14, color: AppColors.brand),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: AppColors.brand,
+                ),
               ],
             ),
           ),
@@ -370,32 +693,49 @@ class _PriceHistory extends StatelessWidget {
   }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value, required this.color});
-  final String label;
-  final double value;
-  final Color color;
+/// A thin dashed rule used to separate the blurb from the Keepa link.
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider();
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            '₹${value.toStringAsFixed(0)}',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: color),
-          ),
-          const SizedBox(height: 2),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
+    return SizedBox(
+      width: double.infinity,
+      height: 1,
+      child: CustomPaint(painter: _DashedLinePainter()),
     );
   }
 }
 
-class _BuyBar extends StatelessWidget {
+class _DashedLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const dashWidth = 5.0;
+    const dashSpace = 4.0;
+    final paint = Paint()
+      ..color = AppColors.hairline
+      ..strokeWidth = 1;
+    var x = 0.0;
+    while (x < size.width) {
+      canvas.drawLine(Offset(x, 0), Offset(x + dashWidth, 0), paint);
+      x += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) => false;
+}
+
+class _BuyBar extends StatefulWidget {
   const _BuyBar({required this.onBuy});
   final VoidCallback onBuy;
+
+  @override
+  State<_BuyBar> createState() => _BuyBarState();
+}
+
+class _BuyBarState extends State<_BuyBar> {
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -407,17 +747,49 @@ class _BuyBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: onBuy,
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Buy on Amazon'),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_outward_rounded, size: 17),
-              ],
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) => setState(() => _isPressed = false),
+          onTapCancel: () => setState(() => _isPressed = false),
+          onTap: widget.onBuy,
+          child: AnimatedScale(
+            scale: _isPressed ? 0.96 : 1.0,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOutCubic,
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                color: const Color(0xFF00B876), // Premium emerald green
+                borderRadius: BorderRadius.circular(999), // Fully rounded pill
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00B876).withValues(alpha: 0.18),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Buy on Amazon',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(
+                    Icons.arrow_outward_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

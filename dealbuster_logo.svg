@@ -1,0 +1,22 @@
+<svg width="400" height="100" viewBox="0 0 400 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Sora:wght@800&amp;display=swap');
+      .logo-text {
+        font-family: 'Sora', sans-serif;
+        font-weight: 800;
+        font-size: 56px;
+        letter-spacing: -1.5px;
+      }
+      .part-deal {
+        fill: #14121F;
+      }
+      .part-buster {
+        fill: #FF5A3C;
+      }
+    </style>
+  </defs>
+  <text x="10" y="68" class="logo-text">
+    <tspan class="part-deal">Deal</tspan><tspan class="part-buster">Buster</tspan>
+  </text>
+</svg>

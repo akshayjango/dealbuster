@@ -63,7 +63,30 @@ class Product {
   });
 
   // Replicate web logic for displaying title: title.split('|')[0].trim()
-  String get displayTitle => title.split('|')[0].trim();
+  // Also strips leading bracketed tags like "[Apply 5% Coupon] [MRP Error]"
+  // that some feeds prepend to the title.
+  String get displayTitle {
+    final base = title.split('|')[0].trim();
+    final stripped =
+        base.replaceFirst(RegExp(r'^(\s*\[[^\]]*\]\s*)+'), '').trim();
+    return stripped.isEmpty ? base : stripped;
+  }
+
+  // Pulls a coupon percentage (e.g. "5%") out of a leading "[Apply 5%
+  // Coupon]"-style tag, if the feed prepended one — null for plain "[Bank
+  // Offer ICICI/HDFC]" tags with no coupon percentage, or no tags at all.
+  String? get couponPercent {
+    final base = title.split('|')[0].trim();
+    final leading = RegExp(r'^(\s*\[[^\]]*\]\s*)+').firstMatch(base);
+    if (leading == null) return null;
+    for (final tag in RegExp(r'\[([^\]]*)\]').allMatches(leading.group(0)!)) {
+      final label = tag.group(1) ?? '';
+      if (!label.toLowerCase().contains('coupon')) continue;
+      final pct = RegExp(r'(\d+)\s*%').firstMatch(label);
+      if (pct != null) return '${pct.group(1)}%';
+    }
+    return null;
+  }
 
   // Replicate savings calculation logic
   int get savingsAmount {

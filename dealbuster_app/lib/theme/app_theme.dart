@@ -94,7 +94,6 @@ class AppTheme {
         labelSmall: body.copyWith(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.4,
         ),
       ),
       iconTheme: const IconThemeData(color: AppColors.ink),

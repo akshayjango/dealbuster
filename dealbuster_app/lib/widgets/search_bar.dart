@@ -22,6 +22,7 @@ class DealSearchBar extends StatefulWidget {
     this.onChanged,
     this.controller,
     this.autofocus = false,
+    this.onBack,
   });
 
   final bool editable;
@@ -29,6 +30,10 @@ class DealSearchBar extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final TextEditingController? controller;
   final bool autofocus;
+  // When set, the leading search icon is swapped for a back chevron (the
+  // search screen's use of this bar) instead of the plain magnifying glass
+  // shown on the home screen's trigger version.
+  final VoidCallback? onBack;
 
   @override
   State<DealSearchBar> createState() => _DealSearchBarState();
@@ -69,16 +74,27 @@ class _DealSearchBarState extends State<DealSearchBar>
   @override
   Widget build(BuildContext context) {
     final field = Container(
-      height: 50,
+      height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: cardShadow(),
       ),
       child: Row(
         children: [
-          const SvgIcon(SvgIcons.search, size: 19, color: AppColors.ink400),
+          if (widget.onBack != null)
+            GestureDetector(
+              onTap: widget.onBack,
+              behavior: HitTestBehavior.opaque,
+              child: const Icon(
+                Icons.chevron_left_rounded,
+                size: 26,
+                color: AppColors.ink,
+              ),
+            )
+          else
+            const SvgIcon(SvgIcons.search, size: 19, color: AppColors.ink400),
           const SizedBox(width: 10),
           Expanded(
             child: widget.editable
@@ -103,18 +119,37 @@ class _DealSearchBarState extends State<DealSearchBar>
                         opacity: _fade,
                         child: Text(
                           '"${_kSuggestions[_wordIndex]}"',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.copyWith(
-                                color: AppColors.ink,
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
                     ],
                   ),
           ),
+          if (widget.editable &&
+              widget.controller != null &&
+              widget.controller!.text.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                widget.controller!.clear();
+                widget.onChanged?.call('');
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                  color: AppColors.hairline,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 14,
+                  color: AppColors.ink700,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

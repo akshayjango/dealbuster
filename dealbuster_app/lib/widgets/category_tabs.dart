@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/svg_icons.dart';
 
-/// Horizontally scrolling pill selector for the seven fixed categories.
+/// Horizontally scrolling icon-over-label tab strip for the seven fixed
+/// categories, underlined divider below and a small indicator bar marking
+/// the selected tab — a plain tab bar rather than filled pill chips.
 class CategoryTabs extends StatelessWidget {
   const CategoryTabs({
     super.key,
@@ -17,29 +19,41 @@ class CategoryTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.bg,
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
-        itemCount: kCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final cat = kCategories[i];
-          final isSelected = cat.key == selected;
-          return _Chip(
-            label: cat.label,
-            icon: cat.icon,
-            selected: isSelected,
-            onTap: () => onSelect(cat.key),
-          );
-        },
+      height: 60.0,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: SizedBox(
+              height: 46,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(24, 0, AppSpace.md, 0),
+                itemCount: kCategories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 30),
+                itemBuilder: (context, i) {
+                  final cat = kCategories[i];
+                  final isSelected = cat.key == selected;
+                  return _Tab(
+                    label: cat.label,
+                    icon: cat.icon,
+                    selected: isSelected,
+                    onTap: () => onSelect(cat.key),
+                  );
+                },
+              ),
+            ),
+          ),
+          const Spacer(),
+          Container(height: 1, color: AppColors.hairline),
+        ],
       ),
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({
+class _Tab extends StatelessWidget {
+  const _Tab({
     required this.label,
     required this.icon,
     required this.selected,
@@ -53,37 +67,34 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = selected ? AppColors.ink : AppColors.ink400;
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.ink : AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(
-            color: selected ? AppColors.ink : AppColors.hairline,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          SvgIcon(icon, size: 20, color: color),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontSize: 12.5,
+                  color: color,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SvgIcon(
-              icon,
-              size: 16,
-              color: selected ? Colors.white : AppColors.ink700,
+          const SizedBox(height: 4),
+          Container(
+            height: 2.5,
+            width: 22,
+            decoration: BoxDecoration(
+              color: selected ? AppColors.brand : Colors.transparent,
+              borderRadius: BorderRadius.circular(2),
             ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontSize: 13,
-                    color: selected ? Colors.white : AppColors.ink700,
-                  ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -91,7 +102,7 @@ class _Chip extends StatelessWidget {
 
 /// Keeps the tab strip pinned under the app bar while scrolling the grid.
 class CategoryTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
-  CategoryTabsHeaderDelegate({required this.child, this.height = 56});
+  CategoryTabsHeaderDelegate({required this.child, this.height = 60});
 
   final Widget child;
   final double height;

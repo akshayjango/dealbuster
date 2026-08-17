@@ -8,7 +8,13 @@ import '../widgets/search_bar.dart';
 import 'product_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  // The home screen already has the full catalog in memory by the time
+  // search is reachable — passing it straight in makes results appear
+  // instantly instead of re-fetching over the network on every open.
+  // [initialProducts] only falls back to a fresh fetch if it's empty.
+  const SearchScreen({super.key, this.initialProducts = const []});
+
+  final List<Product> initialProducts;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -18,19 +24,23 @@ class _SearchScreenState extends State<SearchScreen> {
   final _api = ApiService();
   final _controller = TextEditingController();
 
-  List<Product> _all = [];
-  bool _loading = true;
+  late List<Product> _all;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    _api.fetchProducts().then((products) {
-      if (!mounted) return;
-      setState(() {
-        _all = products;
-        _loading = false;
+    _all = widget.initialProducts;
+    if (_all.isEmpty) {
+      _loading = true;
+      _api.fetchProducts().then((products) {
+        if (!mounted) return;
+        setState(() {
+          _all = products;
+          _loading = false;
+        });
       });
-    });
+    }
   }
 
   @override
@@ -46,15 +56,8 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _openProduct(Product product) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => FractionallySizedBox(
-        heightFactor: 0.92,
-        child: ProductDetailScreen(product: product),
-      ),
-    );
+    FocusScope.of(context).unfocus();
+    showProductDetailSheet(context, product);
   }
 
   @override
@@ -68,29 +71,25 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpace.md, AppSpace.sm, AppSpace.md, AppSpace.sm),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded),
-                  ),
-                  Expanded(
-                    child: DealSearchBar(
-                      editable: true,
-                      autofocus: true,
-                      controller: _controller,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpace.md, AppSpace.sm, AppSpace.md, AppSpace.sm),
+              child: DealSearchBar(
+                editable: true,
+                autofocus: true,
+                controller: _controller,
+                onChanged: (_) => setState(() {}),
+                onBack: () => Navigator.of(context).pop(),
               ),
             ),
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.brand))
-                  : query.isEmpty
-                      ? const _SearchPrompt()
+              child: query.isEmpty
+                  ? const SizedBox.shrink()
+                  : _loading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.brand,
+                          ),
+                        )
                       : results.isEmpty
                           ? _NoResults(query: query)
                           : GridView.builder(
@@ -105,7 +104,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 crossAxisCount: 2,
                                 mainAxisSpacing: 14,
                                 crossAxisSpacing: 14,
-                                childAspectRatio: 0.56,
+                                childAspectRatio: 0.68,
                               ),
                               itemCount: results.length,
                               itemBuilder: (context, i) => ProductCard(
@@ -113,30 +112,6 @@ class _SearchScreenState extends State<SearchScreen> {
                                 onTap: () => _openProduct(results[i]),
                               ),
                             ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchPrompt extends StatelessWidget {
-  const _SearchPrompt();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpace.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.travel_explore_rounded, size: 42, color: AppColors.ink400),
-            const SizedBox(height: 12),
-            Text(
-              'Find deals by product name',
-              style: Theme.of(context).textTheme.bodyLarge,
             ),
           ],
         ),
@@ -157,8 +132,6 @@ class _NoResults extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_rounded, size: 42, color: AppColors.ink400),
-            const SizedBox(height: 12),
             Text(
               'No deals found for "$query"',
               textAlign: TextAlign.center,
