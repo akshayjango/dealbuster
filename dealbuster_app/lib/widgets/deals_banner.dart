@@ -3,6 +3,19 @@
 // Box: fixed height 176, width fills the parent (design reference 343 x 176).
 // Everything inside is authored on a 686 x 352 reference canvas and scaled by
 // (width / 686), so the art keeps its proportions at any phone width.
+//
+// pubspec.yaml
+//   dependencies:
+//     flutter_svg: ^2.0.10
+//   flutter:
+//     assets:
+//       - assets/icons/
+//
+// Usage
+//   Padding(
+//     padding: const EdgeInsets.symmetric(horizontal: 16),
+//     child: const DealsBanner(),
+//   )
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -60,10 +73,10 @@ class _Product {
 
 // Positions are on the 686 x 352 reference canvas, relative to the bag anchor.
 const _products = <_Product>[
-  _Product('assets/icons/sunscreen.svg', -89, -43, 56, 0.00, -12),
-  _Product('assets/icons/headphones.svg', -43, -92, 58, 0.18, -8),
-  _Product('assets/icons/clock.svg', 26, -66, 40, 0.36, 14),
-  _Product('assets/icons/player.svg', 81, -60, 68, 0.54, 6),
+  _Product('assets/icons/sunscreen.svg', -89, -38, 56, 0.00, -12),
+  _Product('assets/icons/headphones.svg', -43, -80, 58, 0.18, -8),
+  _Product('assets/icons/clock.svg', 26, -60, 40, 0.36, 14),
+  _Product('assets/icons/player.svg', 81, -54, 68, 0.54, 6),
 ];
 
 class DealsBanner extends StatefulWidget {
@@ -201,7 +214,7 @@ class _Frame extends StatelessWidget {
         Positioned(
           left: 45 * s,
           top: 72 * s,
-          width: 343 * s,
+          width: 318 * s,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -222,12 +235,18 @@ class _Frame extends StatelessWidget {
                     _ScaleFade(
                       v: s1,
                       from: 0.84,
-                      child: Text(cfg.headline, style: _h1(s)),
+                      child: SizedBox(
+                        width: 318 * s,
+                        child: Text(cfg.headline, maxLines: 2, style: _h1(s)),
+                      ),
                     ),
                     _ScaleFade(
                       v: s2,
                       from: 0.84,
-                      child: Text(cfg.headlineB, style: _h1(s)),
+                      child: SizedBox(
+                        width: 318 * s,
+                        child: Text(cfg.headlineB, maxLines: 2, style: _h1(s)),
+                      ),
                     ),
                   ],
                 ),
@@ -243,14 +262,22 @@ class _Frame extends StatelessWidget {
                       child: _ScaleFade(
                         v: g1,
                         from: 0.86,
-                        child: Text(
-                          cfg.subA,
-                          maxLines: 1,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.80),
-                            fontSize: 16 * s,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.16 * s,
+                        child: SizedBox(
+                          width: 318 * s,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              cfg.subA,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.80),
+                                fontSize: 16 * s,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.16 * s,
+                              ),
+                            ),
                           ),
                         ),
                       ),
