@@ -108,6 +108,7 @@ class _DealsBannerState extends State<DealsBanner> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, box) {
       final w = box.maxWidth;
+      if (w <= 0) return const SizedBox();
       final s = w / 686.0; // reference canvas -> real px
       return ClipRRect(
         borderRadius: BorderRadius.circular(widget.borderRadius),
@@ -548,7 +549,6 @@ class _Badge extends StatelessWidget {
   }
 }
 
-// --------------------------------------------------------------- glowing tag
 class _GlowTag extends StatelessWidget {
   const _GlowTag({required this.s, required this.t, required this.text});
   final double s, t;
@@ -556,8 +556,11 @@ class _GlowTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _GlowBorderPainter(angle: (t * 150) % 360 * math.pi / 180, s: s),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(9 * s),
+        border: Border.all(color: _accent, width: 1.6 * s),
+      ),
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 7.5 * s),
         child: Text(
@@ -572,48 +575,6 @@ class _GlowTag extends StatelessWidget {
       ),
     );
   }
-}
-
-class _GlowBorderPainter extends CustomPainter {
-  _GlowBorderPainter({required this.angle, required this.s});
-  final double angle, s;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect.deflate(1 * s), Radius.circular(9 * s));
-    final shader = SweepGradient(
-      transform: GradientRotation(angle),
-      colors: [
-        Colors.white.withOpacity(0.10),
-        Colors.white.withOpacity(0.10),
-        _accent,
-        Colors.white,
-        _accent,
-        Colors.white.withOpacity(0.10),
-      ],
-      stops: const [0.0, 0.69, 0.85, 0.955, 0.978, 1.0],
-    ).createShader(rect);
-
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6 * s
-        ..shader = shader
-        ..maskFilter = MaskFilter.blur(BlurStyle.outer, 3 * s),
-    );
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6 * s
-        ..shader = shader,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_GlowBorderPainter old) => old.angle != angle;
 }
 
 // --------------------------------------------------------------- calendar
