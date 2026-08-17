@@ -410,6 +410,48 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   }
 }
 
+async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
+  const primaryUrl = env.SCRAPER_API_URL;
+  const backupUrl = env.SCRAPER_API_URL_BACKUP;
+
+  if (!primaryUrl) {
+    throw new Error('SCRAPER_API_URL not configured');
+  }
+
+  function getProxyRequestUrl(baseUrl, target) {
+    let url = baseUrl;
+    if (!url.includes('url=')) {
+      url += (url.includes('?') ? '&' : '?') + 'url=';
+    }
+    return url + encodeURIComponent(target);
+  }
+
+  const primaryProxyUrl = getProxyRequestUrl(primaryUrl, targetUrl);
+  try {
+    const res = await fetchWithTimeout(primaryProxyUrl, options, timeoutMs);
+    if (res.status !== 403 && res.status !== 429) {
+      return res;
+    }
+
+    if (backupUrl) {
+      const text = await res.clone().text().catch(() => '');
+      if (text.includes('limit') || text.includes('suspended') || text.includes('billing') || res.status === 429) {
+        console.log('Primary proxy key exhausted/limit reached. Falling back to backup proxy...');
+        const backupProxyUrl = getProxyRequestUrl(backupUrl, targetUrl);
+        return await fetchWithTimeout(backupProxyUrl, options, timeoutMs);
+      }
+    }
+    return res;
+  } catch (err) {
+    if (backupUrl) {
+      console.log('Primary proxy fetch failed with error: ' + err.message + '. Falling back to backup proxy...');
+      const backupProxyUrl = getProxyRequestUrl(backupUrl, targetUrl);
+      return await fetchWithTimeout(backupProxyUrl, options, timeoutMs);
+    }
+    throw err;
+  }
+}
+
 // Derive product image from ASIN — no subrequest needed
 function asinImage(asin) {
   return `https://m.media-amazon.com/images/P/${asin}.01._SL500_.jpg`;
@@ -625,13 +667,12 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   try {
     const targetUrl = 'https://www.indiafreestuff.in/trending';
-    const proxyUrl = env.SCRAPER_API_URL + encodeURIComponent(targetUrl);
 
     // Fetch trending page with a 20-second timeout to allow the proxy to solve WAF
-    let r = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000);
+    let r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
     if (!r.ok) {
       await new Promise(res => setTimeout(res, 3000));
-      r = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000);
+      r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
     }
     if (!r.ok) {
       const cfMitigated = r.headers.get('cf-mitigated') || 'none';
@@ -787,13 +828,12 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       let asin = '';
       try {
         const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
-        const redirProxy = env.SCRAPER_API_URL + encodeURIComponent(redirTarget);
 
         // Use a 15-second timeout for proxy redirect resolving
-        const red = await fetchWithTimeout(redirProxy, {
+        const red = await fetchWithProxy(redirTarget, {
           redirect: 'manual',
           headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
-        }, 15000);
+        }, 15000, env);
         
         const loc = red.headers.get('location') || '';
         if (loc.includes('amazon.in')) {
