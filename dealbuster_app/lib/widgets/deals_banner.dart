@@ -212,14 +212,14 @@ class _Frame extends StatelessWidget {
 
         // ---------------------------------------------------------- left column
         Positioned(
-          left: 45 * s,
-          top: 72 * s,
-          width: 318 * s,
+          left: math.max(16.0, 30 * s),
+          top: 60 * s,
+          width: 420 * s,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Transform.translate(
-                offset: Offset(0, -31 * s),
+                offset: Offset(0, -24 * s),
                 child: _Badge(
                   s: s,
                   text: cfg.badge,
@@ -236,7 +236,7 @@ class _Frame extends StatelessWidget {
                       v: s1,
                       from: 0.84,
                       child: SizedBox(
-                        width: 318 * s,
+                        width: 420 * s,
                         child: Text(cfg.headline, maxLines: 2, style: _h1(s)),
                       ),
                     ),
@@ -244,14 +244,14 @@ class _Frame extends StatelessWidget {
                       v: s2,
                       from: 0.84,
                       child: SizedBox(
-                        width: 318 * s,
+                        width: 420 * s,
                         child: Text(cfg.headlineB, maxLines: 2, style: _h1(s)),
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 21 * s),
+              SizedBox(height: 16 * s),
               SizedBox(
                 height: 35 * s,
                 child: Stack(
@@ -263,7 +263,7 @@ class _Frame extends StatelessWidget {
                         v: g1,
                         from: 0.86,
                         child: SizedBox(
-                          width: 318 * s,
+                          width: 420 * s,
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
@@ -273,7 +273,7 @@ class _Frame extends StatelessWidget {
                               softWrap: false,
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.80),
-                                fontSize: 16 * s,
+                                fontSize: math.max(11.5, 16 * s),
                                 fontWeight: FontWeight.w500,
                                 letterSpacing: -0.16 * s,
                               ),
@@ -329,7 +329,7 @@ class _Frame extends StatelessWidget {
 
   TextStyle _h1(double s) => TextStyle(
         color: Colors.white,
-        fontSize: 44 * s,
+        fontSize: math.max(22.0, 44 * s),
         height: 1.03,
         fontWeight: FontWeight.w800,
         letterSpacing: -1.5 * s,
@@ -513,13 +513,18 @@ class _Badge extends StatelessWidget {
         child: Stack(
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(12 * s, 7 * s, 14 * s, 7 * s),
+              padding: EdgeInsets.fromLTRB(
+                math.max(10.0, 12 * s),
+                math.max(5.0, 7 * s),
+                math.max(12.0, 14 * s),
+                math.max(5.0, 7 * s),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 7.5 * s,
-                    height: 7.5 * s,
+                    width: math.max(6.0, 7.5 * s),
+                    height: math.max(6.0, 7.5 * s),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: _accent.withOpacity(0.75 + 0.25 * ping),
@@ -528,12 +533,12 @@ class _Badge extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(width: 7.5 * s),
+                  SizedBox(width: math.max(6.0, 7.5 * s)),
                   Text(
                     text,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 14 * s,
+                      fontSize: math.max(11.0, 14 * s),
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.14 * s,
                     ),
@@ -589,12 +594,15 @@ class _GlowTag extends StatelessWidget {
         border: Border.all(color: _accent, width: 1.6 * s),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 7.5 * s),
+        padding: EdgeInsets.symmetric(
+          horizontal: math.max(12.0, 16 * s),
+          vertical: math.max(6.0, 7.5 * s),
+        ),
         child: Text(
           text,
           style: TextStyle(
             color: Colors.white,
-            fontSize: 16 * s,
+            fontSize: math.max(11.5, 16 * s),
             fontWeight: FontWeight.w700,
             letterSpacing: 0.32 * s,
           ),
