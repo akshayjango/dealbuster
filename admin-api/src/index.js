@@ -411,45 +411,56 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
 }
 
 async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
-  const primaryUrl = env.SCRAPER_API_URL;
-  const backupUrl = env.SCRAPER_API_URL_BACKUP;
+  const keysStr = env.SCRAPER_API_KEYS || '';
+  const keys = keysStr.split(',').map(k => k.trim()).filter(Boolean);
 
-  if (!primaryUrl) {
-    throw new Error('SCRAPER_API_URL not configured');
+  function getProxyRequestUrl(key, target) {
+    return `http://api.scraperapi.com/?api_key=${key}&url=${encodeURIComponent(target)}`;
   }
 
-  function getProxyRequestUrl(baseUrl, target) {
-    let url = baseUrl;
+  // Fallback to legacy SCRAPER_API_URL if SCRAPER_API_KEYS is not configured
+  if (keys.length === 0) {
+    const primaryUrl = env.SCRAPER_API_URL;
+    if (!primaryUrl) {
+      throw new Error('Neither SCRAPER_API_KEYS nor SCRAPER_API_URL is configured');
+    }
+    let url = primaryUrl;
     if (!url.includes('url=')) {
       url += (url.includes('?') ? '&' : '?') + 'url=';
     }
-    return url + encodeURIComponent(target);
+    const proxyUrl = url + encodeURIComponent(targetUrl);
+    return await fetchWithTimeout(proxyUrl, options, timeoutMs);
   }
 
-  const primaryProxyUrl = getProxyRequestUrl(primaryUrl, targetUrl);
-  try {
-    const res = await fetchWithTimeout(primaryProxyUrl, options, timeoutMs);
-    if (res.status !== 403 && res.status !== 429) {
-      return res;
-    }
+  // Iterate through keys in order
+  for (let idx = 0; idx < keys.length; idx++) {
+    const key = keys[idx];
+    const proxyUrl = getProxyRequestUrl(key, targetUrl);
+    try {
+      console.log(`Trying proxy with key index ${idx}...`);
+      const res = await fetchWithTimeout(proxyUrl, options, timeoutMs);
+      
+      // If successful, return the response
+      if (res.status !== 403 && res.status !== 429) {
+        return res;
+      }
 
-    if (backupUrl) {
+      // Check if it is a credit exhaustion error
       const text = await res.clone().text().catch(() => '');
       if (text.includes('limit') || text.includes('suspended') || text.includes('billing') || res.status === 429) {
-        console.log('Primary proxy key exhausted/limit reached. Falling back to backup proxy...');
-        const backupProxyUrl = getProxyRequestUrl(backupUrl, targetUrl);
-        return await fetchWithTimeout(backupProxyUrl, options, timeoutMs);
+        console.log(`Proxy key index ${idx} exhausted/suspended. Trying next key...`);
+        continue; // Try next key
+      }
+      return res; // Some other HTTP error (e.g. 500), return it
+    } catch (err) {
+      console.log(`Proxy key index ${idx} failed with error: ${err.message}. Trying next key...`);
+      if (idx === keys.length - 1) {
+        throw err; // Re-throw if it was the last key
       }
     }
-    return res;
-  } catch (err) {
-    if (backupUrl) {
-      console.log('Primary proxy fetch failed with error: ' + err.message + '. Falling back to backup proxy...');
-      const backupProxyUrl = getProxyRequestUrl(backupUrl, targetUrl);
-      return await fetchWithTimeout(backupProxyUrl, options, timeoutMs);
-    }
-    throw err;
   }
+  
+  throw new Error('All configured proxy keys were exhausted or failed');
 }
 
 // Derive product image from ASIN — no subrequest needed
