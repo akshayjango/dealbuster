@@ -179,7 +179,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return _all.where((p) {
         final price =
             double.tryParse(p.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
-        return price > 0 && price < 500;
+        final discountPct = int.tryParse(p.disc.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        final hasCoupon = p.couponPercent != null;
+        final isLowestPrice = p.lowestPriceText != null && p.lowestPriceText!.isNotEmpty;
+
+        return (price > 0 && price < 500) ||
+            (discountPct >= 70) ||
+            hasCoupon ||
+            isLowestPrice;
       }).toList();
     }
     return _all.where((p) => p.category == _category).toList();
