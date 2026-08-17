@@ -40,7 +40,6 @@ double _exit(double t, double from, double to, double start, [double dur = 0.5])
 const _bg0 = Color(0xFF2B0F3F);
 const _bg1 = Color(0xFF7A1E37);
 const _bg2 = Color(0xFFC0341C);
-const _accent = Color(0xFF4BE0A2);
 
 class _Product {
   const _Product(this.asset, this.dx, this.dy, this.size, this.delay, this.rot);
@@ -165,33 +164,26 @@ class _Frame extends StatelessWidget {
       children: [
         // ---------------------------------------------------------- left column
         Positioned(
-          left: math.max(16.0, 30 * s),
-          top: 54 * s,
-          width: 420 * s,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Transform.translate(
-                offset: Offset(0, -22 * s),
-                child: _LiveBadge(count: liveDealCount, s: s, ping: ping),
-              ),
-              SizedBox(
-                height: 92 * s,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Deals that\ndon\'t wait.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: math.max(22.0, 44 * s),
-                      height: 1.05,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.5 * s,
-                    ),
-                  ),
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 250,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _LiveBadge(count: liveDealCount, ping: ping),
+                Text(
+                  'Deals that\ndon\'t wait.',
+                  style: Theme.of(context)
+                      .textTheme
+                      .displaySmall
+                      ?.copyWith(color: Colors.white, height: 1.05),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
 
@@ -358,19 +350,14 @@ class _BottomInset extends CustomClipper<Rect> {
 
 // --------------------------------------------------------------- live badge
 class _LiveBadge extends StatelessWidget {
-  const _LiveBadge({required this.count, required this.s, required this.ping});
+  const _LiveBadge({required this.count, required this.ping});
   final int count;
-  final double s, ping;
+  final double ping;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        math.max(10.0, 12 * s),
-        math.max(5.0, 7 * s),
-        math.max(12.0, 14 * s),
-        math.max(5.0, 7 * s),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -380,25 +367,25 @@ class _LiveBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: math.max(6.0, 7.5 * s),
-            height: math.max(6.0, 7.5 * s),
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: const Color(0xFF6CFFB0).withOpacity(0.75 + 0.25 * ping),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF6CFFB0),
-                  blurRadius: (4 + 3 * ping) * s,
+                  blurRadius: 4 + 3 * ping,
                 ),
               ],
             ),
           ),
-          SizedBox(width: math.max(6.0, 7.5 * s)),
+          const SizedBox(width: 6),
           Text(
             '$count deals live now',
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: math.max(11.0, 11.5 * s),
+              fontSize: 11.5,
               fontWeight: FontWeight.w700,
             ),
           ),
