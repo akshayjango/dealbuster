@@ -10,7 +10,7 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/svg_icons.dart';
 import '../widgets/category_tabs.dart';
-import '../widgets/hero_banner.dart';
+import '../widgets/deals_banner.dart';
 import '../widgets/product_card.dart';
 import '../widgets/search_bar.dart';
 import 'product_detail_screen.dart';
@@ -226,7 +226,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                      heroBanner: HeroBanner(liveDealCount: _all.length),
+                      heroBanner: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            AppSpace.md, 14, AppSpace.md, AppSpace.md),
+                        child: DealsBanner(
+                          badge: '${_all.length} deals live now',
+                          borderRadius: AppRadius.lg,
+                        ),
+                      ),
                       categoryTabs: CategoryTabs(
                         selected: _category,
                         onSelect: (c) {
