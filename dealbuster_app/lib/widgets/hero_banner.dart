@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
 // ---------------------------------------------------------------- timing
@@ -177,10 +178,12 @@ class _Frame extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   'Deals that\ndon\'t wait.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .displaySmall
-                      ?.copyWith(color: Colors.white, height: 1.05),
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    height: 1.05,
+                  ),
                 ),
                 const Spacer(),
                 Text(
