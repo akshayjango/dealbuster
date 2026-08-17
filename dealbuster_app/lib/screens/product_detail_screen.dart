@@ -761,7 +761,7 @@ class _BuyBarState extends State<_BuyBar> {
               height: 52,
               decoration: BoxDecoration(
                 color: const Color(0xFF00B876), // Premium emerald green
-                borderRadius: BorderRadius.circular(999), // Fully rounded pill
+                borderRadius: BorderRadius.circular(12), // Restored original rounded corner (12)
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF00B876).withValues(alpha: 0.18),
@@ -771,22 +771,22 @@ class _BuyBarState extends State<_BuyBar> {
                   ),
                 ],
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     'Buy on Amazon',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
                   ),
-                  SizedBox(width: 8),
-                  Icon(
+                  const SizedBox(width: 8),
+                  const Icon(
                     Icons.arrow_outward_rounded,
                     color: Colors.white,
-                    size: 18,
+                    size: 17,
                   ),
                 ],
               ),
