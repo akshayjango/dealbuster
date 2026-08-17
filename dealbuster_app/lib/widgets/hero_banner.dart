@@ -172,15 +172,24 @@ class _Frame extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _LiveBadge(count: liveDealCount, ping: ping),
+                const SizedBox(height: 12),
                 Text(
                   'Deals that\ndon\'t wait.',
                   style: Theme.of(context)
                       .textTheme
                       .displaySmall
                       ?.copyWith(color: Colors.white, height: 1.05),
+                ),
+                const Spacer(),
+                Text(
+                  'Fresh price drops tracked around the clock.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
