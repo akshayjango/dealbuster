@@ -185,10 +185,6 @@
       object-fit: contain;
       background: #fff;
     }
-    /* Direct child only — the share button's own icon is also an <svg>
-       inside .product-img-box (nested in its button), but as a grandchild,
-       not a direct child, so it's correctly excluded from this placeholder-
-       icon-only styling (and from the onload handler's selector below). */
     .product-img-box > svg {
       position: absolute;
       top: 50%; left: 50%;
@@ -209,17 +205,6 @@
       border: none; box-shadow: none;
       z-index: 10;
     }
-
-    /* Share button overlaid on the hero image (mobile — see .img-share-btn
-       positioning in the mobile media query below). Kept as a plain inline
-       button on desktop, where the image doesn't need an overlay control. */
-    .fa-btn {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: rgba(255,255,255,.95); display: flex; align-items: center;
-      justify-content: center; box-shadow: var(--shadow-sm); color: var(--text);
-      text-decoration: none; border: 1px solid rgba(23,25,43,.1); cursor: pointer; flex-shrink: 0;
-    }
-    .fa-btn svg { width: 20px; height: 20px; }
 
     /* Mobile popup presentation (backdrop / close button / sheet) — no-op
        on desktop, where this page is a normal full page. */
@@ -266,7 +251,7 @@
       background: none; border: none; padding: 0;
       display: inline-block; box-shadow: none;
     }
-    .price-meta { display: flex; flex-direction: column; gap: 2px; }
+    .price-meta { display: flex; flex-direction: row; align-items: center; gap: 10px; flex-wrap: wrap; }
     .price-original { font-size: 1.1rem; color: var(--muted); text-decoration: line-through; font-weight: 500; }
     .savings-tag {
       background: #E8F8F0; color: #12925A; border: none; border-radius: 999px;
@@ -375,7 +360,7 @@
     .hl-view-more.is-open svg { transform: rotate(180deg); }
 
     /* PRICE HISTORY */
-    .price-history-wrap { max-width: 960px; margin: 50px auto 0; padding: 0 20px; }
+    .price-history-wrap { max-width: 960px; margin: 50px auto 50px; padding: 0 20px; }
     .ph-header { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 12px; }
     .price-history-wrap h2 {
       font-size: 1.4rem; font-weight: 800; margin-bottom: 0; color: var(--text);
@@ -452,7 +437,7 @@
 
       .product-wrap { grid-template-columns: 1fr; margin: 0 auto 16px; padding: 0; gap: 6px; }
 
-      /* Hero image: inset card (see .product-img-box below), share icon overlaid on top */
+      /* Hero image: inset card (see .product-img-box below) */
       .img-col { width: 100%; max-width: 100%; gap: 0; padding: 14px 14px 0; }
       .product-img-box {
         /* Square, inset within the sheet's normal left/right padding (no
@@ -463,10 +448,6 @@
         border-radius: var(--radius-lg);
         box-shadow: var(--shadow-sm);
       }
-      /* Share button overlaid on the bottom-right corner of the hero image —
-         same 14px right gap it always had (originally the floating-actions
-         bar's edge padding), just anchored to the bottom instead of the top. */
-      .img-share-btn { position: absolute; bottom: 14px; right: 14px; z-index: 5; }
 
       /* Popup presentation: blurred backdrop (the hero image itself, blurred
          and scaled up to hide edge artifacts) behind a floating close
@@ -784,9 +765,6 @@
   <!-- LEFT -->
   <div class="img-col">
     <div class="product-img-box" id="imgBox">
-      <button class="fa-btn img-share-btn" onclick="shareDeal(this)" aria-label="Share deal">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
-      </button>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
         <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -945,9 +923,6 @@
     img.alt = title;
     img.onload = () => {
       img.classList.add('loaded');
-      // Direct-child selector — this used to also match the share button's
-      // own (nested, grandchild) svg, hiding the share icon instead of the
-      // placeholder one, since querySelector returns the first DOM match.
       document.querySelector('.product-img-box > svg').style.display = 'none';
       document.querySelector('.img-placeholder-text').style.display = 'none';
     };
