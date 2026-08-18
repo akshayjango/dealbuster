@@ -638,9 +638,9 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
         const priceHistory = appendPriceHistory(existing, priceStr);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
         const origPrice = parsePrice(existing.originalPrice || existing.price);
-        if (origPrice && newPrice && newPrice < origPrice * 1.15) {
+        if (origPrice && newPrice && newPrice < origPrice * 1.25) {
           delete updatedProduct.priceIncreased;
-        } else if (origPrice && newPrice && newPrice >= origPrice * 1.15) {
+        } else if (origPrice && newPrice && newPrice >= origPrice * 1.25) {
           updatedProduct.priceIncreased = true;
         }
         updated.push(updatedProduct);
@@ -1152,7 +1152,7 @@ async function checkAndCleanDeals(env) {
 
         // Price check original-price escalation detection
         const origPrice = parsePrice(p.originalPrice || p.price);
-        if (origPrice && amPrice && amPrice >= origPrice * 1.15) {
+        if (origPrice && amPrice && amPrice >= origPrice * 1.25) {
           updated.priceIncreased = true;
         } else {
           delete updated.priceIncreased;
