@@ -22,29 +22,24 @@ class CategoryTabs extends StatelessWidget {
       height: 60.0,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: SizedBox(
-              height: 46,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(24, 0, AppSpace.md, 0),
-                itemCount: kCategories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 30),
-                itemBuilder: (context, i) {
-                  final cat = kCategories[i];
-                  final isSelected = cat.key == selected;
-                  return _Tab(
-                    label: cat.label,
-                    icon: cat.icon,
-                    selected: isSelected,
-                    onTap: () => onSelect(cat.key),
-                  );
-                },
-              ),
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(24, 8, AppSpace.md, 0),
+              itemCount: kCategories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 30),
+              itemBuilder: (context, i) {
+                final cat = kCategories[i];
+                final isSelected = cat.key == selected;
+                return _Tab(
+                  label: cat.label,
+                  icon: cat.icon,
+                  selected: isSelected,
+                  onTap: () => onSelect(cat.key),
+                );
+              },
             ),
           ),
-          const Spacer(),
           Container(height: 1, color: AppColors.hairline),
         ],
       ),
@@ -87,11 +82,14 @@ class _Tab extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Container(
-            height: 2.5,
-            width: 22,
+            height: 3.5,
+            width: 28,
             decoration: BoxDecoration(
               color: selected ? AppColors.brand : Colors.transparent,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(4),
+              ),
             ),
           ),
         ],
