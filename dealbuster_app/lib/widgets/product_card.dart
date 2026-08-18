@@ -40,81 +40,83 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                Container(
-                  height: 130,
-                  width: double.infinity,
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(10),
-                  child: CachedNetworkImage(
-                    imageUrl: product.image,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => const _ImageSkeleton(),
-                    errorWidget: (context, url, error) {
-                      final errStr = error.toString().toLowerCase();
-                      if (errStr.contains('socketexception') ||
-                          errStr.contains('failed host lookup') ||
-                          errStr.contains('network') ||
-                          errStr.contains('connection')) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          onNetworkError?.call();
-                        });
-                      }
-                      return const Icon(
-                        Icons.image_not_supported_outlined,
-                        color: AppColors.ink400,
-                      );
-                    },
-                  ),
-                ),
-                if (discountPct > 0)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: SizedBox(
-                      width: 36,
-                      height: 35.6,
-                      child: Stack(
-                        children: [
-                          SvgPicture.string(
-                            SvgIcons.discountBadge,
-                            width: 36,
-                            height: 35.6,
-                          ),
-                          Positioned(
-                            top: 7,
-                            left: 7,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '$discountPct%',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                    height: 1.0,
-                                  ),
-                                ),
-                                const Text(
-                                  'OFF',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(10),
+                      child: CachedNetworkImage(
+                        imageUrl: product.image,
+                        fit: BoxFit.contain,
+                        placeholder: (context, url) => const _ImageSkeleton(),
+                        errorWidget: (context, url, error) {
+                          final errStr = error.toString().toLowerCase();
+                          if (errStr.contains('socketexception') ||
+                              errStr.contains('failed host lookup') ||
+                              errStr.contains('network') ||
+                              errStr.contains('connection')) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              onNetworkError?.call();
+                            });
+                          }
+                          return const Icon(
+                            Icons.image_not_supported_outlined,
+                            color: AppColors.ink400,
+                          );
+                        },
                       ),
                     ),
                   ),
-              ],
+                  if (discountPct > 0)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: SizedBox(
+                        width: 36,
+                        height: 35.6,
+                        child: Stack(
+                          children: [
+                            SvgPicture.string(
+                              SvgIcons.discountBadge,
+                              width: 36,
+                              height: 35.6,
+                            ),
+                            Positioned(
+                              top: 7,
+                              left: 7,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '$discountPct%',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'OFF',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),

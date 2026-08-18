@@ -83,7 +83,7 @@ class _Tab extends StatelessWidget {
           const SizedBox(height: 4),
           Container(
             height: 3.5,
-            width: 28,
+            width: 38,
             decoration: BoxDecoration(
               color: selected ? AppColors.brand : Colors.transparent,
               borderRadius: const BorderRadius.only(
