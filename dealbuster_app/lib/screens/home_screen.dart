@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/product.dart';
@@ -72,8 +73,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _handleScroll() {
-    final show = _scrollController.offset > _kScrollTopThreshold;
-    if (_showScrollTop.value != show) _showScrollTop.value = show;
+    if (!_scrollController.hasClients) return;
+
+    final currentOffset = _scrollController.offset;
+    final userDirection = _scrollController.position.userScrollDirection;
+
+    bool show = false;
+
+    // Only show button if past threshold
+    if (currentOffset > _kScrollTopThreshold) {
+      if (userDirection == ScrollDirection.forward) {
+        // User is scrolling UP (dragging content down)
+        show = true;
+      } else if (userDirection == ScrollDirection.reverse) {
+        // User is scrolling DOWN (dragging content up)
+        show = false;
+      } else {
+        // Keep previous state when idle/holding
+        show = _showScrollTop.value;
+      }
+    } else {
+      // Below threshold: always hide
+      show = false;
+    }
+
+    if (_showScrollTop.value != show) {
+      _showScrollTop.value = show;
+    }
   }
 
   void _scrollToTop() {
