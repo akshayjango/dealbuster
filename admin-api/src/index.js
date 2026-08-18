@@ -636,7 +636,14 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
       // enters as a genuinely new deal then.
       if (newPrice && existingPrice && newPrice < existingPrice) {
         const priceHistory = appendPriceHistory(existing, priceStr);
-        updated.push({ ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory });
+        const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
+        const origPrice = parsePrice(existing.originalPrice || existing.price);
+        if (origPrice && newPrice && newPrice < origPrice * 1.15) {
+          delete updatedProduct.priceIncreased;
+        } else if (origPrice && newPrice && newPrice >= origPrice * 1.15) {
+          updatedProduct.priceIncreased = true;
+        }
+        updated.push(updatedProduct);
       }
     } else {
       if (added.length >= limit) break;
@@ -646,7 +653,7 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
         id: `dr_${Date.now()}_${added.length}`,
         asin: deal.asin, title: deal.title || '', price: priceStr, mrp: mrpStr, disc: discStr,
         image, link, category, highlights, lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-        order: 0, addedAt: new Date().toISOString(),
+        order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
       });
     }
   }
@@ -881,7 +888,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
       image, link, category, highlights: ['Great deal on Amazon'],
       lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-      order: 0, addedAt: new Date().toISOString(),
+      order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
     });
   }
 
@@ -1001,7 +1008,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
       asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
       image, link, category, highlights: ['Great deal on Amazon'],
       lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-      order: 0, addedAt: new Date().toISOString(),
+      order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
     });
   }
 
@@ -1074,8 +1081,6 @@ async function checkAndCleanDeals(env) {
     const asins = chunk.map(p => p.asin);
     const now = Date.now();
 
-    chunk.forEach(p => { const u = productMap.get(p.id); if (u) u.lastChecked = now; });
-
     try {
       const resp = await fetchWithTimeout('https://creatorsapi.amazon/catalog/v1/getItems', {
         method: 'POST',
@@ -1086,7 +1091,13 @@ async function checkAndCleanDeals(env) {
           resources: ['itemInfo.title','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.dealDetails'],
         }),
       });
-      if (!resp.ok) { console.error(`GetItems chunk ${i} HTTP ${resp.status}`); continue; }
+      if (!resp.ok) {
+        console.error(`GetItems chunk ${i} HTTP ${resp.status}`);
+        continue;
+      }
+
+      // Only update lastChecked when the API response succeeds to retry rate-limited items
+      chunk.forEach(p => { const u = productMap.get(p.id); if (u) u.lastChecked = now; });
       const data = await resp.json();
       const items = data.itemsResult?.items || [];
       const returnedAsins = new Set(items.map(it => it.asin.toUpperCase()));
@@ -1139,6 +1150,17 @@ async function checkAndCleanDeals(env) {
           changed = true;
         }
 
+        // Price check original-price escalation detection
+        const origPrice = parsePrice(p.originalPrice || p.price);
+        if (origPrice && amPrice && amPrice >= origPrice * 1.15) {
+          updated.priceIncreased = true;
+        } else {
+          delete updated.priceIncreased;
+        }
+        if ((updated.priceIncreased === true) !== (p.priceIncreased === true)) {
+          changed = true;
+        }
+
         // Price drop: update in place only — no position bump (deals age out
         // normally by time) and never touch addedAt, that's the deal's true
         // first-seen time. Refreshing either made old deals look brand new.
@@ -1169,16 +1191,17 @@ async function checkAndCleanDeals(env) {
   // (it has a real price to come back to).
   // Existing tombstones pass through untouched — capLiveAndBury (every sync
   // run) owns expiry, because expiry must also clear the TG ledger.
-  const mid = [], oos = [], tombs = [];
+  const mid = [], priceClimbed = [], oos = [], tombs = [];
   for (const p of products) {
     const updated = productMap.get(p.id) || p;
     if (isDead(updated)) tombs.push(updated);
     else if (updated.outOfStock) oos.push(updated);
     else if (isZeroPrice(updated)) tombs.push(makeTombstone(updated));
+    else if (updated.priceIncreased) priceClimbed.push(updated);
     else mid.push(updated);
   }
   const newlyDead = tombs.length - products.filter(isDead).length;
-  const finalOrder = [...mid, ...oos, ...tombs];
+  const finalOrder = [...mid, ...priceClimbed, ...oos, ...tombs];
   const orderChanged = finalOrder.length !== products.length ||
     finalOrder.some((p, i) => p.id !== products[i]?.id || isDead(p) !== isDead(products[i]));
 
@@ -1510,7 +1533,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
         image, link: `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
         category, highlights: highlights.length ? highlights : ['Great deal on Amazon'],
         lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-        order: 0, addedAt: new Date().toISOString(),
+        order: 0, addedAt: new Date().toISOString(), originalPrice: '₹' + price.toLocaleString('en-IN'),
       });
     } catch (e) {
       console.error(`AMZ deal ASIN ${asin}: ${e.message}`);
@@ -3109,7 +3132,7 @@ export default {
           if (product.asin) await restoreAsinIfDeleted(product.asin, env);
           const { products, sha } = await getProductsFile(env);
           const today = new Date().toISOString();
-          const newProduct = { id: Date.now().toString(), asin: product.asin||'', title: product.title||'', price: product.price||'', mrp: product.mrp||'', disc: product.disc||'0%', image: product.image||'', link: product.link||'', category: category||'', highlights: highlights||[], lowestPriceText: product.lowestPriceText||null, featured:false, hidden:false, outOfStock:false, order:0, addedAt:today };
+          const newProduct = { id: Date.now().toString(), asin: product.asin||'', title: product.title||'', price: product.price||'', mrp: product.mrp||'', disc: product.disc||'0%', image: product.image||'', link: product.link||'', category: category||'', highlights: highlights||[], lowestPriceText: product.lowestPriceText||null, featured:false, hidden:false, outOfStock:false, order:0, addedAt:today, originalPrice: product.price||'' };
           const filtered = product.asin ? products.filter(p=>!p.asin||p.asin.toUpperCase()!==product.asin.toUpperCase()) : products;
           const updated = [newProduct, ...filtered].map((p,i)=>({...p,order:i}));
           await saveProductsFile(updated, sha, `Add deal: ${newProduct.title.slice(0,60)}`, env);
