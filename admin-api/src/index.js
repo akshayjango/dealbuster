@@ -1068,7 +1068,12 @@ async function checkAndCleanDeals(env) {
   // across more products.
   const live = products.filter(p => !isDead(p));
   const withAsin = live.filter(p => p.asin);
-  const sorted = [...withAsin].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
+  const checkable = withAsin.filter(p => {
+    const hasLowestPrice = p.lowestPriceText && p.lowestPriceText.trim().length > 0;
+    const hasCoupon = (p.title || '').match(/\[[^\]]*coupon[^\]]*\]/i);
+    return !hasLowestPrice && !hasCoupon;
+  });
+  const sorted = [...checkable].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
   const toCheck = sorted.slice(0, 100);
 
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
