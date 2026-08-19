@@ -302,6 +302,63 @@
     /* fetch status */
     .fetch-status { font-size: .78rem; margin-top: 4px; }
 
+    /* ── Flipkart Card Design System ── */
+    .fkart-deal-card {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-rest);
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .fkart-deal-card:hover {
+      box-shadow: var(--shadow-hover);
+    }
+    .fkart-img-wrap {
+      width: 70px;
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f9fafb;
+      border-radius: 8px;
+      overflow: hidden;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .fkart-img-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .fkart-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .fkart-input-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    .fkart-input-row input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: .82rem;
+      font-family: inherit;
+    }
+    .fkart-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .stats-row { grid-template-columns: repeat(2, 1fr); }
@@ -316,6 +373,39 @@
       .tab-nav button { padding: 8px 10px; font-size: .8rem; }
       .publish-actions { flex-direction: column; }
       .modal-actions { flex-direction: column; }
+
+      .fkart-toolbar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+      }
+      .fkart-toolbar button {
+        width: 100% !important;
+      }
+      .fkart-deal-card {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .fkart-img-wrap {
+        width: 100%;
+        height: 140px;
+      }
+      .fkart-input-row {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .fkart-input-row input {
+        width: 100%;
+      }
+      .fkart-actions {
+        flex-direction: row;
+        gap: 8px;
+        width: 100%;
+      }
+      .fkart-actions button {
+        flex: 1;
+        text-align: center;
+      }
     }
   </style>
 </head>
@@ -680,7 +770,7 @@
         <p class="page-subtitle">Scraped real-time from DealsSpy. Paste your converted affiliate links to publish.</p>
       </div>
 
-      <div class="toolbar-row" style="margin-bottom: 20px; display: flex; gap: 8px;">
+      <div class="toolbar-row fkart-toolbar" style="margin-bottom: 20px; display: flex; gap: 8px;">
         <button class="btn btn-outline btn-sm" onclick="loadFkartDeals(true)" id="refreshFkartBtn">↻ Refresh Flipkart Deals</button>
         <button class="btn btn-outline btn-sm" onclick="syncDealsSpyFkart()" id="syncDealsSpyFkartBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync DealsSpy (Flipkart)</button>
       </div>
@@ -2586,40 +2676,18 @@ function renderFkartDeals() {
   container.innerHTML = '';
   fkartDeals.forEach((deal, idx) => {
     const card = document.createElement('div');
-    card.className = 'product-row';
-    card.style.display = 'flex';
-    card.style.gap = '16px';
-    card.style.alignItems = 'center';
-    card.style.padding = '16px';
-    card.style.marginBottom = '12px';
-    card.style.background = 'var(--card)';
-    card.style.border = '1.5px solid var(--border)';
-    card.style.borderRadius = '12px';
-    card.style.boxShadow = 'var(--shadow-rest)';
+    card.className = 'fkart-deal-card';
 
     const imgWrap = document.createElement('div');
-    imgWrap.style.width = '70px';
-    imgWrap.style.height = '70px';
-    imgWrap.style.display = 'flex';
-    imgWrap.style.alignItems = 'center';
-    imgWrap.style.justifyContent = 'center';
-    imgWrap.style.background = '#f9fafb';
-    imgWrap.style.borderRadius = '8px';
-    imgWrap.style.overflow = 'hidden';
-    imgWrap.style.flexShrink = '0';
-    imgWrap.style.cursor = 'pointer';
+    imgWrap.className = 'fkart-img-wrap';
     imgWrap.onclick = () => window.open(deal.link, '_blank');
 
     const img = document.createElement('img');
     img.src = deal.image || 'images/placeholder.png';
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '100%';
-    img.style.objectFit = 'contain';
     imgWrap.appendChild(img);
 
     const info = document.createElement('div');
-    info.style.flex = '1';
-    info.style.minWidth = '0';
+    info.className = 'fkart-info';
 
     const title = document.createElement('h3');
     title.style.margin = '0 0 6px 0';
@@ -2661,19 +2729,11 @@ function renderFkartDeals() {
     if (deal.mrp && deal.mrp !== deal.price) prices.appendChild(mrp);
 
     const inputRow = document.createElement('div');
-    inputRow.style.display = 'flex';
-    inputRow.style.gap = '8px';
-    inputRow.style.width = '100%';
+    inputRow.className = 'fkart-input-row';
 
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = 'Paste your EarnKaro affiliate link here…';
-    input.style.flex = '1';
-    input.style.padding = '8px 12px';
-    input.style.border = '1.5px solid var(--border)';
-    input.style.borderRadius = '8px';
-    input.style.fontSize = '.82rem';
-    input.style.fontFamily = 'inherit';
     input.id = `fkartInput_${idx}`;
 
     const publishBtn = document.createElement('button');
@@ -2690,10 +2750,7 @@ function renderFkartDeals() {
     info.appendChild(inputRow);
 
     const actions = document.createElement('div');
-    actions.style.display = 'flex';
-    actions.style.flexDirection = 'column';
-    actions.style.gap = '6px';
-    actions.style.flexShrink = '0';
+    actions.className = 'fkart-actions';
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'btn btn-outline btn-sm';
