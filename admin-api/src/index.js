@@ -1710,8 +1710,14 @@ async function handlePublish(body, env) {
     highlights: highlights || [], lowestPriceText: product.lowestPriceText || null,
     featured: false, hidden: false, outOfStock: false, order: 0, addedAt: today,
   };
-  const filtered = product.asin ? products.filter(p => !p.asin || p.asin.toUpperCase() !== product.asin.toUpperCase()) : products;
-  const updated = [newProduct, ...filtered].map((p, i) => ({ ...p, order: i }));
+  let filtered = products;
+  if (product.asin) {
+    filtered = products.filter(p => !p.asin || p.asin.toUpperCase() !== product.asin.toUpperCase());
+  } else if (product.link) {
+    const linkLower = product.link.toLowerCase();
+    filtered = products.filter(p => !p.link || p.link.toLowerCase() !== linkLower);
+  }
+  const updated = await capLiveAndBury([newProduct, ...filtered], env);
   await saveProductsFile(updated, sha, `Add deal: ${product.title.slice(0,60)}`, env);
 
   // Post new deal to Telegram channels (fire-and-forget) — tracked, so the
