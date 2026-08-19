@@ -559,7 +559,7 @@ function parseDealsSpyHtml(html) {
   for (const card of cards) {
     const titleM = card.match(/class="dc-title"[^>]*>\s*([\s\S]*?)\s*<\/p>/i) || card.match(/class="dc-title"[^>]*>\s*([\s\S]*?)\s*<\/a>/i);
     if (!titleM) continue;
-    const title = titleM[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
+    const title = decodeHtmlEntities(titleM[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ')).trim();
 
     const imgM = card.match(/<img[^>]*class="[^"]*lazy[^"]*"[^>]*data-src="([^"]+)"/i) || card.match(/<img[^>]*src="([^"]+)"/i);
     const image = imgM ? imgM[1].trim() : '';
@@ -1082,11 +1082,21 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 }
 
 function decodeHtmlEntities(str) {
-  return str
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
-    .replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>')
-    .replace(/&amp;/g,'&');
+  let prev;
+  let decoded = str || '';
+  do {
+    prev = decoded;
+    decoded = decoded
+      .replace(/&amp;/g, '&')
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>');
+  } while (decoded !== prev);
+  return decoded;
 }
 
 // ── DealOfTheDayIndia sync (Amazon-only) ──────────────────────────────────────
