@@ -598,6 +598,66 @@ function parseDealsSpyHtml(html) {
   return parsedDeals;
 }
 
+async function scrapeIfsFlipkartDeals(env) {
+  if (!env.SCRAPER_API_URL) return [];
+  const targetUrl = 'https://www.indiafreestuff.in/trending';
+  const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
+  if (!r.ok) return [];
+  const html = await r.text();
+  const blocks = html.split(/<div class="product-item">/g);
+  
+  const fkartCandidates = [];
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i];
+    if (!block.includes('/stores/flipkart')) continue;
+
+    const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
+    if (!titleM) continue;
+    let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
+    title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Flipkart\s*$/i, '').trim();
+    if (!title || title.length < 5) continue;
+
+    const thumbM = block.match(/data-original="([^"]+)"/i) || block.match(/src="([^"]+)"/i);
+    const image = thumbM ? thumbM[1] : '';
+
+    const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+    const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+    const priceVal = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
+    const mrpVal   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : priceVal;
+    
+    const price = priceVal > 0 ? '₹' + priceVal.toLocaleString('en-IN') : '';
+    const mrp = mrpVal > 0 ? '₹' + mrpVal.toLocaleString('en-IN') : price;
+
+    const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
+    if (!rtoM) continue;
+    const rtoParam = rtoM[1];
+
+    fkartCandidates.push({ title, image, price, mrp, rtoParam });
+  }
+
+  // Resolve target URLs
+  const resolved = [];
+  const chunkSize = 5;
+  for (let i = 0; i < fkartCandidates.length; i += chunkSize) {
+    const chunk = fkartCandidates.slice(i, i + chunkSize);
+    const chunkResolved = await Promise.all(chunk.map(async (item) => {
+      let resolvedUrl = '';
+      try {
+        const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
+        const red = await fetchWithProxy(redirTarget, {
+          redirect: 'manual',
+          headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
+        }, 15000, env);
+        resolvedUrl = red.headers.get('location') || red.url || '';
+      } catch (err) {}
+      return { ...item, link: resolvedUrl };
+    }));
+    resolved.push(...chunkResolved);
+  }
+
+  return resolved.filter(item => item.link && (item.link.includes('flipkart.com') || item.link.includes('fkrt.it')));
+}
+
 async function scrapeAndSyncDealsSpy(env, limit = 30) {
   let html;
   try {
@@ -710,26 +770,26 @@ async function cronScrapeAndSendFlipkartDealsToTg(env) {
   const adminIdStr = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
   if (!adminIdStr) return;
 
-  let html;
+  let dsDeals = [];
   try {
     const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
     const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    html = await r.text();
+    if (r.ok) {
+      const html = await r.text();
+      dsDeals = parseDealsSpyHtml(html);
+    }
   } catch (e) {
-    console.error('Flipkart TG cron fetch failed:', e.message);
-    await saveSyncError('DealsSpyFlipkartCron', e.message, env);
-    return;
+    console.error('Flipkart DS cron fetch failed:', e.message);
   }
 
-  let deals = [];
+  let ifsDeals = [];
   try {
-    deals = parseDealsSpyHtml(html);
+    ifsDeals = await scrapeIfsFlipkartDeals(env).catch(() => []);
   } catch (e) {
-    console.error('Flipkart TG cron parse failed:', e.message);
-    await saveSyncError('DealsSpyFlipkartCron', e.message, env);
-    return;
+    console.error('Flipkart IFS cron fetch failed:', e.message);
   }
+
+  const deals = [...dsDeals, ...ifsDeals];
 
   const { products } = await getProductsFile(env);
   const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
@@ -3222,11 +3282,26 @@ export default {
       // ── GET /flipkart-scraped ──────────────────────────────────────────────────
       if (url.pathname === '/flipkart-scraped' && request.method === 'GET') {
         try {
-          const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
-          const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const html = await r.text();
-          const scraped = parseDealsSpyHtml(html);
+          let dsDeals = [];
+          try {
+            const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
+            const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
+            if (r.ok) {
+              const html = await r.text();
+              dsDeals = parseDealsSpyHtml(html);
+            }
+          } catch (e) {
+            console.error('Flipkart DS fetch failed:', e.message);
+          }
+
+          let ifsDeals = [];
+          try {
+            ifsDeals = await scrapeIfsFlipkartDeals(env).catch(() => []);
+          } catch (e) {
+            console.error('Flipkart IFS fetch failed:', e.message);
+          }
+
+          const combined = [...dsDeals, ...ifsDeals];
 
           const { products } = await getProductsFile(env);
           const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
@@ -3237,10 +3312,14 @@ export default {
           } catch (e) {}
           const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
 
-          const filtered = scraped.filter(deal => {
+          const seen = new Set();
+          const filtered = [];
+          for (const deal of combined) {
             const linkLower = deal.link.toLowerCase();
-            return !liveLinks.has(linkLower) && !deletedSet.has(linkLower);
-          });
+            if (seen.has(linkLower) || liveLinks.has(linkLower) || deletedSet.has(linkLower)) continue;
+            seen.add(linkLower);
+            filtered.push(deal);
+          }
 
           return json(filtered);
         } catch (e) {
