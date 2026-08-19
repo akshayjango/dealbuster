@@ -133,6 +133,58 @@ async function withCronLock(cronName, ttlSeconds, env, fn) {
   finally { await env.KV.delete(GLOBAL_CRON_LOCK).catch(() => {}); }
 }
 
+function mergeProducts(local, remote) {
+  const remoteMap = new Map(remote.map(p => [p.id, p]));
+  const localMap = new Map(local.map(p => [p.id, p]));
+
+  const merged = [];
+  
+  // Keep the remote list's ordering as the base
+  for (const r of remote) {
+    const l = localMap.get(r.id);
+    if (l) {
+      const mergedProduct = { ...r };
+      const lCheck = l.lastChecked || 0;
+      const rCheck = r.lastChecked || 0;
+      const lBadge = l.lastBadgeCheck || 0;
+      const rBadge = r.lastBadgeCheck || 0;
+      
+      if (lCheck >= rCheck) {
+        if (l.price !== undefined) mergedProduct.price = l.price;
+        if (l.outOfStock !== undefined) mergedProduct.outOfStock = l.outOfStock;
+        if (l.priceDropText !== undefined) mergedProduct.priceDropText = l.priceDropText;
+        if (l.lastChecked !== undefined) mergedProduct.lastChecked = l.lastChecked;
+        if (l.dead !== undefined) mergedProduct.dead = l.dead;
+        if (l.hidden !== undefined) mergedProduct.hidden = l.hidden;
+      }
+      if (lBadge >= rBadge) {
+        if (l.lowestPriceText !== undefined) mergedProduct.lowestPriceText = l.lowestPriceText;
+        if (l.highlights !== undefined) mergedProduct.highlights = l.highlights;
+        if (l.category !== undefined) mergedProduct.category = l.category;
+        if (l.rating !== undefined) mergedProduct.rating = l.rating;
+        if (l.reviewCount !== undefined) mergedProduct.reviewCount = l.reviewCount;
+        if (l.lastBadgeCheck !== undefined) mergedProduct.lastBadgeCheck = l.lastBadgeCheck;
+      }
+      
+      if (l.featured !== r.featured) mergedProduct.featured = l.featured;
+      
+      merged.push(mergedProduct);
+    } else {
+      merged.push(r);
+    }
+  }
+
+  // Prepend newly added local products that do not exist in remote
+  const newlyAdded = [];
+  for (const l of local) {
+    if (!remoteMap.has(l.id)) {
+      newlyAdded.push(l);
+    }
+  }
+
+  return [...newlyAdded, ...merged];
+}
+
 async function saveProductsFile(products, sha, message, env, _retry = true) {
   // Safety net: whichever code path built this array, never persist two entries
   // with the same ASIN. Keeps the first occurrence — the array is newest-first, so
@@ -160,10 +212,11 @@ async function saveProductsFile(products, sha, message, env, _retry = true) {
     const msg = err.message || `GitHub write failed: ${resp.status}`;
     // On SHA conflict, re-read fresh SHA and retry once silently
     if (_retry && (resp.status === 409 || resp.status === 422) && msg.includes('does not match')) {
-      console.log('SHA conflict — retrying with fresh SHA');
-      const { sha: freshSha } = await getProductsFile(env);
+      console.log('SHA conflict — retrying with fresh SHA and merged products');
       try {
-        return await saveProductsFile(products, freshSha, message, env, false);
+        const { products: freshProducts, sha: freshSha } = await getProductsFile(env);
+        const mergedProducts = mergeProducts(products, freshProducts);
+        return await saveProductsFile(mergedProducts, freshSha, message, env, false);
       } catch (retryErr) {
         // Retry also failed — throw a clear message for notification
         throw new Error(`SHA conflict — retry also failed: ${retryErr.message}`);
