@@ -442,7 +442,7 @@
             <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
             <button class="btn btn-outline btn-sm" onclick="pushZeroPriceToBottom()" id="pushZeroPriceBtn" style="border-color:#d97706;color:#d97706;">⬇ Push ₹0 to Bottom</button>
             <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
-            <button class="btn btn-outline btn-sm" onclick="syncDealsRadar()" id="syncDealsRadarBtn">Sync DealsRadar</button>
+            <button class="btn btn-outline btn-sm" onclick="syncDealsSpy()" id="syncDealsSpyBtn">Sync DealsSpy (Amazon)</button>
             <button class="btn btn-outline btn-sm" onclick="syncDotd()" id="syncDotdBtn">Sync DealOfTheDayIndia</button>
             <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIndiaFreeStuffBtn">Sync IndiaFreeStuff</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
@@ -2177,8 +2177,8 @@ function copyAssociateLink() {
   });
 }
 
-async function syncDealsRadar() {
-  const btn = document.getElementById('syncDealsRadarBtn');
+async function syncDealsSpy() {
+  const btn = document.getElementById('syncDealsSpyBtn');
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Syncing…';
