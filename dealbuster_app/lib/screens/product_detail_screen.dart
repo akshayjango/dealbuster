@@ -200,24 +200,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const SizedBox(height: 14),
                   _PriceRow(product: p),
-                  if (p.highlights.isNotEmpty) ...[
-                    const SizedBox(height: AppSpace.lg),
-                    _Card(
-                      title: 'Highlights',
-                      child: _Highlights(
-                        highlights: p.highlights,
-                        expanded: _highlightsExpanded,
-                        onToggle: () => setState(
-                          () => _highlightsExpanded = !_highlightsExpanded,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpace.md),
-                  _Card(
-                    title: 'Price History',
-                    child: _PriceHistory(product: p, onOpenKeepa: _launchInApp),
-                  ),
+                  (() {
+                    final linkLower = p.link.toLowerCase();
+                    final isFlipkart = linkLower.contains('flipkart.com') || linkLower.contains('fkrt.it') || linkLower.contains('fktr.in');
+                    
+                    List<String> highlightsToRender = p.highlights;
+                    if (highlightsToRender.isEmpty && isFlipkart) {
+                      highlightsToRender = [
+                        'Handpicked deal, verified live on Flipkart at the time of posting.',
+                        'Discounted price shown is off the listed MRP - check the product page for the exact current price',
+                      ];
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (highlightsToRender.isNotEmpty) ...[
+                          const SizedBox(height: AppSpace.lg),
+                          _Card(
+                            title: 'Highlights',
+                            child: _Highlights(
+                              highlights: highlightsToRender,
+                              expanded: _highlightsExpanded,
+                              onToggle: () => setState(
+                                () => _highlightsExpanded = !_highlightsExpanded,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (!isFlipkart && p.asin.isNotEmpty) ...[
+                          const SizedBox(height: AppSpace.md),
+                          _Card(
+                            title: 'Price History',
+                            child: _PriceHistory(product: p, onOpenKeepa: _launchInApp),
+                          ),
+                        ],
+                      ],
+                    );
+                  })(),
                 ],
               ),
             ),

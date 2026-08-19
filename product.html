@@ -1009,10 +1009,21 @@
     hlViewMoreLabel.textContent = isOpen ? 'View less' : 'View more';
   };
 
+  const FLIPKART_HIGHLIGHTS = [
+    'Handpicked deal, verified live on Flipkart at the time of posting.',
+    'Discounted price shown is off the listed MRP - check the product page for the exact current price'
+  ];
+
   if (highlights.length && !highlights.every(isPlaceholder)) {
     renderHighlights(highlights);
   } else {
-    renderHighlights(GENERIC_HIGHLIGHTS);
+    const linkLower = (link || '').toLowerCase();
+    const isFlipkart = linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it') || linkLower.includes('fktr.in');
+    if (isFlipkart) {
+      renderHighlights(FLIPKART_HIGHLIGHTS);
+    } else {
+      renderHighlights(GENERIC_HIGHLIGHTS);
+    }
   }
 
   // Renders the price-history chart as a hand-drawn SVG (straight segments,
