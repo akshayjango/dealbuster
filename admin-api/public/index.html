@@ -680,8 +680,9 @@
         <p class="page-subtitle">Scraped real-time from DealsSpy. Paste your converted affiliate links to publish.</p>
       </div>
 
-      <div class="toolbar-row" style="margin-bottom: 20px;">
+      <div class="toolbar-row" style="margin-bottom: 20px; display: flex; gap: 8px;">
         <button class="btn btn-outline btn-sm" onclick="loadFkartDeals(true)" id="refreshFkartBtn">↻ Refresh Flipkart Deals</button>
+        <button class="btn btn-outline btn-sm" onclick="syncDealsSpyFkart()" id="syncDealsSpyFkartBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync DealsSpy (Flipkart)</button>
       </div>
 
       <div class="fkart-deals-list" id="fkartDealsList">
@@ -2553,6 +2554,25 @@ async function loadFkartDeals(force = false) {
     container.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--red); font-weight: 600;">Error: ${e.message}</div>`;
   } finally {
     if (btn) btn.disabled = false;
+  }
+}
+
+async function syncDealsSpyFkart() {
+  const btn = document.getElementById('syncDealsSpyFkartBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const resp = await apiFetch('/sync-flipkart-dealsspy');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Sync complete!');
+    await loadFkartDeals(false);
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 }
 

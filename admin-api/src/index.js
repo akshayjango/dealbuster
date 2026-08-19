@@ -3292,6 +3292,53 @@ export default {
         try { return json(await scrapeAndSyncDealsSpy(env, 40)); } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── GET /sync-flipkart-dealsspy ─────────────────────────────────────────────
+      if (url.pathname === '/sync-flipkart-dealsspy' && request.method === 'GET') {
+        try {
+          const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
+          const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const html = await r.text();
+          const dsDeals = parseDealsSpyHtml(html);
+
+          let pending = [];
+          try {
+            pending = JSON.parse(await env.KV.get('fkart_pending_deals') || '[]');
+          } catch (e) {}
+
+          const { products } = await getProductsFile(env);
+          const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
+
+          let deletedUrls = [];
+          try {
+            deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
+          } catch (e) {}
+          const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
+
+          const newPending = [...pending];
+          let addedCount = 0;
+          for (const deal of dsDeals) {
+            const linkLower = deal.link.toLowerCase();
+            if (liveLinks.has(linkLower) || deletedSet.has(linkLower)) continue;
+            if (!newPending.some(p => p.link.toLowerCase() === linkLower)) {
+              newPending.push(deal);
+              addedCount++;
+            }
+          }
+
+          const cleanPending = newPending.filter(deal => {
+            const linkLower = deal.link.toLowerCase();
+            return !liveLinks.has(linkLower) && !deletedSet.has(linkLower);
+          }).slice(-100);
+
+          await env.KV.put('fkart_pending_deals', JSON.stringify(cleanPending));
+
+          return json({ success: true, count: dsDeals.length, added: addedCount, message: `Successfully scraped last ${dsDeals.length} Flipkart deals from DealsSpy (${addedCount} new added).` });
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
+      }
+
       // ── GET /flipkart-scraped ──────────────────────────────────────────────────
       if (url.pathname === '/flipkart-scraped' && request.method === 'GET') {
         try {
