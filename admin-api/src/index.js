@@ -875,6 +875,15 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
 }
 
 async function cronScrapeAndSendFlipkartDealsToTg(env) {
+  // Save proxy credits: Do not run scrapes between 2 AM and 7 AM IST
+  const now = new Date();
+  const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  const hour = istTime.getUTCHours();
+  if (hour >= 2 && hour < 7) {
+    console.log(`Skipping Flipkart background cron between 2 AM and 7 AM IST (Current IST hour: ${hour}) to conserve limits.`);
+    return;
+  }
+
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
 
