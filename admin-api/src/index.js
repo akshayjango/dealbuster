@@ -3968,10 +3968,12 @@ export default {
 
   // ── Cron jobs ─────────────────────────────────────────────────────────────
   async scheduled(event, env, ctx) {
+    // Helper to check if current time is within sleep hours (2:00 AM - 7:00 AM IST)
+    const getIstHour = () => new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours();
+
     // Every 30 min (at :14,:44): sync IndiaFreeStuff
     if (event.cron === '14,44 * * * *') {
-      const istHour = new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours();
-      if (istHour >= 2 && istHour < 7) {
+      if (getIstHour() >= 2 && getIstHour() < 7) {
         console.log('Skipping IndiaFreeStuff sync during sleep hours (2am-7am IST)');
         return;
       }
@@ -3991,6 +3993,10 @@ export default {
 
     // Every 10 min at :02,:12,:22,:32,:42,:52 — never overlaps with 5,35 cron
     if (event.cron === '2,12,22,32,42,52 * * * *') {
+      if (getIstHour() >= 2 && getIstHour() < 7) {
+        console.log('Skipping Price Check during sleep hours (2am-7am IST)');
+        return;
+      }
       ctx.waitUntil(
         withCronLock('cron_10min', 180, env, async () => {
           try {
@@ -4004,9 +4010,12 @@ export default {
       );
     }
 
-    // Every 15 min (at :08,:23,:38,:53): 1 Amazon deal (24/day by design, see
-    // syncAmazonDealsToProducts) + badge check (15 products)
+    // Every 15 min (at :08,:23,:38,:53): 1 Amazon deal + badge check + Flipkart cron
     if (event.cron === '8,23,38,53 * * * *') {
+      if (getIstHour() >= 2 && getIstHour() < 7) {
+        console.log('Skipping Hourly checks during sleep hours (2am-7am IST)');
+        return;
+      }
       ctx.waitUntil(
         withCronLock('cron_hourly', 300, env, async () => {
           try {
@@ -4051,24 +4060,16 @@ export default {
       );
     }
 
-    // Dedicated slot for Telegram posting — no other job shares this invocation,
-    // so it can't get starved by the price-check job's subrequest/429 storms
+    // Dedicated slot for Telegram posting and DealsSpy/DealOfTheDay syncs, every 5 min
     if (event.cron === '0,5,10,15,20,25,30,35,40,45,50,55 * * * *') {
+      if (getIstHour() >= 2 && getIstHour() < 7) {
+        console.log('Skipping Telegram posting and Amazon syncs during sleep hours (2am-7am IST)');
+        return;
+      }
       ctx.waitUntil(
         postNewDealsToTelegramLocked(env).catch(e => console.error('TG cron error:', e.message))
       );
 
-      // DealsRadar + DealOfTheDayIndia, every 5 min. Piggybacked on this tick
-      // (rather than its own trigger) specifically because 0,5,10,...,55 is
-      // the only minute-set that never exactly coincides with cron_10min's
-      // (2,12,...,52) or cron_hourly's (8,23,...,53) — both of which share
-      // the SAME products.json-SHA lock this uses. An earlier attempt gave
-      // this its own "3,8,13,...,58" trigger, which hit cron_hourly's exact
-      // minute 4 times/hour and got starved by its lock every single time
-      // (confirmed live via wrangler tail: "Global cron lock held (by
-      // cron_hourly), skipping cron_radar_dotd") — this doesn't share a
-      // lock with the Telegram-posting call above, only with the OTHER
-      // trigger's jobs, which this minute-set is the best fit against.
       ctx.waitUntil(
         withCronLock('cron_radar_dotd', 180, env, async () => {
           try {
