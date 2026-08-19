@@ -635,11 +635,14 @@ async function scrapeIfsFlipkartDeals(env) {
     fkartCandidates.push({ title, image, price, mrp, rtoParam });
   }
 
-  // Resolve target URLs
+  // Resolve target URLs (limit to 15 candidates to prevent hitting Cloudflare subrequest limits)
+  const syncLimit = Math.min(fkartCandidates.length, 15);
+  const targetCandidates = fkartCandidates.slice(0, syncLimit);
+
   const resolved = [];
   const chunkSize = 5;
-  for (let i = 0; i < fkartCandidates.length; i += chunkSize) {
-    const chunk = fkartCandidates.slice(i, i + chunkSize);
+  for (let i = 0; i < targetCandidates.length; i += chunkSize) {
+    const chunk = targetCandidates.slice(i, i + chunkSize);
     const chunkResolved = await Promise.all(chunk.map(async (item) => {
       let resolvedUrl = '';
       try {
