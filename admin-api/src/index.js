@@ -464,6 +464,34 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
 }
 
 async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
+  const bdKey = env.BRIGHTDATA_API_KEY || '';
+  const bdZone = env.BRIGHTDATA_ZONE || '';
+
+  if (bdKey && bdZone) {
+    try {
+      console.log(`Routing request through Bright Data Web Unlocker (zone: ${bdZone})...`);
+      const res = await fetchWithTimeout('https://api.brightdata.com/request', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${bdKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          zone: bdZone,
+          url: targetUrl,
+          format: 'raw'
+        })
+      }, timeoutMs);
+
+      if (res.ok) {
+        return res;
+      }
+      console.log(`Bright Data proxy returned status ${res.status}. Falling back to ScraperAPI...`);
+    } catch (e) {
+      console.error(`Bright Data proxy request failed: ${e.message}. Falling back to ScraperAPI...`);
+    }
+  }
+
   const keysStr = env.SCRAPER_API_KEYS || '';
   const keys = keysStr.split(',').map(k => k.trim()).filter(Boolean);
 
@@ -475,7 +503,7 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
   if (keys.length === 0) {
     const primaryUrl = env.SCRAPER_API_URL;
     if (!primaryUrl) {
-      throw new Error('Neither SCRAPER_API_KEYS nor SCRAPER_API_URL is configured');
+      throw new Error('Neither Bright Data nor SCRAPER_API_KEYS / SCRAPER_API_URL is configured');
     }
     let url = primaryUrl;
     if (!url.includes('url=')) {
@@ -485,12 +513,12 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
     return await fetchWithTimeout(proxyUrl, options, timeoutMs);
   }
 
-  // Iterate through keys in order
+  // Iterate through ScraperAPI keys in order
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx];
     const proxyUrl = getProxyRequestUrl(key, targetUrl);
     try {
-      console.log(`Trying proxy with key index ${idx}...`);
+      console.log(`Trying ScraperAPI proxy with key index ${idx}...`);
       const res = await fetchWithTimeout(proxyUrl, options, timeoutMs);
       
       // If successful, return the response
@@ -501,12 +529,12 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
       // Check if it is a credit exhaustion error
       const text = await res.clone().text().catch(() => '');
       if (text.includes('limit') || text.includes('suspended') || text.includes('billing') || res.status === 429) {
-        console.log(`Proxy key index ${idx} exhausted/suspended. Trying next key...`);
+        console.log(`ScraperAPI proxy key index ${idx} exhausted/suspended. Trying next key...`);
         continue; // Try next key
       }
       return res; // Some other HTTP error (e.g. 500), return it
     } catch (err) {
-      console.log(`Proxy key index ${idx} failed with error: ${err.message}. Trying next key...`);
+      console.log(`ScraperAPI proxy key index ${idx} failed with error: ${err.message}. Trying next key...`);
       if (idx === keys.length - 1) {
         throw err; // Re-throw if it was the last key
       }
