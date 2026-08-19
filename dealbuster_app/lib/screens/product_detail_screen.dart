@@ -778,7 +778,7 @@ class _BuyBarState extends State<_BuyBar> {
                   Text(
                     (() {
                       final l = widget.link.toLowerCase();
-                      if (l.contains('flipkart.com') || l.contains('fkrt.it')) {
+                      if (l.contains('flipkart.com') || l.contains('fkrt.it') || l.contains('fktr.in')) {
                         return 'Buy on Flipkart';
                       }
                       if (l.contains('myntra.com')) {

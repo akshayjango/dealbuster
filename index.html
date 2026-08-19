@@ -3204,7 +3204,7 @@
     el.href = '/product?' + params.toString();
     const linkLower = (p.link || '').toLowerCase();
     let btnText = 'View on Amazon';
-    if (linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it')) {
+    if (linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it') || linkLower.includes('fktr.in')) {
       btnText = 'View on Flipkart';
     } else if (linkLower.includes('myntra.com')) {
       btnText = 'View on Myntra';

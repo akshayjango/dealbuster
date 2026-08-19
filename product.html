@@ -966,7 +966,7 @@
   ctaBtn.href = link;
   const linkLower = (link || '').toLowerCase();
   let label = 'Buy on Amazon';
-  if (linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it')) {
+  if (linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it') || linkLower.includes('fktr.in')) {
     label = 'Buy on Flipkart';
   } else if (linkLower.includes('myntra.com')) {
     label = 'Buy on Myntra';
@@ -1028,12 +1028,13 @@
     const note = document.getElementById('phNote');
     const keepaBtn = document.getElementById('phKeepaBtn');
 
-    if (product && product.asin) {
-      keepaBtn.href = 'https://keepa.com/#!product/10-' + product.asin.toUpperCase();
-      keepaBtn.style.display = 'flex';
-    } else {
-      keepaBtn.style.display = 'none';
+    if (!product || !product.asin) {
+      wrap.style.display = 'none';
+      return;
     }
+
+    keepaBtn.href = 'https://keepa.com/#!product/10-' + product.asin.toUpperCase();
+    keepaBtn.style.display = 'flex';
 
     const toNum = s => { const n = parseInt(String(s || '').replace(/[^0-9]/g, ''), 10); return isNaN(n) ? null : n; };
 
