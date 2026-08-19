@@ -486,9 +486,36 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
       if (res.ok) {
         return res;
       }
-      console.log(`Bright Data proxy returned status ${res.status}. Falling back to ScraperAPI...`);
+      console.log(`Bright Data proxy returned status ${res.status}. Trying next proxy...`);
     } catch (e) {
-      console.error(`Bright Data proxy request failed: ${e.message}. Falling back to ScraperAPI...`);
+      console.error(`Bright Data proxy request failed: ${e.message}. Trying next proxy...`);
+    }
+  }
+
+  // 2. ScrapingAnt
+  const saKeysStr = env.SCRAPINGANT_API_KEYS || '';
+  const saKeys = saKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+
+  if (saKeys.length > 0) {
+    for (let idx = 0; idx < saKeys.length; idx++) {
+      const key = saKeys[idx];
+      // browser=false disables Puppeteer JS rendering to consume only 1 credit per request (giving 10k free calls/month)
+      const proxyUrl = `https://api.scrapingant.com/v2/general?url=${encodeURIComponent(targetUrl)}&x-api-key=${key}&browser=false`;
+      try {
+        console.log(`Trying ScrapingAnt proxy with key index ${idx}...`);
+        const res = await fetchWithTimeout(proxyUrl, options, timeoutMs);
+        if (res.status !== 403 && res.status !== 429) {
+          return res;
+        }
+        const text = await res.clone().text().catch(() => '');
+        if (text.includes('limit') || text.includes('exhausted') || res.status === 429) {
+          console.log(`ScrapingAnt proxy key index ${idx} exhausted/limit reached. Trying next key...`);
+          continue;
+        }
+        return res;
+      } catch (err) {
+        console.log(`ScrapingAnt proxy key index ${idx} failed with error: ${err.message}. Trying next key...`);
+      }
     }
   }
 
@@ -503,7 +530,7 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
   if (keys.length === 0) {
     const primaryUrl = env.SCRAPER_API_URL;
     if (!primaryUrl) {
-      throw new Error('Neither Bright Data nor SCRAPER_API_KEYS / SCRAPER_API_URL is configured');
+      throw new Error('Neither Bright Data, ScrapingAnt, nor SCRAPER_API_KEYS / SCRAPER_API_URL is configured');
     }
     let url = primaryUrl;
     if (!url.includes('url=')) {
