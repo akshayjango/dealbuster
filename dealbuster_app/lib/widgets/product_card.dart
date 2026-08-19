@@ -127,10 +127,10 @@ class ProductCard extends StatelessWidget {
                   // lines the title actually takes, so the price row below
                   // lands in the same spot for both 1- and 2-line titles.
                   SizedBox(
-                    height: 11 * 1.4 * 2,
+                    height: 11 * 1.4 * 3,
                     child: Text(
                       product.displayTitle,
-                      maxLines: 2,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             fontSize: 11,
