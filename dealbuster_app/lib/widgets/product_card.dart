@@ -148,7 +148,7 @@ class ProductCard extends StatelessWidget {
                         product.price,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      if (product.mrp != product.price) ...[
+                      if (product.mrp != product.price && product.price.replaceAll(RegExp(r'[^0-9]'), '').length < 6) ...[
                         const SizedBox(width: 6),
                         Text(
                           product.mrp,

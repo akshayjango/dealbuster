@@ -3210,7 +3210,7 @@
       <div class="card-body">
         <p class="card-title">${displayTitle}</p>
         <div class="card-prices" data-nosnippet>
-          ${(p.mrp && p.mrp !== '₹0' && p.mrp !== '₹') ? `<div class="price-original">${p.mrp}</div>` : ''}
+          ${(p.mrp && p.mrp !== '₹0' && p.mrp !== '₹' && (String(p.price).replace(/[^0-9]/g, '').length < 6)) ? `<div class="price-original">${p.mrp}</div>` : ''}
           ${(p.price && p.price !== '₹0' && p.price !== '₹') ? `<div class="price-current">${p.price}</div>` : `<div class="price-current" style="font-size:.75rem;opacity:.6;font-weight:500;">Price unavailable</div>`}
         </div>
         <button class="btn-view" onclick="event.stopPropagation();window.open(this.dataset.link,'_blank','noopener')" data-link="${p.link}">View on Amazon</button>
