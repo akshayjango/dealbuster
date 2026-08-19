@@ -553,29 +553,71 @@ async function fetchAmazonPageData(asin) {
 
 // ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
 
-async function scrapeAndSyncDealsRadar(env, limit = 30) {
-  let dealsJs;
+function parseDealsSpyHtml(html) {
+  const cards = html.split(/<div class="dc-card/gi).slice(1);
+  const parsedDeals = [];
+  for (const card of cards) {
+    const titleM = card.match(/class="dc-title"[^>]*>\s*([\s\S]*?)\s*<\/p>/i) || card.match(/class="dc-title"[^>]*>\s*([\s\S]*?)\s*<\/a>/i);
+    if (!titleM) continue;
+    const title = titleM[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
+
+    const imgM = card.match(/<img[^>]*class="[^"]*lazy[^"]*"[^>]*data-src="([^"]+)"/i) || card.match(/<img[^>]*src="([^"]+)"/i);
+    const image = imgM ? imgM[1].trim() : '';
+
+    const priceM = card.match(/class="dc-price"[^>]*>\s*(₹\s*[\d,]+)/i);
+    const price = priceM ? priceM[1].trim() : '';
+
+    const mrpM = card.match(/class="dc-mrp"[^>]*>\s*(₹\s*[\d,]+)/i);
+    const mrp = mrpM ? mrpM[1].trim() : price;
+
+    const buyButtonM = card.match(/class="[^"]*redirect-button[^"]*"[^>]*data-code="([^"]+)"/i) || card.match(/data-code="([^"]+)"/i);
+    let originalUrl = '';
+    if (buyButtonM) {
+      const code = buyButtonM[1];
+      const utmContentM = code.match(/utm_content=([^&]+)/);
+      if (utmContentM) {
+        try {
+          const b64 = decodeURIComponent(utmContentM[1]);
+          originalUrl = atob(b64);
+        } catch (e) {
+          // ignore base64 errors
+        }
+      }
+    }
+
+    if (title && originalUrl) {
+      parsedDeals.push({
+        title,
+        image,
+        price,
+        mrp,
+        link: originalUrl
+      });
+    }
+  }
+  return parsedDeals;
+}
+
+async function scrapeAndSyncDealsSpy(env, limit = 30) {
+  let html;
   try {
-    const r = await fetchWithTimeout('https://www.dealsradar.in/deals.js', { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+    const targetUrl = 'https://www.dealsspy.in/offers/amazon';
+    const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    dealsJs = await r.text();
+    html = await r.text();
   } catch (e) {
-    const msg = `DealsRadar fetch failed: ${e.message}`;
+    const msg = `DealsSpy Amazon fetch failed: ${e.message}`;
     console.error(msg);
-    await saveSyncError('DealsRadar', msg, env);
+    await saveSyncError('DealsSpyAmazon', msg, env);
     return { success: false, count: 0, message: msg };
   }
 
-  const startIdx = dealsJs.indexOf('[');
-  const endIdx = dealsJs.lastIndexOf(']') + 1;
-  let allDeals;
+  let allDeals = [];
   try {
-    if (startIdx === -1 || endIdx <= 0) throw new Error('Array not found in deals.js');
-    allDeals = JSON.parse(dealsJs.slice(startIdx, endIdx));
-    if (!Array.isArray(allDeals)) throw new Error('Parsed data is not array');
+    allDeals = parseDealsSpyHtml(html);
   } catch (e) {
-    const msg = `DealsRadar parse failed: ${e.message}`;
-    await saveSyncError('DealsRadar', msg, env);
+    const msg = `DealsSpy Amazon parse failed: ${e.message}`;
+    await saveSyncError('DealsSpyAmazon', msg, env);
     return { success: false, count: 0, message: msg };
   }
 
@@ -586,54 +628,43 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
 
   // Build ASIN → product index
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
-  // DealsRadar's own feed sometimes lists the same ASIN more than once in a single
-  // fetch — without this, existingByAsin (built once, above) never sees it, so every
-  // occurrence after the first also looks "new" and gets its own duplicate entry.
   const seenThisRun = new Set();
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
   const added = [];
   const updated = [];
 
-  // Process newest 240 from DealsRadar
-  const recentDeals = allDeals.slice(0, 240);
-
-  for (const deal of recentDeals) {
-    if (!deal.asin) continue;
-    const asinUpper = deal.asin.toUpperCase();
+  for (const deal of allDeals) {
+    const asinM = deal.link.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+    if (!asinM) continue;
+    const asin = asinM[1];
+    const asinUpper = asin.toUpperCase();
     if (deletedSet.has(asinUpper)) continue;
     if (seenThisRun.has(asinUpper)) continue;
     seenThisRun.add(asinUpper);
     if (isBrandBlocked(deal.title, blockedBrands)) continue;
 
-    const price = deal.currentPrice || 0;
-    // No price in the feed = unavailable product. Never add it: a ₹0 entry is
-    // unpostable and unbuyable, and it recycles forever — price sync pins it to
-    // the bottom, the 720 cap evicts it, then the feed (which still lists it)
-    // re-adds it at the TOP as "new". If the product comes back with a real
-    // price in a later feed cycle, it gets added normally then.
+    const parsedPriceVal = parsePrice(deal.price);
+    const price = parsedPriceVal || 0;
     if (price <= 0) continue;
-    const mrp = deal.originalPrice || price;
+    
+    const parsedMrpVal = parsePrice(deal.mrp);
+    const mrp = parsedMrpVal || price;
     const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = '₹' + mrp.toLocaleString('en-IN');
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
-    const link = `https://www.amazon.in/dp/${deal.asin}?tag=${TAG}`;
+    const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
 
-    // Use DealsRadar's own category first, fall back to title-based detection
-    const category = mapAmazonBreadcrumbCategory(deal.category) || detectCategoryFromTitle(deal.title);
-
-    const highlights = (deal.description || '').split('|').map(h => h.replace(/\s+/g,' ').trim()).filter(h => h.length > 10 && h.split(' ').length >= 3 && h.length < 300).slice(0, 5);
+    const category = detectCategoryFromTitle(deal.title);
+    const highlights = [];
 
     if (existingByAsin.has(asinUpper)) {
       const existing = existingByAsin.get(asinUpper);
-      if (isDead(existing)) continue; // tombstone — feed data for it is stale, leave it buried
+      if (isDead(existing)) continue;
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
-      // Price drop: refresh the price fields in place — no position bump, no
-      // addedAt refresh. The deal keeps aging normally and falls off the list
-      // on schedule; if a sync or manual add brings it back after eviction, it
-      // enters as a genuinely new deal then.
+      
       if (newPrice && existingPrice && newPrice < existingPrice) {
         const priceHistory = appendPriceHistory(existing, priceStr);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
@@ -647,11 +678,11 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
       }
     } else {
       if (added.length >= limit) break;
-      const image = deal.image || asinImage(deal.asin);
+      const image = deal.image || asinImage(asin);
 
       added.push({
-        id: `dr_${Date.now()}_${added.length}`,
-        asin: deal.asin, title: deal.title || '', price: priceStr, mrp: mrpStr, disc: discStr,
+        id: `ds_${Date.now()}_${added.length}`,
+        asin, title: deal.title || '', price: priceStr, mrp: mrpStr, disc: discStr,
         image, link, category, highlights, lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
         order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
       });
@@ -659,19 +690,99 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
   }
 
   if (added.length === 0 && updated.length === 0) {
-    return { success: true, count: 0, message: 'No new or updated DealsRadar deals.' };
+    return { success: true, count: 0, message: 'No new or updated DealsSpy Amazon deals.' };
   }
 
-  // Updated products stay exactly where they are — swap in the refreshed copy
-  // at the same position. Only genuinely new deals go to the top.
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
   const final = await capLiveAndBury([...added, ...base], env);
 
-  const msg = `DR sync: +${added.length} new, ${updated.length} updated`;
+  const msg = `DS Amazon sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
+}
+
+async function cronScrapeAndSendFlipkartDealsToTg(env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+
+  const adminIdStr = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
+  if (!adminIdStr) return;
+
+  let html;
+  try {
+    const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
+    const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    html = await r.text();
+  } catch (e) {
+    console.error('Flipkart TG cron fetch failed:', e.message);
+    await saveSyncError('DealsSpyFlipkartCron', e.message, env);
+    return;
+  }
+
+  let deals = [];
+  try {
+    deals = parseDealsSpyHtml(html);
+  } catch (e) {
+    console.error('Flipkart TG cron parse failed:', e.message);
+    await saveSyncError('DealsSpyFlipkartCron', e.message, env);
+    return;
+  }
+
+  const { products } = await getProductsFile(env);
+  const liveLinks = new Set(products.filter(p => !isDead(p)).map(p => p.link.toLowerCase()));
+  
+  let sentLinks = [];
+  try {
+    sentLinks = JSON.parse(await env.KV.get('fkart_sent_tg_urls') || '[]');
+  } catch (e) {}
+  const sentSet = new Set(sentLinks.map(l => l.toLowerCase()));
+
+  let deletedUrls = [];
+  try {
+    deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
+  } catch (e) {}
+  const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
+
+  let count = 0;
+  const newSentLinks = [...sentLinks];
+
+  for (const deal of deals) {
+    const dealLinkLower = deal.link.toLowerCase();
+    if (liveLinks.has(dealLinkLower)) continue;
+    if (sentSet.has(dealLinkLower)) continue;
+    if (deletedSet.has(dealLinkLower)) continue;
+
+    const text = `📦 <b>New Flipkart Deal</b>\n\nTitle: ${escHtml(deal.title)}\nPrice: <b>${escHtml(deal.price)}</b> (MRP: ${escHtml(deal.mrp)})\nOriginal Link: ${escHtml(deal.link)}\n\n👉 <i>Reply to this message with your converted EarnKaro affiliate link to publish it!</i>`;
+    
+    try {
+      let resp;
+      if (deal.image) {
+        resp = await tgSendPhoto(token, adminIdStr, deal.image, text, { parse_mode: 'HTML' });
+      } else {
+        resp = await tgSend(token, adminIdStr, text, { parse_mode: 'HTML' });
+      }
+
+      if (resp && resp.ok) {
+        const data = await resp.json();
+        const msgId = data.result?.message_id;
+        if (msgId) {
+          await env.KV.put(`fkart_pending_msg:${msgId}`, JSON.stringify(deal), { expirationTtl: 2 * 24 * 60 * 60 });
+        }
+        newSentLinks.push(deal.link);
+        count++;
+        if (count >= 3) break;
+      }
+    } catch (err) {
+      console.error('Failed to send Flipkart deal to admin TG:', err.message);
+    }
+  }
+
+  if (count > 0) {
+    await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-200)));
+  }
 }
 
 async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
@@ -1808,21 +1919,46 @@ function makeTombstone(p) {
 // (~72min at 720 -> ~2.4hr at 1440); see the comment there for the tradeoff.
 async function capLiveAndBury(all, env, cap = 1440) {
   const now = Date.now();
-  const live = [], tombs = [], expired = [];
+  const amzDeals = [];
+  const otherDeals = [];
+  const tombs = [];
+  const expired = [];
+
   for (const p of all) {
-    if (!isDead(p)) live.push(p);
-    else if (now - Date.parse(p.dead) < TOMBSTONE_TTL_MS) tombs.push(p);
-    else expired.push(p);
+    if (isDead(p)) {
+      if (now - Date.parse(p.dead) < TOMBSTONE_TTL_MS) {
+        tombs.push(p);
+      } else {
+        expired.push(p);
+      }
+    } else {
+      if (p.asin) {
+        amzDeals.push(p);
+      } else {
+        otherDeals.push(p);
+      }
+    }
   }
-  let kept = live;
-  if (live.length > cap) {
-    kept = live.slice(0, cap);
-    tombs.push(...live.slice(cap).map(makeTombstone));
+
+  // Cap Amazon deals at 1440 with tombstones
+  let keptAmz = amzDeals;
+  if (amzDeals.length > cap) {
+    keptAmz = amzDeals.slice(0, cap);
+    tombs.push(...amzDeals.slice(cap).map(makeTombstone));
   }
+
+  // Cap Flipkart/others at 720 without tombstones (pushed-out ones are deleted)
+  const fkartCap = 720;
+  let keptOthers = otherDeals;
+  if (otherDeals.length > fkartCap) {
+    keptOthers = otherDeals.slice(0, fkartCap);
+  }
+
   if (expired.length) {
     await clearTgPostedMarks(expired, env).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
   }
-  return [...kept, ...tombs].map((p, i) => ({ ...p, order: i }));
+
+  return [...keptAmz, ...keptOthers, ...tombs].map((p, i) => ({ ...p, order: i }));
 }
 
 // ── Autopost toggle + manual-approval queue ───────────────────────────────────
@@ -2489,13 +2625,64 @@ async function handleTelegramWebhook(request, env) {
   if (!msg) return new Response('ok');
 
   const fromId = msg.from?.id;
-  if (fromId !== TG_ADMIN_ID) {
+  const adminIdStr = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
+  if (fromId?.toString() !== adminIdStr?.toString()) {
     await tgSend(token, msg.chat.id, '⛔ Unauthorized');
     return new Response('ok');
   }
 
   const chatId = msg.chat.id;
   const text = msg.text || msg.caption || '';
+
+  // Handle Flipkart/other deal replies
+  if (msg.reply_to_message) {
+    const replyToMsgId = msg.reply_to_message.message_id;
+    const pendingData = await env.KV.get('fkart_pending_msg:' + replyToMsgId);
+    if (pendingData) {
+      const affiliateUrl = (msg.text || '').trim();
+      if (!/^https?:\/\//i.test(affiliateUrl)) {
+        await tgSend(token, msg.chat.id, '❌ Invalid link. Please reply with a valid HTTP/HTTPS affiliate URL.');
+        return new Response('ok');
+      }
+
+      try {
+        const deal = JSON.parse(pendingData);
+        const { products, sha } = await getProductsFile(env);
+        
+        const newProduct = {
+          id: 'fk_' + Date.now(),
+          asin: '',
+          title: deal.title || '',
+          price: deal.price || '',
+          mrp: deal.mrp || '',
+          disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
+          image: deal.image || '',
+          link: affiliateUrl,
+          category: deal.category || detectCategoryFromTitle(deal.title),
+          highlights: [],
+          lowestPriceText: null,
+          featured: false,
+          hidden: false,
+          outOfStock: false,
+          order: 0,
+          addedAt: new Date().toISOString(),
+          originalPrice: deal.price || ''
+        };
+
+        const final = await capLiveAndBury([newProduct, ...products], env);
+        await saveProductsFile(final, sha, `Add Flipkart deal: ${newProduct.title.slice(0, 60)}`, env);
+        await env.KV.delete('fkart_pending_msg:' + replyToMsgId);
+
+        await tgSend(token, msg.chat.id, `✅ <b>Published live!</b>\n\nTitle: ${escHtml(newProduct.title)}\nPrice: ${newProduct.price}\nLink: ${newProduct.link}`, { parse_mode: 'HTML' });
+
+        await postDealsAndTrack([newProduct], env).catch(e => console.error('TG post Flipkart reply:', e.message));
+
+      } catch (err) {
+        await tgSend(token, msg.chat.id, `❌ Failed to publish: ${err.message}`);
+      }
+      return new Response('ok');
+    }
+  }
 
   // Help command
   if (text.trim() === '/start' || text.trim() === '/help') {
@@ -2682,13 +2869,15 @@ export default {
       return handleTelegramWebhook(request, env);
     }
 
-    // ── External cron ping (Cloudflare's own Cron Triggers are unreliable on this
-    // account — this lets an outside scheduler drive Telegram posting instead) ───
+    // ── External cron ping ───
     if (url0.pathname === '/cron-post-deals' && request.method === 'GET') {
       if (!env.CRON_SECRET) return json({ error: 'Unauthorized', reason: 'secret_not_set' }, 401);
-      if (url0.searchParams.get('key') !== env.CRON_SECRET) return json({ error: 'Unauthorized', reason: 'key_mismatch', gotLen: (url0.searchParams.get('key')||'').length, wantLen: env.CRON_SECRET.length }, 401);
+      if (url0.searchParams.get('key') !== env.CRON_SECRET) return json({ error: 'Unauthorized', reason: 'key_mismatch' }, 401);
       try {
-        await postNewDealsToTelegramLocked(env);
+        await Promise.all([
+          postNewDealsToTelegramLocked(env),
+          cronScrapeAndSendFlipkartDealsToTg(env)
+        ]);
         return json({ ok: true });
       } catch (e) {
         return json({ error: e.message }, 500);
@@ -3019,7 +3208,106 @@ export default {
 
       // ── /sync-dealsradar ─────────────────────────────────────────────────────
       if (url.pathname === '/sync-dealsradar' && request.method === 'GET') {
-        try { return json(await scrapeAndSyncDealsRadar(env, 40)); } catch (e) { return json({ error: e.message }, 502); }
+        try { return json(await scrapeAndSyncDealsSpy(env, 40)); } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── GET /flipkart-scraped ──────────────────────────────────────────────────
+      if (url.pathname === '/flipkart-scraped' && request.method === 'GET') {
+        try {
+          const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
+          const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const html = await r.text();
+          const scraped = parseDealsSpyHtml(html);
+
+          const { products } = await getProductsFile(env);
+          const liveLinks = new Set(products.filter(p => !isDead(p)).map(p => p.link.toLowerCase()));
+
+          let deletedUrls = [];
+          try {
+            deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
+          } catch (e) {}
+          const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
+
+          const filtered = scraped.filter(deal => {
+            const linkLower = deal.link.toLowerCase();
+            return !liveLinks.has(linkLower) && !deletedSet.has(linkLower);
+          });
+
+          return json(filtered);
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
+      }
+
+      // ── POST /flipkart-publish ─────────────────────────────────────────────────
+      if (url.pathname === '/flipkart-publish' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { deal, affiliateLink } = body;
+          if (!deal || !affiliateLink) return json({ error: 'Missing deal or affiliateLink' }, 400);
+
+          const { products, sha } = await getProductsFile(env);
+
+          const newProduct = {
+            id: 'fk_' + Date.now(),
+            asin: '',
+            title: deal.title || '',
+            price: deal.price || '',
+            mrp: deal.mrp || '',
+            disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
+            image: deal.image || '',
+            link: affiliateLink.trim(),
+            category: deal.category || detectCategoryFromTitle(deal.title),
+            highlights: [],
+            lowestPriceText: null,
+            featured: false,
+            hidden: false,
+            outOfStock: false,
+            order: 0,
+            addedAt: new Date().toISOString(),
+            originalPrice: deal.price || ''
+          };
+
+          const final = await capLiveAndBury([newProduct, ...products], env);
+          await saveProductsFile(final, sha, `Add Flipkart deal: ${newProduct.title.slice(0, 60)}`, env);
+
+          let sentLinks = [];
+          try {
+            sentLinks = JSON.parse(await env.KV.get('fkart_sent_tg_urls') || '[]');
+          } catch (e) {}
+          sentLinks.push(deal.link);
+          await env.KV.put('fkart_sent_tg_urls', JSON.stringify(sentLinks.slice(-200)));
+
+          await postDealsAndTrack([newProduct], env).catch(e => console.error('TG post Flipkart manual:', e.message));
+
+          return json({ success: true, product: newProduct });
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
+      }
+
+      // ── POST /flipkart-delete ──────────────────────────────────────────────────
+      if (url.pathname === '/flipkart-delete' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { link } = body;
+          if (!link) return json({ error: 'Missing link' }, 400);
+
+          let deletedUrls = [];
+          try {
+            deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
+          } catch (e) {}
+
+          if (!deletedUrls.includes(link)) {
+            deletedUrls.push(link);
+            await env.KV.put('deleted_fkart_urls', JSON.stringify(deletedUrls.slice(-500)));
+          }
+
+          return json({ success: true });
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
       }
 
       // ── /telegram-post-now ───────────────────────────────────────────────────
@@ -3057,7 +3345,7 @@ export default {
       // ── /sync-all ────────────────────────────────────────────────────────────
       if (url.pathname === '/sync-all' && request.method === 'GET') {
         const results = await Promise.allSettled([
-          scrapeAndSyncDealsRadar(env, 40),
+          scrapeAndSyncDealsSpy(env, 40),
           scrapeAndSyncIndiaFreeStuff(env, 30),
           scrapeAndSyncDealOfTheDayIndia(env, 10)
         ]);
@@ -3437,6 +3725,13 @@ export default {
           } catch (e) {
             console.error('Badge check error:', e.message);
           }
+          try {
+            console.log('Flipkart deals TG notification check start');
+            await cronScrapeAndSendFlipkartDealsToTg(env);
+            console.log('Flipkart deals TG notification check complete');
+          } catch (e) {
+            console.error('Flipkart TG cron error:', e.message);
+          }
         })
       );
     }
@@ -3478,12 +3773,12 @@ export default {
       ctx.waitUntil(
         withCronLock('cron_radar_dotd', 180, env, async () => {
           try {
-            console.log('DealsRadar sync start');
-            const r = await scrapeAndSyncDealsRadar(env);
-            console.log('DealsRadar sync:', r.message);
+            console.log('DealsSpy sync start');
+            const r = await scrapeAndSyncDealsSpy(env);
+            console.log('DealsSpy sync:', r.message);
           } catch (e) {
-            console.error('DealsRadar sync error:', e.message);
-            await saveSyncError('DealsRadar', e.message, env);
+            console.error('DealsSpy sync error:', e.message);
+            await saveSyncError('DealsSpyAmazon', e.message, env);
           }
           try {
             console.log('DealOfTheDayIndia sync start');

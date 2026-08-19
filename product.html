@@ -962,7 +962,20 @@
   }
 
   // CTA link
-  document.getElementById('ctaBtn').href = link;
+  const ctaBtn = document.getElementById('ctaBtn');
+  ctaBtn.href = link;
+  const linkLower = (link || '').toLowerCase();
+  let label = 'Buy on Amazon';
+  if (linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it')) {
+    label = 'Buy on Flipkart';
+  } else if (linkLower.includes('myntra.com')) {
+    label = 'Buy on Myntra';
+  } else if (linkLower.includes('ajio.com')) {
+    label = 'Buy on Ajio';
+  } else if (!linkLower.includes('amazon.in') && !linkLower.includes('amzn.to') && !linkLower.includes('amazon.com') && linkLower.length > 0) {
+    label = 'Buy on Retailer';
+  }
+  ctaBtn.querySelector('span').textContent = label;
 
   // Description — feed sources without real bullet points (IndiaFreeStuff, DealsRadar)
   // fall back to a single generic placeholder line; swap it for a fuller generic blurb.

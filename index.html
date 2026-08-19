@@ -3202,6 +3202,18 @@
     // and that redirect hop is a known bfcache-eligibility risk that was
     // forcing a full reload on Back navigation.
     el.href = '/product?' + params.toString();
+    const linkLower = (p.link || '').toLowerCase();
+    let btnText = 'View on Amazon';
+    if (linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it')) {
+      btnText = 'View on Flipkart';
+    } else if (linkLower.includes('myntra.com')) {
+      btnText = 'View on Myntra';
+    } else if (linkLower.includes('ajio.com')) {
+      btnText = 'View on Ajio';
+    } else if (!linkLower.includes('amazon.in') && !linkLower.includes('amzn.to') && !linkLower.includes('amazon.com') && linkLower.length > 0) {
+      btnText = 'View on Retailer';
+    }
+
     el.innerHTML = `
       <div class="card-img-wrap">
         <img src="${p.image}" alt="${displayTitle.replace(/"/g,'&quot;')}" loading="lazy" decoding="async" onerror="this.style.display='none'">
@@ -3213,7 +3225,7 @@
           ${(p.mrp && p.mrp !== '₹0' && p.mrp !== '₹' && (String(p.price).replace(/[^0-9]/g, '').length < 6)) ? `<div class="price-original">${p.mrp}</div>` : ''}
           ${(p.price && p.price !== '₹0' && p.price !== '₹') ? `<div class="price-current">${p.price}</div>` : `<div class="price-current" style="font-size:.75rem;opacity:.6;font-weight:500;">Price unavailable</div>`}
         </div>
-        <button class="btn-view" onclick="event.stopPropagation();window.open(this.dataset.link,'_blank','noopener')" data-link="${p.link}">View on Amazon</button>
+        <button class="btn-view" onclick="event.stopPropagation();window.open(this.dataset.link,'_blank','noopener')" data-link="${p.link}">${btnText}</button>
       </div>`;
     return el;
   }

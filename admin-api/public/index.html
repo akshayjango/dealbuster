@@ -343,7 +343,11 @@
   <!-- Header -->
   <header class="app-header">
     <div class="app-logo" onclick="switchTab('dashboard')" style="cursor:pointer;">Deal<span>buster</span> <small>ADMIN</small></div>
-    <nav class="tab-nav"></nav>
+    <nav class="tab-nav">
+      <button class="active" onclick="switchTab('dashboard')">Dashboard</button>
+      <button onclick="switchTab('addDeal')">Add Deal</button>
+      <button onclick="switchTab('fkartDeals')">Flipkart Scraped</button>
+    </nav>
     <div class="header-right" style="position:relative;">
       <!-- Notification Icon Button -->
       <button class="btn-icon notification-btn" onclick="toggleNotificationDropdown(event)" id="notificationBtn" title="Price Drop Notifications" style="position:relative;border:none;background:none;cursor:pointer;color:var(--text);display:inline-flex;align-items:center;justify-content:center;padding:8px;border-radius:50%;transition:background .2s;outline:none;margin-right:12px;">
@@ -669,6 +673,22 @@
       </div>
     </div>
 
+    <!-- ── FLIPKART SCRAPED DEALS TAB ── -->
+    <div class="tab-panel" id="tabFkartDeals">
+      <div class="app-body-header">
+        <h1 class="page-title">Flipkart Scraped Deals</h1>
+        <p class="page-subtitle">Scraped real-time from DealsSpy. Paste your converted affiliate links to publish.</p>
+      </div>
+
+      <div class="toolbar-row" style="margin-bottom: 20px;">
+        <button class="btn btn-outline btn-sm" onclick="loadFkartDeals()" id="refreshFkartBtn">↻ Refresh Flipkart Deals</button>
+      </div>
+
+      <div class="fkart-deals-list" id="fkartDealsList">
+        <div class="loading"><div class="spinner"></div>Loading Flipkart deals…</div>
+      </div>
+    </div>
+
   </div><!-- /app-body -->
 </div><!-- /screenApp -->
 
@@ -895,11 +915,12 @@ function showScreen(id) {
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-nav button').forEach((b, i) => {
-    b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1));
+    b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1) || (tab === 'fkartDeals' && i === 2));
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(tab === 'dashboard' ? 'tabDashboard' : 'tabAddDeal').classList.add('active');
+  document.getElementById(tab === 'dashboard' ? 'tabDashboard' : (tab === 'addDeal' ? 'tabAddDeal' : 'tabFkartDeals')).classList.add('active');
   if (tab === 'dashboard') loadProducts();
+  else if (tab === 'fkartDeals') loadFkartDeals();
 }
 
 function switchSubtab(tab) {
@@ -2509,6 +2530,209 @@ document.getElementById('editModal').addEventListener('click', function(e) {
 document.getElementById('blockedBrandsModal').addEventListener('click', function(e) {
   if (e.target === this) closeBlockedBrandsModal();
 });
+
+// ── Flipkart Scraped Deals Script logic ──
+let fkartDeals = [];
+
+async function loadFkartDeals() {
+  const container = document.getElementById('fkartDealsList');
+  const btn = document.getElementById('refreshFkartBtn');
+  if (btn) btn.disabled = true;
+  container.innerHTML = '<div class="loading"><div class="spinner"></div>Fetching live DealsSpy Flipkart feed…</div>';
+
+  try {
+    const resp = await apiFetch('/flipkart-scraped');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    fkartDeals = data;
+    renderFkartDeals();
+  } catch (e) {
+    container.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--red); font-weight: 600;">Error: ${e.message}</div>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderFkartDeals() {
+  const container = document.getElementById('fkartDealsList');
+  if (!fkartDeals || fkartDeals.length === 0) {
+    container.innerHTML = '<div style="padding: 48px; text-align: center; color: var(--muted); font-weight: 600;">No pending Flipkart deals found. Click refresh to check again.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  fkartDeals.forEach((deal, idx) => {
+    const card = document.createElement('div');
+    card.className = 'product-row';
+    card.style.display = 'flex';
+    card.style.gap = '16px';
+    card.style.alignItems = 'center';
+    card.style.padding = '16px';
+    card.style.marginBottom = '12px';
+    card.style.background = 'var(--card)';
+    card.style.border = '1.5px solid var(--border)';
+    card.style.borderRadius = '12px';
+    card.style.boxShadow = 'var(--shadow-rest)';
+
+    const imgWrap = document.createElement('div');
+    imgWrap.style.width = '70px';
+    imgWrap.style.height = '70px';
+    imgWrap.style.display = 'flex';
+    imgWrap.style.alignItems = 'center';
+    imgWrap.style.justifyContent = 'center';
+    imgWrap.style.background = '#f9fafb';
+    imgWrap.style.borderRadius = '8px';
+    imgWrap.style.overflow = 'hidden';
+    imgWrap.style.flexShrink = '0';
+
+    const img = document.createElement('img');
+    img.src = deal.image || 'images/placeholder.png';
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '100%';
+    img.style.objectFit = 'contain';
+    imgWrap.appendChild(img);
+
+    const info = document.createElement('div');
+    info.style.flex = '1';
+    info.style.minWidth = '0';
+
+    const title = document.createElement('h3');
+    title.textContent = deal.title;
+    title.style.margin = '0 0 6px 0';
+    title.style.fontSize = '.88rem';
+    title.style.fontWeight = '700';
+    title.style.color = 'var(--text)';
+    title.style.whiteSpace = 'nowrap';
+    title.style.overflow = 'hidden';
+    title.style.textOverflow = 'ellipsis';
+
+    const prices = document.createElement('div');
+    prices.style.display = 'flex';
+    prices.style.alignItems = 'baseline';
+    prices.style.gap = '8px';
+    prices.style.fontSize = '.8rem';
+    prices.style.marginBottom = '8px';
+
+    const price = document.createElement('span');
+    price.textContent = deal.price;
+    price.style.fontWeight = '800';
+    price.style.color = 'var(--text)';
+
+    const mrp = document.createElement('span');
+    mrp.textContent = deal.mrp;
+    mrp.style.textDecoration = 'line-through';
+    mrp.style.color = 'var(--muted)';
+
+    prices.appendChild(price);
+    if (deal.mrp && deal.mrp !== deal.price) prices.appendChild(mrp);
+
+    const inputRow = document.createElement('div');
+    inputRow.style.display = 'flex';
+    inputRow.style.gap = '8px';
+    inputRow.style.width = '100%';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Paste your EarnKaro affiliate link here…';
+    input.style.flex = '1';
+    input.style.padding = '8px 12px';
+    input.style.border = '1.5px solid var(--border)';
+    input.style.borderRadius = '8px';
+    input.style.fontSize = '.82rem';
+    input.style.fontFamily = 'inherit';
+    input.id = `fkartInput_${idx}`;
+
+    const publishBtn = document.createElement('button');
+    publishBtn.className = 'btn btn-sm';
+    publishBtn.textContent = 'Post';
+    publishBtn.style.padding = '8px 16px';
+    publishBtn.onclick = () => publishFkartDeal(idx);
+
+    inputRow.appendChild(input);
+    inputRow.appendChild(publishBtn);
+
+    info.appendChild(title);
+    info.appendChild(prices);
+    info.appendChild(inputRow);
+
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.flexDirection = 'column';
+    actions.style.gap = '6px';
+    actions.style.flexShrink = '0';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-outline btn-sm';
+    copyBtn.textContent = '🔗 Copy Target';
+    copyBtn.title = 'Copy original Flipkart merchant URL';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(deal.link);
+      alert('Flipkart target link copied! Paste it into EarnKaro.');
+    };
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-outline btn-sm';
+    deleteBtn.textContent = '🗑 Hide';
+    deleteBtn.style.borderColor = 'var(--red)';
+    deleteBtn.style.color = 'var(--red)';
+    deleteBtn.onclick = () => deleteFkartDeal(idx);
+
+    actions.appendChild(copyBtn);
+    actions.appendChild(deleteBtn);
+
+    card.appendChild(imgWrap);
+    card.appendChild(info);
+    card.appendChild(actions);
+
+    container.appendChild(card);
+  });
+}
+
+async function publishFkartDeal(idx) {
+  const deal = fkartDeals[idx];
+  const input = document.getElementById(`fkartInput_${idx}`);
+  const affiliateLink = input ? input.value.trim() : '';
+
+  if (!affiliateLink) {
+    alert('Please paste a converted affiliate link first.');
+    return;
+  }
+
+  try {
+    const resp = await apiFetch('/flipkart-publish', {
+      method: 'POST',
+      body: { deal, affiliateLink }
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    alert('Deal published live successfully!');
+    fkartDeals.splice(idx, 1);
+    renderFkartDeals();
+  } catch (e) {
+    alert('Failed to publish deal: ' + e.message);
+  }
+}
+
+async function deleteFkartDeal(idx) {
+  const deal = fkartDeals[idx];
+  if (!confirm('Are you sure you want to hide this deal? It will be blocked from appearing in the scraped list.')) return;
+
+  try {
+    const resp = await apiFetch('/flipkart-delete', {
+      method: 'POST',
+      body: { link: deal.link }
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    fkartDeals.splice(idx, 1);
+    renderFkartDeals();
+  } catch (e) {
+    alert('Failed to hide deal: ' + e.message);
+  }
+}
 </script>
 </body>
 </html>

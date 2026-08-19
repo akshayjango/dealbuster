@@ -222,7 +222,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
           ),
-          _BuyBar(onBuy: () => _launch(p.link)),
+          _BuyBar(link: p.link, onBuy: () => _launch(p.link)),
         ],
       ),
         ),
@@ -727,7 +727,8 @@ class _DashedLinePainter extends CustomPainter {
 }
 
 class _BuyBar extends StatefulWidget {
-  const _BuyBar({required this.onBuy});
+  const _BuyBar({required this.link, required this.onBuy});
+  final String link;
   final VoidCallback onBuy;
 
   @override
@@ -775,7 +776,19 @@ class _BuyBarState extends State<_BuyBar> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Buy on Amazon',
+                    (() {
+                      final l = widget.link.toLowerCase();
+                      if (l.contains('flipkart.com') || l.contains('fkrt.it')) {
+                        return 'Buy on Flipkart';
+                      }
+                      if (l.contains('myntra.com')) {
+                        return 'Buy on Myntra';
+                      }
+                      if (l.contains('ajio.com')) {
+                        return 'Buy on Ajio';
+                      }
+                      return 'Buy on Amazon';
+                    })(),
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: Colors.white,
                           fontSize: 15,
