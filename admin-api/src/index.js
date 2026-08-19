@@ -3295,26 +3295,11 @@ export default {
       // ── GET /flipkart-scraped ──────────────────────────────────────────────────
       if (url.pathname === '/flipkart-scraped' && request.method === 'GET') {
         try {
-          let dsDeals = [];
+          const force = url.searchParams.get('force') === 'true';
+          let pending = [];
           try {
-            const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
-            const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
-            if (r.ok) {
-              const html = await r.text();
-              dsDeals = parseDealsSpyHtml(html);
-            }
-          } catch (e) {
-            console.error('Flipkart DS fetch failed:', e.message);
-          }
-
-          let ifsDeals = [];
-          try {
-            ifsDeals = await scrapeIfsFlipkartDeals(env).catch(() => []);
-          } catch (e) {
-            console.error('Flipkart IFS fetch failed:', e.message);
-          }
-
-          const combined = [...dsDeals, ...ifsDeals];
+            pending = JSON.parse(await env.KV.get('fkart_pending_deals') || '[]');
+          } catch (e) {}
 
           const { products } = await getProductsFile(env);
           const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
@@ -3325,14 +3310,50 @@ export default {
           } catch (e) {}
           const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
 
-          const seen = new Set();
-          const filtered = [];
-          for (const deal of combined) {
-            const linkLower = deal.link.toLowerCase();
-            if (seen.has(linkLower) || liveLinks.has(linkLower) || deletedSet.has(linkLower)) continue;
-            seen.add(linkLower);
-            filtered.push(deal);
+          if (force || pending.length === 0) {
+            let dsDeals = [];
+            try {
+              const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
+              const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
+              if (r.ok) {
+                const html = await r.text();
+                dsDeals = parseDealsSpyHtml(html);
+              }
+            } catch (e) {
+              console.error('Flipkart DS fetch failed:', e.message);
+            }
+
+            let ifsDeals = [];
+            try {
+              ifsDeals = await scrapeIfsFlipkartDeals(env).catch(() => []);
+            } catch (e) {
+              console.error('Flipkart IFS fetch failed:', e.message);
+            }
+
+            const combined = [...dsDeals, ...ifsDeals];
+
+            const seen = new Set();
+            const newPending = [...pending];
+            for (const deal of combined) {
+              const linkLower = deal.link.toLowerCase();
+              if (liveLinks.has(linkLower) || deletedSet.has(linkLower)) continue;
+              if (!newPending.some(p => p.link.toLowerCase() === linkLower)) {
+                newPending.push(deal);
+              }
+            }
+
+            pending = newPending.filter(deal => {
+              const linkLower = deal.link.toLowerCase();
+              return !liveLinks.has(linkLower) && !deletedSet.has(linkLower);
+            }).slice(-100);
+
+            await env.KV.put('fkart_pending_deals', JSON.stringify(pending));
           }
+
+          const filtered = pending.filter(deal => {
+            const linkLower = deal.link.toLowerCase();
+            return !liveLinks.has(linkLower) && !deletedSet.has(linkLower);
+          });
 
           return json(filtered);
         } catch (e) {
@@ -3379,6 +3400,13 @@ export default {
           sentLinks.push(deal.link);
           await env.KV.put('fkart_sent_tg_urls', JSON.stringify(sentLinks.slice(-200)));
 
+          // Clean from pending deals list in KV
+          try {
+            let pending = JSON.parse(await env.KV.get('fkart_pending_deals') || '[]');
+            pending = pending.filter(p => p.link.toLowerCase() !== deal.link.toLowerCase());
+            await env.KV.put('fkart_pending_deals', JSON.stringify(pending));
+          } catch (e) {}
+
           await postDealsAndTrack([newProduct], env).catch(e => console.error('TG post Flipkart manual:', e.message));
 
           return json({ success: true, product: newProduct });
@@ -3403,6 +3431,13 @@ export default {
             deletedUrls.push(link);
             await env.KV.put('deleted_fkart_urls', JSON.stringify(deletedUrls.slice(-500)));
           }
+
+          // Clean from pending deals list in KV
+          try {
+            let pending = JSON.parse(await env.KV.get('fkart_pending_deals') || '[]');
+            pending = pending.filter(p => p.link.toLowerCase() !== link.toLowerCase());
+            await env.KV.put('fkart_pending_deals', JSON.stringify(pending));
+          } catch (e) {}
 
           return json({ success: true });
         } catch (e) {

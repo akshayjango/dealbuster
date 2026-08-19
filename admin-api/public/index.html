@@ -681,7 +681,7 @@
       </div>
 
       <div class="toolbar-row" style="margin-bottom: 20px;">
-        <button class="btn btn-outline btn-sm" onclick="loadFkartDeals()" id="refreshFkartBtn">↻ Refresh Flipkart Deals</button>
+        <button class="btn btn-outline btn-sm" onclick="loadFkartDeals(true)" id="refreshFkartBtn">↻ Refresh Flipkart Deals</button>
       </div>
 
       <div class="fkart-deals-list" id="fkartDealsList">
@@ -2534,14 +2534,16 @@ document.getElementById('blockedBrandsModal').addEventListener('click', function
 // ── Flipkart Scraped Deals Script logic ──
 let fkartDeals = [];
 
-async function loadFkartDeals() {
+async function loadFkartDeals(force = false) {
   const container = document.getElementById('fkartDealsList');
   const btn = document.getElementById('refreshFkartBtn');
   if (btn) btn.disabled = true;
-  container.innerHTML = '<div class="loading"><div class="spinner"></div>Fetching live DealsSpy Flipkart feed…</div>';
+  container.innerHTML = force
+    ? '<div class="loading"><div class="spinner"></div>Scraping live Flipkart feeds (please wait)…</div>'
+    : '<div class="loading"><div class="spinner"></div>Loading Flipkart deals…</div>';
 
   try {
-    const resp = await apiFetch('/flipkart-scraped');
+    const resp = await apiFetch(`/flipkart-scraped${force ? '?force=true' : ''}`);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
 
