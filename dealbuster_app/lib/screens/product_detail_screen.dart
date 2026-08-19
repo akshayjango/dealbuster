@@ -186,7 +186,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: AppSpace.lg),
                   _ClampedTitle(
                     text: p.displayTitle,
-                    maxLines: 2,
+                    maxLines: 3,
                     // Built directly (not via titleLarge.copyWith) — deriving
                     // from a style GoogleFonts already resolved at weight 800
                     // didn't reliably swap in the regular-weight font file,
