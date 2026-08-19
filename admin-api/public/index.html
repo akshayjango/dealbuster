@@ -2607,6 +2607,8 @@ function renderFkartDeals() {
     imgWrap.style.borderRadius = '8px';
     imgWrap.style.overflow = 'hidden';
     imgWrap.style.flexShrink = '0';
+    imgWrap.style.cursor = 'pointer';
+    imgWrap.onclick = () => window.open(deal.link, '_blank');
 
     const img = document.createElement('img');
     img.src = deal.image || 'images/placeholder.png';
@@ -2620,7 +2622,6 @@ function renderFkartDeals() {
     info.style.minWidth = '0';
 
     const title = document.createElement('h3');
-    title.textContent = deal.title;
     title.style.margin = '0 0 6px 0';
     title.style.fontSize = '.88rem';
     title.style.fontWeight = '700';
@@ -2628,6 +2629,16 @@ function renderFkartDeals() {
     title.style.whiteSpace = 'nowrap';
     title.style.overflow = 'hidden';
     title.style.textOverflow = 'ellipsis';
+
+    const titleLink = document.createElement('a');
+    titleLink.href = deal.link;
+    titleLink.target = '_blank';
+    titleLink.textContent = deal.title;
+    titleLink.style.color = 'inherit';
+    titleLink.style.textDecoration = 'none';
+    titleLink.onmouseover = () => titleLink.style.textDecoration = 'underline';
+    titleLink.onmouseout = () => titleLink.style.textDecoration = 'none';
+    title.appendChild(titleLink);
 
     const prices = document.createElement('div');
     prices.style.display = 'flex';
