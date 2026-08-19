@@ -2724,11 +2724,109 @@ export default {
         if (!asin && !shortUrl) return json({ error: 'Missing asin or url' }, 400);
         try {
           let html = '';
+          let finalUrl = shortUrl || (asin ? `https://www.amazon.in/dp/${asin}` : '');
           if (shortUrl) {
-            const redir = await fetchWithTimeout(shortUrl, { redirect: 'follow', headers: AMZ_HEADERS });
-            const asinM = redir.url.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-            if (asinM) { asin = asinM[1]; html = await redir.text(); }
+            try {
+              const redir = await fetchWithTimeout(shortUrl, { redirect: 'follow', headers: AMZ_HEADERS });
+              finalUrl = redir.url;
+              const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+              if (asinM) { asin = asinM[1]; html = await redir.text(); }
+            } catch (e) {
+              // Redirect follow failed, treat the link as is
+            }
           }
+
+          const isAmazon = finalUrl.includes('amazon.in') || finalUrl.includes('amzn.to') || finalUrl.includes('amazon.com') || (asin && !shortUrl);
+
+          if (!isAmazon) {
+            // Fetch via proxy (since Flipkart/Myntra/Ajio block standard CF fetch requests)
+            const resp = await fetchWithProxy(finalUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 15000, env);
+            if (!resp.ok) {
+              return json({ error: `Proxy fetch failed for external link (HTTP ${resp.status})` }, 502);
+            }
+            html = await resp.text();
+            
+            let title = '';
+            let price = null;
+            let mrp = null;
+            let image = '';
+            let category = '';
+
+            // Parse structured JSON-LD data
+            const regex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+            let match;
+            while ((match = regex.exec(html)) !== null) {
+              try {
+                const data = JSON.parse(match[1].trim());
+                const dataObj = Array.isArray(data) ? data.find(o => o['@type'] === 'Product' || o['@type']?.includes('Product')) : data;
+                
+                if (dataObj && (dataObj['@type'] === 'Product' || dataObj['@type']?.includes('Product'))) {
+                  if (dataObj.name) title = dataObj.name.trim();
+                  if (dataObj.image) {
+                    image = Array.isArray(dataObj.image) ? dataObj.image[0] : dataObj.image;
+                    if (typeof image === 'object' && image.url) image = image.url;
+                  }
+                  const offers = dataObj.offers;
+                  if (offers) {
+                    const offersObj = Array.isArray(offers) ? offers[0] : offers;
+                    price = offersObj.price || offersObj.lowPrice;
+                    mrp = offersObj.highPrice || offersObj.priceSpecification?.price || price;
+                  }
+                  if (dataObj.category) {
+                    category = typeof dataObj.category === 'string' ? dataObj.category : dataObj.category.name || '';
+                  }
+                }
+              } catch (e) {
+                // ignore json parse errors
+              }
+            }
+
+            // Fallback parsing if JSON-LD is missing or incomplete
+            if (!title) {
+              const tM = html.match(/<title>([^|<]+)/i);
+              if (tM) title = tM[1].trim();
+            }
+            title = title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'").split('|')[0].trim();
+            if (title.length > 70) title = title.slice(0, 70).replace(/\s+\S*$/, '').trim();
+            
+            if (category) {
+              const catLower = category.toLowerCase();
+              if (/electronic|mobile|phone|laptop|computer|camera|headphone|speaker|tv|tablet|watch|smart/.test(catLower)) category = 'Electronics';
+              else if (/cloth|fashion|shoe|shirt|dress|jeans|apparel|wear|bag|wallet/.test(catLower)) category = 'Fashion';
+              else if (/kitchen|home|furniture|decor|bed|bath|garden|tool|appliance/.test(catLower)) category = 'Home';
+              else if (/beauty|skin|hair|makeup|cosmetic|perfume|grooming|face|lip/.test(catLower)) category = 'Beauty';
+              else if (/health|medicine|supplement|vitamin|protein|fitness|sport|yoga|gym|ayurved|toothpaste|oral/.test(catLower)) category = 'Health';
+              else category = '';
+            }
+            if (!category && title) {
+              const tLower = title.toLowerCase();
+              if (/electronic|mobile|phone|laptop|computer|camera|headphone|speaker|tv|tablet|watch|smart/.test(tLower)) category = 'Electronics';
+              else if (/cloth|fashion|shoe|shirt|dress|jeans|apparel|wear|bag|wallet/.test(tLower)) category = 'Fashion';
+              else if (/kitchen|home|furniture|decor|bed|bath|garden|tool|appliance/.test(tLower)) category = 'Home';
+              else if (/beauty|skin|hair|makeup|cosmetic|perfume|grooming|face|lip/.test(tLower)) category = 'Beauty';
+              else if (/health|medicine|supplement|vitamin|protein|fitness|sport|yoga|gym|ayurved|toothpaste|oral/.test(tLower)) category = 'Health';
+            }
+
+            const parsedPrice = price ? parsePrice(price.toString()) : null;
+            const parsedMrp = mrp ? parsePrice(mrp.toString()) : null;
+
+            // Affiliate link generation via Cuelinks (fallback to original link if no publisher ID set)
+            let affiliateUrl = finalUrl;
+            if (env.CUELINKS_PUB_ID) {
+              affiliateUrl = `https://linksredirect.com/?pub_id=${env.CUELINKS_PUB_ID}&source=linkkit&url=${encodeURIComponent(finalUrl)}`;
+            }
+
+            return json({
+              title,
+              price: parsedPrice,
+              mrp: parsedMrp,
+              image,
+              category,
+              link: affiliateUrl,
+              asin: ""
+            });
+          }
+
           const isCaptcha = html && (html.includes('captcha') || html.includes('Robot Check'));
           const hasTitle = html && (html.includes('id="productTitle"') || html.includes('<title>'));
           if ((!html || isCaptcha || !hasTitle) && asin) {

@@ -1560,10 +1560,11 @@ async function autoFetchTitle(urlVal) {
   const trimmed = urlVal.trim();
   const isShort = isShortLink(trimmed);
   const asinMatch = trimmed.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-  if (!isShort && !asinMatch) { statusEl.textContent = ''; return; }
+  const isHttpUrl = /^https?:\/\//i.test(trimmed);
+  if (!isShort && !asinMatch && !isHttpUrl) { statusEl.textContent = ''; return; }
   statusEl.style.color = 'var(--muted)';
   statusEl.textContent = 'Fetching details…';
-  const query = isShort ? `url=${encodeURIComponent(trimmed)}` : `asin=${asinMatch[1]}`;
+  const query = isHttpUrl ? `url=${encodeURIComponent(trimmed)}` : (isShort ? `url=${encodeURIComponent(trimmed)}` : `asin=${asinMatch[1]}`);
   titleFetchTimer = setTimeout(async () => {
     try {
       const resp = await apiFetch(`/fetchtitle?${query}`);
@@ -1575,6 +1576,7 @@ async function autoFetchTitle(urlVal) {
         if (data.price) document.getElementById('manualPrice').value = data.price;
         if (data.mrp) document.getElementById('manualMrp').value = data.mrp;
         if (data.image) document.getElementById('manualImage').value = data.image;
+        if (data.link) document.getElementById('manualUrl').value = data.link;
         if (data.category) {
           const catEl = document.getElementById('manualCat');
           const opt = [...catEl.options].find(o => o.value.toLowerCase() === data.category.toLowerCase());
