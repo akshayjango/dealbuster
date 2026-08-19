@@ -1137,6 +1137,26 @@ async function checkAndCleanDeals(env) {
         // Back in stock
         if (updated.outOfStock) { updated.outOfStock = false; changed = true; }
 
+        // Low stock detection (1-4 left in stock)
+        const availMessage = (availability?.message || '').toLowerCase();
+        const stockMatch = availMessage.match(/only (\d+) left in stock/);
+        let isLowStock = false;
+        if (stockMatch) {
+          const qty = parseInt(stockMatch[1], 10);
+          if (qty >= 1 && qty <= 4) {
+            isLowStock = true;
+          }
+        }
+        const lowStockStateChanged = (updated.lowStock === true) !== isLowStock;
+        if (lowStockStateChanged) {
+          if (isLowStock) {
+            updated.lowStock = true;
+          } else {
+            delete updated.lowStock;
+          }
+          changed = true;
+        }
+
         // No price from API — don't overwrite with NaN, skip price update
         if (!amPrice || amPrice <= 0) continue;
 
@@ -1202,17 +1222,18 @@ async function checkAndCleanDeals(env) {
   // (it has a real price to come back to).
   // Existing tombstones pass through untouched — capLiveAndBury (every sync
   // run) owns expiry, because expiry must also clear the TG ledger.
-  const mid = [], priceClimbed = [], oos = [], tombs = [];
+  const mid = [], priceClimbed = [], lowStock = [], oos = [], tombs = [];
   for (const p of products) {
     const updated = productMap.get(p.id) || p;
     if (isDead(updated)) tombs.push(updated);
     else if (updated.outOfStock) oos.push(updated);
     else if (isZeroPrice(updated)) tombs.push(makeTombstone(updated));
+    else if (updated.lowStock) lowStock.push(updated);
     else if (updated.priceIncreased) priceClimbed.push(updated);
     else mid.push(updated);
   }
   const newlyDead = tombs.length - products.filter(isDead).length;
-  const finalOrder = [...mid, ...priceClimbed, ...oos, ...tombs];
+  const finalOrder = [...mid, ...priceClimbed, ...lowStock, ...oos, ...tombs];
   const orderChanged = finalOrder.length !== products.length ||
     finalOrder.some((p, i) => p.id !== products[i]?.id || isDead(p) !== isDead(products[i]));
 
