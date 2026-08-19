@@ -732,7 +732,7 @@ async function cronScrapeAndSendFlipkartDealsToTg(env) {
   }
 
   const { products } = await getProductsFile(env);
-  const liveLinks = new Set(products.filter(p => !isDead(p)).map(p => p.link.toLowerCase()));
+  const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
   
   let sentLinks = [];
   try {
@@ -1926,7 +1926,8 @@ async function capLiveAndBury(all, env, cap = 1440) {
 
   for (const p of all) {
     if (isDead(p)) {
-      if (now - Date.parse(p.dead) < TOMBSTONE_TTL_MS) {
+      const ttl = p.asin ? TOMBSTONE_TTL_MS : (1 * 24 * 60 * 60 * 1000);
+      if (now - Date.parse(p.dead) < ttl) {
         tombs.push(p);
       } else {
         expired.push(p);
@@ -1947,11 +1948,12 @@ async function capLiveAndBury(all, env, cap = 1440) {
     tombs.push(...amzDeals.slice(cap).map(makeTombstone));
   }
 
-  // Cap Flipkart/others at 720 without tombstones (pushed-out ones are deleted)
-  const fkartCap = 720;
+  // Cap Flipkart/others at 360 with 1-day tombstones
+  const fkartCap = 360;
   let keptOthers = otherDeals;
   if (otherDeals.length > fkartCap) {
     keptOthers = otherDeals.slice(0, fkartCap);
+    tombs.push(...otherDeals.slice(fkartCap).map(makeTombstone));
   }
 
   if (expired.length) {
@@ -3221,7 +3223,7 @@ export default {
           const scraped = parseDealsSpyHtml(html);
 
           const { products } = await getProductsFile(env);
-          const liveLinks = new Set(products.filter(p => !isDead(p)).map(p => p.link.toLowerCase()));
+          const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
 
           let deletedUrls = [];
           try {
