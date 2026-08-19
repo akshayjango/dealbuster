@@ -638,10 +638,10 @@ async function scrapeAndSyncDealsRadar(env, limit = 30) {
         const priceHistory = appendPriceHistory(existing, priceStr);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
         const origPrice = parsePrice(existing.originalPrice || existing.price);
-        if (origPrice && newPrice && newPrice < origPrice * 1.25) {
-          delete updatedProduct.priceIncreased;
-        } else if (origPrice && newPrice && newPrice >= origPrice * 1.25) {
+        if (origPrice && newPrice && shouldDemote(origPrice, newPrice)) {
           updatedProduct.priceIncreased = true;
+        } else {
+          delete updatedProduct.priceIncreased;
         }
         updated.push(updatedProduct);
       }
@@ -1053,6 +1053,12 @@ function appendPriceHistory(product, newPriceStr) {
   return history.slice(-PRICE_HISTORY_CAP);
 }
 
+function shouldDemote(origPrice, currentPrice) {
+  if (!origPrice || !currentPrice) return false;
+  const threshold = origPrice < 500 ? 1.25 : 1.15;
+  return currentPrice >= origPrice * threshold;
+}
+
 async function checkAndCleanDeals(env) {
   const { products, sha } = await getProductsFile(env);
   if (!products.length) return { success: true, message: 'No products to check.' };
@@ -1157,7 +1163,7 @@ async function checkAndCleanDeals(env) {
 
         // Price check original-price escalation detection
         const origPrice = parsePrice(p.originalPrice || p.price);
-        if (origPrice && amPrice && amPrice >= origPrice * 1.25) {
+        if (origPrice && amPrice && shouldDemote(origPrice, amPrice)) {
           updated.priceIncreased = true;
         } else {
           delete updated.priceIncreased;
