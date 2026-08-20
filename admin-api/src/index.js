@@ -3783,6 +3783,34 @@ export default {
         }
       }
 
+      // ── /request-cuelink-access (debug: apply for a private campaign, e.g. Flipkart id 1) ──
+      if (url.pathname === '/request-cuelink-access' && request.method === 'POST') {
+        const apiKey = (env.CUELINKS_API_KEY || '').trim();
+        if (!apiKey) return json({ error: 'CUELINKS_API_KEY not configured' }, 400);
+        const campaignId = url.searchParams.get('id');
+        if (!campaignId) return json({ error: 'pass ?id=<campaign id>' }, 400);
+        try {
+          const res = await fetchWithTimeout(
+            `https://developers.cuelinks.com/pub_api/v3/campaigns/${encodeURIComponent(campaignId)}/request_access`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Token ${apiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                promotion_details: 'Dealbuster (dealbuster.in) — deal-aggregator site + Telegram channel, publishing daily Flipkart deals to an active subscriber base.',
+              }),
+            },
+            10000
+          );
+          const body = await res.json().catch(() => ({}));
+          return json({ status: res.status, body });
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
+      }
+
       // ── /sync-dotd ───────────────────────────────────────────────────────────
       if (url.pathname === '/sync-dotd' && request.method === 'GET') {
         try {
