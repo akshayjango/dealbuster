@@ -3195,11 +3195,9 @@ export default {
             const parsedPrice = price ? parsePrice(price.toString()) : null;
             const parsedMrp = mrp ? parsePrice(mrp.toString()) : null;
 
-            // Affiliate link generation via Cuelinks (fallback to original link if no publisher ID set)
-            let affiliateUrl = finalUrl;
-            if (env.CUELINKS_PUB_ID) {
-              affiliateUrl = `https://linksredirect.com/?pub_id=${env.CUELINKS_PUB_ID}&source=linkkit&url=${encodeURIComponent(finalUrl)}`;
-            }
+            // Affiliate link generation via Cuelinks (fallback to 312552 if no publisher ID set)
+            const pubId = env.CUELINKS_PUB_ID || '312552';
+            const affiliateUrl = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(finalUrl)}`;
 
             return json({
               title,

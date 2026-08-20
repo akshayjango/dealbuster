@@ -569,7 +569,7 @@
         <div class="subtab-nav">
           <button class="active" onclick="switchSubtab('url')">Amazon URL</button>
           <button onclick="switchSubtab('search')">Amazon Search API</button>
-          <button onclick="switchSubtab('others')">Amazon URL (Others)</button>
+          <button onclick="switchSubtab('others')">Universal Converter (Flipkart/Myntra/Ajio/etc)</button>
         </div>
 
         <!-- URL subtab -->
@@ -702,18 +702,18 @@
           </div>
         </div>
 
-        <!-- Others URL Converter subtab -->
+        <!-- Universal URL Converter subtab -->
         <div class="subtab-panel" id="subtabOthers">
           <div class="add-card">
             <div class="field">
-              <label>Amazon Product URL (Other's / Normal Link)</label>
-              <input type="text" id="othersUrl" placeholder="Paste other's affiliate link or normal Amazon URL..." oninput="autoConvertOthersUrl(this.value)"/>
+              <label>Product URL (Flipkart, Myntra, Ajio, Shopsy, Meesho, Nykaa, TataCliq, or Amazon)</label>
+              <input type="text" id="othersUrl" placeholder="Paste any product page link here..." oninput="autoConvertOthersUrl(this.value)"/>
               <div class="fetch-status" id="othersFetchStatus"></div>
             </div>
 
             <!-- Converted Link Display -->
             <div class="field" id="othersConvertedContainer" style="display:none;margin-top:16px;">
-              <label>Your Converted Associate Link</label>
+              <label>Your Converted Tracking Link (CueLinks / Amazon Tag)</label>
               <div style="display:flex;gap:10px;align-items:center;">
                 <input type="text" id="othersConvertedLink" readonly style="flex:1;font-size:.85rem;background:#fff;color:var(--text);"/>
                 <button type="button" class="btn-icon" onclick="copyOthersAssociateLink()" id="copyOthersLinkBtn" title="Copy Link" style="border:1.5px solid var(--border);padding:8px;display:inline-flex;align-items:center;justify-content:center;background:#fff;border-radius:10px;color:var(--muted);width:38px;height:38px;flex-shrink:0;">
@@ -1865,11 +1865,10 @@ async function autoConvertOthersUrl(urlVal) {
     return;
   }
   
-  const isShort = isShortLink(trimmed);
-  const asinMatch = trimmed.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-  if (!isShort && !asinMatch) {
+  const isHttp = /^https?:\/\//i.test(trimmed);
+  if (!isHttp) {
     statusEl.style.color = 'var(--red)';
-    statusEl.textContent = 'Invalid Amazon URL format';
+    statusEl.textContent = 'Please enter a valid HTTP/HTTPS URL';
     convertedContainer.style.display = 'none';
     publishCard.style.display = 'none';
     return;
@@ -1880,18 +1879,26 @@ async function autoConvertOthersUrl(urlVal) {
   convertedContainer.style.display = 'none';
   publishCard.style.display = 'none';
 
-  const query = isShort ? `url=${encodeURIComponent(trimmed)}` : `asin=${asinMatch[1]}`;
+  const isAmazon = trimmed.includes('amazon.in') || trimmed.includes('amzn.to') || trimmed.includes('amazon.com') || /\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i.test(trimmed);
+  const isShort = isShortLink(trimmed);
+  const asinMatch = trimmed.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+
+  const query = isAmazon 
+    ? (isShort ? `url=${encodeURIComponent(trimmed)}` : `asin=${asinMatch[1]}`)
+    : `url=${encodeURIComponent(trimmed)}`;
   
   othersFetchTimer = setTimeout(async () => {
     try {
       const resp = await apiFetch(`/fetchtitle?${query}`);
       const data = await resp.json();
-      if (data.title && data.asin) {
-        othersAsin = data.asin;
+      if (data.title) {
+        othersAsin = data.asin || '';
         if (data.lowestPriceText) othersLowestPriceText = data.lowestPriceText;
         
-        // Construct affiliate link using user's tag
-        const affiliateLink = `https://www.amazon.in/dp/${data.asin}?tag=dealbuster002-21`;
+        // Construct affiliate link using Amazon tag or CueLink returned from backend
+        const affiliateLink = isAmazon
+          ? `https://www.amazon.in/dp/${data.asin}?tag=dealbuster002-21`
+          : (data.link || trimmed);
         convertedInput.value = affiliateLink;
         convertedContainer.style.display = 'block';
         
@@ -1913,8 +1920,14 @@ async function autoConvertOthersUrl(urlVal) {
           data.highlights.forEach(h => addHighlight('othersHighlights', h));
         } else {
           // Generate default highlights
-          const initialHls = generateHighlights(data.title);
-          initialHls.forEach(h => addHighlight('othersHighlights', h));
+          if (isAmazon) {
+            const initialHls = generateHighlights(data.title);
+            initialHls.forEach(h => addHighlight('othersHighlights', h));
+          } else {
+            const storeName = trimmed.includes('flipkart') ? 'Flipkart' : (trimmed.includes('myntra') ? 'Myntra' : (trimmed.includes('ajio') ? 'Ajio' : (trimmed.includes('shopsy') ? 'Shopsy' : (trimmed.includes('meesho') ? 'Meesho' : 'Retailer'))));
+            addHighlight('othersHighlights', `Handpicked deal, verified live on ${storeName} at the time of posting.`);
+            addHighlight('othersHighlights', `Discounted price shown is off the listed MRP - check the product page for the exact current price.`);
+          }
         }
         
         statusEl.style.color = 'var(--green)';
