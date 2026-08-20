@@ -3765,6 +3765,24 @@ export default {
         }
       }
 
+      // ── /cuelink-campaigns (debug: check a campaign's access_status, e.g. Flipkart) ──
+      if (url.pathname === '/cuelink-campaigns' && request.method === 'GET') {
+        const apiKey = (env.CUELINKS_API_KEY || '').trim();
+        if (!apiKey) return json({ error: 'CUELINKS_API_KEY not configured' }, 400);
+        const q = url.searchParams.get('q') || '';
+        try {
+          const res = await fetchWithTimeout(
+            `https://developers.cuelinks.com/pub_api/v3/campaigns?q=${encodeURIComponent(q)}`,
+            { headers: { 'Authorization': `Token ${apiKey}` } },
+            10000
+          );
+          const body = await res.json().catch(() => ({}));
+          return json({ status: res.status, body });
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
+      }
+
       // ── /sync-dotd ───────────────────────────────────────────────────────────
       if (url.pathname === '/sync-dotd' && request.method === 'GET') {
         try {
