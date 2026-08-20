@@ -706,7 +706,7 @@ function parseDealsSpyHtml(html) {
   return parsedDeals;
 }
 
-async function scrapeIfsFlipkartDeals(env) {
+async function scrapeIfsNonAmazonDeals(env) {
   if (!env.SCRAPER_API_URL) return [];
   const targetUrl = 'https://www.indiafreestuff.in/trending';
   const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
@@ -714,15 +714,19 @@ async function scrapeIfsFlipkartDeals(env) {
   const html = await r.text();
   const blocks = html.split(/<div class="product-item">/g);
   
-  const fkartCandidates = [];
+  const candidates = [];
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i];
-    if (!block.includes('/stores/flipkart')) continue;
+    
+    // Check if block contains any supported stores
+    const storeMatch = block.match(/\/stores\/(flipkart|myntra|ajio|shopsy|meesho|nykaa|tatacliq)/i);
+    if (!storeMatch) continue;
+    const store = storeMatch[1].toLowerCase();
 
     const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
     if (!titleM) continue;
     let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-    title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Flipkart\s*$/i, '').trim();
+    title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*(?:Flipkart|Myntra|Ajio|Shopsy|Meesho|Nykaa|TataCliq)\s*$/i, '').trim();
     if (!title || title.length < 5) continue;
 
     const thumbM = block.match(/data-original="([^"]+)"/i) || block.match(/src="([^"]+)"/i);
@@ -740,12 +744,12 @@ async function scrapeIfsFlipkartDeals(env) {
     if (!rtoM) continue;
     const rtoParam = rtoM[1];
 
-    fkartCandidates.push({ title, image, price, mrp, rtoParam });
+    candidates.push({ title, image, price, mrp, rtoParam, store });
   }
 
   // Resolve target URLs (limit to 15 candidates to prevent hitting Cloudflare subrequest limits)
-  const syncLimit = Math.min(fkartCandidates.length, 15);
-  const targetCandidates = fkartCandidates.slice(0, syncLimit);
+  const syncLimit = Math.min(candidates.length, 15);
+  const targetCandidates = candidates.slice(0, syncLimit);
 
   const resolved = [];
   const chunkSize = 5;
@@ -766,7 +770,13 @@ async function scrapeIfsFlipkartDeals(env) {
     resolved.push(...chunkResolved);
   }
 
-  return resolved.filter(item => item.link && (item.link.includes('flipkart.com') || item.link.includes('fkrt.it')));
+  return resolved.filter(item => {
+    if (!item.link) return false;
+    const l = item.link.toLowerCase();
+    return l.includes('flipkart.com') || l.includes('fkrt.it') || l.includes('fktr.in') ||
+           l.includes('myntra.com') || l.includes('ajio.com') || l.includes('shopsy.in') ||
+           l.includes('meesho.com') || l.includes('nykaa.com') || l.includes('tatacliq.com');
+  });
 }
 
 async function scrapeAndSyncDealsSpy(env, limit = 30) {
@@ -874,21 +884,33 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
-async function cronScrapeAndSendFlipkartDealsToTg(env) {
+// Helper to extract original URL from CueLinks URL
+function getOriginalUrl(url) {
+  if (url.includes('linksredirect.com')) {
+    try {
+      const u = new URL(url);
+      return u.searchParams.get('url') || url;
+    } catch (e) {
+      return url;
+    }
+  }
+  return url;
+}
+
+// Helper to convert any raw URL to CueLinks redirect affiliate link
+function convertToCueLink(url) {
+  return `https://linksredirect.com/?pub_id=312552&subid=dealbuster&url=${encodeURIComponent(url)}`;
+}
+
+async function cronSyncAndPublishNonAmazonDeals(env) {
   // Save proxy credits: Do not run scrapes between 2 AM and 7 AM IST
   const now = new Date();
   const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
   const hour = istTime.getUTCHours();
   if (hour >= 2 && hour < 7) {
-    console.log(`Skipping Flipkart background cron between 2 AM and 7 AM IST (Current IST hour: ${hour}) to conserve limits.`);
+    console.log(`Skipping background cron between 2 AM and 7 AM IST (Current IST hour: ${hour}) to conserve limits.`);
     return;
   }
-
-  const token = env.TELEGRAM_BOT_TOKEN;
-  if (!token) return;
-
-  const adminIdStr = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
-  if (!adminIdStr) return;
 
   let dsDeals = [];
   try {
@@ -904,15 +926,20 @@ async function cronScrapeAndSendFlipkartDealsToTg(env) {
 
   let ifsDeals = [];
   try {
-    ifsDeals = await scrapeIfsFlipkartDeals(env).catch(() => []);
+    ifsDeals = await scrapeIfsNonAmazonDeals(env).catch(() => []);
   } catch (e) {
-    console.error('Flipkart IFS cron fetch failed:', e.message);
+    console.error('Non-Amazon IFS cron fetch failed:', e.message);
   }
 
-  const deals = [...dsDeals, ...ifsDeals];
+  const scrapedDeals = [...dsDeals, ...ifsDeals];
+  if (!scrapedDeals.length) return;
 
-  const { products } = await getProductsFile(env);
-  const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
+  const { products, sha } = await getProductsFile(env);
+  const liveOriginalLinks = new Set(
+    products
+      .filter(p => !isDead(p))
+      .map(p => getOriginalUrl(p.link).toLowerCase())
+  );
   
   let sentLinks = [];
   try {
@@ -926,42 +953,54 @@ async function cronScrapeAndSendFlipkartDealsToTg(env) {
   } catch (e) {}
   const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
 
-  let count = 0;
+  const newProducts = [];
   const newSentLinks = [...sentLinks];
 
-  for (const deal of deals) {
-    const dealLinkLower = deal.link.toLowerCase();
-    if (liveLinks.has(dealLinkLower)) continue;
-    if (sentSet.has(dealLinkLower)) continue;
-    if (deletedSet.has(dealLinkLower)) continue;
+  for (const deal of scrapedDeals) {
+    const origLinkLower = deal.link.toLowerCase();
+    if (liveOriginalLinks.has(origLinkLower)) continue;
+    if (sentSet.has(origLinkLower)) continue;
+    if (deletedSet.has(origLinkLower)) continue;
 
-    const text = `📦 <b>New Flipkart Deal</b>\n\nTitle: ${escHtml(deal.title)}\nPrice: <b>${escHtml(deal.price)}</b> (MRP: ${escHtml(deal.mrp)})\nOriginal Link: ${escHtml(deal.link)}\n\n👉 <i>Reply to this message with your converted EarnKaro affiliate link to publish it!</i>`;
+    // Convert link to CueLinks
+    const cueLink = convertToCueLink(deal.link);
+
+    const newProduct = {
+      id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      asin: '',
+      title: deal.title || '',
+      price: deal.price || '',
+      mrp: deal.mrp || '',
+      disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
+      image: deal.image || '',
+      link: cueLink,
+      category: deal.category || detectCategoryFromTitle(deal.title),
+      highlights: [],
+      lowestPriceText: null,
+      featured: false,
+      hidden: false,
+      outOfStock: false,
+      order: 0,
+      addedAt: new Date().toISOString(),
+      originalPrice: deal.price || ''
+    };
+
+    newProducts.push(newProduct);
+    newSentLinks.push(deal.link);
     
-    try {
-      let resp;
-      if (deal.image) {
-        resp = await tgSendPhoto(token, adminIdStr, deal.image, text, { parse_mode: 'HTML' });
-      } else {
-        resp = await tgSend(token, adminIdStr, text, { parse_mode: 'HTML' });
-      }
-
-      if (resp && resp.ok) {
-        const data = await resp.json();
-        const msgId = data.result?.message_id;
-        if (msgId) {
-          await env.KV.put(`fkart_pending_msg:${msgId}`, JSON.stringify(deal), { expirationTtl: 2 * 24 * 60 * 60 });
-        }
-        newSentLinks.push(deal.link);
-        count++;
-        if (count >= 3) break;
-      }
-    } catch (err) {
-      console.error('Failed to send Flipkart deal to admin TG:', err.message);
-    }
+    // Auto-publish limit: maximum 3 new non-Amazon deals per cron run to avoid flooding
+    if (newProducts.length >= 3) break;
   }
 
-  if (count > 0) {
+  if (newProducts.length > 0) {
+    console.log(`Auto-publishing ${newProducts.length} new non-Amazon deals...`);
+    const updatedProducts = await capLiveAndBury([...newProducts, ...products], env);
+    await saveProductsFile(updatedProducts, sha, `Auto-publish non-Amazon deals: ${newProducts.map(p => p.title.slice(0, 30)).join(', ')}`, env);
+    
     await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-200)));
+
+    // Send converted deals to public Telegram channel
+    await postDealsAndTrack(newProducts, env).catch(e => console.error('TG auto-post non-Amazon failed:', e.message));
   }
 }
 
@@ -2839,55 +2878,7 @@ async function handleTelegramWebhook(request, env) {
   const chatId = msg.chat.id;
   const text = msg.text || msg.caption || '';
 
-  // Handle Flipkart/other deal replies
-  if (msg.reply_to_message) {
-    const replyToMsgId = msg.reply_to_message.message_id;
-    const pendingData = await env.KV.get('fkart_pending_msg:' + replyToMsgId);
-    if (pendingData) {
-      const affiliateUrl = (msg.text || '').trim();
-      if (!/^https?:\/\//i.test(affiliateUrl)) {
-        await tgSend(token, msg.chat.id, '❌ Invalid link. Please reply with a valid HTTP/HTTPS affiliate URL.');
-        return new Response('ok');
-      }
 
-      try {
-        const deal = JSON.parse(pendingData);
-        const { products, sha } = await getProductsFile(env);
-        
-        const newProduct = {
-          id: 'fk_' + Date.now(),
-          asin: '',
-          title: deal.title || '',
-          price: deal.price || '',
-          mrp: deal.mrp || '',
-          disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
-          image: deal.image || '',
-          link: affiliateUrl,
-          category: deal.category || detectCategoryFromTitle(deal.title),
-          highlights: [],
-          lowestPriceText: null,
-          featured: false,
-          hidden: false,
-          outOfStock: false,
-          order: 0,
-          addedAt: new Date().toISOString(),
-          originalPrice: deal.price || ''
-        };
-
-        const final = await capLiveAndBury([newProduct, ...products], env);
-        await saveProductsFile(final, sha, `Add Flipkart deal: ${newProduct.title.slice(0, 60)}`, env);
-        await env.KV.delete('fkart_pending_msg:' + replyToMsgId);
-
-        await tgSend(token, msg.chat.id, `✅ <b>Published live!</b>\n\nTitle: ${escHtml(newProduct.title)}\nPrice: ${newProduct.price}\nLink: ${newProduct.link}`, { parse_mode: 'HTML' });
-
-        await postDealsAndTrack([newProduct], env).catch(e => console.error('TG post Flipkart reply:', e.message));
-
-      } catch (err) {
-        await tgSend(token, msg.chat.id, `❌ Failed to publish: ${err.message}`);
-      }
-      return new Response('ok');
-    }
-  }
 
   // Help command
   if (text.trim() === '/start' || text.trim() === '/help') {
@@ -3081,7 +3072,7 @@ export default {
       try {
         await Promise.all([
           postNewDealsToTelegramLocked(env),
-          cronScrapeAndSendFlipkartDealsToTg(env)
+          cronSyncAndPublishNonAmazonDeals(env)
         ]);
         return json({ ok: true });
       } catch (e) {
@@ -3414,206 +3405,6 @@ export default {
       // ── /sync-dealsradar ─────────────────────────────────────────────────────
       if (url.pathname === '/sync-dealsradar' && request.method === 'GET') {
         try { return json(await scrapeAndSyncDealsSpy(env, 40)); } catch (e) { return json({ error: e.message }, 502); }
-      }
-
-      // ── GET /sync-flipkart-dealsspy ─────────────────────────────────────────────
-      if (url.pathname === '/sync-flipkart-dealsspy' && request.method === 'GET') {
-        try {
-          const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
-          const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const html = await r.text();
-          const dsDeals = parseDealsSpyHtml(html);
-
-          let pending = [];
-          try {
-            pending = JSON.parse(await env.KV.get('fkart_pending_deals') || '[]');
-          } catch (e) {}
-
-          const { products } = await getProductsFile(env);
-          const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
-
-          let deletedUrls = [];
-          try {
-            deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
-          } catch (e) {}
-          const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
-
-          const newPending = [...pending];
-          let addedCount = 0;
-          for (const deal of dsDeals) {
-            const linkLower = deal.link.toLowerCase();
-            if (liveLinks.has(linkLower) || deletedSet.has(linkLower)) continue;
-            if (!newPending.some(p => p.link.toLowerCase() === linkLower)) {
-              newPending.push(deal);
-              addedCount++;
-            }
-          }
-
-          const cleanPending = newPending.filter(deal => {
-            const linkLower = deal.link.toLowerCase();
-            return !liveLinks.has(linkLower) && !deletedSet.has(linkLower);
-          }).slice(-100);
-
-          await env.KV.put('fkart_pending_deals', JSON.stringify(cleanPending));
-
-          return json({ success: true, count: dsDeals.length, added: addedCount, message: `Successfully scraped last ${dsDeals.length} Flipkart deals from DealsSpy (${addedCount} new added).` });
-        } catch (e) {
-          return json({ error: e.message }, 502);
-        }
-      }
-
-      // ── GET /flipkart-scraped ──────────────────────────────────────────────────
-      if (url.pathname === '/flipkart-scraped' && request.method === 'GET') {
-        try {
-          const force = url.searchParams.get('force') === 'true';
-          let pending = [];
-          try {
-            pending = JSON.parse(await env.KV.get('fkart_pending_deals') || '[]');
-          } catch (e) {}
-
-          const { products } = await getProductsFile(env);
-          const liveLinks = new Set(products.map(p => p.link.toLowerCase()));
-
-          let deletedUrls = [];
-          try {
-            deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
-          } catch (e) {}
-          const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
-
-          if (force || pending.length === 0) {
-            let dsDeals = [];
-            try {
-              const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
-              const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
-              if (r.ok) {
-                const html = await r.text();
-                dsDeals = parseDealsSpyHtml(html);
-              }
-            } catch (e) {
-              console.error('Flipkart DS fetch failed:', e.message);
-            }
-
-            let ifsDeals = [];
-            try {
-              ifsDeals = await scrapeIfsFlipkartDeals(env).catch(() => []);
-            } catch (e) {
-              console.error('Flipkart IFS fetch failed:', e.message);
-            }
-
-            const combined = [...dsDeals, ...ifsDeals];
-
-            const seen = new Set();
-            const newPending = [...pending];
-            for (const deal of combined) {
-              const linkLower = deal.link.toLowerCase();
-              if (liveLinks.has(linkLower) || deletedSet.has(linkLower)) continue;
-              if (!newPending.some(p => p.link.toLowerCase() === linkLower)) {
-                newPending.push(deal);
-              }
-            }
-
-            pending = newPending.filter(deal => {
-              const linkLower = deal.link.toLowerCase();
-              return !liveLinks.has(linkLower) && !deletedSet.has(linkLower);
-            }).slice(-100);
-
-            await env.KV.put('fkart_pending_deals', JSON.stringify(pending));
-          }
-
-          const filtered = pending.filter(deal => {
-            const linkLower = deal.link.toLowerCase();
-            return !liveLinks.has(linkLower) && !deletedSet.has(linkLower);
-          });
-
-          return json(filtered);
-        } catch (e) {
-          return json({ error: e.message }, 502);
-        }
-      }
-
-      // ── POST /flipkart-publish ─────────────────────────────────────────────────
-      if (url.pathname === '/flipkart-publish' && request.method === 'POST') {
-        try {
-          const body = await request.json();
-          const { deal, affiliateLink } = body;
-          if (!deal || !affiliateLink) return json({ error: 'Missing deal or affiliateLink' }, 400);
-
-          const { products, sha } = await getProductsFile(env);
-
-          const newProduct = {
-            id: 'fk_' + Date.now(),
-            asin: '',
-            title: deal.title || '',
-            price: deal.price || '',
-            mrp: deal.mrp || '',
-            disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
-            image: deal.image || '',
-            link: affiliateLink.trim(),
-            category: deal.category || detectCategoryFromTitle(deal.title),
-            highlights: [],
-            lowestPriceText: null,
-            featured: false,
-            hidden: false,
-            outOfStock: false,
-            order: 0,
-            addedAt: new Date().toISOString(),
-            originalPrice: deal.price || ''
-          };
-
-          const final = await capLiveAndBury([newProduct, ...products], env);
-          await saveProductsFile(final, sha, `Add Flipkart deal: ${newProduct.title.slice(0, 60)}`, env);
-
-          let sentLinks = [];
-          try {
-            sentLinks = JSON.parse(await env.KV.get('fkart_sent_tg_urls') || '[]');
-          } catch (e) {}
-          sentLinks.push(deal.link);
-          await env.KV.put('fkart_sent_tg_urls', JSON.stringify(sentLinks.slice(-200)));
-
-          // Clean from pending deals list in KV
-          try {
-            let pending = JSON.parse(await env.KV.get('fkart_pending_deals') || '[]');
-            pending = pending.filter(p => p.link.toLowerCase() !== deal.link.toLowerCase());
-            await env.KV.put('fkart_pending_deals', JSON.stringify(pending));
-          } catch (e) {}
-
-          await postDealsAndTrack([newProduct], env).catch(e => console.error('TG post Flipkart manual:', e.message));
-
-          return json({ success: true, product: newProduct });
-        } catch (e) {
-          return json({ error: e.message }, 502);
-        }
-      }
-
-      // ── POST /flipkart-delete ──────────────────────────────────────────────────
-      if (url.pathname === '/flipkart-delete' && request.method === 'POST') {
-        try {
-          const body = await request.json();
-          const { link } = body;
-          if (!link) return json({ error: 'Missing link' }, 400);
-
-          let deletedUrls = [];
-          try {
-            deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
-          } catch (e) {}
-
-          if (!deletedUrls.includes(link)) {
-            deletedUrls.push(link);
-            await env.KV.put('deleted_fkart_urls', JSON.stringify(deletedUrls.slice(-500)));
-          }
-
-          // Clean from pending deals list in KV
-          try {
-            let pending = JSON.parse(await env.KV.get('fkart_pending_deals') || '[]');
-            pending = pending.filter(p => p.link.toLowerCase() !== link.toLowerCase());
-            await env.KV.put('fkart_pending_deals', JSON.stringify(pending));
-          } catch (e) {}
-
-          return json({ success: true });
-        } catch (e) {
-          return json({ error: e.message }, 502);
-        }
       }
 
       // ── /telegram-post-now ───────────────────────────────────────────────────
@@ -4041,11 +3832,11 @@ export default {
             console.error('Badge check error:', e.message);
           }
           try {
-            console.log('Flipkart deals TG notification check start');
-            await cronScrapeAndSendFlipkartDealsToTg(env);
-            console.log('Flipkart deals TG notification check complete');
+            console.log('Non-Amazon deals auto-publish start');
+            await cronSyncAndPublishNonAmazonDeals(env);
+            console.log('Non-Amazon deals auto-publish complete');
           } catch (e) {
-            console.error('Flipkart TG cron error:', e.message);
+            console.error('Non-Amazon auto-publish cron error:', e.message);
           }
         })
       );
