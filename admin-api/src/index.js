@@ -908,13 +908,21 @@ function buildManualCueLink(url) {
 // via their v3 API, instead of blindly hand-wrapping every URL and hoping it's
 // actually monetizable. Returns { link, affiliated }:
 //   affiliated === true  → real tracking_url from CueLinks, confirmed active campaign
-//   affiliated === false → CueLinks confirms this URL has NO active/accessible
-//                          campaign — link is null, caller should skip publishing
-//                          it entirely rather than post a deal that earns nothing
+//   affiliated === false → CueLinks' v3 API doesn't recognize this URL as
+//                          affiliated for this key's channel. NOT currently
+//                          trusted as "definitely a dead link" — verified
+//                          2026-08-21 that even known-good, currently-live
+//                          Flipkart product URLs (site already earns commission
+//                          on Flipkart via the legacy pub_id-based link) come
+//                          back affiliated:false here, meaning the v3 API key's
+//                          channel likely isn't recognized/approved for Flipkart
+//                          in CueLinks' newer campaign system yet, separate from
+//                          the older pub_id auth. Falls back to the manual wrap
+//                          rather than skipping publishing — do NOT change this
+//                          to skip-on-false until affiliated:true has been
+//                          confirmed working on at least one real deal.
 //   affiliated === null  → key not configured, or the API call itself failed —
-//                          unknown either way, so fall back to the manual wrap
-//                          (same behavior as before this integration existed)
-//                          rather than blocking publishing on a CueLinks outage.
+//                          same fallback either way.
 async function convertToCueLink(url, env) {
   const apiKey = (env.CUELINKS_API_KEY || '').trim();
   if (!apiKey) return { link: buildManualCueLink(url), affiliated: null };
@@ -939,11 +947,11 @@ async function convertToCueLink(url, env) {
     if (data?.affiliated === true && data.tracking_url) {
       return { link: data.tracking_url, affiliated: true };
     }
-    if (data?.affiliated === false || data?.campaign === null) {
-      return { link: null, affiliated: false };
-    }
-    // Unexpected shape — treat like any other API-side uncertainty.
-    return { link: buildManualCueLink(url), affiliated: null };
+    // Not trusted as a real "dead link" signal yet — see comment above. Publish
+    // using the manual wrap (same as always) so a channel/access mismatch on
+    // CueLinks' side can't silently stop deal publishing.
+    console.log(`CueLinks reports affiliated:false for ${url} — publishing via manual wrap anyway (see convertToCueLink comment).`);
+    return { link: buildManualCueLink(url), affiliated: false };
   } catch (e) {
     console.log(`CueLinks convert API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
     return { link: buildManualCueLink(url), affiliated: null };
@@ -1172,15 +1180,10 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
         continue;
       }
 
-      // Convert link to a real tracked CueLinks affiliate link — skip publishing
-      // entirely if CueLinks confirms this URL has no active/accessible campaign,
-      // since a deal that can't earn commission isn't worth publishing.
-      const { link: cueLink, affiliated } = await convertToCueLink(deal.link, env);
-      if (affiliated === false) {
-        console.log(`Skipping unaffiliated non-Amazon deal (no active CueLinks campaign): ${deal.link}`);
-        newSentLinks.push(deal.link);
-        continue;
-      }
+      // Convert link to a real tracked CueLinks affiliate link (falls back to the
+      // manual wrap on any uncertainty — see convertToCueLink's comment on why
+      // affiliated:false isn't currently treated as a skip signal).
+      const { link: cueLink } = await convertToCueLink(deal.link, env);
 
       const newProduct = {
         id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -3718,8 +3721,7 @@ export default {
           for (const deal of allScraped) {
             const k = deal.link.toLowerCase();
             if (liveOriginalLinks.has(k) || sentSet.has(k) || deletedSet.has(k)) continue;
-            const { link: cueLink, affiliated } = await convertToCueLink(deal.link, env);
-            if (affiliated === false) { newSentLinks.push(deal.link); continue; }
+            const { link: cueLink } = await convertToCueLink(deal.link, env);
             const p = {
               id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
               asin: '', title: deal.title || '', price: deal.price || '', mrp: deal.mrp || '',
