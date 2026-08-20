@@ -930,18 +930,20 @@ function buildManualCueLink(url) {
 // per CueLinks' own docs, "If the AI service is unavailable, the original
 // title is returned... the request never fails due to AI," so this mirrors
 // that same never-worse-than-before guarantee for the link side too.
-async function convertToCueLink(url, title, env) {
+async function convertToCueLink(url, title, env, description) {
   const apiKey = (env.CUELINKS_API_KEY || '').trim();
   if (!apiKey) return { link: buildManualCueLink(url), title, affiliated: null };
 
   try {
+    const reqBody = { url, title, rewrite_using_ai: true, subid: 'dealbuster' };
+    if (description) reqBody.description = description;
     const res = await fetchWithTimeout('https://developers.cuelinks.com/pub_api/v3/links/monetize', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ url, title, rewrite_using_ai: true, subid: 'dealbuster' }),
+      body: JSON.stringify(reqBody),
     }, 10000);
 
     if (!res.ok) {
@@ -3819,10 +3821,11 @@ export default {
       if (url.pathname === '/test-cuelink' && request.method === 'GET') {
         const testUrl = url.searchParams.get('url');
         const testTitle = url.searchParams.get('title') || 'Test Product Title';
-        if (!testUrl) return json({ error: 'pass ?url=<merchant url to test>&title=<optional title>' }, 400);
+        const testDescription = url.searchParams.get('description') || null;
+        if (!testUrl) return json({ error: 'pass ?url=<merchant url to test>&title=<optional title>&description=<optional>' }, 400);
         try {
-          const result = await convertToCueLink(testUrl, testTitle, env);
-          return json({ input: testUrl, inputTitle: testTitle, ...result, keyConfigured: !!(env.CUELINKS_API_KEY || '').trim() });
+          const result = await convertToCueLink(testUrl, testTitle, env, testDescription);
+          return json({ input: testUrl, inputTitle: testTitle, inputDescription: testDescription, ...result, keyConfigured: !!(env.CUELINKS_API_KEY || '').trim() });
         } catch (e) {
           return json({ error: e.message }, 502);
         }
