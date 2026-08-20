@@ -897,9 +897,57 @@ function getOriginalUrl(url) {
   return url;
 }
 
-// Helper to convert any raw URL to CueLinks redirect affiliate link
-function convertToCueLink(url) {
+// Hand-built fallback — used when CUELINKS_API_KEY isn't configured, or the
+// real API call fails/errors (network issue, outage). Strictly no worse than
+// what this function did before the real API integration existed.
+function buildManualCueLink(url) {
   return `https://linksredirect.com/?pub_id=268568&subid=dealbuster&url=${encodeURIComponent(url)}`;
+}
+
+// Converts a scraped merchant URL into a real tracked CueLinks affiliate link
+// via their v3 API, instead of blindly hand-wrapping every URL and hoping it's
+// actually monetizable. Returns { link, affiliated }:
+//   affiliated === true  → real tracking_url from CueLinks, confirmed active campaign
+//   affiliated === false → CueLinks confirms this URL has NO active/accessible
+//                          campaign — link is null, caller should skip publishing
+//                          it entirely rather than post a deal that earns nothing
+//   affiliated === null  → key not configured, or the API call itself failed —
+//                          unknown either way, so fall back to the manual wrap
+//                          (same behavior as before this integration existed)
+//                          rather than blocking publishing on a CueLinks outage.
+async function convertToCueLink(url, env) {
+  const apiKey = (env.CUELINKS_API_KEY || '').trim();
+  if (!apiKey) return { link: buildManualCueLink(url), affiliated: null };
+
+  try {
+    const res = await fetchWithTimeout('https://developers.cuelinks.com/pub_api/v3/links/convert', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url, subid: 'dealbuster' }),
+    }, 10000);
+
+    if (!res.ok) {
+      console.log(`CueLinks convert API returned ${res.status} for ${url} — falling back to manual wrap.`);
+      return { link: buildManualCueLink(url), affiliated: null };
+    }
+
+    const body = await res.json();
+    const data = body?.data;
+    if (data?.affiliated === true && data.tracking_url) {
+      return { link: data.tracking_url, affiliated: true };
+    }
+    if (data?.affiliated === false || data?.campaign === null) {
+      return { link: null, affiliated: false };
+    }
+    // Unexpected shape — treat like any other API-side uncertainty.
+    return { link: buildManualCueLink(url), affiliated: null };
+  } catch (e) {
+    console.log(`CueLinks convert API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
+    return { link: buildManualCueLink(url), affiliated: null };
+  }
 }
 
 // Generic across Flipkart/Myntra/Ajio/Shopsy/Meesho/TataCliq/Nykaa product pages —
@@ -1124,8 +1172,15 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
         continue;
       }
 
-      // Convert link to CueLinks
-      const cueLink = convertToCueLink(deal.link);
+      // Convert link to a real tracked CueLinks affiliate link — skip publishing
+      // entirely if CueLinks confirms this URL has no active/accessible campaign,
+      // since a deal that can't earn commission isn't worth publishing.
+      const { link: cueLink, affiliated } = await convertToCueLink(deal.link, env);
+      if (affiliated === false) {
+        console.log(`Skipping unaffiliated non-Amazon deal (no active CueLinks campaign): ${deal.link}`);
+        newSentLinks.push(deal.link);
+        continue;
+      }
 
       const newProduct = {
         id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -3663,7 +3718,8 @@ export default {
           for (const deal of allScraped) {
             const k = deal.link.toLowerCase();
             if (liveOriginalLinks.has(k) || sentSet.has(k) || deletedSet.has(k)) continue;
-            const cueLink = convertToCueLink(deal.link);
+            const { link: cueLink, affiliated } = await convertToCueLink(deal.link, env);
+            if (affiliated === false) { newSentLinks.push(deal.link); continue; }
             const p = {
               id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
               asin: '', title: deal.title || '', price: deal.price || '', mrp: deal.mrp || '',
