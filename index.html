@@ -2893,13 +2893,39 @@
   const mobileLoop = { offset: 0 };
   const MOBILE_BATCH = 12;
 
+  // Search normalization: makes "shoe"/"shoes", "headphone"/"headphones"/
+  // "head phone"/"head phones", "facewash"/"face wash" etc. all match each
+  // other. Without this, substring search was asymmetric — "shoe" matched
+  // titles containing "Shoes" (since "shoe" is a substring of "shoes"), but
+  // "shoes" didn't match a title saying just "Shoe" (not a substring the
+  // other way), and "head phone" (with a space) didn't match "Headphone"
+  // (title has no space) at all. Fix: split into word tokens, lightly stem
+  // each token's trailing plural (shoes->shoe, watches->watch — skips words
+  // ending "ss" like "bass"/"glass" so those aren't mangled), then rejoin
+  // with no separator so spacing differences stop mattering either. Both the
+  // query and the title get the same normalization before substring-matching,
+  // so "shoe"/"shoes"/"head phone"/"headphones" all collapse to one comparable
+  // form. This is a simple heuristic, not real linguistic stemming — it can
+  // over-stem a handful of words that end in a bare "s" without being plural
+  // (e.g. "Lens" -> "len"), but that's a minor false-stem, not a broken match.
+  function stemToken(tok) {
+    if (tok.length > 4 && /(sses|ches|shes|xes)$/.test(tok)) return tok.slice(0, -2);
+    if (tok.length > 4 && /ies$/.test(tok)) return tok.slice(0, -3) + 'y';
+    if (tok.length > 3 && /s$/.test(tok) && !/ss$/.test(tok)) return tok.slice(0, -1);
+    return tok;
+  }
+  function normalizeSearchText(str) {
+    const tokens = (str || '').toLowerCase().match(/[a-z0-9]+/g) || [];
+    return tokens.map(stemToken).join('');
+  }
+
   function applyFilters() {
-    const query = searchInput.value.trim().toLowerCase();
+    const query = normalizeSearchText(searchInput.value.trim());
     filteredCards = [];
     const _mob = window.innerWidth <= 640;
     let shownSoFar = 0;
     cards().forEach(card => {
-      const title = card.querySelector('.card-title').textContent.toLowerCase();
+      const title = normalizeSearchText(card.querySelector('.card-title').textContent);
       let matchesTab = false;
       if (activeTab === 'all') { matchesTab = true; }
       else if (activeTab === 'deals') {
@@ -3018,13 +3044,14 @@
         soHint.style.display = 'block';
         return;
       }
+      const normQ = normalizeSearchText(q);
       const matches = [];
       const seen = new Set();
       document.querySelectorAll('#productsGrid .product-card:not([data-clone])').forEach(c => {
         if (matches.length >= 60) return;
         const title = c.querySelector('.card-title')?.textContent || '';
         const key = title.trim().toLowerCase();
-        if (key.includes(q) && !seen.has(key)) { seen.add(key); matches.push(c); }
+        if (normalizeSearchText(key).includes(normQ) && !seen.has(key)) { seen.add(key); matches.push(c); }
       });
       if (!matches.length) {
         soHint.textContent = `No deals found for "${soInput.value.trim()}"`;
@@ -3623,7 +3650,7 @@
       if (!fresh.length) return;
 
       const grid = document.getElementById('productsGrid');
-      const query = searchInput.value.trim().toLowerCase();
+      const query = normalizeSearchText(searchInput.value.trim());
       const beforeY = window.scrollY;
       const beforeHeight = document.documentElement.scrollHeight;
 
@@ -3631,7 +3658,7 @@
       fresh.forEach(p => {
         knownProductIds.add(productKey(p));
         const card = buildProductCard(p);
-        const title = card.querySelector('.card-title').textContent.toLowerCase();
+        const title = normalizeSearchText(card.querySelector('.card-title').textContent);
         const matchesTab = activeTab === 'all'
           ? true
           : activeTab === 'deals'
