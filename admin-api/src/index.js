@@ -912,16 +912,44 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
     return;
   }
 
-  let dsDeals = [];
-  try {
-    const targetUrl = 'https://www.dealsspy.in/offers/flipkart';
-    const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 20000, env);
-    if (r.ok) {
-      const html = await r.text();
-      dsDeals = parseDealsSpyHtml(html);
+  // Fetch multiple DealsSpy store pages in parallel to maximise deal volume
+  const dsPages = [
+    'https://www.dealsspy.in/',                  // Homepage (mixed stores, freshest)
+    'https://www.dealsspy.in/offers/flipkart',   // Flipkart
+    'https://www.dealsspy.in/offers/amazon',     // Amazon (non-ASIN deals only — filtered below)
+    'https://www.dealsspy.in/offers/mens-fashion',
+    'https://www.dealsspy.in/offers/womens-fashion',
+  ];
+
+  const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+  const dsResults = await Promise.allSettled(
+    dsPages.map(async pageUrl => {
+      try {
+        const r = await fetchWithProxy(pageUrl, { headers: { 'User-Agent': UA } }, 20000, env);
+        if (!r.ok) return [];
+        const html = await r.text();
+        return parseDealsSpyHtml(html);
+      } catch (e) {
+        console.error(`DS page fetch failed (${pageUrl}):`, e.message);
+        return [];
+      }
+    })
+  );
+
+  // Deduplicate by link across all pages
+  const seenDsLinks = new Set();
+  const dsDeals = [];
+  for (const result of dsResults) {
+    if (result.status !== 'fulfilled') continue;
+    for (const deal of result.value) {
+      const key = deal.link.toLowerCase();
+      if (seenDsLinks.has(key)) continue;
+      seenDsLinks.add(key);
+      // Skip Amazon deals from DealsSpy — Amazon is handled by its own dedicated pipeline
+      if (deal.link.includes('amazon.in') || deal.link.includes('amazon.com') || deal.link.includes('amzn.to')) continue;
+      dsDeals.push(deal);
     }
-  } catch (e) {
-    console.error('Flipkart DS cron fetch failed:', e.message);
   }
 
   let ifsDeals = [];
@@ -988,8 +1016,8 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
     newProducts.push(newProduct);
     newSentLinks.push(deal.link);
     
-    // Auto-publish limit: maximum 3 new non-Amazon deals per cron run to avoid flooding
-    if (newProducts.length >= 3) break;
+    // Auto-publish limit: maximum 10 new non-Amazon deals per cron run
+    if (newProducts.length >= 10) break;
   }
 
   if (newProducts.length > 0) {
@@ -997,7 +1025,7 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
     const updatedProducts = await capLiveAndBury([...newProducts, ...products], env);
     await saveProductsFile(updatedProducts, sha, `Auto-publish non-Amazon deals: ${newProducts.map(p => p.title.slice(0, 30)).join(', ')}`, env);
     
-    await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-200)));
+    await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-500)));
 
     // Send converted deals to public Telegram channel
     await postDealsAndTrack(newProducts, env).catch(e => console.error('TG auto-post non-Amazon failed:', e.message));
@@ -3299,6 +3327,7 @@ export default {
           return json({ error: 'Title not found' }, 404);
         } catch (e) { return json({ error: e.message }, 502); }
       }
+
 
       // ── /search ──────────────────────────────────────────────────────────────
       if (url.pathname === '/search' && request.method === 'GET') {
