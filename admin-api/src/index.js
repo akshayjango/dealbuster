@@ -2156,7 +2156,14 @@ async function capLiveAndBury(all, env, cap = 1440) {
     await clearTgPostedMarks(expired, env).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
   }
 
-  return [...keptAmz, ...keptOthers, ...tombs].map((p, i) => ({ ...p, order: i }));
+  const liveDeals = [...keptAmz, ...keptOthers];
+  liveDeals.sort((a, b) => {
+    if (a.featured && !b.featured) return -1;
+    if (!a.featured && b.featured) return 1;
+    return Date.parse(b.addedAt || 0) - Date.parse(a.addedAt || 0);
+  });
+
+  return [...liveDeals, ...tombs].map((p, i) => ({ ...p, order: i }));
 }
 
 // ── Autopost toggle + manual-approval queue ───────────────────────────────────
