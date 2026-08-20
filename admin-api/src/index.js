@@ -947,8 +947,9 @@ async function convertToCueLink(url, title, env, description) {
     }, 10000);
 
     if (!res.ok) {
-      console.log(`CueLinks monetize API returned ${res.status} for ${url} — falling back to manual wrap.`);
-      return { link: buildManualCueLink(url), title, affiliated: null };
+      const errBody = await res.text().catch(() => '');
+      console.log(`CueLinks monetize API returned ${res.status} for ${url} — falling back to manual wrap. Body: ${errBody.slice(0, 300)}`);
+      return { link: buildManualCueLink(url), title, affiliated: null, debugError: `HTTP ${res.status}: ${errBody.slice(0, 300)}` };
     }
 
     const body = await res.json();
@@ -968,7 +969,7 @@ async function convertToCueLink(url, title, env, description) {
     return { link: buildManualCueLink(url), title: rewrittenTitle, affiliated: false, description };
   } catch (e) {
     console.log(`CueLinks monetize API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
-    return { link: buildManualCueLink(url), title, affiliated: null };
+    return { link: buildManualCueLink(url), title, affiliated: null, debugError: e.message };
   }
 }
 
