@@ -880,6 +880,10 @@
   const imgSrc      = p.get('img')      || '';
   const highlights  = p.get('hl')       ? p.get('hl').split('|') : [];
   const faqs        = p.get('faq')      ? p.get('faq').split('||') : [];
+  // Collection/category-banner deals ("up to 85% off") link to a whole
+  // collection, not one priced item — index.html flags these via this param
+  // since the scraped "price" is really just the collection's cheapest item.
+  const isCollection = p.get('collection') === '1';
 
   // Page title
   document.title = title + ' – Dealbuster';
@@ -950,15 +954,21 @@
   // Title
   document.getElementById('productTitle').textContent = title;
 
-  // Prices
-  document.getElementById('priceCurrent').textContent = current;
-  document.getElementById('priceOriginal').textContent = original;
+  // Prices — collection/category deals don't show a specific price at all,
+  // since the scraped value is just the collection's cheapest item, not what
+  // this listing itself costs.
+  if (isCollection) {
+    document.querySelector('.price-row').style.display = 'none';
+  } else {
+    document.getElementById('priceCurrent').textContent = current;
+    document.getElementById('priceOriginal').textContent = original;
 
-  // Savings calculation
-  const cur = parseInt(current.replace(/[^0-9]/g, ''));
-  const ori = parseInt(original.replace(/[^0-9]/g, ''));
-  if (cur && ori && ori > cur) {
-    document.getElementById('savingsTag').textContent = 'You save ₹' + (ori - cur).toLocaleString('en-IN');
+    // Savings calculation
+    const cur = parseInt(current.replace(/[^0-9]/g, ''));
+    const ori = parseInt(original.replace(/[^0-9]/g, ''));
+    if (cur && ori && ori > cur) {
+      document.getElementById('savingsTag').textContent = 'You save ₹' + (ori - cur).toLocaleString('en-IN');
+    }
   }
 
   // CTA link
