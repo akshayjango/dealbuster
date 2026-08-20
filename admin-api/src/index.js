@@ -965,34 +965,48 @@ function isFlipkartLink(url) {
 }
 
 async function checkListingAvailability(url, scrapedPrice, env) {
+  // cookieHealth is null when this isn't an authed-Flipkart check at all (non-Flipkart
+  // link, or FLIPKART_SESSION_COOKIE not configured) — the caller uses it to decide
+  // whether to raise/clear the FlipkartSessionCookie dashboard notification.
+  let cookieHealth = null;
   try {
     let r = null;
-    if (isFlipkartLink(url)) {
+    const cookieConfigured = !!(env.FLIPKART_SESSION_COOKIE || '').trim();
+    if (isFlipkartLink(url) && cookieConfigured) {
       r = await fetchFlipkartWithSession(url, env, 15000);
+      cookieHealth = r ? 'pending' : 'request_failed';
     }
     if (!r) {
       r = await fetchWithProxy(url, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 15000, env);
     }
-    if (!r.ok) return { available: false, reason: `http_${r.status}` };
+    if (!r.ok) return { available: false, reason: `http_${r.status}`, cookieHealth };
     const html = await r.text();
-    if (html.length < 500) return { available: false, reason: 'empty_page' };
+    if (html.length < 500) return { available: false, reason: 'empty_page', cookieHealth };
+
+    // "Location not set" is exactly what Flipkart shows an anonymous visitor —
+    // if it still shows up on a request we sent our session cookie with, the
+    // cookie isn't authenticating anymore (expired/rotated), and every
+    // deliverability check since is silently running anonymous again.
+    if (cookieHealth === 'pending') {
+      cookieHealth = html.toLowerCase().includes('location not set') ? 'expired' : 'ok';
+    }
 
     const lower = html.toLowerCase();
     for (const phrase of OOS_PHRASES) {
-      if (lower.includes(phrase)) return { available: false, reason: phrase };
+      if (lower.includes(phrase)) return { available: false, reason: phrase, cookieHealth };
     }
 
     if (scrapedPrice > 0) {
       const listedPrice = extractPageListedPrice(html);
       if (listedPrice && listedPrice > 0) {
         const drift = Math.abs(listedPrice - scrapedPrice) / scrapedPrice;
-        if (drift > 0.2) return { available: false, reason: `price_drift_${Math.round(drift * 100)}pct` };
+        if (drift > 0.2) return { available: false, reason: `price_drift_${Math.round(drift * 100)}pct`, cookieHealth };
       }
     }
 
-    return { available: true };
+    return { available: true, cookieHealth };
   } catch (e) {
-    return { available: false, reason: `fetch_error_${e.message}` };
+    return { available: false, reason: `fetch_error_${e.message}`, cookieHealth };
   }
 }
 
@@ -1093,6 +1107,7 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
   // in small concurrent chunks to stay within Cloudflare's per-invocation
   // subrequest limit.
   const verifyChunkSize = 5;
+  const flipkartCookieStatuses = [];
   for (let i = 0; i < candidateDeals.length && newProducts.length < 10; i += verifyChunkSize) {
     const chunk = candidateDeals.slice(i, i + verifyChunkSize);
     const checked = await Promise.all(chunk.map(async deal => {
@@ -1101,6 +1116,7 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
     }));
 
     for (const { deal, availability } of checked) {
+      if (availability.cookieHealth) flipkartCookieStatuses.push(availability.cookieHealth);
       if (newProducts.length >= 10) break;
       if (!availability.available) {
         console.log(`Skipping unavailable non-Amazon deal (${availability.reason}): ${deal.link}`);
@@ -1145,6 +1161,33 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
 
     // Send converted deals to public Telegram channel
     await postDealsAndTrack(newProducts, env).catch(e => console.error('TG auto-post non-Amazon failed:', e.message));
+  }
+
+  // Surface FLIPKART_SESSION_COOKIE health on the admin dashboard (same bell/push
+  // path as every other sync error) so an expired/rotated cookie doesn't fail
+  // silently back to anonymous deliverability checks. Only evaluated when this run
+  // actually attempted an authed check (flipkartCookieStatuses empty means no new
+  // Flipkart candidates this tick, not that the cookie is fine) — 'expired' wins
+  // over 'ok'/'request_failed' since even one confirmed-anonymous response means
+  // every check this run was unauthenticated.
+  if (flipkartCookieStatuses.length > 0) {
+    if (flipkartCookieStatuses.includes('expired')) {
+      await saveSyncError(
+        'FlipkartSessionCookie',
+        'Flipkart session cookie appears expired or invalid — deliverability checks are running anonymously again. Re-extract the cookie from a logged-in browser and run: npx wrangler secret put FLIPKART_SESSION_COOKIE',
+        env
+      );
+    } else if (flipkartCookieStatuses.includes('ok')) {
+      await clearSyncError('FlipkartSessionCookie', env);
+    } else {
+      // every attempt was 'request_failed' — ScrapingAnt itself failed (API key/credits/outage),
+      // not necessarily the cookie. Distinct message so it's not confused with an expired cookie.
+      await saveSyncError(
+        'FlipkartSessionCookie',
+        'Flipkart authenticated availability check failed for every candidate this run (ScrapingAnt request error) — check SCRAPINGANT_API_KEYS / credits.',
+        env
+      );
+    }
   }
 }
 
