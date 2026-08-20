@@ -902,6 +902,100 @@ function convertToCueLink(url) {
   return `https://linksredirect.com/?pub_id=268568&subid=dealbuster&url=${encodeURIComponent(url)}`;
 }
 
+// Generic across Flipkart/Myntra/Ajio/Shopsy/Meesho/TataCliq/Nykaa product pages —
+// checks the live listing (via the proxy, so JS-rendered stock/price blocks resolve)
+// before it's ever published, instead of trusting the aggregator feed's stale snapshot.
+const OOS_PHRASES = [
+  'sold out', 'out of stock', 'currently unavailable', 'product unavailable',
+  'no longer available', 'notify me', 'item is unavailable',
+  'this product is currently unavailable', 'coming back soon',
+  'cannot be delivered', 'not deliverable', 'item currently unavailable',
+];
+
+function extractPageListedPrice(html) {
+  const patterns = [
+    /property="product:price:amount"\s+content="([\d.]+)"/i,
+    /itemprop="price"[^>]*content="([\d.]+)"/i,
+    /"price"\s*:\s*"?([\d.]+)"?/i,
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m) {
+      const val = parseFloat(m[1]);
+      if (val > 0) return val;
+    }
+  }
+  return null;
+}
+
+// Flipkart's delivery-availability text ("Not deliverable at your location") only
+// renders against a saved account address — an anonymous page load always shows
+// "Location not set" regardless of the item's actual serviceability. Bright Data's
+// Web Unlocker (tried first in fetchWithProxy) silently ignores custom cookies and
+// explicitly disallows forwarding auth/session credentials, so it can't be used
+// here — it would "succeed" while still checking anonymously. ScrapingAnt's
+// `cookies` param does forward a real session cookie to the target site, and works
+// in plain (browser=false) mode, so this stays at the normal 1-credit cost instead
+// of the 10-125x premium that Puppeteer/JS-interaction modes would require.
+async function fetchFlipkartWithSession(url, env, timeoutMs) {
+  const rawCookie = env.FLIPKART_SESSION_COOKIE || '';
+  const saKeysStr = env.SCRAPINGANT_API_KEYS || '';
+  const saKeys = saKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+  if (!rawCookie || saKeys.length === 0) return null;
+
+  const cookieParam = rawCookie.split(';').map(p => p.trim()).filter(Boolean).join(';');
+
+  for (let idx = 0; idx < saKeys.length; idx++) {
+    const key = saKeys[idx];
+    const proxyUrl = `https://api.scrapingant.com/v2/general?url=${encodeURIComponent(url)}&x-api-key=${key}&browser=false&cookies=${encodeURIComponent(cookieParam)}`;
+    try {
+      const res = await fetchWithTimeout(proxyUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, timeoutMs);
+      if (res.status !== 403 && res.status !== 429) return res;
+      console.log(`Flipkart authed check: ScrapingAnt key index ${idx} returned ${res.status}, trying next key...`);
+    } catch (e) {
+      console.log(`Flipkart authed check via ScrapingAnt key index ${idx} failed: ${e.message}`);
+    }
+  }
+  return null;
+}
+
+function isFlipkartLink(url) {
+  const l = url.toLowerCase();
+  return l.includes('flipkart.com') || l.includes('fkrt.it') || l.includes('fktr.in');
+}
+
+async function checkListingAvailability(url, scrapedPrice, env) {
+  try {
+    let r = null;
+    if (isFlipkartLink(url)) {
+      r = await fetchFlipkartWithSession(url, env, 15000);
+    }
+    if (!r) {
+      r = await fetchWithProxy(url, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 15000, env);
+    }
+    if (!r.ok) return { available: false, reason: `http_${r.status}` };
+    const html = await r.text();
+    if (html.length < 500) return { available: false, reason: 'empty_page' };
+
+    const lower = html.toLowerCase();
+    for (const phrase of OOS_PHRASES) {
+      if (lower.includes(phrase)) return { available: false, reason: phrase };
+    }
+
+    if (scrapedPrice > 0) {
+      const listedPrice = extractPageListedPrice(html);
+      if (listedPrice && listedPrice > 0) {
+        const drift = Math.abs(listedPrice - scrapedPrice) / scrapedPrice;
+        if (drift > 0.2) return { available: false, reason: `price_drift_${Math.round(drift * 100)}pct` };
+      }
+    }
+
+    return { available: true };
+  } catch (e) {
+    return { available: false, reason: `fetch_error_${e.message}` };
+  }
+}
+
 async function cronSyncAndPublishNonAmazonDeals(env) {
   // Save proxy credits: Do not run scrapes between 2 AM and 7 AM IST
   const now = new Date();
@@ -984,40 +1078,62 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
   const newProducts = [];
   const newSentLinks = [...sentLinks];
 
+  const candidateDeals = [];
   for (const deal of scrapedDeals) {
     const origLinkLower = deal.link.toLowerCase();
     if (liveOriginalLinks.has(origLinkLower)) continue;
     if (sentSet.has(origLinkLower)) continue;
     if (deletedSet.has(origLinkLower)) continue;
+    candidateDeals.push(deal);
+  }
 
-    // Convert link to CueLinks
-    const cueLink = convertToCueLink(deal.link);
+  // Verify each candidate's live listing (in stock, price still matches) before
+  // publishing — the aggregator feeds (DealsSpy/IFS) lag reality by hours, which
+  // is why unavailable/price-changed deals were getting auto-published. Checked
+  // in small concurrent chunks to stay within Cloudflare's per-invocation
+  // subrequest limit.
+  const verifyChunkSize = 5;
+  for (let i = 0; i < candidateDeals.length && newProducts.length < 10; i += verifyChunkSize) {
+    const chunk = candidateDeals.slice(i, i + verifyChunkSize);
+    const checked = await Promise.all(chunk.map(async deal => {
+      const availability = await checkListingAvailability(deal.link, parsePrice(deal.price) || 0, env);
+      return { deal, availability };
+    }));
 
-    const newProduct = {
-      id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-      asin: '',
-      title: deal.title || '',
-      price: deal.price || '',
-      mrp: deal.mrp || '',
-      disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
-      image: deal.image || '',
-      link: cueLink,
-      category: deal.category || detectCategoryFromTitle(deal.title),
-      highlights: [],
-      lowestPriceText: null,
-      featured: false,
-      hidden: false,
-      outOfStock: false,
-      order: 0,
-      addedAt: new Date().toISOString(),
-      originalPrice: deal.price || ''
-    };
+    for (const { deal, availability } of checked) {
+      if (newProducts.length >= 10) break;
+      if (!availability.available) {
+        console.log(`Skipping unavailable non-Amazon deal (${availability.reason}): ${deal.link}`);
+        newSentLinks.push(deal.link); // don't re-check the same dead link every 5 min
+        continue;
+      }
 
-    newProducts.push(newProduct);
-    newSentLinks.push(deal.link);
-    
-    // Auto-publish limit: maximum 10 new non-Amazon deals per cron run
-    if (newProducts.length >= 10) break;
+      // Convert link to CueLinks
+      const cueLink = convertToCueLink(deal.link);
+
+      const newProduct = {
+        id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        asin: '',
+        title: deal.title || '',
+        price: deal.price || '',
+        mrp: deal.mrp || '',
+        disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
+        image: deal.image || '',
+        link: cueLink,
+        category: deal.category || detectCategoryFromTitle(deal.title),
+        highlights: [],
+        lowestPriceText: null,
+        featured: false,
+        hidden: false,
+        outOfStock: false,
+        order: 0,
+        addedAt: new Date().toISOString(),
+        originalPrice: deal.price || ''
+      };
+
+      newProducts.push(newProduct);
+      newSentLinks.push(deal.link);
+    }
   }
 
   if (newProducts.length > 0) {
