@@ -952,15 +952,18 @@ async function convertToCueLink(url, title, env) {
     const body = await res.json();
     const data = body?.data;
     const rewrittenTitle = (data?.ai_rewritten === true && data.title) ? data.title : title;
+    // Diagnostic only, for now — see whether CueLinks generates a description
+    // from scratch when none is supplied in the request (docs don't say).
+    const description = data?.description || null;
 
     if (data?.affiliated === true && data.tracking_url) {
-      return { link: data.tracking_url, title: rewrittenTitle, affiliated: true };
+      return { link: data.tracking_url, title: rewrittenTitle, affiliated: true, description };
     }
     // Not trusted as a real "dead link" signal yet — see comment above. Publish
     // using the manual wrap (same as always) so a channel/access mismatch on
     // CueLinks' side can't silently stop deal publishing.
     console.log(`CueLinks reports affiliated:false for ${url} — publishing via manual wrap anyway (see convertToCueLink comment).`);
-    return { link: buildManualCueLink(url), title: rewrittenTitle, affiliated: false };
+    return { link: buildManualCueLink(url), title: rewrittenTitle, affiliated: false, description };
   } catch (e) {
     console.log(`CueLinks monetize API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
     return { link: buildManualCueLink(url), title, affiliated: null };
