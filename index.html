@@ -3222,8 +3222,17 @@
            /\bat\s*(₹|rs\.?)\s*[\d,]+\s*$/i.test(t.trim());
   }
 
+  function isAmazonLink(link) {
+    const l = (link || '').toLowerCase();
+    return l.includes('amazon.in') || l.includes('amazon.com') || l.includes('amzn.to');
+  }
+
   function buildProductCard(p) {
-    const collection = isCollectionDeal(p.title);
+    // Amazon listings are always a specific ASIN with a real, verified price —
+    // never suppress price/full-title behavior for them regardless of what the
+    // title text happens to say. Collection-banner deals only come from the
+    // non-Amazon aggregator pipeline (DealsSpy/IFS scraping Flipkart/Myntra/etc).
+    const collection = !isAmazonLink(p.link) && isCollectionDeal(p.title);
     // Collection deals keep their full title (the "up to X%"/"starting at"
     // part is often past the first "|"); regular listings keep the existing
     // split('|')[0] behavior that strips trailing store-name suffixes etc.
