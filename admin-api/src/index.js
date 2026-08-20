@@ -3812,6 +3812,23 @@ export default {
         }
       }
 
+      // ── /cuelink-ping (debug: confirm which CueLinks account this API key belongs to) ──
+      if (url.pathname === '/cuelink-ping' && request.method === 'GET') {
+        const apiKey = (env.CUELINKS_API_KEY || '').trim();
+        if (!apiKey) return json({ error: 'CUELINKS_API_KEY not configured' }, 400);
+        try {
+          const res = await fetchWithTimeout(
+            'https://developers.cuelinks.com/pub_api/v3/ping',
+            { headers: { 'Authorization': `Token ${apiKey}` } },
+            10000
+          );
+          const body = await res.json().catch(() => ({}));
+          return json({ status: res.status, body });
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
+      }
+
       // ── /cuelink-campaigns (debug: check a campaign's access_status, e.g. Flipkart) ──
       if (url.pathname === '/cuelink-campaigns' && request.method === 'GET') {
         const apiKey = (env.CUELINKS_API_KEY || '').trim();
