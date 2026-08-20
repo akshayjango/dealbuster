@@ -107,14 +107,16 @@ class Product {
     return Product(
       id: json['id']?.toString() ?? '',
       asin: json['asin']?.toString(),
-      title: json['title']?.toString() ?? '',
+      title: decodeHtmlEntities(json['title']?.toString() ?? ''),
       price: json['price']?.toString() ?? '₹0',
       mrp: json['mrp']?.toString() ?? '₹0',
       disc: json['disc']?.toString() ?? '0%',
       image: json['image']?.toString() ?? '',
       link: json['link']?.toString() ?? '',
       category: (json['category']?.toString() ?? 'other').toLowerCase(),
-      highlights: List<String>.from(json['highlights'] ?? []),
+      highlights: List<String>.from(json['highlights'] ?? [])
+          .map((h) => decodeHtmlEntities(h))
+          .toList(),
       lowestPriceText: json['lowestPriceText']?.toString(),
       featured: json['featured'] == true,
       hidden: json['hidden'] == true,
@@ -125,4 +127,35 @@ class Product {
       priceHistory: history,
     );
   }
+}
+
+String decodeHtmlEntities(String text) {
+  if (text.isEmpty) return text;
+  var decoded = text;
+  
+  // Named entities
+  decoded = decoded.replaceAll('&quot;', '"');
+  decoded = decoded.replaceAll('&apos;', "'");
+  decoded = decoded.replaceAll('&amp;', '&');
+  decoded = decoded.replaceAll('&lt;', '<');
+  decoded = decoded.replaceAll('&gt;', '>');
+  decoded = decoded.replaceAll('&nbsp;', ' ');
+  
+  // Decimal numeric entities
+  decoded = decoded.replaceAll('&#34;', '"');
+  decoded = decoded.replaceAll('&#39;', "'");
+  decoded = decoded.replaceAll('&#38;', '&');
+  decoded = decoded.replaceAll('&#60;', '<');
+  decoded = decoded.replaceAll('&#62;', '>');
+  decoded = decoded.replaceAll('&#160;', ' ');
+  
+  // Typographic smart quotes and dashes
+  decoded = decoded.replaceAll('&#8211;', '–');
+  decoded = decoded.replaceAll('&#8212;', '—');
+  decoded = decoded.replaceAll('&#8216;', '‘');
+  decoded = decoded.replaceAll('&#8217;', '’');
+  decoded = decoded.replaceAll('&#8220;', '“');
+  decoded = decoded.replaceAll('&#8221;', '”');
+  
+  return decoded;
 }
