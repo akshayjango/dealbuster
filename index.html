@@ -3207,10 +3207,19 @@
   // text itself since the scrape pipeline doesn't tag deal type separately.
   function isCollectionDeal(title) {
     const t = (title || '');
-    return /\bup\s+to\s+\d{1,3}\s*%/i.test(t) ||
+    // The percentage MUST be immediately followed by "off"/"discount" — plain
+    // "up to X%" alone also matches spec-heavy single-product titles like
+    // "Up to 96% Hair Fall Reduction" or "Up to 20% Perfume Oil Concentration",
+    // which are real listings with a real price, not collection banners.
+    return /\bup\s+to\s+\d{1,3}\s*%\s*(off|discount)\b/i.test(t) ||
            /\bmin(?:imum)?\.?\s+\d{1,3}\s*%\s*(off|discount)\b/i.test(t) ||
            /\d{1,3}\s*%\s*(off|discount)\s*$/i.test(t.trim()) ||
-           /\bstarting\s+(at|from)\s*(₹|rs\.?)/i.test(t);
+           /\bstarting\s+(at|from)\s*(₹|rs\.?)/i.test(t) ||
+           // "Haniya Fashion Women's Palazzos at ₹70" style — a bare "at ₹X" ending
+           // the title (no specific model/color named) is how these feeds phrase a
+           // collection's cheapest item, distinct from a genuine listing (which
+           // doesn't bake a raw price into the title text itself).
+           /\bat\s*(₹|rs\.?)\s*[\d,]+\s*$/i.test(t.trim());
   }
 
   function buildProductCard(p) {
