@@ -3751,6 +3751,18 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── /test-cuelink (debug: isolate convertToCueLink from scraping/dedup noise) ──
+      if (url.pathname === '/test-cuelink' && request.method === 'GET') {
+        const testUrl = url.searchParams.get('url');
+        if (!testUrl) return json({ error: 'pass ?url=<merchant url to test>' }, 400);
+        try {
+          const result = await convertToCueLink(testUrl, env);
+          return json({ input: testUrl, ...result, keyConfigured: !!(env.CUELINKS_API_KEY || '').trim() });
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
+      }
+
       // ── /sync-dotd ───────────────────────────────────────────────────────────
       if (url.pathname === '/sync-dotd' && request.method === 'GET') {
         try {
