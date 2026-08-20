@@ -175,6 +175,19 @@
     .row-disc { font-size: .72rem; font-weight: 700; color: var(--green); }
     .row-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
+    /* ── CueLinks Offers viewer ── */
+    .offers-intro { margin-bottom: 12px; }
+    .offers-intro p { font-size: .85rem; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+    .offer-row { align-items: flex-start; }
+    .offer-description { font-size: .78rem; color: var(--muted); margin-top: 3px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .offer-badge { font-size: .7rem; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+    .offer-badge-type { color: var(--primary); border-color: var(--primary); background: rgba(108,71,255,.08); }
+    .offer-code { font-family: monospace; color: #b45309; border-color: #fde68a; background: #fffbeb; }
+    .offer-price-tag { font-size: .72rem; font-weight: 700; color: var(--green); }
+    .offer-dates { color: var(--muted); }
+    .offers-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; padding: 8px; }
+    .offers-page-info { font-size: .82rem; color: var(--muted); font-weight: 600; }
+
     /* ── 3-dot menu ── */
     .row-menu-wrap { position: relative; flex-shrink: 0; }
     .btn-dots { background: none; border: none; cursor: pointer; padding: 6px 8px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); transition: background .15s ease, color .15s ease; }
@@ -444,6 +457,7 @@
     <nav class="tab-nav">
       <button class="active" onclick="switchTab('dashboard')">Dashboard</button>
       <button onclick="switchTab('addDeal')">Add Deal</button>
+      <button onclick="switchTab('offers')">CueLinks Offers</button>
     </nav>
     <div class="header-right" style="position:relative;">
       <!-- Notification Icon Button -->
@@ -770,7 +784,24 @@
       </div>
     </div>
 
-
+    <!-- ── CUELINKS OFFERS TAB ── -->
+    <div class="tab-panel" id="tabOffers">
+      <div class="offers-intro">
+        <p>Live coupons/deals from CueLinks' own feed — read-only viewer. Not connected to the public site yet; UI for showing these to visitors is still to be decided.</p>
+      </div>
+      <div class="toolbar">
+        <div class="toolbar-row toolbar-filters">
+          <input type="text" id="offersSearch" placeholder="Search offers (title/merchant)…" onkeydown="if(event.key==='Enter'){offersPage=1;loadOffers();}" style="flex:1;min-width:0;"/>
+          <input type="text" id="offersCampaignId" placeholder="Campaign ID (optional)" style="max-width:160px;"/>
+          <button class="btn btn-sm" onclick="offersPage=1;loadOffers();">Search</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('offersSearch').value='';document.getElementById('offersCampaignId').value='';offersPage=1;loadOffers();" title="Clear filters">✕ Clear</button>
+        </div>
+      </div>
+      <div class="products-list" id="offersList">
+        <div class="loading"><div class="spinner"></div>Loading offers…</div>
+      </div>
+      <div class="offers-pagination" id="offersPagination"></div>
+    </div>
 
   </div><!-- /app-body -->
 </div><!-- /screenApp -->
@@ -998,11 +1029,13 @@ function showScreen(id) {
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-nav button').forEach((b, i) => {
-    b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1));
+    b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1) || (tab === 'offers' && i === 2));
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(tab === 'dashboard' ? 'tabDashboard' : 'tabAddDeal').classList.add('active');
+  const panelId = tab === 'dashboard' ? 'tabDashboard' : tab === 'offers' ? 'tabOffers' : 'tabAddDeal';
+  document.getElementById(panelId).classList.add('active');
   if (tab === 'dashboard') loadProducts();
+  if (tab === 'offers' && !offersLoadedOnce) loadOffers();
 }
 
 function switchSubtab(tab) {
@@ -1013,6 +1046,73 @@ function switchSubtab(tab) {
   if (tab === 'url') document.getElementById('subtabUrl').classList.add('active');
   else if (tab === 'search') document.getElementById('subtabSearch').classList.add('active');
   else if (tab === 'others') document.getElementById('subtabOthers').classList.add('active');
+}
+
+// ── CueLinks Offers (read-only viewer) ─────────────────────────────────────────
+let offersLoadedOnce = false;
+let offersPage = 1;
+
+async function loadOffers() {
+  offersLoadedOnce = true;
+  const list = document.getElementById('offersList');
+  const pagination = document.getElementById('offersPagination');
+  list.innerHTML = '<div class="loading"><div class="spinner"></div>Loading offers…</div>';
+  pagination.innerHTML = '';
+
+  const q = document.getElementById('offersSearch').value.trim();
+  const campaignId = document.getElementById('offersCampaignId').value.trim();
+  const params = new URLSearchParams({ per_page: '20', page: String(offersPage) });
+  if (q) params.set('q', q);
+  if (campaignId) params.set('campaign_id', campaignId);
+
+  try {
+    const resp = await apiFetch(`/cuelink-offers?${params.toString()}`);
+    const outer = await resp.json();
+    if (!resp.ok || outer.error) {
+      list.innerHTML = `<div class="loading">Error: ${escHtml(outer.error || 'Request failed')}</div>`;
+      return;
+    }
+    const body = outer.body || {};
+    const offers = body.data || [];
+    const meta = body.meta || {};
+
+    if (!offers.length) {
+      list.innerHTML = '<div class="loading">No offers found for this filter.</div>';
+      return;
+    }
+
+    list.innerHTML = offers.map(o => {
+      const priceLine = (o.original_price || o.discount_price || o.percent_off)
+        ? `<span class="offer-price-tag">${o.percent_off ? o.percent_off + '% off' : ''}${o.discount_price ? ' · ₹' + o.discount_price : ''}${o.original_price ? ' (was ₹' + o.original_price + ')' : ''}</span>`
+        : '';
+      return `
+      <div class="product-row offer-row">
+        <div class="product-row-info" style="min-width:0;">
+          <div class="product-row-title">${escHtml(o.title || '(no title)')}</div>
+          <div class="offer-description">${escHtml(o.description || '')}</div>
+          <div class="product-row-meta">
+            <span class="offer-badge">${escHtml(o.campaign_name || 'Unknown merchant')}</span>
+            <span class="offer-badge offer-badge-type">${o.offer_type === 'coupon' ? '🎟 Coupon' : '🏷 Deal'}</span>
+            ${o.coupon_code ? `<span class="offer-badge offer-code">${escHtml(o.coupon_code)}</span>` : ''}
+            ${priceLine}
+            <span class="offer-badge offer-dates">${escHtml(o.start_date || '')} → ${escHtml(o.end_date || '')}</span>
+          </div>
+        </div>
+        <div class="product-row-prices">
+          <a class="btn btn-ghost btn-sm" href="${escHtml(o.tracking_url || '#')}" target="_blank" rel="noopener noreferrer" ${!o.tracking_url ? 'style="pointer-events:none;opacity:.4;"' : ''}>Open ↗</a>
+        </div>
+      </div>`;
+    }).join('');
+
+    const totalPages = meta.total_pages || 1;
+    pagination.innerHTML = `
+      <button class="btn btn-ghost btn-sm" onclick="offersPage=Math.max(1,offersPage-1);loadOffers();" ${offersPage <= 1 ? 'disabled' : ''}>← Prev</button>
+      <span class="offers-page-info">Page ${meta.page || offersPage} of ${totalPages} (${meta.total || offers.length} total)</span>
+      <button class="btn btn-ghost btn-sm" onclick="offersPage=offersPage+1;loadOffers();" ${!meta.next_page ? 'disabled' : ''}>Next →</button>
+    `;
+  } catch (e) {
+    list.innerHTML = `<div class="loading">Failed to load offers: ${escHtml(e.message)}</div>`;
+  }
 }
 
 // ── Products CRUD ─────────────────────────────────────────────────────────────

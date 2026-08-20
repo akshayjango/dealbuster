@@ -3874,8 +3874,9 @@ export default {
         const q = url.searchParams.get('q') || '';
         const campaignId = url.searchParams.get('campaign_id') || '';
         const perPage = url.searchParams.get('per_page') || '10';
+        const page = url.searchParams.get('page') || '1';
         try {
-          const params = new URLSearchParams({ per_page: perPage });
+          const params = new URLSearchParams({ per_page: perPage, page });
           if (q) params.set('q', q);
           if (campaignId) params.set('campaign_id', campaignId);
           const res = await fetchWithTimeout(
