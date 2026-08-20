@@ -904,9 +904,12 @@ function buildManualCueLink(url) {
   return `https://linksredirect.com/?pub_id=268568&subid=dealbuster&url=${encodeURIComponent(url)}`;
 }
 
-// Converts a scraped merchant URL into a real tracked CueLinks affiliate link
-// via their v3 API, instead of blindly hand-wrapping every URL and hoping it's
-// actually monetizable. Returns { link, affiliated }:
+// Converts a scraped merchant URL into a real tracked CueLinks affiliate link,
+// and asks CueLinks' AI to clean up the (often SEO-stuffed) scraped title —
+// via /links/monetize, a strict superset of /links/convert (same
+// link/affiliated fields, plus title/ai_rewritten). Non-Amazon deals only —
+// Amazon never touches CueLinks and this isn't wired into that pipeline.
+// Returns { link, title, affiliated }:
 //   affiliated === true  → real tracking_url from CueLinks, confirmed active campaign
 //   affiliated === false → CueLinks' v3 API doesn't recognize this URL as
 //                          affiliated for this key's channel. NOT currently
@@ -917,44 +920,50 @@ function buildManualCueLink(url) {
 //                          back affiliated:false here, meaning the v3 API key's
 //                          channel likely isn't recognized/approved for Flipkart
 //                          in CueLinks' newer campaign system yet, separate from
-//                          the older pub_id auth. Falls back to the manual wrap
-//                          rather than skipping publishing — do NOT change this
-//                          to skip-on-false until affiliated:true has been
+//                          the older pub_id auth. Falls back to the manual link
+//                          wrap rather than skipping publishing — do NOT change
+//                          this to skip-on-false until affiliated:true has been
 //                          confirmed working on at least one real deal.
 //   affiliated === null  → key not configured, or the API call itself failed —
-//                          same fallback either way.
-async function convertToCueLink(url, env) {
+//                          same link fallback either way.
+// Title always falls back to the original scraped title on any uncertainty —
+// per CueLinks' own docs, "If the AI service is unavailable, the original
+// title is returned... the request never fails due to AI," so this mirrors
+// that same never-worse-than-before guarantee for the link side too.
+async function convertToCueLink(url, title, env) {
   const apiKey = (env.CUELINKS_API_KEY || '').trim();
-  if (!apiKey) return { link: buildManualCueLink(url), affiliated: null };
+  if (!apiKey) return { link: buildManualCueLink(url), title, affiliated: null };
 
   try {
-    const res = await fetchWithTimeout('https://developers.cuelinks.com/pub_api/v3/links/convert', {
+    const res = await fetchWithTimeout('https://developers.cuelinks.com/pub_api/v3/links/monetize', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ url, subid: 'dealbuster' }),
+      body: JSON.stringify({ url, title, rewrite_using_ai: true, subid: 'dealbuster' }),
     }, 10000);
 
     if (!res.ok) {
-      console.log(`CueLinks convert API returned ${res.status} for ${url} — falling back to manual wrap.`);
-      return { link: buildManualCueLink(url), affiliated: null };
+      console.log(`CueLinks monetize API returned ${res.status} for ${url} — falling back to manual wrap.`);
+      return { link: buildManualCueLink(url), title, affiliated: null };
     }
 
     const body = await res.json();
     const data = body?.data;
+    const rewrittenTitle = (data?.ai_rewritten === true && data.title) ? data.title : title;
+
     if (data?.affiliated === true && data.tracking_url) {
-      return { link: data.tracking_url, affiliated: true };
+      return { link: data.tracking_url, title: rewrittenTitle, affiliated: true };
     }
     // Not trusted as a real "dead link" signal yet — see comment above. Publish
     // using the manual wrap (same as always) so a channel/access mismatch on
     // CueLinks' side can't silently stop deal publishing.
     console.log(`CueLinks reports affiliated:false for ${url} — publishing via manual wrap anyway (see convertToCueLink comment).`);
-    return { link: buildManualCueLink(url), affiliated: false };
+    return { link: buildManualCueLink(url), title: rewrittenTitle, affiliated: false };
   } catch (e) {
-    console.log(`CueLinks convert API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
-    return { link: buildManualCueLink(url), affiliated: null };
+    console.log(`CueLinks monetize API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
+    return { link: buildManualCueLink(url), title, affiliated: null };
   }
 }
 
@@ -1227,20 +1236,23 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
         continue;
       }
 
-      // Convert link to a real tracked CueLinks affiliate link (falls back to the
-      // manual wrap on any uncertainty — see convertToCueLink's comment on why
-      // affiliated:false isn't currently treated as a skip signal).
-      const { link: cueLink } = await convertToCueLink(deal.link, env);
+      // Convert link to a real tracked CueLinks affiliate link, and ask CueLinks'
+      // AI to clean up the scraped title (falls back to the manual link wrap and
+      // original title on any uncertainty — see convertToCueLink's comment on
+      // why affiliated:false isn't currently treated as a skip signal).
+      const { link: cueLink, title: cleanedTitle } = await convertToCueLink(deal.link, deal.title || '', env);
 
       const newProduct = {
         id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
         asin: '',
-        title: deal.title || '',
+        title: cleanedTitle || '',
         price: deal.price || '',
         mrp: deal.mrp || '',
         disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
         image: deal.image || '',
         link: cueLink,
+        // Category detection stays on the original scraped title, not the
+        // AI-rewritten one — keeps this independent of any rewrite quirks.
         category: deal.category || detectCategoryFromTitle(deal.title),
         highlights: [],
         lowestPriceText: null,
@@ -3768,10 +3780,10 @@ export default {
           for (const deal of allScraped) {
             const k = deal.link.toLowerCase();
             if (liveOriginalLinks.has(k) || sentSet.has(k) || deletedSet.has(k)) continue;
-            const { link: cueLink } = await convertToCueLink(deal.link, env);
+            const { link: cueLink, title: cleanedTitle } = await convertToCueLink(deal.link, deal.title || '', env);
             const p = {
               id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-              asin: '', title: deal.title || '', price: deal.price || '', mrp: deal.mrp || '',
+              asin: '', title: cleanedTitle || '', price: deal.price || '', mrp: deal.mrp || '',
               disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
               image: deal.image || '', link: cueLink,
               category: deal.category || detectCategoryFromTitle(deal.title),
@@ -3803,10 +3815,11 @@ export default {
       // ── /test-cuelink (debug: isolate convertToCueLink from scraping/dedup noise) ──
       if (url.pathname === '/test-cuelink' && request.method === 'GET') {
         const testUrl = url.searchParams.get('url');
-        if (!testUrl) return json({ error: 'pass ?url=<merchant url to test>' }, 400);
+        const testTitle = url.searchParams.get('title') || 'Test Product Title';
+        if (!testUrl) return json({ error: 'pass ?url=<merchant url to test>&title=<optional title>' }, 400);
         try {
-          const result = await convertToCueLink(testUrl, env);
-          return json({ input: testUrl, ...result, keyConfigured: !!(env.CUELINKS_API_KEY || '').trim() });
+          const result = await convertToCueLink(testUrl, testTitle, env);
+          return json({ input: testUrl, inputTitle: testTitle, ...result, keyConfigured: !!(env.CUELINKS_API_KEY || '').trim() });
         } catch (e) {
           return json({ error: e.message }, 502);
         }
