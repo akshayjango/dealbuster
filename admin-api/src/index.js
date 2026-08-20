@@ -930,13 +930,13 @@ function buildManualCueLink(url) {
 // per CueLinks' own docs, "If the AI service is unavailable, the original
 // title is returned... the request never fails due to AI," so this mirrors
 // that same never-worse-than-before guarantee for the link side too.
-async function convertToCueLink(url, title, env, description) {
+async function convertToCueLink(url, title, env, inputDescription) {
   const apiKey = (env.CUELINKS_API_KEY || '').trim();
   if (!apiKey) return { link: buildManualCueLink(url), title, affiliated: null };
 
   try {
     const reqBody = { url, title, rewrite_using_ai: true, subid: 'dealbuster' };
-    if (description) reqBody.description = description;
+    if (inputDescription) reqBody.description = inputDescription;
     const res = await fetchWithTimeout('https://developers.cuelinks.com/pub_api/v3/links/monetize', {
       method: 'POST',
       headers: {
@@ -957,16 +957,16 @@ async function convertToCueLink(url, title, env, description) {
     const rewrittenTitle = (data?.ai_rewritten === true && data.title) ? data.title : title;
     // Diagnostic only, for now — see whether CueLinks generates a description
     // from scratch when none is supplied in the request (docs don't say).
-    const description = data?.description || null;
+    const responseDescription = data?.description || null;
 
     if (data?.affiliated === true && data.tracking_url) {
-      return { link: data.tracking_url, title: rewrittenTitle, affiliated: true, description };
+      return { link: data.tracking_url, title: rewrittenTitle, affiliated: true, description: responseDescription };
     }
     // Not trusted as a real "dead link" signal yet — see comment above. Publish
     // using the manual wrap (same as always) so a channel/access mismatch on
     // CueLinks' side can't silently stop deal publishing.
     console.log(`CueLinks reports affiliated:false for ${url} — publishing via manual wrap anyway (see convertToCueLink comment).`);
-    return { link: buildManualCueLink(url), title: rewrittenTitle, affiliated: false, description };
+    return { link: buildManualCueLink(url), title: rewrittenTitle, affiliated: false, description: responseDescription };
   } catch (e) {
     console.log(`CueLinks monetize API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
     return { link: buildManualCueLink(url), title, affiliated: null, debugError: e.message };
