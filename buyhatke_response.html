@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en-IN">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="/favicon-v2.png" />
+		<link rel="manifest" href="/manifest.json" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover"
+		/>
+		<meta name="language" content="English" />
+		<meta name="theme-color" content="white" />
+		<meta name="google-adsense-account" content="ca-pub-9745542719947922" />
+		<link rel="preconnect" href="https://compare.buyhatke.com" crossorigin />
+		<link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+		<link rel="dns-prefetch" href="https://www.clarity.ms" />
+		<link rel="dns-prefetch" href="https://widget.buyhatke.com" />
+
+		<!-- Self-hosted critical font (400 only — 700 loads via CSS without blocking) -->
+		<link
+			rel="preload"
+			href="/fonts/metropolis-latin-400-normal.woff2"
+			as="font"
+			type="font/woff2"
+			crossorigin
+		/>
+
+		<!-- ios support (pwa) -->
+		<!-- <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> -->
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-touch-fullscreen" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Buyhatke Price Tracker" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+
+		<script>
+			window.isAppInterface =
+				Boolean(
+					window.AssistantAppInterface /* Android */ ||
+					window.webkit?.messageHandlers?.iOSAssistantInterface
+				) || window.isBHWebview === true;
+
+			(function () {
+				var isInstalled = window.matchMedia('(display-mode: standalone)').matches;
+				// Do not set maximum-scale=1 — that fails Lighthouse a11y (prevents zoom).
+				// Keep viewport-fit=cover for notches; users must be able to pinch-zoom.
+				if (navigator.userAgent.indexOf('iPhone') > -1 || isInstalled) {
+					document
+						.querySelector('[name=viewport]')
+						.setAttribute(
+							'content',
+							'width=device-width, initial-scale=1, viewport-fit=cover'
+						);
+				}
+			})();
+
+			// Stub gtag/dataLayer early so Firebase Analytics + deferred GTM don't race
+			window.dataLayer = window.dataLayer || [];
+			window.gtag =
+				window.gtag ||
+				function () {
+					window.dataLayer.push(arguments);
+				};
+
+			/**
+			 * Ad SDK can load independently once a `.buyhatke-ad` slot is in the DOM.
+			 * Defined up-front so deferred ad widgets can call it after they mount.
+			 */
+			window.__bhLoadAdSdk = function () {
+				if (window.__bhAdSdkLoaded || window.isAppInterface) return;
+				if (!document.querySelector('.buyhatke-ad')) return;
+				window.__bhAdSdkLoaded = true;
+
+				(function () {
+					var script = document.createElement('script');
+					script.async = true;
+					script.src = 'https://widget.buyhatke.com/sdk.js';
+					script.setAttribute(
+						'data-ad-client',
+						'fce62700cff1949a1bc17f9f52bf84dac3d02dae4497171c9a1d8a0da8db44a7'
+					);
+					script.setAttribute('data-ad-merchantid', '9');
+					script.setAttribute('data-platform', '3');
+					script.setAttribute('data-user-interest', 'true');
+					try {
+						var readCookie = function (name) {
+							var m = document.cookie.match(
+								'(?:^|; )' +
+									name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') +
+									'=([^;]*)'
+							);
+							return m ? decodeURIComponent(m[1]) : '';
+						};
+						[
+							{ attr: 'data-user-city', ext: 'userCity', ip: 'ipCity' },
+							{ attr: 'data-user-state', ext: 'userState', ip: 'ipState' },
+							{ attr: 'data-user-pincode', ext: 'userPincode', ip: 'ipPincode' },
+							{ attr: 'data-user-country', ext: 'userCountry', ip: 'ipCountry' },
+						].forEach(function (f) {
+							if (!readCookie(f.ext)) {
+								var ipVal = readCookie(f.ip);
+								if (ipVal) script.setAttribute(f.attr, ipVal);
+							}
+						});
+					} catch (e) {}
+					document.head.appendChild(script);
+				})();
+			};
+
+			/**
+			 * Defer Clarity / GTM until first interaction or a long idle.
+			 * Lighthouse measures before interaction — this cuts TBT / unused JS impact.
+			 */
+			window.__bhLoadThirdParty = function () {
+				if (window.__bhThirdPartyLoaded || window.isAppInterface) return;
+				// Skip analytics noise on local lab runs (Lighthouse / webvitals).
+				var host = location.hostname;
+				if (host === '127.0.0.1' || host === 'localhost') return;
+				window.__bhThirdPartyLoaded = true;
+
+				// Clarity
+				(function (c, l, a, r, i, t, y) {
+					c[a] =
+						c[a] ||
+						function () {
+							(c[a].q = c[a].q || []).push(arguments);
+						};
+					t = l.createElement(r);
+					t.async = 1;
+					t.src = 'https://www.clarity.ms/tag/' + i;
+					y = l.getElementsByTagName(r)[0];
+					y.parentNode.insertBefore(t, y);
+				})(window, document, 'clarity', 'script', 'j0o5t6oq2g');
+
+				// Google Tag Manager
+				(function (w, d, s, l, i) {
+					w[l] = w[l] || [];
+					w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+					var f = d.getElementsByTagName(s)[0],
+						j = d.createElement(s),
+						dl = l != 'dataLayer' ? '&l=' + l : '';
+					j.async = true;
+					j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+					f.parentNode.insertBefore(j, f);
+				})(window, document, 'script', 'dataLayer', 'GTM-W2LTSWJ');
+
+				window.gtag?.('config', 'AW-17014491672');
+				window.__bhLoadAdSdk();
+			};
+
+			function scheduleThirdParty() {
+				var run = window.__bhLoadThirdParty;
+				var events = ['scroll', 'click', 'touchstart', 'keydown', 'pointerdown'];
+				var done = false;
+				var kick = function () {
+					if (done) return;
+					done = true;
+					events.forEach(function (e) {
+						window.removeEventListener(e, kick, { capture: true });
+					});
+					run();
+				};
+				events.forEach(function (e) {
+					window.addEventListener(e, kick, { once: true, passive: true, capture: true });
+				});
+				// Fallback for non-interactive sessions — past Lighthouse wall-clock (~30s).
+				if ('requestIdleCallback' in window) {
+					requestIdleCallback(kick, { timeout: 90000 });
+				} else {
+					setTimeout(kick, 90000);
+				}
+			}
+
+			if (document.readyState === 'complete') {
+				scheduleThirdParty();
+			} else {
+				window.addEventListener('load', scheduleThirdParty);
+			}
+		</script>
+
+		
+		<link href="/_app/immutable/assets/styles.Bb_5MZ7-.css" rel="stylesheet">
+		<link href="/_app/immutable/assets/HeaderNFooter.D8swg0yM.css" rel="stylesheet">
+		<link href="/_app/immutable/assets/HeaderV2.C-HEK1oV.css" rel="stylesheet"><title>Price History: Advanced Price Tracker For Amazon,Flipkart &amp; more</title><!-- HEAD_svelte-1o7ps2w_START --><link rel="alternate" href="https://buyhatke.com" hreflang="x-default"><link rel="alternate" href="https://buyhatke.com/" hreflang="en-IN"><link rel="alternate" href="https://buyhatke.com/us/" hreflang="en-US"><link rel="alternate" href="https://buyhatke.com/uk/" hreflang="en-GB"><link rel="alternate" href="https://buyhatke.com/ph/" hreflang="tl-PH"><link rel="alternate" href="https://buyhatke.com/ae/" hreflang="ar-AE"><link rel="alternate" href="https://buyhatke.com/tr/" hreflang="tr-TR"><link rel="alternate" href="https://buyhatke.com/es/" hreflang="es-ES"><link rel="alternate" href="https://buyhatke.com/sg/" hreflang="en-SG"><link rel="alternate" href="https://buyhatke.com/sa/" hreflang="ar-SA"><link rel="alternate" href="https://buyhatke.com/qa/" hreflang="ar-QA"><link rel="alternate" href="https://buyhatke.com/om/" hreflang="ar-OM"><link rel="alternate" href="https://buyhatke.com/nl/" hreflang="nl-NL"><link rel="alternate" href="https://buyhatke.com/mx/" hreflang="es-MX"><link rel="alternate" href="https://buyhatke.com/kw/" hreflang="ar-KW"><link rel="alternate" href="https://buyhatke.com/jp/" hreflang="ja-JP"><link rel="alternate" href="https://buyhatke.com/it/" hreflang="it-IT"><link rel="alternate" href="https://buyhatke.com/de/" hreflang="de-DE"><link rel="alternate" href="https://buyhatke.com/fr/" hreflang="fr-FR"><link rel="alternate" href="https://buyhatke.com/eg/" hreflang="ar-EG"><link rel="alternate" href="https://buyhatke.com/ca/" hreflang="en-CA"><link rel="alternate" href="https://buyhatke.com/br/" hreflang="pt-BR"><link rel="alternate" href="https://buyhatke.com/au/" hreflang="en-AU"><link rel="alternate" href="https://buyhatke.com/bh/" hreflang="ar-BH"><!-- HEAD_svelte-1o7ps2w_END --><!-- HEAD_svelte-ybi6xa_START --><meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image"><meta property="og:title" content="Price History: Advanced Price Tracker For Amazon,Flipkart &amp; more"><meta name="twitter:title" content="Price History: Advanced Price Tracker For Amazon,Flipkart &amp; more"><meta name="robots" content="index, follow"><meta name="description" content="Price history with New advanced features: Check our price tracker with superior features, elevating your shopping on Amazon, Flipkart, Myntra, Ajio, Meesho, etc."> <meta property="og:description" content="Price history with New advanced features: Check our price tracker with superior features, elevating your shopping on Amazon, Flipkart, Myntra, Ajio, Meesho, etc."> <meta name="twitter:description" content="Price history with New advanced features: Check our price tracker with superior features, elevating your shopping on Amazon, Flipkart, Myntra, Ajio, Meesho, etc."><link rel="canonical" href="https://buyhatke.com"> <meta property="og:url" content="https://buyhatke.com"> <meta property="og:site_name" content="Buyhatke"> <meta name="twitter:url" content="https://buyhatke.com"><meta property="og:image" content="/_app/immutable/assets/openGraph.wBvc8zXk.webp"><meta name="twitter:image" content="/_app/immutable/assets/openGraph.wBvc8zXk.webp"><meta name="keywords" content="price history, price tracking,price tracker,price charts,price graphs"><!-- HEAD_svelte-ybi6xa_END -->
+	</head>
+
+	<body data-sveltekit-preload-data="hover">
+		<!-- Google Tag Manager (noscript) -->
+		<noscript
+			><iframe
+				src="https://www.googletagmanager.com/ns.html?id=GTM-W2LTSWJ"
+				height="0"
+				width="0"
+				style="display: none; visibility: hidden"
+				loading="lazy"
+				title="Google Tag Manager"
+			></iframe
+		></noscript>
+		<!-- End Google Tag Manager (noscript) -->
+
+		<div style="display: contents">   <svg width="0" height="0" style="position: absolute; visibility: hidden"><defs><symbol id="star"><path fill="#FF6D1F" stroke="#FF6D1F" stroke-linecap="round" stroke-linejoin="round" stroke-width=".5625" d="m5.19793 1.25547.6599 1.33076c.09.18525.3299.36293.5324.39696l1.1961.20037c.765.12854.945.68806.3938 1.24003l-.9299.93757c-.1575.15878-.2437.465-.195.6843l.2662 1.16063c.21.91867-.2737 1.27406-1.0799.79391l-1.1211-.66915c-.2025-.12098-.5362-.12098-.7424 0L3.05693 8c-.8025.48015-1.2899.12097-1.0799-.79391l.2662-1.16063c.0487-.2193-.0375-.52552-.195-.6843l-.9299-.93757c-.5474-.55197-.371201-1.11149.3937-1.24003l1.1961-.20037c.1988-.03403.4387-.21171.5287-.39696l.66-1.33076c.3599-.722095.9448-.722095 1.3011 0Z"></path></symbol><symbol id="emptyStar" fill="white"><path stroke="#FF6D1F" stroke-linecap="round" stroke-linejoin="round" stroke-width=".5625" d="m5.19793 1.25547.6599 1.33076c.09.18525.3299.36293.5324.39696l1.1961.20037c.765.12854.945.68806.3938 1.24003l-.9299.93757c-.1575.15878-.2437.465-.195.6843l.2662 1.16063c.21.91867-.2737 1.27406-1.0799.79391l-1.1211-.66915c-.2025-.12098-.5362-.12098-.7424 0L3.05693 8c-.8025.48015-1.2899.12097-1.0799-.79391l.2662-1.16063c.0487-.2193-.0375-.52552-.195-.6843l-.9299-.93757c-.5474-.55197-.371201-1.11149.3937-1.24003l1.1961-.20037c.1988-.03403.4387-.21171.5287-.39696l.66-1.33076c.3599-.722095.9448-.722095 1.3011 0Z"></path></symbol></defs></svg>  <div data-sveltekit-reload>       <div class="app flex flex-col min-h-screen"> <div class="w-full left-0 right-0 transition-colors duration-300 ease-in-out sticky top-0 bg-white  z-40 header">     <div class="px-4 sm:px-6 md:px-8 pt-3 pb-0 relative z-[-1]"> <div class="flex gap-2 justify-between items-center md:hidden -mx-4 sm:-mx-6 -mt-3 px-4 sm:px-6 pt-3" style="background: linear-gradient(180deg, #EFEFFF 0%, #FFFFFF 100%);"><div class="flex gap-4 items-center flex-shrink-0"><button class="md:hidden flex-shrink-0"><img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20fill='%231E293B'%20viewBox='0%200%2016%2016'%3e%3cpath%20fill-rule='evenodd'%20d='M14%208c0%20.41-.34.75-.75.75H4.56l3.22%203.22a.75.75%200%201%201-1.06%201.06l-4.5-4.5a.75.75%200%200%201%200-1.06l4.5-4.5a.75.75%200%200%201%201.06%201.06L4.56%207.25h8.69c.41%200%20.75.34.75.75Z'%20clip-rule='evenodd'/%3e%3c/svg%3e" alt="back" class="w-4 h-4" loading="lazy" fetchpriority="auto" decoding="async"></button> <span class="text-lg font-bold text-slate-900 truncate">Deals</span></div> <div class="flex gap-3 items-center"> <button class="rounded-lg cursor-pointer px-6 py-3 flex items-center justify-center font-semibold bg-primary text-white hover:opacity-90 active:opacity-50 flex gap-1 items-center !px-2 py-1 border border-indigo-200 focus:border-indigo-600 !rounded-full max-h-[24px] !bg-white" type="button"><div class="text-slate-600 focus:text-indigo-600 text-xs font-medium ">Login</div></button> <div class="z-[100] md:hidden w-fit"><button type="button" class="w-6 h-6 flex flex-col justify-center gap-1" aria-label="Open menu" data-svelte-h="svelte-1s1tti2"><span class="block w-full h-0.5 bg-slate-800"></span> <span class="block w-full h-0.5 bg-slate-800"></span> <span class="block w-full h-0.5 bg-slate-800"></span></button></div></div></div>   <div class="hidden md:flex items-center gap-4 min-h-[74px]"><div class="flex gap-6 items-center flex-shrink-0"><a href="/" rel="follow" class="flex-shrink-0 ring-0"><img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20xmlns:xlink='http://www.w3.org/1999/xlink'%20fill='none'%20viewBox='0%200%20151%2032'%3e%3cdefs%3e%3cpath%20id='a'%20fill='%234F46E5'%20fill-rule='evenodd'%20d='M32%207.09v17.82A7.1%207.1%200%200%201%2024.91%2032H7.09A7.1%207.1%200%200%201%200%2024.91V7.09A7.1%207.1%200%200%201%207.09%200h17.82A7.1%207.1%200%200%201%2032%207.09Z'%20clip-rule='evenodd'/%3e%3c/defs%3e%3cuse%20xlink:href='%23a'%20fill-rule='evenodd'%20clip-rule='evenodd'/%3e%3cuse%20xlink:href='%23a'%20fill-rule='evenodd'%20clip-rule='evenodd'/%3e%3cmask%20id='b'%20width='32'%20height='32'%20x='0'%20y='0'%20maskUnits='userSpaceOnUse'%20style='mask-type:alpha'%3e%3cuse%20xlink:href='%23a'%20fill-rule='evenodd'%20clip-rule='evenodd'/%3e%3c/mask%3e%3cg%20mask='url(%23b)'%3e%3cpath%20fill='%23fff'%20fill-rule='evenodd'%20d='M10.43%2014.89h4.54l-1.51%208.55c2.62-2.3%206.14-2.96%208.88-1.37%203.62%202.09%204.53%207.27%202.05%2011.57-2.49%204.3-7.43%206.1-11.05%204.02a6.48%206.48%200%200%201-2.06-1.89l-.4%202.26H6.35l4.08-23.14Zm3.05%2018.2c1.53%201.52%204.24%201.28%206.06-.53%201.82-1.82%202.05-4.53.53-6.06-1.53-1.52-4.24-1.29-6.06.53-1.81%201.82-2.05%204.53-.53%206.05Z'%20clip-rule='evenodd'/%3e%3c/g%3e%3cpath%20fill='%233730A3'%20fill-rule='evenodd'%20d='M2.14%204.4A4.48%204.48%200%200%201%206.4%201.35h19.03a4.48%204.48%200%200%201%204.24%203.07H2.14Z'%20clip-rule='evenodd'/%3e%3cpath%20fill='%23FACC15'%20d='M21.39%205.62c.47%200%20.86.39.8.86a6.13%206.13%200%200%201-12.14%200c-.07-.47.32-.86.8-.86.47%200%20.84.4.94.86a4.41%204.41%200%200%200%208.65%200c.1-.47.47-.86.95-.86Z'/%3e%3cpath%20fill='%234F46E5'%20d='M47.07%2024.96c-1.63%200-3.19-.67-3.91-1.6v1.39h-3.48V6.99h3.48v6.55c.72-.94%202.28-1.61%203.91-1.61%203.29%200%206.24%202.57%206.24%206.53%200%204.1-2.95%206.5-6.24%206.5Zm-3.93-6.5a3.2%203.2%200%200%200%203.3%203.24%203.17%203.17%200%200%200%203.32-3.24%203.17%203.17%200%200%200-3.31-3.24%203.2%203.2%200%200%200-3.31%203.24Zm16.75%206.5c-2.78%200-4.54-2.13-4.54-4.63v-8.18h3.48v7.22c0%201.34.99%202.23%202.19%202.23%201.39%200%202.2-.98%202.2-2.23v-7.22h3.49v10.12l.86%202.48h-3.91l-.43-1.3a4.09%204.09%200%200%201-3.34%201.51Zm11.4%205.28%202.32-5.59-4.97-12.5h3.99l3.04%208.54%202.86-8.54h4.08l-7.2%2018.1h-4.13Zm13.37-5.5V7h3.48v6.7a3.81%203.81%200%200%201%203.33-1.76%204.33%204.33%200%200%201%204.54%204.37v8.45h-3.48v-7.23c0-1.34-.99-2.23-2.19-2.23-1.39%200-2.2.98-2.2%202.23v7.23h-3.48Zm19.62.22c-3.29%200-6.24-2.4-6.24-6.5%200-3.96%202.95-6.53%206.24-6.53%201.63%200%203.19.67%203.91%201.6v-1.38h3.48v12.6h-3.48v-1.4c-.72.94-2.28%201.61-3.91%201.61Zm-2.69-6.5a3.17%203.17%200%200%200%203.31%203.24%203.2%203.2%200%200%200%203.31-3.24%203.2%203.2%200%200%200-3.3-3.24%203.17%203.17%200%200%200-3.32%203.24Zm14.02%206.29v-9.36h-2.01v-3.24h2.09V9.19h3.4v2.96h3v3.24h-3v6h3.05v3.36h-6.53Zm9.05%200V6.99h3.48v8.97h1.42l2.6-3.81h4.07l-3.84%205.59%203.91%207h-3.96l-2.95-5.23h-1.25v5.24h-3.48Zm18.46.21c-4.27%200-6.7-2.9-6.7-6.5%200-3.65%202.74-6.53%206.7-6.53%204.2%200%206.44%203.24%206.44%206.53v1.27h-9.58c.46%201.49%201.68%202.18%203.14%202.18%201.92%200%202.96-1.05%203.27-1.7l2.64%201.58c-.48%201.08-2.33%203.17-5.9%203.17ZM140.05%2017h5.88c-.1-.74-.91-2.08-2.85-2.08-1.25%200-2.52.67-3.03%202.08Z'/%3e%3c/svg%3e" class="h-full w-[151px]" alt="logo"></a> <div class="self-end"><div class="icon-nav-root relative flex items-center"> <button type="button" class="flex flex-col items-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0 min-w-0 max-w-0 px-0 opacity-0 pointer-events-none" aria-label="Show all categories"><div class="flex items-center"><div class="relative w-6 h-6 rounded-full bg-white flex items-center justify-center overflow-hidden p-0.5 " style="z-index: 1;"><img src="/_app/immutable/assets/deals.Csorm5QU.png" alt="Deals" class="w-full h-full object-contain" loading="lazy" fetchpriority="auto" decoding="async"> </div><div class="relative w-6 h-6 rounded-full bg-white flex items-center justify-center overflow-hidden p-0.5 -ml-2" style="z-index: 2;"><img src="/_app/immutable/assets/compare.CE2qUhjv.png" alt="Compare" class="w-full h-full object-contain" loading="lazy" fetchpriority="auto" decoding="async"> </div><div class="relative w-6 h-6 rounded-full bg-white flex items-center justify-center overflow-hidden p-0.5 -ml-2" style="z-index: 3;"><img src="/_app/immutable/assets/lens.BSqjWYrQ.png" alt="Lens" class="w-full h-full object-contain" loading="lazy" fetchpriority="auto" decoding="async"> </div><div class="relative w-6 h-6 rounded-full bg-white flex items-center justify-center overflow-hidden p-0.5 -ml-2" style="z-index: 4;"><img src="/_app/immutable/assets/gift.C9e8bYyq.png" alt="Gift card" class="w-full h-full object-contain" loading="lazy" fetchpriority="auto" decoding="async"> </div><div class="relative w-6 h-6 rounded-full bg-white flex items-center justify-center overflow-hidden p-0.5 -ml-2" style="z-index: 5;"><img src="/_app/immutable/assets/alert.gV12SLcW.png" alt="Alerts" class="w-full h-full object-contain" loading="lazy" fetchpriority="auto" decoding="async"> </div><div class="relative w-6 h-6 rounded-full bg-white flex items-center justify-center overflow-hidden p-0.5 -ml-2" style="z-index: 6;"><img src="/_app/immutable/assets/refer.BUze64Oi.png" alt="Refer &amp; win" class="w-full h-full object-contain" loading="lazy" fetchpriority="auto" decoding="async"> </div></div> <span class="flex items-center gap-1" data-svelte-h="svelte-3hpkh2"><span class="text-xs font-medium whitespace-nowrap" style="color: #5855E5;">View All</span> <svg class="w-3 h-3 flex-shrink-0" style="color: #5855E5;" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2.5 6H9.5M9.5 6L6.5 3M9.5 6L6.5 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></button> <div class="flex items-center gap-3 scrollbar-hide transition-all duration-300 ease-in-out flex-shrink-0 min-w-0 max-w-[900px] opacity-100 overflow-x-auto svelte-1lncn5d">       <div class="relative inline-block" role="presentation"><a href="/deals" class="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 whitespace-nowrap text-sm transition-colors duration-200 font-medium relative pt-2 pr-4 pb-1 pl-4 rounded-t-2xl font-bold svelte-1lncn5d" style="background: linear-gradient(180deg, #EFEFFF 0%, #f9f9ff 100%); color: #5855E5;"><span class="pointer-events-none absolute -left-4 bottom-0 h-4 w-4" style="background-color: #f9f9ff; -webkit-mask-image: url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20d%3D%22M32%2032H0C15.0849%2032%2022.6272%2031.9998%2027.3135%2027.3135C31.9998%2022.6272%2032%2015.0849%2032%200V32Z%22%20fill%3D%22%23EFEFFF%22%2F%3E%3C%2Fsvg%3E); mask-image: url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20d%3D%22M32%2032H0C15.0849%2032%2022.6272%2031.9998%2027.3135%2027.3135C31.9998%2022.6272%2032%2015.0849%2032%200V32Z%22%20fill%3D%22%23EFEFFF%22%2F%3E%3C%2Fsvg%3E); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain;"></span> <span class="pointer-events-none absolute -right-4 bottom-0 h-4 w-4 -scale-x-100" style="background-color: #f9f9ff; -webkit-mask-image: url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20d%3D%22M32%2032H0C15.0849%2032%2022.6272%2031.9998%2027.3135%2027.3135C31.9998%2022.6272%2032%2015.0849%2032%200V32Z%22%20fill%3D%22%23EFEFFF%22%2F%3E%3C%2Fsvg%3E); mask-image: url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cpath%20d%3D%22M32%2032H0C15.0849%2032%2022.6272%2031.9998%2027.3135%2027.3135C31.9998%2022.6272%2032%2015.0849%2032%200V32Z%22%20fill%3D%22%23EFEFFF%22%2F%3E%3C%2Fsvg%3E); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain;"></span> <img src="/_app/immutable/assets/deals.Csorm5QU.png" alt="Deals" class="flex-shrink-0 w-8 h-8 mt-1" loading="lazy" fetchpriority="auto" decoding="async"> Deals</a> </div>       <div class="relative inline-block" role="presentation"><a href="/flights" class="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 whitespace-nowrap text-sm transition-colors duration-200 font-medium nav-tab px-4 py-2 rounded-xl bg-slate-50 text-slate-600 svelte-1lncn5d" style="--tab-hover-bg: #FFF7D9; --tab-hover-text: #B45309;"> <img src="/_app/immutable/assets/compare.CE2qUhjv.png" alt="Compare" class="flex-shrink-0 w-6 h-6" loading="lazy" fetchpriority="auto" decoding="async"> Compare</a> </div>       <div class="relative inline-block" role="presentation"><a href="/product-lens" class="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 whitespace-nowrap text-sm transition-colors duration-200 font-medium nav-tab px-4 py-2 rounded-xl bg-slate-50 text-slate-600 svelte-1lncn5d" style="--tab-hover-bg: #E8F8F0; --tab-hover-text: #059669;"> <img src="/_app/immutable/assets/lens.BSqjWYrQ.png" alt="Lens" class="flex-shrink-0 w-6 h-6" loading="lazy" fetchpriority="auto" decoding="async"> Lens</a> </div>       <div class="relative inline-block" role="presentation"><a href="/gift-cards" class="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 whitespace-nowrap text-sm transition-colors duration-200 font-medium nav-tab px-4 py-2 rounded-xl bg-slate-50 text-slate-600 svelte-1lncn5d" style="--tab-hover-bg: #EFEFFF; --tab-hover-text: #5855E5;"> <img src="/_app/immutable/assets/gift.C9e8bYyq.png" alt="Gift card" class="flex-shrink-0 w-6 h-6" loading="lazy" fetchpriority="auto" decoding="async"> Gift card</a> </div>       <div class="relative inline-block" role="presentation"><a href="/flight-alerts" class="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 whitespace-nowrap text-sm transition-colors duration-200 font-medium nav-tab px-4 py-2 rounded-xl bg-slate-50 text-slate-600 svelte-1lncn5d" style="--tab-hover-bg: #FDECEC; --tab-hover-text: #DC2626;"> <img src="/_app/immutable/assets/alert.gV12SLcW.png" alt="Alerts" class="flex-shrink-0 w-6 h-6" loading="lazy" fetchpriority="auto" decoding="async"> Alerts</a> </div>       <div class="relative inline-block" role="presentation"><a href="/gift-cards/referral" class="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 whitespace-nowrap text-sm transition-colors duration-200 font-medium nav-tab px-4 py-2 rounded-xl bg-slate-50 text-slate-600 svelte-1lncn5d" style="--tab-hover-bg: #EFEFFF; --tab-hover-text: #5855E5;"> <img src="/_app/immutable/assets/refer.BUze64Oi.png" alt="Refer &amp; win" class="flex-shrink-0 w-6 h-6" loading="lazy" fetchpriority="auto" decoding="async"> Refer &amp; win</a> </div></div></div> </div></div> <div class="flex-1 min-w-0 flex justify-end"></div> <div class="flex gap-4 items-center justify-end flex-shrink-0">    <a href="/wishlist" class="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors" title="OneList" data-svelte-h="svelte-xw5g57"><img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20fill='none'%20viewBox='0%200%2024%2024'%3e%3cpath%20fill='%235855E5'%20d='M12%2021.35l-1.45-1.32C5.4%2015.36%202%2012.28%202%208.5%202%205.42%204.42%203%207.5%203c1.74%200%203.41.81%204.5%202.09C13.09%203.81%2014.76%203%2016.5%203%2019.58%203%2022%205.42%2022%208.5c0%203.78-3.4%206.86-8.55%2011.54L12%2021.35Z'/%3e%3c/svg%3e" alt="OneList" class="w-4 h-4"></a> <button class="rounded-lg cursor-pointer px-6 py-3 flex items-center justify-center font-semibold bg-primary text-white hover:opacity-90 active:opacity-50 !rounded-lg !py-[10px]" type="button"><div class="text-sm ">Login</div></button></div></div></div>  </div>  <main class="w-full md:mx-auto flex-grow relative bg-white md:bg-transparent"><div class="absolute top-0 w-full h-24 bg-gradient-to-b from-indigo-50 to-white z-[-1]"></div> <div class="mt-4 sm:mt-6 container gap-4 items-center px-4 xl:px-0 hidden md:flex" role="button" tabindex="-1"><a href="/" class="p-[10px] rounded-full border border-indigo-100 hover:border-indigo-600 hidden sm:block"><img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20fill='%231E293B'%20viewBox='0%200%2016%2016'%3e%3cpath%20fill-rule='evenodd'%20d='M14%208c0%20.41-.34.75-.75.75H4.56l3.22%203.22a.75.75%200%201%201-1.06%201.06l-4.5-4.5a.75.75%200%200%201%200-1.06l4.5-4.5a.75.75%200%200%201%201.06%201.06L4.56%207.25h8.69c.41%200%20.75.34.75.75Z'%20clip-rule='evenodd'/%3e%3c/svg%3e" alt="back icon" class="w-5 h-5 opacity-70" loading="lazy" fetchpriority="auto" decoding="async"></a>  <div class="flex flex-wrap items-center gap-x-1 gap-y-1 w-full min-w-0"><a class="text-indigo-600 hover:text-indigo-800 text-xs sm:text-base font-medium whitespace-nowrap" href="/">Home</a> <span class="text-slate-500" data-svelte-h="svelte-c0oww7">/</span><span class="text-xs sm:text-base font-medium text-slate-500 break-words">Deals </span></div></div>   <div class="mx-auto sm:px-6 lg:px-8 max-w-7xl mt-8 md:mt-10 pb-20 md:pb-0"><div class="mb-6 md:mb-8"><h1 class="text-xl md:text-3xl font-bold text-gray-900 text-center">Buyhatke 2026 Verified Deals</h1> <p class="text-center font-medium text-base md:text-xl text-slate-600">Deals that passed the scanner test.</p></div> <div class="h-px"></div> <div class="sticky top-0 z-20 bg-white pb-4 md:pb-6" style="padding-top: 0px"> <div class="md:hidden px-4 max-w-xl mx-auto w-full"><div class="relative"><svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> <input type="text" placeholder="Search deals..." value="" class="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"> </div></div>  <div class="hidden md:flex md:flex-col gap-3 w-[calc(100%-280px)] ml-auto"><div class="flex items-center gap-4"><div class="relative flex-1 max-w-xl"><svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg> <input type="text" placeholder="Search deals..." value="" class="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"> </div> <div class="flex items-center gap-2 relative flex-shrink-0 ml-auto"><p class="text-gray-700 text-sm font-medium whitespace-nowrap">Sort By:</p> <div class=""><button type="button"  class="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-0 cursor-pointer flex gap-2 items-center justify-between w-full min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed"><span>New Deals</span> <svg class="w-4 h-4 text-gray-500 transition-transform " fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button> </div></div></div> <div class="items-center gap-2 flex flex-wrap"> </div></div></div> <div class="flex sm:hidden flex-wrap px-4 gap-2 mb-2"> </div>  <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 shadow-lg"><div class="flex items-center"><button class="flex-1 flex items-center justify-center gap-2 py-4 px-4 active:bg-gray-50 transition-colors" data-svelte-h="svelte-1pbsnk5"><div class="flex items-center gap-2"><div class="relative w-5 h-5"><svg class="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 10h12M4 14h8"></path></svg> <svg class="absolute bottom-0 right-0 w-3 h-3 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg></div> <span class="text-sm font-bold text-gray-900">Sort</span></div></button> <div class="w-px h-8 bg-gray-200"></div> <button class="flex-1 flex items-center justify-center gap-2 py-4 px-4 active:bg-gray-50 transition-colors relative" data-svelte-h="svelte-twv0jw"><div class="flex items-center gap-2"><div class="relative"><svg class="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg> </div> <span class="text-sm font-bold text-gray-900">Filter</span></div></button></div></div> <div class="flex flex-row gap-8"><div class="lg:w-64 flex-shrink-0 hidden md:block"></div>  <div class="w-full"> <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1 md:gap-4 px-4 md:px-0"> <div class="animate-pulse rounded-lg overflow-hidden bg-slate-50 flex flex-col" data-svelte-h="svelte-hx3ov4"> <div class="h-[200px] bg-slate-200"></div>  <div class="flex flex-col gap-2 p-3"> <div class="h-4 bg-slate-200 rounded w-4/5"></div>  <div class="h-5 bg-slate-200 rounded w-24 mt-1"></div>  <div class="h-3 bg-slate-100 rounded w-32"></div></div></div><div class="animate-pulse rounded-lg overflow-hidden bg-slate-50 flex flex-col" data-svelte-h="svelte-hx3ov4"> <div class="h-[200px] bg-slate-200"></div>  <div class="flex flex-col gap-2 p-3"> <div class="h-4 bg-slate-200 rounded w-4/5"></div>  <div class="h-5 bg-slate-200 rounded w-24 mt-1"></div>  <div class="h-3 bg-slate-100 rounded w-32"></div></div></div><div class="animate-pulse rounded-lg overflow-hidden bg-slate-50 flex flex-col" data-svelte-h="svelte-hx3ov4"> <div class="h-[200px] bg-slate-200"></div>  <div class="flex flex-col gap-2 p-3"> <div class="h-4 bg-slate-200 rounded w-4/5"></div>  <div class="h-5 bg-slate-200 rounded w-24 mt-1"></div>  <div class="h-3 bg-slate-100 rounded w-32"></div></div></div><div class="animate-pulse rounded-lg overflow-hidden bg-slate-50 flex flex-col" data-svelte-h="svelte-hx3ov4"> <div class="h-[200px] bg-slate-200"></div>  <div class="flex flex-col gap-2 p-3"> <div class="h-4 bg-slate-200 rounded w-4/5"></div>  <div class="h-5 bg-slate-200 rounded w-24 mt-1"></div>  <div class="h-3 bg-slate-100 rounded w-32"></div></div></div><div class="animate-pulse rounded-lg overflow-hidden bg-slate-50 flex flex-col" data-svelte-h="svelte-hx3ov4"> <div class="h-[200px] bg-slate-200"></div>  <div class="flex flex-col gap-2 p-3"> <div class="h-4 bg-slate-200 rounded w-4/5"></div>  <div class="h-5 bg-slate-200 rounded w-24 mt-1"></div>  <div class="h-3 bg-slate-100 rounded w-32"></div></div></div><div class="animate-pulse rounded-lg overflow-hidden bg-slate-50 flex flex-col" data-svelte-h="svelte-hx3ov4"> <div class="h-[200px] bg-slate-200"></div>  <div class="flex flex-col gap-2 p-3"> <div class="h-4 bg-slate-200 rounded w-4/5"></div>  <div class="h-5 bg-slate-200 rounded w-24 mt-1"></div>  <div class="h-3 bg-slate-100 rounded w-32"></div></div></div><div class="animate-pulse rounded-lg overflow-hidden bg-slate-50 flex flex-col" data-svelte-h="svelte-hx3ov4"> <div class="h-[200px] bg-slate-200"></div>  <div class="flex flex-col gap-2 p-3"> <div class="h-4 bg-slate-200 rounded w-4/5"></div>  <div class="h-5 bg-slate-200 rounded w-24 mt-1"></div>  <div class="h-3 bg-slate-100 rounded w-32"></div></div></div><div class="animate-pulse rounded-lg overflow-hidden bg-slate-50 flex flex-col" data-svelte-h="svelte-hx3ov4"> <div class="h-[200px] bg-slate-200"></div>  <div class="flex flex-col gap-2 p-3"> <div class="h-4 bg-slate-200 rounded w-4/5"></div>  <div class="h-5 bg-slate-200 rounded w-24 mt-1"></div>  <div class="h-3 bg-slate-100 rounded w-32"></div></div></div></div></div></div></div>  </main></div>   </div>     
+			
+			<script>
+				{
+					__sveltekit_1h32645 = {
+						base: ""
+					};
+
+					const element = document.currentScript.parentElement;
+
+					Promise.all([
+						import("/_app/immutable/entry/start.Ci8CW--S.js"),
+						import("/_app/immutable/entry/app.kdWqlGHP.js")
+					]).then(([kit, app]) => {
+						kit.start(app, element, {
+							node_ids: [0, 3, 23],
+							data: [{type:"data",data:{countryCode:"US",countryName:"United States",ipCountryCode:"US"},uses:{}},{type:"data",data:{navLastVisited:{compare:null,lens:null,alerts:null},homepageVariant:"new"},uses:{}},{type:"data",data:{queryParams:{sortBy:"created_at",sortType:"DESC",type:0,page:1}},uses:{search_params:["price","pos","catId","posList","priceH","sortBy","sortType","score","type","page","per","q"]}}],
+							form: null,
+							error: null
+						});
+					});
+
+					if ('serviceWorker' in navigator) {
+						addEventListener('load', function () {
+							navigator.serviceWorker.register('/service-worker.js');
+						});
+					}
+				}
+			</script>
+		</div>
+	<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"a9f79204eefa41c39ccd3f9a8670bb5d","r":1}' crossorigin="anonymous"></script>
+</body>
+</html>
