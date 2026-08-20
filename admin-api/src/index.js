@@ -958,6 +958,53 @@ async function convertToCueLink(url, env) {
   }
 }
 
+// CueLinks has no documented webhook/notification for access-request status
+// changes (checked their docs — Getting Started/API Reference/Links/
+// Campaigns/Reference Data, no Webhooks section). Polling is the only option.
+// Checked twice daily (piggybacked on the existing Amazon-deals-sweep cron
+// slot) rather than more often — approval is a human/business process on
+// Flipkart's side, not something that resolves in minutes, and this avoids
+// burning extra CueLinks API calls for no reason. Surfaces through the same
+// syncErrors bell/push-notification path as every other admin alert tonight.
+async function checkCueLinksCampaignAccess(env) {
+  const apiKey = (env.CUELINKS_API_KEY || '').trim();
+  if (!apiKey) return;
+
+  let campaign;
+  try {
+    const res = await fetchWithTimeout(
+      'https://developers.cuelinks.com/pub_api/v3/campaigns?q=flipkart',
+      { headers: { 'Authorization': `Token ${apiKey}` } },
+      10000
+    );
+    if (!res.ok) return; // transient API issue — just try again next scheduled check
+    const body = await res.json();
+    campaign = (body?.data || []).find(c => c.id === 1 && c.name === 'Flipkart');
+  } catch (e) {
+    console.log(`CueLinks campaign access check failed: ${e.message}`);
+    return;
+  }
+  if (!campaign) return;
+
+  const KV_KEY = 'cuelinks_flipkart_access_status';
+  const prevStatus = await env.KV.get(KV_KEY);
+  const currentStatus = campaign.access_status;
+  if (currentStatus === prevStatus) return; // no change — nothing to do, no KV write
+
+  await env.KV.put(KV_KEY, currentStatus);
+
+  if (currentStatus !== 'not_applied' && currentStatus !== 'pending') {
+    // Genuinely resolved (approved/open, or rejected) — this is the actual
+    // signal to act on: re-test /test-cuelink and, if approved, the
+    // affiliated:true path in convertToCueLink starts being used automatically.
+    await saveSyncError(
+      'CueLinksFlipkartAccess',
+      `Flipkart campaign access_status changed: ${prevStatus || '(unknown)'} → ${currentStatus}. Check /test-cuelink to confirm affiliated:true is now returned.`,
+      env
+    );
+  }
+}
+
 // Generic across Flipkart/Myntra/Ajio/Shopsy/Meesho/TataCliq/Nykaa product pages —
 // checks the live listing (via the proxy, so JS-rendered stock/price blocks resolve)
 // before it's ever published, instead of trusting the aggregator feed's stale snapshot.
@@ -4236,6 +4283,11 @@ export default {
           } catch (e) {
             console.error('Amazon Deals check error:', e.message);
             await saveSyncError('AmazonDeals', e.message, env);
+          }
+          try {
+            await checkCueLinksCampaignAccess(env);
+          } catch (e) {
+            console.error('CueLinks campaign access check error:', e.message);
           }
         })()
       );
