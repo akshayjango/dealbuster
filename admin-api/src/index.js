@@ -3867,6 +3867,29 @@ export default {
         }
       }
 
+      // ── /cuelink-offers (debug: browse live coupons/deals via CueLinks' own feed) ──
+      if (url.pathname === '/cuelink-offers' && request.method === 'GET') {
+        const apiKey = (env.CUELINKS_API_KEY || '').trim();
+        if (!apiKey) return json({ error: 'CUELINKS_API_KEY not configured' }, 400);
+        const q = url.searchParams.get('q') || '';
+        const campaignId = url.searchParams.get('campaign_id') || '';
+        const perPage = url.searchParams.get('per_page') || '10';
+        try {
+          const params = new URLSearchParams({ per_page: perPage });
+          if (q) params.set('q', q);
+          if (campaignId) params.set('campaign_id', campaignId);
+          const res = await fetchWithTimeout(
+            `https://developers.cuelinks.com/pub_api/v3/offers?${params.toString()}`,
+            { headers: { 'Authorization': `Token ${apiKey}` } },
+            10000
+          );
+          const body = await res.json().catch(() => ({}));
+          return json({ status: res.status, body });
+        } catch (e) {
+          return json({ error: e.message }, 502);
+        }
+      }
+
       // ── /request-cuelink-access (debug: apply for a private campaign, e.g. Flipkart id 1) ──
       if (url.pathname === '/request-cuelink-access' && request.method === 'POST') {
         const apiKey = (env.CUELINKS_API_KEY || '').trim();
