@@ -2454,7 +2454,7 @@ function isZeroPrice(p) {
 // observed case exactly is what caused this same spam loop to ship broken
 // twice before) without sitting on dead weight for two full weeks like the
 // original 14 did.
-const TOMBSTONE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+const TOMBSTONE_TTL_MS = 1 * 24 * 60 * 60 * 1000;
 function isDead(p) {
   return !!p.dead;
 }
