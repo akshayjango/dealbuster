@@ -1177,14 +1177,16 @@ async function checkListingAvailability(url, scrapedPrice, env) {
   }
 }
 
-async function cronSyncAndPublishNonAmazonDeals(env) {
-  // Save proxy credits: Do not run scrapes between 2 AM and 7 AM IST
-  const now = new Date();
-  const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-  const hour = istTime.getUTCHours();
-  if (hour >= 2 && hour < 7) {
-    console.log(`Skipping background cron between 2 AM and 7 AM IST (Current IST hour: ${hour}) to conserve limits.`);
-    return;
+async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
+  // Save proxy credits: Do not run background crons between 2 AM and 7 AM IST unless forced
+  if (!force) {
+    const now = new Date();
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    const hour = istTime.getUTCHours();
+    if (hour >= 2 && hour < 7) {
+      console.log(`Skipping background cron between 2 AM and 7 AM IST (Current IST hour: ${hour}) to conserve limits.`);
+      return;
+    }
   }
 
   // Fetch multiple DealsSpy store pages in parallel to maximise deal volume
@@ -3764,82 +3766,8 @@ export default {
       // ── /sync-non-amazon (manual test trigger, bypasses quiet hours) ──────────
       if (url.pathname === '/sync-non-amazon' && request.method === 'GET') {
         try {
-          // Run a one-off scrape of DealsSpy + IFS, returning results for inspection
-          const dsPages = [
-            'https://www.dealsspy.in/',
-            'https://www.dealsspy.in/offers/flipkart',
-            'https://www.dealsspy.in/offers/womens-fashion',
-          ];
-          const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-          const dsResults = await Promise.allSettled(
-            dsPages.map(async pageUrl => {
-              const r = await fetchWithProxy(pageUrl, { headers: { 'User-Agent': UA } }, 20000, env);
-              if (!r.ok) return [];
-              return parseDealsSpyHtml(await r.text());
-            })
-          );
-          const seenDsLinks = new Set();
-          const dsDeals = [];
-          for (const res of dsResults) {
-            if (res.status !== 'fulfilled') continue;
-            for (const deal of res.value) {
-              const k = deal.link.toLowerCase();
-              if (seenDsLinks.has(k)) continue;
-              seenDsLinks.add(k);
-              if (deal.link.includes('amazon.in') || deal.link.includes('amazon.com') || deal.link.includes('amzn.to')) continue;
-              dsDeals.push(deal);
-            }
-          }
-          let ifsDeals = [];
-          try { ifsDeals = await scrapeIfsNonAmazonDeals(env).catch(() => []); } catch (e) {}
-
-          const allScraped = [...dsDeals, ...ifsDeals];
-          const { products, sha } = await getProductsFile(env);
-          const liveOriginalLinks = new Set(
-            products.filter(p => !isDead(p)).map(p => getOriginalUrl(p.link).toLowerCase())
-          );
-          let sentLinks = [];
-          try { sentLinks = JSON.parse(await env.KV.get('fkart_sent_tg_urls') || '[]'); } catch (e) {}
-          const sentSet = new Set(sentLinks.map(l => l.toLowerCase()));
-          let deletedUrls = [];
-          try { deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]'); } catch (e) {}
-          const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
-
-          const newProducts = [];
-          const newSentLinks = [...sentLinks];
-          for (const deal of allScraped) {
-            const k = deal.link.toLowerCase();
-            if (liveOriginalLinks.has(k) || sentSet.has(k) || deletedSet.has(k)) continue;
-            const { link: cueLink, title: cleanedTitle, description: cleanedDescription } =
-              await convertToCueLink(deal.link, deal.title || '', env, deal.title || '');
-            const p = {
-              id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-              asin: '', title: cleanedTitle || '', price: deal.price || '', mrp: deal.mrp || '',
-              disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
-              image: deal.image || '', link: cueLink,
-              category: deal.category || detectCategoryFromTitle(deal.title),
-              highlights: splitDescriptionIntoHighlights(cleanedDescription), lowestPriceText: null,
-              featured: false, hidden: false, outOfStock: false, order: 0,
-              addedAt: new Date().toISOString(), originalPrice: deal.price || ''
-            };
-            newProducts.push(p);
-            newSentLinks.push(deal.link);
-            if (newProducts.length >= 5) break;
-          }
-
-          if (newProducts.length > 0) {
-            const updated = await capLiveAndBury([...newProducts, ...products], env);
-            await saveProductsFile(updated, sha, `[Manual test] Non-Amazon deals: ${newProducts.map(p => p.title.slice(0, 30)).join(', ')}`, env);
-            await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-500)));
-            await postDealsAndTrack(newProducts, env).catch(e => console.error('TG manual non-amazon:', e.message));
-          }
-
-          return json({
-            success: true,
-            scraped: allScraped.length,
-            published: newProducts.length,
-            deals: newProducts.map(p => ({ title: p.title, price: p.price, mrp: p.mrp, disc: p.disc, link: p.link, image: p.image }))
-          });
+          await cronSyncAndPublishNonAmazonDeals(env, true);
+          return json({ success: true, message: 'Non-Amazon sync executed.' });
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
