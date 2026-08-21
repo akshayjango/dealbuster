@@ -945,7 +945,11 @@ async function convertToCueLink(url, title, env, inputDescription, channelId) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(reqBody),
-    }, 10000);
+    // 20s, not 10s — rewriting both a title AND a description takes CueLinks'
+    // AI noticeably longer than title-only rewrites (confirmed: a title+description
+    // call timed out at 10s on 2026-08-21 while title-only calls consistently
+    // completed well within it). Still falls back safely either way.
+    }, 20000);
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => '');
