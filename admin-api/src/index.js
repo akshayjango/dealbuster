@@ -1468,6 +1468,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const targetCandidates = candidates.slice(0, syncLimit);
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const added = [];
   const dbg = [];
 
   // Resolve redirects in batches of 5
