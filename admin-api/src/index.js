@@ -1958,6 +1958,10 @@ async function checkLowestPriceBadges(env) {
     if (rating && (updated.rating !== rating || updated.reviewCount !== reviewCount)) {
       updated.rating = rating;
       updated.reviewCount = reviewCount;
+      if (rating < 3.8) {
+        updated.hidden = true;
+        updated.dead = new Date().toISOString();
+      }
       changed = true;
     }
   }
@@ -2483,7 +2487,10 @@ async function capLiveAndBury(all, env, cap = 1440) {
         expired.push(p);
       }
     } else {
-      if (p.asin) {
+      // Rating filter: Amazon deals with a known rating < 3.8 are automatically buried
+      if (p.asin && typeof p.rating === 'number' && p.rating < 3.8) {
+        tombs.push(makeTombstone(p));
+      } else if (p.asin) {
         amzDeals.push(p);
       } else {
         otherDeals.push(p);
