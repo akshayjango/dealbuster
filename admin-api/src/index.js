@@ -3907,7 +3907,7 @@ export default {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                promotion_details: 'Dealbuster (dealbuster.in) — deal-aggregator site + Telegram channel, publishing daily Flipkart deals to an active subscriber base.',
+                promotion_details: 'Dealbuster (dealbuster.in) — deal-aggregator site + Telegram channel (@dealbusterindia), publishing daily deals to an active subscriber base.',
               }),
             },
             10000
