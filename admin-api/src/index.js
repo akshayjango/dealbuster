@@ -713,6 +713,10 @@ async function scrapeIfsNonAmazonDeals(env) {
     'https://www.indiafreestuff.in/stores/flipkart',
     'https://www.indiafreestuff.in/stores/myntra',
     'https://www.indiafreestuff.in/stores/ajio',
+    'https://www.indiafreestuff.in/stores/meesho',
+    'https://www.indiafreestuff.in/stores/nykaa',
+    'https://www.indiafreestuff.in/stores/tatacliq',
+    'https://www.indiafreestuff.in/stores/shopsy',
   ];
 
   const candidateMap = new Map();
@@ -1191,7 +1195,11 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
   const dsPages = [
     'https://www.dealsspy.in/',                  // Homepage (mixed stores, freshest)
     'https://www.dealsspy.in/offers/flipkart',   // Flipkart
-    'https://www.dealsspy.in/offers/amazon',     // Amazon (non-ASIN deals only — filtered below)
+    'https://www.dealsspy.in/offers/myntra',     // Myntra
+    'https://www.dealsspy.in/offers/ajio',       // Ajio
+    'https://www.dealsspy.in/offers/meesho',     // Meesho
+    'https://www.dealsspy.in/offers/electronics',
+    'https://www.dealsspy.in/offers/footwear',
     'https://www.dealsspy.in/offers/mens-fashion',
     'https://www.dealsspy.in/offers/womens-fashion',
   ];
