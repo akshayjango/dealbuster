@@ -1486,11 +1486,17 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         }, 15000, env);
         
         const loc = red.headers.get('location') || '';
-          if (asinM) asin = asinM[1].toUpperCase();
+        const asinMatchStr = loc || '';
+        const asinM = asinMatchStr.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
+          || asinMatchStr.match(/[?&]asin=([A-Z0-9]{10})/i);
+
+        if (asinM) {
+          asin = asinM[1].toUpperCase();
         } else if (red.ok) {
           const bodyPrefix = await readHeadPrefix(red);
-          const bodyM = bodyPrefix.match(/amazon\.in\/(?:[^"'\s]*\/)?dp\/([A-Z0-9]{10})/i)
-            || bodyPrefix.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i);
+          const bodyM = bodyPrefix.match(/amazon\.in\/(?:[^"'\s]*\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
+            || bodyPrefix.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i)
+            || bodyPrefix.match(/data-asin="([A-Z0-9]{10})"/i);
           if (bodyM) asin = bodyM[1].toUpperCase();
         }
         if (dbg.length < 8) dbg.push(asin ? 'ok' : `miss:${red.status}`);
