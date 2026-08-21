@@ -685,15 +685,14 @@ function parseDealsSpyHtml(html) {
     const mrpM = card.match(/class="dc-mrp"[^>]*>\s*(₹\s*[\d,]+)/i);
     const mrp = mrpM ? mrpM[1].trim() : price;
 
-    const buyButtonM = card.match(/class="[^"]*redirect-button[^"]*"[^>]*data-code="([^"]+)"/i) || card.match(/data-code="([^"]+)"/i);
+    const codeM = card.match(/data-code="([^"]+)"/i);
     let originalUrl = '';
-    if (buyButtonM) {
-      const code = buyButtonM[1];
+    if (codeM) {
+      const code = codeM[1];
       const utmContentM = code.match(/utm_content=([^&]+)/);
       if (utmContentM) {
         try {
-          const b64 = decodeURIComponent(utmContentM[1]);
-          originalUrl = atob(b64);
+          originalUrl = atob(decodeURIComponent(utmContentM[1]));
         } catch (e) {
           // ignore base64 errors
         }
