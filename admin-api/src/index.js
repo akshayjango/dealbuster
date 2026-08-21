@@ -956,8 +956,10 @@ async function convertToCueLink(url, title, env, inputDescription, channelId) {
     const body = await res.json();
     const data = body?.data;
     const rewrittenTitle = (data?.ai_rewritten === true && data.title) ? data.title : title;
-    // Diagnostic only, for now — see whether CueLinks generates a description
-    // from scratch when none is supplied in the request (docs don't say).
+    // CueLinks never generates a description from nothing (confirmed empirically
+    // 2026-08-21) — it only rewrites one you supply. Callers that want highlights
+    // must pass the original messy scraped title as inputDescription; this is
+    // just whatever comes back from that.
     const responseDescription = data?.description || null;
 
     if (data?.affiliated === true && data.tracking_url) {
@@ -972,6 +974,22 @@ async function convertToCueLink(url, title, env, inputDescription, channelId) {
     console.log(`CueLinks monetize API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
     return { link: buildManualCueLink(url), title, affiliated: null, debugError: e.message };
   }
+}
+
+// CueLinks' AI descriptions come back as several sentences run together with
+// no separator ("Save as much as 60% on selected items!Offers are inclusive
+// for every shopper." — confirmed from live /offers feed examples), rather
+// than actual bullet points. Splits on sentence-ending punctuation so each
+// sentence becomes one highlight, capped at 5 to match the site's highlights
+// UI. Returns [] (not a fallback array) if there's nothing usable — callers
+// already default to [] today, so this can't make things worse than before.
+function splitDescriptionIntoHighlights(description) {
+  if (!description) return [];
+  return description
+    .split(/(?<=[.!?])\s*(?=[A-Z])|(?<=[.!?])$/)
+    .map(s => s.trim())
+    .filter(s => s.length > 3)
+    .slice(0, 5);
 }
 
 // CueLinks has no documented webhook/notification for access-request status
@@ -1256,8 +1274,12 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
       // Convert link to a real tracked CueLinks affiliate link, and ask CueLinks'
       // AI to clean up the scraped title (falls back to the manual link wrap and
       // original title on any uncertainty — see convertToCueLink's comment on
-      // why affiliated:false isn't currently treated as a skip signal).
-      const { link: cueLink, title: cleanedTitle } = await convertToCueLink(deal.link, deal.title || '', env);
+      // why affiliated:false isn't currently treated as a skip signal). The
+      // original messy scraped title doubles as the "description" input —
+      // CueLinks doesn't generate one from nothing, but rewriting the messy
+      // spec-dump text produces genuinely usable highlight-sized sentences.
+      const { link: cueLink, title: cleanedTitle, description: cleanedDescription } =
+        await convertToCueLink(deal.link, deal.title || '', env, deal.title || '');
 
       const newProduct = {
         id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -1271,7 +1293,7 @@ async function cronSyncAndPublishNonAmazonDeals(env) {
         // Category detection stays on the original scraped title, not the
         // AI-rewritten one — keeps this independent of any rewrite quirks.
         category: deal.category || detectCategoryFromTitle(deal.title),
-        highlights: [],
+        highlights: splitDescriptionIntoHighlights(cleanedDescription),
         lowestPriceText: null,
         featured: false,
         hidden: false,
@@ -3797,14 +3819,15 @@ export default {
           for (const deal of allScraped) {
             const k = deal.link.toLowerCase();
             if (liveOriginalLinks.has(k) || sentSet.has(k) || deletedSet.has(k)) continue;
-            const { link: cueLink, title: cleanedTitle } = await convertToCueLink(deal.link, deal.title || '', env);
+            const { link: cueLink, title: cleanedTitle, description: cleanedDescription } =
+              await convertToCueLink(deal.link, deal.title || '', env, deal.title || '');
             const p = {
               id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
               asin: '', title: cleanedTitle || '', price: deal.price || '', mrp: deal.mrp || '',
               disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
               image: deal.image || '', link: cueLink,
               category: deal.category || detectCategoryFromTitle(deal.title),
-              highlights: [], lowestPriceText: null,
+              highlights: splitDescriptionIntoHighlights(cleanedDescription), lowestPriceText: null,
               featured: false, hidden: false, outOfStock: false, order: 0,
               addedAt: new Date().toISOString(), originalPrice: deal.price || ''
             };
