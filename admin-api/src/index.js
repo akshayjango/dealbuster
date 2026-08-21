@@ -1391,7 +1391,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       if (!r.ok) continue;
       const html = await r.text();
 
-      const blocks = html.split(/<div class="product-item">/g);
+      const blocks = html.split(/<div class="product-item/g);
       for (let i = 1; i < blocks.length; i++) {
         const block = blocks[i];
 
