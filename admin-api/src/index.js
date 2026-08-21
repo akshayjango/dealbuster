@@ -708,44 +708,60 @@ function parseDealsSpyHtml(html) {
 
 async function scrapeIfsNonAmazonDeals(env) {
   if (!env.SCRAPER_API_URL) return [];
-  const targetUrl = 'https://www.indiafreestuff.in/trending';
-  const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
-  if (!r.ok) return [];
-  const html = await r.text();
-  const blocks = html.split(/<div class="product-item">/g);
-  
-  const candidates = [];
-  for (let i = 1; i < blocks.length; i++) {
-    const block = blocks[i];
-    
-    // Check if block contains any supported stores
-    const storeMatch = block.match(/\/stores\/(flipkart|myntra|ajio|shopsy|meesho|nykaa|tatacliq)/i);
-    if (!storeMatch) continue;
-    const store = storeMatch[1].toLowerCase();
+  const targetUrls = [
+    'https://www.indiafreestuff.in/trending',
+    'https://www.indiafreestuff.in/stores/flipkart',
+    'https://www.indiafreestuff.in/stores/myntra',
+    'https://www.indiafreestuff.in/stores/ajio',
+  ];
 
-    const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
-    if (!titleM) continue;
-    let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-    title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*(?:Flipkart|Myntra|Ajio|Shopsy|Meesho|Nykaa|TataCliq)\s*$/i, '').trim();
-    if (!title || title.length < 5) continue;
+  const candidateMap = new Map();
+  for (const targetUrl of targetUrls) {
+    try {
+      const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
+      if (!r.ok) continue;
+      const html = await r.text();
+      const blocks = html.split(/<div class="product-item">/g);
+      
+      for (let i = 1; i < blocks.length; i++) {
+        const block = blocks[i];
+        
+        // Check if block contains any supported stores
+        const storeMatch = block.match(/\/stores\/(flipkart|myntra|ajio|shopsy|meesho|nykaa|tatacliq)/i);
+        if (!storeMatch) continue;
+        const store = storeMatch[1].toLowerCase();
 
-    const thumbM = block.match(/data-original="([^"]+)"/i) || block.match(/src="([^"]+)"/i);
-    const image = thumbM ? thumbM[1] : '';
+        const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
+        if (!titleM) continue;
+        let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
+        title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*(?:Flipkart|Myntra|Ajio|Shopsy|Meesho|Nykaa|TataCliq)\s*$/i, '').trim();
+        if (!title || title.length < 5) continue;
 
-    const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
-    const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
-    const priceVal = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
-    const mrpVal   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : priceVal;
-    
-    const price = priceVal > 0 ? '₹' + priceVal.toLocaleString('en-IN') : '';
-    const mrp = mrpVal > 0 ? '₹' + mrpVal.toLocaleString('en-IN') : price;
+        const thumbM = block.match(/data-original="([^"]+)"/i) || block.match(/src="([^"]+)"/i);
+        const image = thumbM ? thumbM[1] : '';
 
-    const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
-    if (!rtoM) continue;
-    const rtoParam = rtoM[1];
+        const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+        const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+        const priceVal = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
+        const mrpVal   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : priceVal;
+        
+        const price = priceVal > 0 ? '₹' + priceVal.toLocaleString('en-IN') : '';
+        const mrp = mrpVal > 0 ? '₹' + mrpVal.toLocaleString('en-IN') : price;
 
-    candidates.push({ title, image, price, mrp, rtoParam, store });
+        const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
+        if (!rtoM) continue;
+        const rtoParam = rtoM[1];
+
+        if (!candidateMap.has(rtoParam)) {
+          candidateMap.set(rtoParam, { title, image, price, mrp, rtoParam, store });
+        }
+      }
+    } catch (e) {
+      console.error(`Non-Amazon IFS fetch failed for ${targetUrl}:`, e.message);
+    }
   }
+
+  const candidates = Array.from(candidateMap.values());
 
   // Resolve target URLs (limit to 15 candidates to prevent hitting Cloudflare subrequest limits)
   const syncLimit = Math.min(candidates.length, 15);
@@ -1360,66 +1376,64 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const matchesMap = new Map();
   const blockedBrands = await getBlockedBrands(env);
 
-  try {
-    const targetUrl = 'https://www.indiafreestuff.in/trending';
+  const targetUrls = [
+    'https://www.indiafreestuff.in/trending',
+    'https://www.indiafreestuff.in/stores/amazon',
+  ];
 
-    // Fetch trending page with a 20-second timeout to allow the proxy to solve WAF
-    let r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
-    if (!r.ok) {
-      await new Promise(res => setTimeout(res, 3000));
-      r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
-    }
-    if (!r.ok) {
-      const cfMitigated = r.headers.get('cf-mitigated') || 'none';
-      const cfRay = r.headers.get('cf-ray') || 'none';
-      const bodySnippet = (await r.text().catch(() => '')).slice(0, 300).replace(/\s+/g, ' ');
-      throw new Error(`HTTP ${r.status} after retry (cf-mitigated=${cfMitigated}, cf-ray=${cfRay}) body="${bodySnippet}"`);
-    }
-    const html = await r.text();
-
-    const blocks = html.split(/<div class="product-item">/g);
-    for (let i = 1; i < blocks.length; i++) {
-      const block = blocks[i];
-
-      // Amazon-only filter — block must link to /stores/amazon
-      if (!block.includes('/stores/amazon')) continue;
-
-      // Title from item-title anchor
-      const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
-      if (!titleM) continue;
-      let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-      title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Amazon\s*$/i, '').trim();
-      if (!title || title.length < 5) continue;
-      if (isBrandBlocked(title, blockedBrands)) continue;
-
-      const thumbM = block.match(/data-original="([^"]+images\.indiafreestuff\.in[^"]+)"/i);
-      let image = '';
-      if (thumbM) {
-        const fname = thumbM[1].split('/').pop();
-        const hashM = fname.match(/thumb_[a-f0-9]+_([A-Za-z0-9]{11})\./);
-        image = hashM
-          ? `https://m.media-amazon.com/images/I/${hashM[1]}._SL500_.jpg`
-          : thumbM[1];
+  for (const targetUrl of targetUrls) {
+    try {
+      let r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
+      if (!r.ok) {
+        await new Promise(res => setTimeout(res, 2000));
+        r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
       }
+      if (!r.ok) continue;
+      const html = await r.text();
 
-      const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
-      const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
-      const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
-      const mrp   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : price;
+      const blocks = html.split(/<div class="product-item">/g);
+      for (let i = 1; i < blocks.length; i++) {
+        const block = blocks[i];
 
-      const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
-      if (!rtoM) continue;
-      const rtoParam = rtoM[1];
+        // Amazon-only filter — block must link to /stores/amazon or contain amazon
+        if (!block.includes('/stores/amazon') && !block.toLowerCase().includes('amazon.in')) continue;
 
-      const key = rtoParam;
-      if (!matchesMap.has(key)) {
-        matchesMap.set(key, { title, image, price, mrp, rtoParam });
+        // Title from item-title anchor
+        const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
+        if (!titleM) continue;
+        let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
+        title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Amazon\s*$/i, '').trim();
+        if (!title || title.length < 5) continue;
+        if (isBrandBlocked(title, blockedBrands)) continue;
+
+        const thumbM = block.match(/data-original="([^"]+images\.indiafreestuff\.in[^"]+)"/i)
+          || block.match(/src="([^"]+images\.indiafreestuff\.in[^"]+)"/i);
+        let image = '';
+        if (thumbM) {
+          const fname = thumbM[1].split('/').pop();
+          const hashM = fname.match(/thumb_[a-f0-9]+_([A-Za-z0-9_-]{8,})\./);
+          image = hashM
+            ? `https://m.media-amazon.com/images/I/${hashM[1]}._SL500_.jpg`
+            : thumbM[1];
+        }
+
+        const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+        const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+        const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
+        const mrp   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : price;
+
+        const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
+        if (!rtoM) continue;
+        const rtoParam = rtoM[1];
+
+        const key = rtoParam;
+        if (!matchesMap.has(key)) {
+          matchesMap.set(key, { title, image, price, mrp, rtoParam });
+        }
       }
+    } catch (e) {
+      console.error(`IFS fetch failed for ${targetUrl}:`, e.message);
     }
-  } catch (e) {
-    const msg = `IndiaFreeStuff fetch failed: ${e.message}`;
-    await saveSyncError('IndiaFreeStuff', msg, env);
-    return { success: false, count: 0, message: msg };
   }
 
   if (matchesMap.size === 0) {
@@ -1433,88 +1447,30 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
 
-  // Filter valid candidates from matches by checking if they are already in the database by Image ID or Title
+  // Build exact title map of existing live products (stripping promo tags) to avoid exact re-adds before ASIN resolution
+  const cleanTitleSet = new Set(
+    products.map(p => p.title.toLowerCase().replace(/\[.*?\]/g, '').replace(/[^a-z0-9]/g, '').trim())
+  );
+
   const candidates = [];
   for (const item of matchesMap.values()) {
     if (item.price <= 0) continue;
 
-    // 1. Image ID duplicate check (100% accurate fallback to Amazon CDN image ID)
-    let isDuplicate = false;
-    if (item.image && item.image.includes('media-amazon.com/images/I/')) {
-      const imgIdM = item.image.match(/\/I\/([A-Za-z0-9]{11})\./);
-      if (imgIdM) {
-        const imgId = imgIdM[1];
-        for (const p of products) {
-          if (p.image && p.image.includes(imgId)) {
-            isDuplicate = true;
-            break;
-          }
-        }
-      }
-    }
+    // Check exact normalized title match
+    const normTitle = item.title.toLowerCase().replace(/\[.*?\]/g, '').replace(/[^a-z0-9]/g, '').trim();
+    if (normTitle && cleanTitleSet.has(normTitle)) continue;
 
-    // 2. High-precision Title check (90% word overlap)
-    if (!isDuplicate) {
-      const cleanIfs = item.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-      const ifsWords = cleanIfs.split(/\s+/).filter(w => w.length > 3);
-      if (ifsWords.length >= 2) {
-        for (const p of products) {
-          const cleanExisting = p.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-          if (cleanIfs === cleanExisting) {
-            isDuplicate = true;
-            break;
-          }
-          let matchCount = 0;
-          for (const w of ifsWords) {
-            if (cleanExisting.includes(w)) matchCount++;
-          }
-          if (matchCount / ifsWords.length >= 0.90) {
-            isDuplicate = true;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!isDuplicate) {
-      candidates.push(item);
-    }
+    candidates.push(item);
   }
 
-  // To stay within proxy concurrency limits and prevent request timeouts, 
-  // we limit to resolving at most 30 candidates per sync run.
+  // Resolve up to 30 candidates per sync run
   const syncLimit = Math.min(candidates.length, 30);
   const targetCandidates = candidates.slice(0, syncLimit);
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
-  const added = [];
   const dbg = [];
 
-  async function readHeadPrefix(res, maxBytes = 65536, timeoutMs = 4000) {
-    if (!res.body) return '';
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    const deadline = Date.now() + timeoutMs;
-    let out = '';
-    try {
-      while (out.length < maxBytes) {
-        const remaining = deadline - Date.now();
-        if (remaining <= 0) break;
-        const { done, value } = await Promise.race([
-          reader.read(),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('body read timeout')), remaining)),
-        ]);
-        if (done) break;
-        out += decoder.decode(value, { stream: true });
-      }
-    } catch {
-    } finally {
-      try { await reader.cancel(); } catch {}
-    }
-    return out;
-  }
-
-  // Resolve redirects in batches of 5 to respect proxy concurrency limits
+  // Resolve redirects in batches of 5
   const resolved = [];
   const chunkSize = 5;
   for (let i = 0; i < targetCandidates.length; i += chunkSize) {
@@ -1524,15 +1480,12 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       try {
         const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
 
-        // Use a 15-second timeout for proxy redirect resolving
         const red = await fetchWithProxy(redirTarget, {
           redirect: 'manual',
           headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
         }, 15000, env);
         
         const loc = red.headers.get('location') || '';
-        if (loc.includes('amazon.in')) {
-          const asinM = loc.match(/\/dp\/([A-Z0-9]{10})/i);
           if (asinM) asin = asinM[1].toUpperCase();
         } else if (red.ok) {
           const bodyPrefix = await readHeadPrefix(red);
