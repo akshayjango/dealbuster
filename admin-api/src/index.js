@@ -1157,34 +1157,23 @@ async function checkListingAvailability(url, scrapedPrice, env) {
     if (!r) {
       r = await fetchWithProxy(url, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 15000, env);
     }
-    if (!r.ok) return { available: false, reason: `http_${r.status}`, cookieHealth };
+    if (r.status === 404) return { available: false, reason: 'http_404', cookieHealth };
+    if (!r.ok) return { available: true, cookieHealth }; // Trust aggregator feed on 403/WAF/SPA shells
     const html = await r.text();
-    if (html.length < 500) return { available: false, reason: 'empty_page', cookieHealth };
+    if (html.length < 200) return { available: false, reason: 'empty_page', cookieHealth };
 
-    // "Location not set" is exactly what Flipkart shows an anonymous visitor —
-    // if it still shows up on a request we sent our session cookie with, the
-    // cookie isn't authenticating anymore (expired/rotated), and every
-    // deliverability check since is silently running anonymous again.
+    // "Location not set" is what Flipkart shows an anonymous visitor
     if (cookieHealth === 'pending') {
       cookieHealth = html.toLowerCase().includes('location not set') ? 'expired' : 'ok';
     }
 
-    const lower = html.toLowerCase();
-    for (const phrase of OOS_PHRASES) {
-      if (lower.includes(phrase)) return { available: false, reason: phrase, cookieHealth };
-    }
-
-    if (scrapedPrice > 0) {
-      const listedPrice = extractPageListedPrice(html);
-      if (listedPrice && listedPrice > 0) {
-        const drift = Math.abs(listedPrice - scrapedPrice) / scrapedPrice;
-        if (drift > 0.2) return { available: false, reason: `price_drift_${Math.round(drift * 100)}pct`, cookieHealth };
-      }
-    }
+    // Only mark OOS if explicitly declared in JSON-LD schema or product availability block
+    const isExplicitSchemaOOS = html.includes('schema.org/OutOfStock') || html.includes('schema.org/outOfStock') || html.includes('"availability":"OutOfStock"');
+    if (isExplicitSchemaOOS) return { available: false, reason: 'schema_out_of_stock', cookieHealth };
 
     return { available: true, cookieHealth };
   } catch (e) {
-    return { available: false, reason: `fetch_error_${e.message}`, cookieHealth };
+    return { available: true, cookieHealth }; // Fallback to available if fetch errors
   }
 }
 
