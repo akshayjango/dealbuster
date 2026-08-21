@@ -655,8 +655,15 @@ async function fetchAmazonPageData(asin) {
     const reviewM = html.match(/id="acrCustomerReviewText"[^>]*>([\d,]+)\s*ratings?/i);
     const reviewCount = reviewM ? parseInt(reviewM[1].replace(/,/g, ''), 10) : null;
 
-    return { badge, highlights, category, rating, reviewCount };
-  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null }; }
+    // Check low stock ("Only 1 left in stock.", "Only 2 left in stock.", "Only 3 left in stock.", "Only 4 left in stock.")
+    const lowStockM = html.match(/only\s+([1-4])\s+left\s+in\s+stock/i);
+    const lowStock = !!lowStockM;
+
+    // Check undeliverable message
+    const undeliverable = html.toLowerCase().includes('cannot be shipped to your selected delivery location');
+
+    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable };
+  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false }; }
 }
 
 // ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
@@ -1774,12 +1781,17 @@ async function checkAndCleanDeals(env) {
 
         // Only mark OOS when API explicitly signals it — not on missing item or missing price
         const listing = item?.offersV2?.listings?.[0];
-        const amPrice = listing?.price?.amount;
-        const availability = listing?.availability;
-        const isOOS = item && (
-          ['OUT_OF_STOCK','UNAVAILABLE'].includes((availability?.type||'').toUpperCase()) ||
-          !!(availability?.message||'').toLowerCase().match(/out of stock|unavailable/)
-        );
+        const availMsg = (availability?.message || '').toLowerCase();
+        const isLowStockOrUndeliverable = !!availMsg.match(/only\s+[1-4]\s+left\s+in\s+stock/) ||
+          availMsg.includes('cannot be shipped');
+
+        if (isLowStockOrUndeliverable) {
+          console.log(`Deleting product ${p.asin} due to low stock / undeliverable message: ${availMsg}`);
+          productMap.delete(p.id);
+          await addDeletedAsin(p.asin, env);
+          changed = true;
+          continue;
+        }
 
         if (isOOS) {
           if (!updated.outOfStock) {
@@ -1935,7 +1947,16 @@ async function checkLowestPriceBadges(env) {
     if (!updated) continue;
     updated.lastBadgeCheck = Date.now();
 
-    const { badge, highlights, category, rating, reviewCount } = await fetchAmazonPageData(p.asin);
+    const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable } = await fetchAmazonPageData(p.asin);
+
+    // Filter out low rating (< 3.8), low stock (Only 1-4 left), or undeliverable deals permanently!
+    if ((rating != null && rating < 3.8) || lowStock || undeliverable) {
+      console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, lowStock=${lowStock}, undeliverable=${undeliverable}`);
+      productMap.delete(p.id);
+      await addDeletedAsin(p.asin, env);
+      changed = true;
+      continue;
+    }
 
     // Fix wrong category: if Amazon breadcrumb says something different, update
     if (category && updated.category !== category) {
@@ -2479,6 +2500,11 @@ async function capLiveAndBury(all, env, cap = 1440) {
   const expired = [];
 
   for (const p of all) {
+    // Permanent deletion filter: Amazon deals with a known rating < 3.8 are dropped completely
+    if (p.asin && typeof p.rating === 'number' && p.rating < 3.8) {
+      continue;
+    }
+
     if (isDead(p)) {
       const ttl = p.asin ? TOMBSTONE_TTL_MS : (1 * 24 * 60 * 60 * 1000);
       if (now - Date.parse(p.dead) < ttl) {
@@ -2487,10 +2513,7 @@ async function capLiveAndBury(all, env, cap = 1440) {
         expired.push(p);
       }
     } else {
-      // Rating filter: Amazon deals with a known rating < 3.8 are automatically buried
-      if (p.asin && typeof p.rating === 'number' && p.rating < 3.8) {
-        tombs.push(makeTombstone(p));
-      } else if (p.asin) {
+      if (p.asin) {
         amzDeals.push(p);
       } else {
         otherDeals.push(p);
