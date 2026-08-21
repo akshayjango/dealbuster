@@ -977,46 +977,56 @@ async function convertToCueLink(url, title, env, inputDescription) {
 // changes (checked their docs — Getting Started/API Reference/Links/
 // Campaigns/Reference Data, no Webhooks section). Polling is the only option.
 // Checked twice daily (piggybacked on the existing Amazon-deals-sweep cron
-// slot) rather than more often — approval is a human/business process on
-// Flipkart's side, not something that resolves in minutes, and this avoids
+// slot) rather than more often — approval is a human/business process on the
+// advertiser's side, not something that resolves in minutes, and this avoids
 // burning extra CueLinks API calls for no reason. Surfaces through the same
 // syncErrors bell/push-notification path as every other admin alert tonight.
+// One tracked campaign per store with a pending access request — add more
+// here if other stores' access gets requested later.
+const CUELINKS_TRACKED_CAMPAIGNS = [
+  { id: 1, name: 'Flipkart' },
+  { id: 101, name: 'Myntra' },
+  { id: 2589, name: 'Ajio' },
+];
+
 async function checkCueLinksCampaignAccess(env) {
   const apiKey = (env.CUELINKS_API_KEY || '').trim();
   if (!apiKey) return;
 
-  let campaign;
-  try {
-    const res = await fetchWithTimeout(
-      'https://developers.cuelinks.com/pub_api/v3/campaigns?q=flipkart',
-      { headers: { 'Authorization': `Token ${apiKey}` } },
-      10000
-    );
-    if (!res.ok) return; // transient API issue — just try again next scheduled check
-    const body = await res.json();
-    campaign = (body?.data || []).find(c => c.id === 1 && c.name === 'Flipkart');
-  } catch (e) {
-    console.log(`CueLinks campaign access check failed: ${e.message}`);
-    return;
-  }
-  if (!campaign) return;
+  for (const { id, name } of CUELINKS_TRACKED_CAMPAIGNS) {
+    let campaign;
+    try {
+      const res = await fetchWithTimeout(
+        `https://developers.cuelinks.com/pub_api/v3/campaigns/${id}`,
+        { headers: { 'Authorization': `Token ${apiKey}` } },
+        10000
+      );
+      if (!res.ok) continue; // transient API issue — just try again next scheduled check
+      const body = await res.json();
+      campaign = body?.data;
+    } catch (e) {
+      console.log(`CueLinks campaign access check failed for ${name} (${id}): ${e.message}`);
+      continue;
+    }
+    if (!campaign) continue;
 
-  const KV_KEY = 'cuelinks_flipkart_access_status';
-  const prevStatus = await env.KV.get(KV_KEY);
-  const currentStatus = campaign.access_status;
-  if (currentStatus === prevStatus) return; // no change — nothing to do, no KV write
+    const kvKey = `cuelinks_${name.toLowerCase()}_access_status`;
+    const prevStatus = await env.KV.get(kvKey);
+    const currentStatus = campaign.access_status;
+    if (currentStatus === prevStatus) continue; // no change — nothing to do, no KV write
 
-  await env.KV.put(KV_KEY, currentStatus);
+    await env.KV.put(kvKey, currentStatus);
 
-  if (currentStatus !== 'not_applied' && currentStatus !== 'pending') {
-    // Genuinely resolved (approved/open, or rejected) — this is the actual
-    // signal to act on: re-test /test-cuelink and, if approved, the
-    // affiliated:true path in convertToCueLink starts being used automatically.
-    await saveSyncError(
-      'CueLinksFlipkartAccess',
-      `Flipkart campaign access_status changed: ${prevStatus || '(unknown)'} → ${currentStatus}. Check /test-cuelink to confirm affiliated:true is now returned.`,
-      env
-    );
+    if (currentStatus !== 'not_applied' && currentStatus !== 'pending') {
+      // Genuinely resolved (approved/open, or rejected) — this is the actual
+      // signal to act on: re-test /test-cuelink and, if approved, the
+      // affiliated:true path in convertToCueLink starts being used automatically.
+      await saveSyncError(
+        `CueLinks${name}Access`,
+        `${name} campaign access_status changed: ${prevStatus || '(unknown)'} → ${currentStatus}. Check /test-cuelink to confirm affiliated:true is now returned.`,
+        env
+      );
+    }
   }
 }
 
