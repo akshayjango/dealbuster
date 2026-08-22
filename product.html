@@ -1049,13 +1049,21 @@
     const note = document.getElementById('phNote');
     const keepaBtn = document.getElementById('phKeepaBtn');
 
-    if (!product || !product.asin) {
-      wrap.style.display = 'none';
-      return;
-    }
+    // Show price history section for all deals (both Amazon & Non-Amazon)
+    wrap.style.display = '';
 
-    keepaBtn.href = 'https://keepa.com/#!product/10-' + product.asin.toUpperCase();
-    keepaBtn.style.display = 'flex';
+    const isAmazon = product && product.asin;
+    if (isAmazon) {
+      keepaBtn.href = 'https://keepa.com/#!product/10-' + product.asin.toUpperCase();
+      keepaBtn.style.display = 'flex';
+      const divider = wrap.querySelector('.ph-divider');
+      if (divider) divider.style.display = '';
+    } else {
+      // Hide Keepa button & text for non-Amazon deals (Flipkart, Myntra, Ajio, etc.)
+      keepaBtn.style.display = 'none';
+      const divider = wrap.querySelector('.ph-divider');
+      if (divider) divider.style.display = 'none';
+    }
 
     const toNum = s => { const n = parseInt(String(s || '').replace(/[^0-9]/g, ''), 10); return isNaN(n) ? null : n; };
 
@@ -1065,12 +1073,10 @@
       .filter(pt => pt.price !== null && !isNaN(pt.date.getTime()))
       .sort((a, b) => a.date - b.date);
 
-    wrap.style.display = '';
-
     if (points.length < 2) {
       statsEl.style.display = 'none';
       chartBox.innerHTML = '';
-      note.textContent = "We just started tracking this deal's price — check back later to see how it's moved.";
+      note.textContent = "We started tracking this deal's price — check back later to see how it moves.";
       return;
     }
 
@@ -1114,30 +1120,33 @@
   }
 
   // ── Load this product's own Price History ──
-  // (Hot Deals Right Now / Deals You May Like removed from this page — this
-  // fetch used to also build those sections' cards; trimmed to just the
-  // price-history lookup they shared it with.)
   (async () => {
     try {
-      // No cache-busting here — this is a 5MB+ file, and busting the URL every
-      // load forced a full re-download on every product page visit instead of
-      // letting the browser reuse/revalidate its cached copy (the same one
-      // this session likely already fetched from index.html or another
-      // product page), which was the main cause of this section loading slowly.
       const resp = await fetch('products.json');
-      if (!resp.ok) return;
+      if (!resp.ok) { renderPriceHistory(null, current); return; }
       const data = await resp.json();
       const allProducts = Array.isArray(data) ? data : (data.products || []);
 
-      // Find this exact product (by ASIN, extracted from the Amazon link) to
-      // read its priceHistory — the URL only carries the snapshot price/mrp
-      // at share-time, not the running history array.
+      const prodId = p.get('id');
       const asinMatch = link.match(/\/dp\/([A-Z0-9]{10})/i);
       const asin = asinMatch ? asinMatch[1].toUpperCase() : null;
-      const self = asin ? allProducts.find(x => (x.asin || '').toUpperCase() === asin) : null;
+
+      let self = null;
+      if (prodId) {
+        self = allProducts.find(x => x.id === prodId);
+      }
+      if (!self && asin) {
+        self = allProducts.find(x => (x.asin || '').toUpperCase() === asin);
+      }
+      if (!self && link && link !== '#') {
+        const cleanTarget = link.toLowerCase();
+        self = allProducts.find(x => (x.link || '').toLowerCase() === cleanTarget);
+      }
+
       renderPriceHistory(self, current);
     } catch (e) {
       console.error('Failed to load price history:', e);
+      renderPriceHistory(null, current);
     }
   })();
 

@@ -668,17 +668,19 @@ class _PriceHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAmazon = product.asin != null && product.asin!.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'We track this deal\'s price around the clock — see the full '
-          'trend, including past highs and lows, on Keepa.',
+          isAmazon
+              ? 'We track this deal\'s price around the clock — see the full trend, including past highs and lows, on Keepa.'
+              : 'We started tracking this deal\'s price — check back later to see how it moves.',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 fontSize: 13,
               ),
         ),
-        if (product.asin != null && product.asin!.isNotEmpty) ...[
+        if (isAmazon) ...[
           const SizedBox(height: 16),
           const _DashedDivider(),
           const SizedBox(height: 14),
