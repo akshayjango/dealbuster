@@ -1202,15 +1202,21 @@ async function checkListingAvailability(url, scrapedPrice, env) {
       if (rvM) reviewCount = parseInt(rvM[1].replace(/,/g, ''), 10);
     }
 
-    // Automatically filter out Flipkart / non-Amazon deals with rating < 3.8
-    if (rating != null && rating < 3.8) {
-      console.log(`Skipping Flipkart deal with low rating (${rating} stars): ${url}`);
-      return { available: false, reason: `low_rating_${rating}`, cookieHealth, rating, reviewCount };
+    // Price variation check: flag price increases (>15% for >=₹500, >25% for <₹500)
+    let priceIncreased = false;
+    if (scrapedPrice > 0) {
+      const listedPrice = extractPageListedPrice(html);
+      if (listedPrice && listedPrice > 0) {
+        if (shouldDemote(scrapedPrice, listedPrice)) {
+          priceIncreased = true;
+          console.log(`Non-Amazon deal price increased (${scrapedPrice} -> ${listedPrice}): ${url}`);
+        }
+      }
     }
 
-    return { available: true, cookieHealth, rating, reviewCount };
+    return { available: true, cookieHealth, rating, reviewCount, priceIncreased };
   } catch (e) {
-    return { available: true, cookieHealth, rating: null, reviewCount: null }; // Fallback to available if fetch errors
+    return { available: true, cookieHealth, rating: null, reviewCount: null, priceIncreased: false }; // Fallback to available if fetch errors
   }
 }
 
@@ -1365,7 +1371,8 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
         addedAt: new Date().toISOString(),
         originalPrice: deal.price || '',
         rating: availability.rating || null,
-        reviewCount: availability.reviewCount || null
+        reviewCount: availability.reviewCount || null,
+        priceIncreased: availability.priceIncreased || false
       };
 
       newProducts.push(newProduct);
@@ -2574,6 +2581,8 @@ async function capLiveAndBury(all, env, cap = 1440) {
   liveDeals.sort((a, b) => {
     if (a.featured && !b.featured) return -1;
     if (!a.featured && b.featured) return 1;
+    if (a.priceIncreased && !b.priceIncreased) return 1;
+    if (!a.priceIncreased && b.priceIncreased) return -1;
     return Date.parse(b.addedAt || 0) - Date.parse(a.addedAt || 0);
   });
 
@@ -2886,6 +2895,7 @@ async function sweepExpiredApprovals(env) {
 async function postDealsAndTrack(products, env) {
   const list = (products || []).filter(Boolean).filter(p => {
     if (isZeroPrice(p)) { console.log(`Skipping TG post (₹0/no price): ${p.title || p.id}`); return false; }
+    if (p.priceIncreased) { console.log(`Skipping TG post (price increased >15%/25%): ${p.title || p.id}`); return false; }
     return true;
   });
   if (!list.length) return;
