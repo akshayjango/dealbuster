@@ -1156,10 +1156,10 @@ async function checkListingAvailability(url, scrapedPrice, env) {
     if (!r) {
       r = await fetchWithProxy(url, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 15000, env);
     }
-    if (r.status === 404) return { available: false, reason: 'http_404', cookieHealth };
-    if (!r.ok) return { available: true, cookieHealth }; // Trust aggregator feed on 403/WAF/SPA shells
+    if (r.status === 404) return { available: false, reason: 'http_404', cookieHealth, rating: null, reviewCount: null };
+    if (!r.ok) return { available: true, cookieHealth, rating: null, reviewCount: null }; // Trust aggregator feed on 403/WAF/SPA shells
     const html = await r.text();
-    if (html.length < 200) return { available: false, reason: 'empty_page', cookieHealth };
+    if (html.length < 200) return { available: false, reason: 'empty_page', cookieHealth, rating: null, reviewCount: null };
 
     // "Location not set" is what Flipkart shows an anonymous visitor
     if (cookieHealth === 'pending') {
@@ -1168,11 +1168,49 @@ async function checkListingAvailability(url, scrapedPrice, env) {
 
     // Only mark OOS if explicitly declared in JSON-LD schema or product availability block
     const isExplicitSchemaOOS = html.includes('schema.org/OutOfStock') || html.includes('schema.org/outOfStock') || html.includes('"availability":"OutOfStock"');
-    if (isExplicitSchemaOOS) return { available: false, reason: 'schema_out_of_stock', cookieHealth };
+    if (isExplicitSchemaOOS) return { available: false, reason: 'schema_out_of_stock', cookieHealth, rating: null, reviewCount: null };
 
-    return { available: true, cookieHealth };
+    // Extract Rating & Review Count (JSON-LD & Regex fallback)
+    let rating = null;
+    let reviewCount = null;
+    const schemaRegex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let match;
+    while ((match = schemaRegex.exec(html)) !== null) {
+      try {
+        const data = JSON.parse(match[1].trim());
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          if (item.aggregateRating) {
+            rating = parseFloat(item.aggregateRating.ratingValue);
+            reviewCount = parseInt(item.aggregateRating.reviewCount || item.aggregateRating.ratingCount, 10);
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!rating) {
+      const rM = html.match(/"ratingValue"\s*:\s*"?(\d(?:\.\d)?)"?/i) ||
+                 html.match(/(\d\.\d)\s*★/i) ||
+                 html.match(/class="[^"]*(?:_3LWZlK|XqP1W8)[^"]*"[^>]*>(\d\.\d)/i);
+      if (rM) rating = parseFloat(rM[1]);
+    }
+
+    if (!reviewCount) {
+      const rvM = html.match(/"ratingCount"\s*:\s*"?([\d,]+)"?/i) ||
+                  html.match(/based on ([\d,]+) ratings/i);
+      if (rvM) reviewCount = parseInt(rvM[1].replace(/,/g, ''), 10);
+    }
+
+    // Automatically filter out Flipkart / non-Amazon deals with rating < 3.8
+    if (rating != null && rating < 3.8) {
+      console.log(`Skipping Flipkart deal with low rating (${rating} stars): ${url}`);
+      return { available: false, reason: `low_rating_${rating}`, cookieHealth, rating, reviewCount };
+    }
+
+    return { available: true, cookieHealth, rating, reviewCount };
   } catch (e) {
-    return { available: true, cookieHealth }; // Fallback to available if fetch errors
+    return { available: true, cookieHealth, rating: null, reviewCount: null }; // Fallback to available if fetch errors
   }
 }
 
@@ -1325,7 +1363,9 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
         outOfStock: false,
         order: 0,
         addedAt: new Date().toISOString(),
-        originalPrice: deal.price || ''
+        originalPrice: deal.price || '',
+        rating: availability.rating || null,
+        reviewCount: availability.reviewCount || null
       };
 
       newProducts.push(newProduct);
@@ -3527,6 +3567,37 @@ export default {
               else if (/health|medicine|supplement|vitamin|protein|fitness|sport|yoga|gym|ayurved|toothpaste|oral/.test(tLower)) category = 'Health';
             }
 
+            // Extract rating and reviewCount from non-Amazon page HTML
+            let rating = null;
+            let reviewCount = null;
+            const schemaRegex2 = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+            let match2;
+            while ((match2 = schemaRegex2.exec(html)) !== null) {
+              try {
+                const data2 = JSON.parse(match2[1].trim());
+                const items2 = Array.isArray(data2) ? data2 : [data2];
+                for (const item of items2) {
+                  if (item.aggregateRating) {
+                    rating = parseFloat(item.aggregateRating.ratingValue);
+                    reviewCount = parseInt(item.aggregateRating.reviewCount || item.aggregateRating.ratingCount, 10);
+                    break;
+                  }
+                }
+              } catch (e) {}
+            }
+            if (!rating) {
+              const rM = html.match(/"ratingValue"\s*:\s*"?(\d(?:\.\d)?)"?/i) || html.match(/(\d\.\d)\s*★/i) || html.match(/class="[^"]*(?:_3LWZlK|XqP1W8)[^"]*"[^>]*>(\d\.\d)/i);
+              if (rM) rating = parseFloat(rM[1]);
+            }
+            if (!reviewCount) {
+              const rvM = html.match(/"ratingCount"\s*:\s*"?([\d,]+)"?/i) || html.match(/based on ([\d,]+) ratings/i);
+              if (rvM) reviewCount = parseInt(rvM[1].replace(/,/g, ''), 10);
+            }
+
+            if (rating != null && rating < 3.8) {
+              return json({ error: `Product rating is too low (${rating} stars, minimum requirement is 3.8 stars)` }, 400);
+            }
+
             const parsedPrice = price ? parsePrice(price.toString()) : null;
             const parsedMrp = mrp ? parsePrice(mrp.toString()) : null;
 
@@ -3541,7 +3612,9 @@ export default {
               image,
               category,
               link: affiliateUrl,
-              asin: ""
+              asin: "",
+              rating,
+              reviewCount
             });
           }
 
