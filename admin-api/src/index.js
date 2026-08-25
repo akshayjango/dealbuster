@@ -4446,8 +4446,8 @@ export default {
       );
     }
 
-    // Dedicated slot for Telegram posting and DealsSpy/DealOfTheDay syncs, every 5 min
-    if (event.cron === '0,5,10,15,20,25,30,35,40,45,50,55 * * * *') {
+    // Dedicated slot for Telegram posting and DealsSpy/DealOfTheDay syncs (except :15 and :45)
+    if (event.cron === '0,5,10,20,25,30,35,40,50,55 * * * *') {
       if (getIstHour() >= 2 && getIstHour() < 7) {
         console.log('Skipping Telegram posting and Amazon syncs during sleep hours (2am-7am IST)');
         return;
