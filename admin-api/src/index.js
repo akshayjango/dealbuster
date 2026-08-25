@@ -3228,9 +3228,15 @@ async function getUnpostedTgFresh(env) {
   // permanently occupy the oldest-unposted batch slots and starve the queue:
   // slice(-5) kept returning the same ₹0 zombies while real new deals waited
   // at the top of the array (this shipped once — batches shrank to 2, then 0).
-  const unposted = products.filter(p =>
-    !p.hidden && !p.outOfStock && !isZeroPrice(p) && !isAlreadyPosted(p, postedIds) &&
-    (cutoffMs === null || Date.parse(p.addedAt) >= cutoffMs));
+  const MAX_TG_POST_AGE_MS = 12 * 60 * 60 * 1000; // Only post deals added in the last 12 hours
+  const now = Date.now();
+  const unposted = products.filter(p => {
+    if (p.hidden || p.outOfStock || isZeroPrice(p) || isAlreadyPosted(p, postedIds)) return false;
+    if (cutoffMs !== null && Date.parse(p.addedAt) < cutoffMs) return false;
+    const addedTime = Date.parse(p.addedAt || 0);
+    if (!addedTime || (now - addedTime) > MAX_TG_POST_AGE_MS) return false;
+    return true;
+  });
   // Oldest unposted deals sit at the end of the array — send oldest-of-batch
   // first, newest last. Whatever doesn't fit in this batch of 5 carries over to
   // the next cron run, still oldest-first.
