@@ -1457,6 +1457,9 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const targetUrls = [
     'https://www.indiafreestuff.in/trending',
     'https://www.indiafreestuff.in/stores/amazon',
+    'https://www.indiafreestuff.in/stores/flipkart',
+    'https://www.indiafreestuff.in/stores/myntra',
+    'https://www.indiafreestuff.in/stores/ajio',
   ];
 
   for (const targetUrl of targetUrls) {
@@ -1475,26 +1478,19 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       for (let i = 1; i < blocks.length; i++) {
         const block = blocks[i];
 
-        // Amazon-only filter — block must link to /stores/amazon or contain amazon
-        if (!block.includes('/stores/amazon') && !block.toLowerCase().includes('amazon.in')) continue;
-
         // Title from item-title anchor
         const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
         if (!titleM) continue;
         let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-        title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*Amazon\s*$/i, '').trim();
+        title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*(?:Amazon|Flipkart|Myntra|Ajio)\s*$/i, '').trim();
         if (!title || title.length < 5) continue;
         if (isBrandBlocked(title, blockedBrands)) continue;
 
-        const thumbM = block.match(/data-original="([^"]+images\.indiafreestuff\.in[^"]+)"/i)
-          || block.match(/src="([^"]+images\.indiafreestuff\.in[^"]+)"/i);
+        const thumbM = block.match(/data-original="([^"]+)"/i)
+          || block.match(/src="([^"]+)"/i);
         let image = '';
-        if (thumbM) {
-          const fname = thumbM[1].split('/').pop();
-          const hashM = fname.match(/thumb_[a-f0-9]+_([A-Za-z0-9_-]{8,})\./);
-          image = hashM
-            ? `https://m.media-amazon.com/images/I/${hashM[1]}._SL500_.jpg`
-            : thumbM[1];
+        if (thumbM && thumbM[1].includes('http')) {
+          image = thumbM[1];
         }
 
         const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
@@ -1517,7 +1513,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   }
 
   if (matchesMap.size === 0) {
-    const msg = 'IndiaFreeStuff: no Amazon deals found (structure may have changed)';
+    const msg = 'IndiaFreeStuff: no deals found (structure may have changed)';
     await saveSyncError('IndiaFreeStuff', msg, env);
     return { success: false, count: 0, message: msg };
   }
@@ -1527,7 +1523,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
 
-  // Build exact title map of existing live products (stripping promo tags) to avoid exact re-adds before ASIN resolution
+  // Build exact title map of existing live products (stripping promo tags) to avoid exact re-adds
   const cleanTitleSet = new Set(
     products.map(p => p.title.toLowerCase().replace(/\[.*?\]/g, '').replace(/[^a-z0-9]/g, '').trim())
   );
@@ -1556,24 +1552,9 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const chunkSize = 5;
   for (let i = 0; i < targetCandidates.length; i += chunkSize) {
     const chunk = targetCandidates.slice(i, i + chunkSize);
-function extractAsin(str) {
-  if (!str) return null;
-  const matches = [
-    ...str.matchAll(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/gi),
-    ...str.matchAll(/[?&]asin=([A-Z0-9]{10})/gi),
-    ...str.matchAll(/\/([A-Z0-9]{10})(?:\/|\?|#|$)/gi)
-  ];
-  for (const m of matches) {
-    const cand = (m[1] || '').toUpperCase();
-    if (cand.length === 10 && cand !== 'AUICLIENTS' && !cand.startsWith('NAV') && !cand.startsWith('HEADER')) {
-      return cand;
-    }
-  }
-  return null;
-}
-
     const chunkResolved = await Promise.all(chunk.map(async (item) => {
       let asin = '';
+      let targetUrl = '';
       try {
         const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
 
@@ -1586,11 +1567,12 @@ function extractAsin(str) {
         const loc = redManual ? (redManual.headers.get('location') || '') : '';
         const bodyTextManual = redManual ? await redManual.text().catch(() => '') : '';
 
-        // 2. Extract ASIN from location header or body text
+        // 2. Extract ASIN or target URL from location header or body text
         const searchStr = loc + ' ' + bodyTextManual;
         asin = extractAsin(searchStr) || '';
+        targetUrl = loc;
 
-        if (!asin) {
+        if (!asin && (!targetUrl || targetUrl.includes('indiafreestuff.in'))) {
           // 3. Follow redirect to final target URL
           const redFollow = await fetchWithProxy(redirTarget, {
             headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
@@ -1599,34 +1581,58 @@ function extractAsin(str) {
           const finalBody = redFollow ? await redFollow.text().catch(() => '') : '';
           const finalSearch = finalUrl + ' ' + finalBody.slice(0, 10000);
           asin = extractAsin(finalSearch) || '';
+          targetUrl = finalUrl;
         }
-        if (dbg.length < 8) dbg.push(asin ? 'ok' : `miss:${redManual ? redManual.status : 'err'}`);
+        if (dbg.length < 8) dbg.push(asin ? `amz:${asin}` : (targetUrl ? 'non-amz' : `miss:${redManual ? redManual.status : 'err'}`));
       } catch (err) {
         if (dbg.length < 8) dbg.push(`err:${err.message}`);
       }
-      return { ...item, asin };
+      return { ...item, asin, targetUrl };
     }));
     resolved.push(...chunkResolved);
   }
 
   for (const item of resolved) {
-    const { asin, title, image, price, mrp } = item;
-    if (!asin || deletedSet.has(asin) || existingByAsin.has(asin)) continue;
+    const { asin, targetUrl, title, image, price, mrp } = item;
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
     const mrpStr   = mrp   > 0 ? '₹' + mrp.toLocaleString('en-IN')   : priceStr;
     const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
-    const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
     const category = detectCategoryFromTitle(title);
 
-    added.push({
-      id: `ifs_${Date.now()}_${added.length}`,
-      asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
-      image, link, category, highlights: ['Great deal on Amazon'],
-      lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-      order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
-    });
+    if (asin) {
+      // Amazon deal
+      if (deletedSet.has(asin) || existingByAsin.has(asin)) continue;
+      const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+
+      added.push({
+        id: `ifs_${Date.now()}_${added.length}`,
+        asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
+        image, link, category, highlights: ['Great deal on Amazon'],
+        lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
+        order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
+      });
+    } else if (targetUrl && (targetUrl.includes('flipkart.com') || targetUrl.includes('myntra.com') || targetUrl.includes('ajio.com') || targetUrl.includes('nykaa.com') || targetUrl.includes('meesho.com') || targetUrl.includes('fkrt.it') || targetUrl.includes('fktr.in'))) {
+      // Non-Amazon deal (Flipkart, Myntra, Ajio, Nykaa, Meesho, etc.)
+      const avail = await checkListingAvailability(targetUrl, price, env).catch(() => ({ available: true }));
+      if (!avail.available) continue;
+
+      const cueResult = await convertToCueLink(targetUrl, title, env).catch(() => null);
+      const finalLink = cueResult && cueResult.cueLink ? cueResult.cueLink : targetUrl;
+      const finalTitle = cueResult && cueResult.rewrittenTitle ? cueResult.rewrittenTitle : title;
+
+      added.push({
+        id: `ifs_${Date.now()}_${added.length}`,
+        title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
+        image: image || 'https://via.placeholder.com/300?text=No+Image',
+        link: finalLink, category,
+        highlights: ['Special Non-Amazon Deal'],
+        lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
+        order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
+        rating: avail.rating || null, reviewCount: avail.reviewCount || null
+      });
+    }
   }
 
   console.log('IFS redir debug:', JSON.stringify(dbg));
