@@ -1866,6 +1866,8 @@ async function checkAndCleanDeals(env) {
 
         // Only mark OOS when API explicitly signals it — not on missing item or missing price
         const listing = item?.offersV2?.listings?.[0];
+        const availability = listing?.availability;
+        const isOOS = availability?.type === 'OUT_OF_STOCK';
         const availMsg = (availability?.message || '').toLowerCase();
         const isLowStockOrUndeliverable = !!availMsg.match(/only\s+[1-4]\s+left\s+in\s+stock/) ||
           availMsg.includes('cannot be shipped');
