@@ -1639,7 +1639,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   if (added.length === 0) {
     await clearSyncError('IndiaFreeStuff', env);
-    return { success: true, count: 0, message: 'IndiaFreeStuff: no new Amazon deals.' };
+    return { success: true, count: 0, message: 'IndiaFreeStuff: no new deals found.' };
   }
 
   const final = await capLiveAndBury([...added, ...products], env);
