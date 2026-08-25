@@ -492,6 +492,27 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
     }
   }
 
+  // For IndiaFreeStuff, try direct fetch first with browser headers
+  if (targetUrl.includes('indiafreestuff.in')) {
+    try {
+      const directRes = await fetchWithTimeout(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache'
+        }
+      }, timeoutMs);
+      if (directRes.ok) {
+        console.log(`Direct fetch for IndiaFreeStuff succeeded (${directRes.status})`);
+        return directRes;
+      }
+      console.log(`Direct fetch for IndiaFreeStuff returned ${directRes.status}, trying proxies...`);
+    } catch (e) {
+      console.log(`Direct fetch for IndiaFreeStuff failed: ${e.message}, trying proxies...`);
+    }
+  }
+
   // 2. ScrapingAnt
   const saKeysStr = env.SCRAPINGANT_API_KEYS || '';
   const saKeys = saKeysStr.split(',').map(k => k.trim()).filter(Boolean);
@@ -507,12 +528,8 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
         if (res.status !== 403 && res.status !== 429) {
           return res;
         }
-        const text = await res.clone().text().catch(() => '');
-        if (text.includes('limit') || text.includes('exhausted') || res.status === 429) {
-          console.log(`ScrapingAnt proxy key index ${idx} exhausted/limit reached. Trying next key...`);
-          continue;
-        }
-        return res;
+        console.log(`ScrapingAnt proxy key index ${idx} returned status ${res.status}. Trying next option...`);
+        continue;
       } catch (err) {
         console.log(`ScrapingAnt proxy key index ${idx} failed with error: ${err.message}. Trying next key...`);
       }
@@ -1419,6 +1436,15 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   }
 }
 
+async function readHeadPrefix(res) {
+  try {
+    const text = await res.text();
+    return text.slice(0, 20000);
+  } catch (e) {
+    return '';
+  }
+}
+
 async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   if (!env.SCRAPER_API_URL) {
     console.log('IndiaFreeStuff sync skipped: SCRAPER_API_URL not configured.');
@@ -1442,8 +1468,10 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       }
       if (!r.ok) continue;
       const html = await r.text();
+      console.log(`IFS fetch ${targetUrl}: HTTP ${r.status}, HTML len ${html.length}`);
 
       const blocks = html.split(/<div class="product-item/g);
+      console.log(`IFS blocks count: ${blocks.length - 1}`);
       for (let i = 1; i < blocks.length; i++) {
         const block = blocks[i];
 
@@ -1528,31 +1556,51 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const chunkSize = 5;
   for (let i = 0; i < targetCandidates.length; i += chunkSize) {
     const chunk = targetCandidates.slice(i, i + chunkSize);
+function extractAsin(str) {
+  if (!str) return null;
+  const matches = [
+    ...str.matchAll(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/gi),
+    ...str.matchAll(/[?&]asin=([A-Z0-9]{10})/gi),
+    ...str.matchAll(/\/([A-Z0-9]{10})(?:\/|\?|#|$)/gi)
+  ];
+  for (const m of matches) {
+    const cand = (m[1] || '').toUpperCase();
+    if (cand.length === 10 && cand !== 'AUICLIENTS' && !cand.startsWith('NAV') && !cand.startsWith('HEADER')) {
+      return cand;
+    }
+  }
+  return null;
+}
+
     const chunkResolved = await Promise.all(chunk.map(async (item) => {
       let asin = '';
       try {
         const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
 
-        const red = await fetchWithProxy(redirTarget, {
+        // 1. Try manual redirect first to get location header quickly
+        const redManual = await fetchWithProxy(redirTarget, {
           redirect: 'manual',
           headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
         }, 15000, env);
         
-        const loc = red.headers.get('location') || '';
-        const asinMatchStr = loc || '';
-        const asinM = asinMatchStr.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
-          || asinMatchStr.match(/[?&]asin=([A-Z0-9]{10})/i);
+        const loc = redManual ? (redManual.headers.get('location') || '') : '';
+        const bodyTextManual = redManual ? await redManual.text().catch(() => '') : '';
 
-        if (asinM) {
-          asin = asinM[1].toUpperCase();
-        } else if (red.ok) {
-          const bodyPrefix = await readHeadPrefix(red);
-          const bodyM = bodyPrefix.match(/amazon\.in\/(?:[^"'\s]*\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
-            || bodyPrefix.match(/"asin"\s*:\s*"([A-Z0-9]{10})"/i)
-            || bodyPrefix.match(/data-asin="([A-Z0-9]{10})"/i);
-          if (bodyM) asin = bodyM[1].toUpperCase();
+        // 2. Extract ASIN from location header or body text
+        const searchStr = loc + ' ' + bodyTextManual;
+        asin = extractAsin(searchStr) || '';
+
+        if (!asin) {
+          // 3. Follow redirect to final target URL
+          const redFollow = await fetchWithProxy(redirTarget, {
+            headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
+          }, 15000, env);
+          const finalUrl = redFollow ? (redFollow.url || '') : '';
+          const finalBody = redFollow ? await redFollow.text().catch(() => '') : '';
+          const finalSearch = finalUrl + ' ' + finalBody.slice(0, 10000);
+          asin = extractAsin(finalSearch) || '';
         }
-        if (dbg.length < 8) dbg.push(asin ? 'ok' : `miss:${red.status}`);
+        if (dbg.length < 8) dbg.push(asin ? 'ok' : `miss:${redManual ? redManual.status : 'err'}`);
       } catch (err) {
         if (dbg.length < 8) dbg.push(`err:${err.message}`);
       }
