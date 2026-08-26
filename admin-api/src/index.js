@@ -4338,10 +4338,10 @@ export default {
           const map = new Map(products.map(p=>[p.id,p]));
           const reordered = orderedIds.map((id,i) => map.has(id) ? {...map.get(id),order:i} : null).filter(Boolean);
           let nextOrder = reordered.length;
-          for (const p of products) { if (!orderedIds.includes(p.id)) reordered.push({...p,order:nextOrder++}); }
           return json({ success: true });
         } catch (e) { return json({ error: e.message }, 502); }
       }
+
 
       return await env.ASSETS.fetch(request);
     } catch (e) {
