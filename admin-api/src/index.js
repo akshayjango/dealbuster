@@ -292,22 +292,27 @@ function isBrandBlocked(title, blockedBrands) {
 // ── KV-based sync error notifications ────────────────────────────────────────
 
 async function saveSyncError(source, message, env) {
-  if (!env.KV) return;
-  // A sustained upstream block (e.g. IndiaFreeStuff's Cloudflare WAF blocking
-  // Worker traffic outright — confirmed by identical 403s from different CF
-  // colos, so it's not a single-PoP IP issue) fails every 10-min tick for
-  // hours. Without this, that's a fresh push notification every single tick
-  // for what's really one ongoing incident. Push once per source per hour;
-  // every occurrence still lands in the KV log for the dashboard bell.
-  let shouldNotify = true;
+  if (env.KV) {
+    try {
+      const existing = await env.KV.get('syncErrors', 'json') || [];
+      existing.unshift({ id: Date.now().toString(), source, message, time: new Date().toISOString() });
+      await env.KV.put('syncErrors', JSON.stringify(existing.slice(0, 20)));
+    } catch (e) { console.error('Failed to save sync error:', e.message); }
+  }
+
+  await notifyAdminPush(`Sync error: ${source}`, message.slice(0, 180), env).catch(() => {});
+
+  // Send Telegram Admin Alert on EVERY error / block
   try {
-    const existing = await env.KV.get('syncErrors', 'json') || [];
-    const prior = existing.find(e => e.source === source);
-    if (prior && (Date.now() - new Date(prior.time).getTime()) < 60 * 60 * 1000) shouldNotify = false;
-    existing.unshift({ id: Date.now().toString(), source, message, time: new Date().toISOString() });
-    await env.KV.put('syncErrors', JSON.stringify(existing.slice(0, 20)));
-  } catch (e) { console.error('Failed to save sync error:', e.message); }
-  if (shouldNotify) await notifyAdminPush(`Sync error: ${source}`, message.slice(0, 180), env);
+    const token = env.TELEGRAM_BOT_TOKEN;
+    const adminId = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
+    if (token && adminId) {
+      const text = `🚨 <b>Sync Alert [${escHtml(source)}]</b>\n\n<code>${escHtml(message.slice(0, 500))}</code>`;
+      await tgSend(token, adminId, text, { parse_mode: 'HTML' }).catch(() => {});
+    }
+  } catch (e) {
+    console.error('Failed to send Telegram sync error notification:', e.message);
+  }
 }
 
 async function getSyncErrors(env) {
@@ -504,34 +509,58 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
         }
       }, timeoutMs);
       if (directRes.ok) {
-        console.log(`Direct fetch for IndiaFreeStuff succeeded (${directRes.status})`);
-        return directRes;
+        const text = await directRes.clone().text().catch(() => '');
+        if (!text.includes('Just a moment...') && !text.includes('cf-browser-verification')) {
+          console.log(`Direct fetch for IndiaFreeStuff succeeded (${directRes.status})`);
+          return directRes;
+        }
+        console.log(`Direct fetch for IndiaFreeStuff hit Cloudflare WAF challenge, trying proxies...`);
+      } else {
+        console.log(`Direct fetch for IndiaFreeStuff returned ${directRes.status}, trying proxies...`);
       }
-      console.log(`Direct fetch for IndiaFreeStuff returned ${directRes.status}, trying proxies...`);
     } catch (e) {
       console.log(`Direct fetch for IndiaFreeStuff failed: ${e.message}, trying proxies...`);
     }
   }
 
-  // 2. ScrapingAnt
+  // 2. ScrapingAnt Proxy (with key rotation and auto-retry on 403 / 429 / Quota / Cloudflare WAF)
   const saKeysStr = env.SCRAPINGANT_API_KEYS || '';
   const saKeys = saKeysStr.split(',').map(k => k.trim()).filter(Boolean);
 
   if (saKeys.length > 0) {
     for (let idx = 0; idx < saKeys.length; idx++) {
       const key = saKeys[idx];
-      // browser=false disables Puppeteer JS rendering to consume only 1 credit per request (giving 10k free calls/month)
       const proxyUrl = `https://api.scrapingant.com/v2/general?url=${encodeURIComponent(targetUrl)}&x-api-key=${key}&browser=false`;
       try {
-        console.log(`Trying ScrapingAnt proxy with key index ${idx}...`);
+        console.log(`Trying ScrapingAnt proxy with key index ${idx} (browser=false)...`);
         const res = await fetchWithTimeout(proxyUrl, options, timeoutMs);
-        if (res.status !== 403 && res.status !== 429) {
+        const text = await res.clone().text().catch(() => '');
+
+        const isQuotaErr = res.status === 403 && (text.includes('quota limit') || text.includes('API token') || text.includes('out of request credits'));
+        const isWafBlock = res.status === 403 || text.includes('Just a moment...') || text.includes('cf-browser-verification');
+
+        if (isQuotaErr) {
+          console.log(`ScrapingAnt key index ${idx} quota limit reached. Rotating to next key...`);
+          continue;
+        }
+
+        if (isWafBlock) {
+          console.log(`ScrapingAnt key index ${idx} hit Cloudflare WAF on browser=false. Retrying key index ${idx} with browser=true...`);
+          const jsProxyUrl = `https://api.scrapingant.com/v2/general?url=${encodeURIComponent(targetUrl)}&x-api-key=${key}&browser=true`;
+          const jsRes = await fetchWithTimeout(jsProxyUrl, options, Math.max(timeoutMs, 25000));
+          const jsText = await jsRes.clone().text().catch(() => '');
+          if (jsRes.ok && !jsText.includes('Just a moment...') && !jsText.includes('quota limit')) {
+            return jsRes;
+          }
+          console.log(`ScrapingAnt key index ${idx} browser=true returned status ${jsRes.status}. Rotating to next key...`);
+          continue;
+        }
+
+        if (res.ok) {
           return res;
         }
-        console.log(`ScrapingAnt proxy key index ${idx} returned status ${res.status}. Trying next option...`);
-        continue;
       } catch (err) {
-        console.log(`ScrapingAnt proxy key index ${idx} failed with error: ${err.message}. Trying next key...`);
+        console.log(`ScrapingAnt proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
       }
     }
   }
@@ -564,28 +593,27 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
     try {
       console.log(`Trying ScraperAPI proxy with key index ${idx}...`);
       const res = await fetchWithTimeout(proxyUrl, options, timeoutMs);
+      const text = await res.clone().text().catch(() => '');
       
-      // If successful, return the response
-      if (res.status !== 403 && res.status !== 429) {
+      const isBlockedOrExhausted = res.status === 403 || res.status === 429 || text.includes('limit') || text.includes('suspended') || text.includes('billing') || text.includes('Just a moment...');
+      
+      if (isBlockedOrExhausted) {
+        console.log(`ScraperAPI proxy key index ${idx} exhausted/blocked (${res.status}). Trying next key...`);
+        continue;
+      }
+      
+      if (res.ok) {
         return res;
       }
-
-      // Check if it is a credit exhaustion error
-      const text = await res.clone().text().catch(() => '');
-      if (text.includes('limit') || text.includes('suspended') || text.includes('billing') || res.status === 429) {
-        console.log(`ScraperAPI proxy key index ${idx} exhausted/suspended. Trying next key...`);
-        continue; // Try next key
-      }
-      return res; // Some other HTTP error (e.g. 500), return it
     } catch (err) {
       console.log(`ScraperAPI proxy key index ${idx} failed with error: ${err.message}. Trying next key...`);
       if (idx === keys.length - 1) {
-        throw err; // Re-throw if it was the last key
+        throw err;
       }
     }
   }
   
-  throw new Error('All configured proxy keys were exhausted or failed');
+  throw new Error('All configured proxy keys were exhausted or blocked');
 }
 
 // Derive product image from ASIN — no subrequest needed
