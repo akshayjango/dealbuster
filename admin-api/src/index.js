@@ -1474,9 +1474,6 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     'https://www.indiafreestuff.in/deals',
     'https://www.indiafreestuff.in/trending',
     'https://www.indiafreestuff.in/stores/amazon',
-    'https://www.indiafreestuff.in/stores/flipkart',
-    'https://www.indiafreestuff.in/stores/myntra',
-    'https://www.indiafreestuff.in/stores/ajio',
   ];
 
   for (const targetUrl of targetUrls) {
@@ -1605,7 +1602,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   }
 
   for (const item of resolved) {
-    const { asin, targetUrl, title, image, price, mrp } = item;
+    const { asin, title, image, price, mrp } = item;
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
@@ -1614,7 +1611,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const category = detectCategoryFromTitle(title);
 
     if (asin) {
-      // Amazon deal
+      // Amazon deal only
       if (deletedSet.has(asin) || existingByAsin.has(asin)) continue;
       const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
 
@@ -1624,25 +1621,6 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         image, link, category, highlights: ['Great deal on Amazon'],
         lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
         order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
-      });
-    } else if (targetUrl && (targetUrl.includes('flipkart.com') || targetUrl.includes('myntra.com') || targetUrl.includes('ajio.com') || targetUrl.includes('nykaa.com') || targetUrl.includes('meesho.com') || targetUrl.includes('fkrt.it') || targetUrl.includes('fktr.in'))) {
-      // Non-Amazon deal (Flipkart, Myntra, Ajio, Nykaa, Meesho, etc.)
-      const avail = await checkListingAvailability(targetUrl, price, env).catch(() => ({ available: true }));
-      if (!avail.available) continue;
-
-      const cueResult = await convertToCueLink(targetUrl, title, env).catch(() => null);
-      const finalLink = cueResult && cueResult.cueLink ? cueResult.cueLink : targetUrl;
-      const finalTitle = cueResult && cueResult.rewrittenTitle ? cueResult.rewrittenTitle : title;
-
-      added.push({
-        id: `ifs_${Date.now()}_${added.length}`,
-        title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
-        image: image || 'https://via.placeholder.com/300?text=No+Image',
-        link: finalLink, category,
-        highlights: ['Special Non-Amazon Deal'],
-        lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
-        order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
-        rating: avail.rating || null, reviewCount: avail.reviewCount || null
       });
     }
   }
