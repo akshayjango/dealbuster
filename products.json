@@ -16,7 +16,8 @@
     "outOfStock": false,
     "order": 0,
     "addedAt": "2026-08-26T13:00:48.806Z",
-    "originalPrice": "₹187"
+    "originalPrice": "₹187",
+    "lastBadgeCheck": 1787749723998
   },
   {
     "id": "ds_1787749248806_1",
@@ -36,7 +37,8 @@
     "order": 1,
     "addedAt": "2026-08-26T13:00:48.806Z",
     "originalPrice": "₹3,579",
-    "lastChecked": 1787749361449
+    "lastChecked": 1787749361449,
+    "lastBadgeCheck": 1787749724340
   },
   {
     "id": "fk_1787749007465_pew44",
@@ -447,7 +449,8 @@
     "order": 19,
     "addedAt": "2026-08-26T12:46:24.630Z",
     "originalPrice": "₹252",
-    "lastChecked": 1787748762752
+    "lastChecked": 1787748762752,
+    "lastBadgeCheck": 1787749724662
   },
   {
     "id": "ifs_1787748384630_12",
@@ -469,7 +472,8 @@
     "order": 20,
     "addedAt": "2026-08-26T12:46:24.630Z",
     "originalPrice": "₹161",
-    "lastChecked": 1787748762752
+    "lastChecked": 1787748762752,
+    "lastBadgeCheck": 1787749724985
   },
   {
     "id": "ifs_1787748384630_13",
@@ -491,7 +495,8 @@
     "order": 21,
     "addedAt": "2026-08-26T12:46:24.630Z",
     "originalPrice": "₹4,429",
-    "lastChecked": 1787748762752
+    "lastChecked": 1787748762752,
+    "lastBadgeCheck": 1787749725307
   },
   {
     "id": "ifs_1787748384630_14",
@@ -513,7 +518,8 @@
     "order": 22,
     "addedAt": "2026-08-26T12:46:24.630Z",
     "originalPrice": "₹379",
-    "lastChecked": 1787748762752
+    "lastChecked": 1787748762752,
+    "lastBadgeCheck": 1787749725631
   },
   {
     "id": "ifs_1787748384630_15",
@@ -524,9 +530,9 @@
     "disc": "-33%",
     "image": "https://images.indiafreestuff.in//uploads//2026/03/deals/thumb/thumb_1ee608a9_61xACj1vGL.SX522.jpg",
     "link": "https://www.amazon.in/dp/B0DMVZ3WD2?tag=dealbuster002-21",
-    "category": "Health",
+    "category": "Beauty",
     "highlights": [
-      "Great deal on Amazon"
+      "Nitra Isolate delivers 32g of protein per serving to help build and maintain muscle when taken over time with regular resistance training"
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -535,7 +541,10 @@
     "order": 23,
     "addedAt": "2026-08-26T12:46:24.630Z",
     "originalPrice": "₹1,999",
-    "lastChecked": 1787748762752
+    "lastChecked": 1787748762752,
+    "lastBadgeCheck": 1787749725954,
+    "rating": 5,
+    "reviewCount": null
   },
   {
     "id": "ifs_1787748384630_16",
@@ -546,7 +555,7 @@
     "disc": "-79%",
     "image": "https://images.indiafreestuff.in//uploads//2026/04/deals/thumb/thumb_af449a21_41KdLSRpboL.SY300SX300QL70FMwebp.jpg",
     "link": "https://www.amazon.in/dp/B0FNN2T4Y1?tag=dealbuster002-21",
-    "category": "Electronics",
+    "category": "Fashion",
     "highlights": [
       "Great deal on Amazon"
     ],
@@ -557,7 +566,10 @@
     "order": 24,
     "addedAt": "2026-08-26T12:46:24.630Z",
     "originalPrice": "₹5,900",
-    "lastChecked": 1787748762752
+    "lastChecked": 1787748762752,
+    "lastBadgeCheck": 1787749727239,
+    "rating": 4,
+    "reviewCount": null
   },
   {
     "id": "ifs_1787748384630_17",
@@ -579,7 +591,8 @@
     "order": 25,
     "addedAt": "2026-08-26T12:46:24.630Z",
     "originalPrice": "₹459",
-    "lastChecked": 1787748762752
+    "lastChecked": 1787748762752,
+    "lastBadgeCheck": 1787749728720
   },
   {
     "id": "ifs_1787748384630_18",
@@ -601,7 +614,8 @@
     "order": 26,
     "addedAt": "2026-08-26T12:46:24.630Z",
     "originalPrice": "₹199",
-    "lastChecked": 1787749361449
+    "lastChecked": 1787749361449,
+    "lastBadgeCheck": 1787749729040
   },
   {
     "id": "ds_1787747749018_0",
@@ -621,7 +635,8 @@
     "order": 27,
     "addedAt": "2026-08-26T12:35:49.018Z",
     "originalPrice": "₹42",
-    "lastChecked": 1787749361449
+    "lastChecked": 1787749361449,
+    "lastBadgeCheck": 1787749729359
   },
   {
     "id": "ds_1787747453380_0",
@@ -641,7 +656,8 @@
     "order": 28,
     "addedAt": "2026-08-26T12:30:53.380Z",
     "originalPrice": "₹3,499",
-    "lastChecked": 1787749361449
+    "lastChecked": 1787749361449,
+    "lastBadgeCheck": 1787749729675
   },
   {
     "id": "dotd_1787746855869_0",
@@ -952,16 +968,23 @@
     "link": "https://www.amazon.in/dp/B018QGPOMI?tag=dealbuster002-21",
     "category": "Beauty",
     "highlights": [
-      "Great deal on Amazon"
+      "Long lasting fragrance that keeps you fresh all day with 0% gas",
+      "Quality Product assured by Laboratoire Naturel (Innovations in Skin Care); Skin Friendly - Made with safe on skin ingredients",
+      "Suggested Usage - Apply the fragrance directly on neck and wrists (pulse points), let it dry on skin without rubbing. Can be used on both body and clothes.",
+      "Suitable for special occasions to make you feel warm and special",
+      "Ingredients: Ethyl Alcohol, Fragrance, Propylene Glycol, Diethyl Phthalate, Amyl Cinnamal, Benzyl Benzoate, Benzyl Salicylate, Citronellol, Geraniol, Hexyl Cinnamal, Hydroxycitronellol, Linalool, Alpha-Isomethyl Ionone."
     ],
-    "lowestPriceText": null,
+    "lowestPriceText": "Lowest price in 30 days",
     "featured": false,
     "hidden": false,
     "outOfStock": false,
     "order": 42,
     "addedAt": "2026-08-26T12:17:03.702Z",
     "originalPrice": "₹120",
-    "lastChecked": 1787746962379
+    "lastChecked": 1787746962379,
+    "lastBadgeCheck": 1787749729994,
+    "rating": 4.1,
+    "reviewCount": null
   },
   {
     "id": "ifs_1787746623702_12",
@@ -983,7 +1006,8 @@
     "order": 43,
     "addedAt": "2026-08-26T12:17:03.702Z",
     "originalPrice": "₹214",
-    "lastChecked": 1787746962379
+    "lastChecked": 1787746962379,
+    "lastBadgeCheck": 1787749731566
   },
   {
     "id": "ifs_1787746623702_13",
@@ -1005,7 +1029,8 @@
     "order": 44,
     "addedAt": "2026-08-26T12:17:03.702Z",
     "originalPrice": "₹2,999",
-    "lastChecked": 1787746962379
+    "lastChecked": 1787746962379,
+    "lastBadgeCheck": 1787749731930
   },
   {
     "id": "ifs_1787746623702_14",
