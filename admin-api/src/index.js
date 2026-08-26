@@ -1030,21 +1030,17 @@ async function convertToCueLink(url, title, env, inputDescription, channelId) {
 
     const body = await res.json();
     const data = body?.data;
-    const rewrittenTitle = (data?.ai_rewritten === true && data.title) ? data.title : title;
-    // CueLinks never generates a description from nothing (confirmed empirically
-    // 2026-08-21) — it only rewrites one you supply. Callers that want highlights
-    // must pass the original messy scraped title as inputDescription; this is
-    // just whatever comes back from that.
+    // Keep original normal title for deals per user request (do not overwrite with CueLinks AI title)
     const responseDescription = data?.description || null;
 
     if (data?.affiliated === true && data.tracking_url) {
-      return { link: data.tracking_url, title: rewrittenTitle, affiliated: true, description: responseDescription };
+      return { link: data.tracking_url, title, affiliated: true, description: responseDescription };
     }
     // Not trusted as a real "dead link" signal yet — see comment above. Publish
     // using the manual wrap (same as always) so a channel/access mismatch on
     // CueLinks' side can't silently stop deal publishing.
     console.log(`CueLinks reports affiliated:false for ${url} — publishing via manual wrap anyway (see convertToCueLink comment).`);
-    return { link: buildManualCueLink(url), title: rewrittenTitle, affiliated: false, description: responseDescription };
+    return { link: buildManualCueLink(url), title, affiliated: false, description: responseDescription };
   } catch (e) {
     console.log(`CueLinks monetize API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
     return { link: buildManualCueLink(url), title, affiliated: null, debugError: e.message };
