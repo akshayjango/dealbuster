@@ -1454,7 +1454,7 @@ function extractAsin(str) {
   ];
   for (const m of matches) {
     const cand = (m[1] || '').toUpperCase();
-    if (cand.length === 10 && cand !== 'AUICLIENTS' && !cand.startsWith('NAV') && !cand.startsWith('HEADER')) {
+    if (cand.length === 10 && /\d/.test(cand) && cand !== 'AUICLIENTS' && !cand.startsWith('NAV') && !cand.startsWith('HEADER')) {
       return cand;
     }
   }
