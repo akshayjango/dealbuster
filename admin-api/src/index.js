@@ -4342,7 +4342,6 @@ export default {
           const reordered = orderedIds.map((id,i) => map.has(id) ? {...map.get(id),order:i} : null).filter(Boolean);
           let nextOrder = reordered.length;
           for (const p of products) { if (!orderedIds.includes(p.id)) reordered.push({...p,order:nextOrder++}); }
-          await saveProductsFile(reordered, sha, 'Reorder products', env);
           return json({ success: true });
         } catch (e) { return json({ error: e.message }, 502); }
       }
