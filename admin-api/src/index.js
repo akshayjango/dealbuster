@@ -1445,6 +1445,22 @@ async function readHeadPrefix(res) {
   }
 }
 
+function extractAsin(str) {
+  if (!str) return null;
+  const matches = [
+    ...str.matchAll(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/gi),
+    ...str.matchAll(/[?&]asin=([A-Z0-9]{10})/gi),
+    ...str.matchAll(/\/([A-Z0-9]{10})(?:\/|\?|#|$)/gi)
+  ];
+  for (const m of matches) {
+    const cand = (m[1] || '').toUpperCase();
+    if (cand.length === 10 && cand !== 'AUICLIENTS' && !cand.startsWith('NAV') && !cand.startsWith('HEADER')) {
+      return cand;
+    }
+  }
+  return null;
+}
+
 async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   if (!env.SCRAPER_API_URL) {
     console.log('IndiaFreeStuff sync skipped: SCRAPER_API_URL not configured.');
@@ -1455,7 +1471,6 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const blockedBrands = await getBlockedBrands(env);
 
   const targetUrls = [
-    'https://www.indiafreestuff.in/',
     'https://www.indiafreestuff.in/deals',
     'https://www.indiafreestuff.in/trending',
     'https://www.indiafreestuff.in/stores/amazon',
@@ -1484,7 +1499,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
         if (!titleM) continue;
         let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-        title = title.replace(/\s*Rs\.\s*[\d,]+\s*[-–]\s*(?:Amazon|Flipkart|Myntra|Ajio)\s*$/i, '').trim();
+        title = title.replace(/\s*Rs\.?\s*[\d,]+.*$/i, '').trim();
         if (!title || title.length < 5) continue;
         if (isBrandBlocked(title, blockedBrands)) continue;
 
@@ -1536,8 +1551,8 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     candidates.push(item);
   }
 
-  // Resolve up to 30 candidates per sync run
-  const syncLimit = Math.min(candidates.length, 30);
+  // Resolve up to 50 candidates per sync run
+  const syncLimit = Math.min(candidates.length, 50);
   const targetCandidates = candidates.slice(0, syncLimit);
 
   const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
@@ -4342,6 +4357,40 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      if (url.pathname === '/debug-ifs-kurlon') {
+        const rtoKurlon = 'MzAwNTM5NDk4Ng==';
+        const rtoFlorance = 'MzAwNTM5Mjc2NA==';
+        
+        const testRes = async (rto) => {
+          const redirTarget = `https://www.indiafreestuff.in/?rto=${rto}`;
+          const redManual = await fetchWithProxy(redirTarget, {
+            redirect: 'manual',
+            headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
+          }, 15000, env);
+          const loc = redManual ? (redManual.headers.get('location') || '') : '';
+          const bodyManual = redManual ? await redManual.text().catch(() => '') : '';
+          const searchStr = loc + ' ' + bodyManual;
+          const asin = extractAsin(searchStr);
+
+          let finalUrl = loc;
+          let asin2 = asin;
+          if (!asin) {
+            const redFollow = await fetchWithProxy(redirTarget, {
+              headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
+            }, 15000, env);
+            finalUrl = redFollow ? (redFollow.url || '') : '';
+            const finalBody = redFollow ? await redFollow.text().catch(() => '') : '';
+            asin2 = extractAsin(finalUrl + ' ' + finalBody.slice(0, 10000));
+          }
+
+          return { rto, status: redManual ? redManual.status : 'err', loc, asin, finalUrl, asin2 };
+        };
+
+        const kRes = await testRes(rtoKurlon);
+        const fRes = await testRes(rtoFlorance);
+
+        return json({ kurlon: kRes, florance: fRes });
+      }
 
       return await env.ASSETS.fetch(request);
     } catch (e) {
