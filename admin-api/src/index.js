@@ -1455,6 +1455,8 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const blockedBrands = await getBlockedBrands(env);
 
   const targetUrls = [
+    'https://www.indiafreestuff.in/',
+    'https://www.indiafreestuff.in/deals',
     'https://www.indiafreestuff.in/trending',
     'https://www.indiafreestuff.in/stores/amazon',
     'https://www.indiafreestuff.in/stores/flipkart',
@@ -1474,7 +1476,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       console.log(`IFS fetch ${targetUrl}: HTTP ${r.status}, HTML len ${html.length}`);
 
       const blocks = html.split(/<div class="product-item/g);
-      console.log(`IFS blocks count: ${blocks.length - 1}`);
+      console.log(`IFS blocks count for ${targetUrl}: ${blocks.length - 1}`);
       for (let i = 1; i < blocks.length; i++) {
         const block = blocks[i];
 
@@ -1522,19 +1524,14 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
-
-  // Build exact title map of existing live products (stripping promo tags) to avoid exact re-adds
-  const cleanTitleSet = new Set(
-    products.map(p => p.title.toLowerCase().replace(/\[.*?\]/g, '').replace(/[^a-z0-9]/g, '').trim())
-  );
+  const existingTitles = new Set(products.map(p => p.title.toLowerCase().trim()));
 
   const candidates = [];
   for (const item of matchesMap.values()) {
     if (item.price <= 0) continue;
 
-    // Check exact normalized title match
-    const normTitle = item.title.toLowerCase().replace(/\[.*?\]/g, '').replace(/[^a-z0-9]/g, '').trim();
-    if (normTitle && cleanTitleSet.has(normTitle)) continue;
+    // Skip only if the exact title already exists in products.json
+    if (existingTitles.has(item.title.toLowerCase().trim())) continue;
 
     candidates.push(item);
   }
