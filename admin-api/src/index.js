@@ -2110,8 +2110,8 @@ async function checkLowestPriceBadges(env) {
 
     const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable } = await fetchAmazonPageData(p.asin);
 
-    // Filter out low rating (< 3.8), low stock (Only 1-4 left), or undeliverable deals permanently!
-    if ((rating != null && rating < 3.8) || lowStock || undeliverable) {
+    // Filter out low rating (< 3.6), low stock (Only 1-4 left), or undeliverable deals permanently!
+    if ((rating != null && rating < 3.6) || lowStock || undeliverable) {
       console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, lowStock=${lowStock}, undeliverable=${undeliverable}`);
       productMap.delete(p.id);
       await addDeletedAsin(p.asin, env);
@@ -2140,7 +2140,7 @@ async function checkLowestPriceBadges(env) {
     if (rating && (updated.rating !== rating || updated.reviewCount !== reviewCount)) {
       updated.rating = rating;
       updated.reviewCount = reviewCount;
-      if (rating < 3.8) {
+      if (rating < 3.6) {
         updated.hidden = true;
         updated.dead = new Date().toISOString();
       }
@@ -2677,8 +2677,8 @@ async function capLiveAndBury(all, env, cap = 1800) {
   const expired = [];
 
   for (const p of all) {
-    // Permanent deletion filter: Amazon deals with a known rating < 3.8 are dropped completely
-    if (p.asin && typeof p.rating === 'number' && p.rating < 3.8) {
+    // Permanent deletion filter: Amazon deals with a known rating < 3.6 are dropped completely
+    if (p.asin && typeof p.rating === 'number' && p.rating < 3.6) {
       continue;
     }
 
@@ -3741,8 +3741,8 @@ export default {
               if (rvM) reviewCount = parseInt(rvM[1].replace(/,/g, ''), 10);
             }
 
-            if (rating != null && rating < 3.8) {
-              return json({ error: `Product rating is too low (${rating} stars, minimum requirement is 3.8 stars)` }, 400);
+            if (rating != null && rating < 3.6) {
+              return json({ error: `Product rating is too low (${rating} stars, minimum requirement is 3.6 stars)` }, 400);
             }
 
             const parsedPrice = price ? parsePrice(price.toString()) : null;
