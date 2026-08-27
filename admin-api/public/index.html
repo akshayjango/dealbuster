@@ -598,6 +598,7 @@
             <button class="btn btn-outline btn-sm" onclick="syncDotd()" id="syncDotdBtn">Sync DealOfTheDayIndia</button>
             <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIndiaFreeStuffBtn">Sync IndiaFreeStuff</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
+            <button class="btn btn-outline btn-sm" onclick="checkLowestPriceBadges()" id="checkBadgesBtn" style="border-color:#10b981;color:#059669;">🏷 Check Lowest Price Badges</button>
             <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
             <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
             <button class="btn btn-outline btn-sm" onclick="reregisterWebhook()" title="Re-register Telegram webhook (needed once after bot update)" style="border-color:#6b7280;color:#6b7280;">🔗 Re-register Webhook</button>
@@ -2624,6 +2625,25 @@ async function syncAmazonDeals() {
     await loadProducts();
   } catch (e) {
     alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function checkLowestPriceBadges() {
+  const btn = document.getElementById('checkBadgesBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Checking Badges…';
+  try {
+    const resp = await apiFetch('/check-badges');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Badge check complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Badge check failed: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;

@@ -672,8 +672,13 @@ async function fetchAmazonPageData(asin) {
     if (!r.ok) return { badge: null, highlights: [], category: null };
     const html = await r.text();
 
-    const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
-    const badge = badgeM ? badgeM[1].trim() : null;
+    const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?|ever)|Best\s+price\s+in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?)/i);
+    let badge = badgeM ? badgeM[1].trim() : null;
+    if (!badge) {
+      const altBadgeM = html.match(/class="[^"]*a-badge-text[^"]*"[^>]*>\s*([^<]*Lowest[^<]*)</i) ||
+                        html.match(/"badgeText"\s*:\s*"([^"]*Lowest[^"]*)"/i);
+      if (altBadgeM && altBadgeM[1].length < 40) badge = altBadgeM[1].trim();
+    }
 
     const highlights = [];
     function extractBullets(sc) {
@@ -1896,9 +1901,8 @@ async function checkAndCleanDeals(env) {
   const live = products.filter(p => !isDead(p));
   const withAsin = live.filter(p => p.asin);
   const checkable = withAsin.filter(p => {
-    const hasLowestPrice = p.lowestPriceText && p.lowestPriceText.trim().length > 0;
     const hasCoupon = (p.title || '').match(/\[[^\]]*coupon[^\]]*\]/i);
-    return !hasLowestPrice && !hasCoupon;
+    return !hasCoupon;
   });
   const sorted = [...checkable].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
   const toCheck = sorted.slice(0, 100);
@@ -2096,64 +2100,68 @@ async function checkLowestPriceBadges(env) {
   // Products needing highlights go first, then sort by oldest badge check
   const needHL = withAsin.filter(needsHighlights).sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
   const hasHL  = withAsin.filter(p => !needsHighlights(p)).sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
-  const toCheck = [...needHL, ...hasHL].slice(0, 15);
+  const toCheck = [...needHL, ...hasHL].slice(0, 40);
 
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
   let changed = false;
   let badgeCount = 0;
   let highlightCount = 0;
 
-  for (const p of toCheck) {
-    const updated = productMap.get(p.id);
-    if (!updated) continue;
-    updated.lastBadgeCheck = Date.now();
+  const CHUNK_SIZE = 5;
+  for (let i = 0; i < toCheck.length; i += CHUNK_SIZE) {
+    const chunk = toCheck.slice(i, i + CHUNK_SIZE);
+    await Promise.all(chunk.map(async (p) => {
+      const updated = productMap.get(p.id);
+      if (!updated) return;
+      updated.lastBadgeCheck = Date.now();
 
-    const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable } = await fetchAmazonPageData(p.asin);
+      const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable } = await fetchAmazonPageData(p.asin);
 
-    // Filter out low rating (< 3.6), low stock (Only 1-4 left), or undeliverable deals permanently!
-    if ((rating != null && rating < 3.6) || lowStock || undeliverable) {
-      console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, lowStock=${lowStock}, undeliverable=${undeliverable}`);
-      productMap.delete(p.id);
-      await addDeletedAsin(p.asin, env);
-      changed = true;
-      continue;
-    }
-
-    // Fix wrong category: if Amazon breadcrumb says something different, update
-    if (category && updated.category !== category) {
-      updated.category = category;
-      changed = true;
-    }
-
-    if (badge && updated.lowestPriceText !== badge) {
-      updated.lowestPriceText = badge;
-      changed = true;
-      badgeCount++;
-    }
-
-    if (highlights.length > 0 && needsHighlights(updated)) {
-      updated.highlights = highlights;
-      changed = true;
-      highlightCount++;
-    }
-
-    if (rating && (updated.rating !== rating || updated.reviewCount !== reviewCount)) {
-      updated.rating = rating;
-      updated.reviewCount = reviewCount;
-      if (rating < 3.6) {
-        updated.hidden = true;
-        updated.dead = new Date().toISOString();
+      // Filter out low rating (< 3.6), low stock (Only 1-4 left), or undeliverable deals permanently!
+      if ((rating != null && rating < 3.6) || lowStock || undeliverable) {
+        console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, lowStock=${lowStock}, undeliverable=${undeliverable}`);
+        productMap.delete(p.id);
+        await addDeletedAsin(p.asin, env);
+        changed = true;
+        return;
       }
-      changed = true;
-    }
+
+      // Fix wrong category: if Amazon breadcrumb says something different, update
+      if (category && updated.category !== category) {
+        updated.category = category;
+        changed = true;
+      }
+
+      if (badge && updated.lowestPriceText !== badge) {
+        updated.lowestPriceText = badge;
+        changed = true;
+        badgeCount++;
+      }
+
+      if (highlights.length > 0 && needsHighlights(updated)) {
+        updated.highlights = highlights;
+        changed = true;
+        highlightCount++;
+      }
+
+      if (rating && (updated.rating !== rating || updated.reviewCount !== reviewCount)) {
+        updated.rating = rating;
+        updated.reviewCount = reviewCount;
+        if (rating < 3.6) {
+          updated.hidden = true;
+          updated.dead = new Date().toISOString();
+        }
+        changed = true;
+      }
+    }));
   }
 
-  if (!changed) return { success: true, message: 'No changes from badge/highlight check.' };
+  if (!changed) return { success: true, message: `Checked ${toCheck.length} products. No changes from badge/highlight check.` };
 
   const reordered = [...productMap.values()].sort((a, b) => (a.order || 0) - (b.order || 0));
   await saveProductsFile(reordered, sha, `Badge/highlight check: ${badgeCount} badges, ${highlightCount} highlights`, env);
 
-  return { success: true, badgeCount, highlightCount, message: `${badgeCount} new badges, ${highlightCount} highlights filled.` };
+  return { success: true, checked: toCheck.length, badgeCount, highlightCount, message: `Checked ${toCheck.length} products: ${badgeCount} new badges, ${highlightCount} highlights filled.` };
 }
 
 // ── Amazon Deals page checker ─────────────────────────────────────────────────
