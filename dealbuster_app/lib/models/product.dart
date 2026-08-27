@@ -111,7 +111,11 @@ class Product {
       price: json['price']?.toString() ?? '₹0',
       mrp: json['mrp']?.toString() ?? '₹0',
       disc: json['disc']?.toString() ?? '0%',
-      image: json['image']?.toString() ?? '',
+      image: (json['image']?.toString() ?? '').startsWith('http')
+          ? (json['image']?.toString() ?? '')
+          : ((json['image']?.toString() ?? '').isNotEmpty
+              ? 'https://dealbuster.in/${(json['image']?.toString() ?? '').replaceFirst(RegExp(r'^/'), '')}'
+              : ''),
       link: json['link']?.toString() ?? '',
       category: (json['category']?.toString() ?? 'other').toLowerCase(),
       highlights: List<String>.from(json['highlights'] ?? [])
