@@ -2635,10 +2635,9 @@ function makeTombstone(p) {
 // NOTE: price/OOS checking (checkAndCleanDeals) now rotates across ALL live
 // products up to this cap — full-cycle check staleness scales with it
 // (~72min at 720 -> ~2.4hr at 1440); see the comment there for the tradeoff.
-async function capLiveAndBury(all, env, cap = 1440) {
+async function capLiveAndBury(all, env, cap = 1800) {
   const now = Date.now();
-  const amzDeals = [];
-  const otherDeals = [];
+  const liveDeals = [];
   const tombs = [];
   const expired = [];
 
@@ -2656,34 +2655,11 @@ async function capLiveAndBury(all, env, cap = 1440) {
         expired.push(p);
       }
     } else {
-      if (p.asin) {
-        amzDeals.push(p);
-      } else {
-        otherDeals.push(p);
-      }
+      liveDeals.push(p);
     }
   }
 
-  // Cap Amazon deals at 1440 with tombstones
-  let keptAmz = amzDeals;
-  if (amzDeals.length > cap) {
-    keptAmz = amzDeals.slice(0, cap);
-    tombs.push(...amzDeals.slice(cap).map(makeTombstone));
-  }
-
-  // Cap Flipkart/others at 360 with 1-day tombstones
-  const fkartCap = 360;
-  let keptOthers = otherDeals;
-  if (otherDeals.length > fkartCap) {
-    keptOthers = otherDeals.slice(0, fkartCap);
-    tombs.push(...otherDeals.slice(fkartCap).map(makeTombstone));
-  }
-
-  if (expired.length) {
-    await clearTgPostedMarks(expired, env).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
-  }
-
-  const liveDeals = [...keptAmz, ...keptOthers];
+  // Sort all live deals (featured first, price-increased last, newest addedAt first)
   liveDeals.sort((a, b) => {
     if (a.featured && !b.featured) return -1;
     if (!a.featured && b.featured) return 1;
@@ -2692,7 +2668,18 @@ async function capLiveAndBury(all, env, cap = 1440) {
     return Date.parse(b.addedAt || 0) - Date.parse(a.addedAt || 0);
   });
 
-  return [...liveDeals, ...tombs].map((p, i) => ({ ...p, order: i }));
+  // Combined global cap of 1800 live deals across all stores
+  let keptLive = liveDeals;
+  if (liveDeals.length > cap) {
+    keptLive = liveDeals.slice(0, cap);
+    tombs.push(...liveDeals.slice(cap).map(makeTombstone));
+  }
+
+  if (expired.length) {
+    await clearTgPostedMarks(expired, env).catch(e => console.error('Tombstone-expiry ledger clear failed:', e.message));
+  }
+
+  return [...keptLive, ...tombs].map((p, i) => ({ ...p, order: i }));
 }
 
 // ── Autopost toggle + manual-approval queue ───────────────────────────────────
