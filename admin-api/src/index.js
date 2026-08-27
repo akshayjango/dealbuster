@@ -906,7 +906,8 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = '₹' + mrp.toLocaleString('en-IN');
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
-    const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+    const baseLink = `https://www.amazon.in/dp/${asin}`;
+    const link = hasUptoOffInTitle(deal.title) ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
 
     const category = detectCategoryFromTitle(deal.title);
     const highlights = [];
@@ -968,11 +969,27 @@ function getOriginalUrl(url) {
   return url;
 }
 
+// Helper to strip feed error prefixes (e.g. "[Image Error]", "[MRP Error]", "[Error]") from titles
+function sanitizeTitle(title) {
+  if (!title || typeof title !== 'string') return '';
+  return title
+    .replace(/\[\s*[^\]]*Error\s*\]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Helper to check if title contains "upto X% off" or "up to X% off"
+function hasUptoOffInTitle(title) {
+  if (!title || typeof title !== 'string') return false;
+  return /\b(?:up\s*to|upto)\s*\d+\s*%\s*off\b/i.test(title);
+}
+
 // Hand-built fallback — used when CUELINKS_API_KEY isn't configured, or the
 // real API call fails/errors (network issue, outage). Strictly no worse than
 // what this function did before the real API integration existed.
-function buildManualCueLink(url) {
-  return `https://linksredirect.com/?pub_id=268568&subid=dealbuster&url=${encodeURIComponent(url)}`;
+function buildManualCueLink(url, env = {}) {
+  const pubId = (env && env.CUELINKS_PUB_ID) || '268568';
+  return `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(url)}`;
 }
 
 // Converts a scraped merchant URL into a real tracked CueLinks affiliate link,
@@ -1637,7 +1654,8 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     if (asin) {
       // Amazon deal only
       if (deletedSet.has(asin) || existingByAsin.has(asin)) continue;
-      const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+      const baseLink = `https://www.amazon.in/dp/${asin}`;
+      const link = hasUptoOffInTitle(title) ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
 
       added.push({
         id: `ifs_${Date.now()}_${added.length}`,
@@ -1767,7 +1785,8 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
-    const link = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+    const baseLink = `https://www.amazon.in/dp/${asin}`;
+    const link = hasUptoOffInTitle(title) ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
     const category = detectCategoryFromTitle(title);
 
     added.push({
@@ -2202,7 +2221,7 @@ async function checkAmazonDeals(env) {
       newAlerts.push({
         id: `amzdeal_${asin}_${Date.now()}`,
         asin, title, price, image, badge,
-        link: `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
+        link: hasUptoOffInTitle(title) ? buildManualCueLink(`https://www.amazon.in/dp/${asin}`, env) : `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
         detectedAt: new Date().toISOString(),
       });
     } catch (e) {
@@ -2349,7 +2368,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
         price: '₹' + price.toLocaleString('en-IN'),
         mrp: '₹' + mrp.toLocaleString('en-IN'),
         disc: discNum > 0 ? `-${discNum}%` : '0%',
-        image, link: `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
+        image, link: hasUptoOffInTitle(title) ? buildManualCueLink(`https://www.amazon.in/dp/${asin}`, env) : `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
         category, highlights: highlights.length ? highlights : ['Great deal on Amazon'],
         lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
         order: 0, addedAt: new Date().toISOString(), originalPrice: '₹' + price.toLocaleString('en-IN'),
@@ -2378,11 +2397,19 @@ async function handlePublish(body, env) {
   if (product.asin) await restoreAsinIfDeleted(product.asin, env);
 
   const { products, sha } = await getProductsFile(env);
-  const today = new Date().toISOString();
+  const cleanTitleStr = sanitizeTitle(product.title || '');
+  let finalLink = product.link || '';
+  if (hasUptoOffInTitle(cleanTitleStr)) {
+    if (!finalLink.includes('linksredirect.com')) {
+      const rawUrl = product.asin ? `https://www.amazon.in/dp/${product.asin}` : getOriginalUrl(finalLink);
+      if (rawUrl) finalLink = buildManualCueLink(rawUrl, env);
+    }
+  }
+
   const newProduct = {
-    id: Date.now().toString(), asin: product.asin || '', title: product.title || '',
+    id: Date.now().toString(), asin: product.asin || '', title: cleanTitleStr,
     price: product.price || '', mrp: product.mrp || '', disc: product.disc || '0%',
-    image: product.image || '', link: product.link || '', category: category || '',
+    image: product.image || '', link: finalLink, category: category || '',
     highlights: highlights || [], lowestPriceText: product.lowestPriceText || null,
     featured: false, hidden: false, outOfStock: false, order: 0, addedAt: today,
   };
@@ -2500,7 +2527,7 @@ function escHtml(text) {
 }
 
 function trimTitle(raw) {
-  let rawTitle = (raw || '').slice(0, 200);
+  let rawTitle = sanitizeTitle(raw).slice(0, 200);
   const pipeIdx = rawTitle.indexOf(' | ');
   const commaIdx = rawTitle.indexOf(',');
   const cutIdx = [pipeIdx, commaIdx].filter(i => i > 0).sort((a, b) => a - b)[0];
@@ -2508,14 +2535,23 @@ function trimTitle(raw) {
   return rawTitle;
 }
 
-function dealLink(product, tag) {
+function dealLink(product, tag, env = {}) {
+  if (hasUptoOffInTitle(product?.title)) {
+    if (product.link && product.link.includes('linksredirect.com')) {
+      return product.link;
+    }
+    const rawAmz = product.asin
+      ? `https://www.amazon.in/dp/${product.asin}`
+      : getOriginalUrl(product.link || '');
+    return rawAmz ? buildManualCueLink(rawAmz, env) : product.link || '';
+  }
   return product.asin
     ? `https://www.amazon.in/dp/${product.asin}?tag=${tag}`
     : product.link || '';
 }
 
-function formatDealMsg(product, tag, isLowest = false) {
-  const link = dealLink(product, tag);
+function formatDealMsg(product, tag, isLowest = false, env = {}) {
+  const link = dealLink(product, tag, env);
   const title = (isLowest ? 'Lowest ' : '') + escHtml(trimTitle(product.title));
   const price = product.price || '';
   const mrp = product.mrp || '';
@@ -2529,10 +2565,10 @@ function formatDealMsg(product, tag, isLowest = false) {
 
 // Plain-text caption for pasting into the Facebook deals group. No HTML/markdown
 // (FB ignores formatting) — emojis + blank lines only.
-function formatFbCaption(product, tag, isLowest = false) {
+function formatFbCaption(product, tag, isLowest = false, env = {}) {
   const title = (isLowest ? 'Lowest ' : '') + trimTitle(product.title);
   const price = product.price || '';
-  const link = dealLink(product, tag);
+  const link = dealLink(product, tag, env);
   const priceBlock = price ? `💥 Deal Price @ ${price} 👇\n${link}` : `👇\n${link}`;
   return `🔥 ${title}\n${priceBlock}`;
 }
@@ -2783,7 +2819,7 @@ async function queueForApproval(products, env) {
 
   const entries = [];
   for (const p of queued) {
-    const text = formatDealMsg(p, tag);
+    const text = formatDealMsg(p, tag, false, env);
     const keyboard = { inline_keyboard: [
       [
         { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
@@ -2859,7 +2895,7 @@ async function handleApprovalCallback(cq, env) {
         return new Response('ok');
       }
       const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
-      const caption = formatFbCaption(p, tag);
+      const caption = formatFbCaption(p, tag, false, env);
       await tgSend(token, TG_ADMIN_ID, `<pre>${escHtml(caption)}</pre>`, { parse_mode: 'HTML' });
       await tgAnswerCallback(token, cq.id, '📘 Caption sent — tap it to copy');
     } catch (e) {
@@ -3285,7 +3321,7 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
   const noPrice = !product.price || product.price === '₹0' || product.price === '₹';
   if (noPrice) return;
   const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
-  const msg = formatDealMsg(product, tag);
+  const msg = formatDealMsg(product, tag, false, env);
   for (const ch of TG_CHANNELS) {
     try {
       if (product.image) {
@@ -3429,7 +3465,10 @@ async function handleTelegramWebhook(request, env) {
         try {
           const { asinM, finalUrl } = await resolveAsin(span.url);
           let affiliateLink;
-          if (asinM) {
+          if (hasUptoOffInTitle(text)) {
+            const targetUrl = asinM ? `https://www.amazon.in/dp/${asinM[1]}` : finalUrl;
+            affiliateLink = buildManualCueLink(targetUrl, env);
+          } else if (asinM) {
             affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
           } else {
             const u = new URL(finalUrl);

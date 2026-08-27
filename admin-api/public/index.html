@@ -837,7 +837,15 @@
       <div class="field"><label>MRP</label><input type="text" id="editMrp"/></div>
     </div>
     <div class="field"><label>Discount</label><input type="text" id="editDisc" placeholder="-45%"/></div>
-    <div class="field"><label>Image path</label><input type="text" id="editImage"/></div>
+    <div class="field">
+      <div style="display:flex;justify-space-between;align-items:center;margin-bottom:4px;">
+        <label style="margin:0;">Image path</label>
+        <button type="button" onclick="document.getElementById('editImage').value='images/dealbuster_icon.png'" style="font-size:0.75rem;padding:2px 8px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;color:#0f172a;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-weight:600;">
+          <img src="images/dealbuster_icon.png" width="14" height="14" style="object-fit:contain;" alt=""> Use Logo Icon
+        </button>
+      </div>
+      <input type="text" id="editImage"/>
+    </div>
     <div class="field"><label>Link</label><input type="text" id="editLink"/></div>
     <div class="field">
       <label>Category</label>
@@ -1354,6 +1362,10 @@ function buildProductRow(p, visualIndex) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           Post to TG Channel
         </button>
+        <button class="drop-item" onclick="closeMenus();useDealBusterLogo('${p.id}')">
+          <img src="images/dealbuster_icon.png" width="16" height="16" style="border-radius:3px;object-fit:contain;" alt="Logo">
+          Change Image to Logo
+        </button>
         <div class="drop-divider"></div>
         <button class="drop-item" onclick="closeMenus();openEdit('${p.id}')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#374151" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1430,6 +1442,25 @@ async function toggleHidden(id) {
     updateStats();
     renderList();
     alert('Failed: ' + e.message);
+  }
+}
+
+async function useDealBusterLogo(id) {
+  const p = allProducts.find(x => x.id === id);
+  if (!p) return;
+  const oldImage = p.image;
+  const newImage = 'images/dealbuster_icon.png';
+  if (oldImage === newImage) return;
+  p.image = newImage;
+  updateStats();
+  renderList();
+  try {
+    await apiFetch(`/products/${id}`, { method: 'PUT', body: { image: newImage } });
+  } catch (e) {
+    p.image = oldImage;
+    updateStats();
+    renderList();
+    alert('Failed to update image: ' + e.message);
   }
 }
 
