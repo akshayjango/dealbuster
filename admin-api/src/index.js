@@ -333,6 +333,28 @@ async function clearSyncError(source, env) {
   } catch (e) { console.error('Failed to clear sync error:', e.message); }
 }
 
+async function recordScraperStatus(source, status, message, count, env) {
+  if (!env.KV) return;
+  try {
+    const key = 'scraper_status';
+    const current = await env.KV.get(key, 'json') || {};
+    current[source] = {
+      status, // 'working' | 'error'
+      message: message || '',
+      lastSync: new Date().toISOString(),
+      addedCount: count || 0
+    };
+    await env.KV.put(key, JSON.stringify(current));
+  } catch (e) { console.error('Failed to record scraper status:', e.message); }
+}
+
+async function getScraperStatus(env) {
+  if (!env.KV) return {};
+  try { return await env.KV.get('scraper_status', 'json') || {}; }
+  catch { return {}; }
+}
+
+
 // ── Web Push (RFC 8291/8188 aes128gcm) — no npm deps, pure Web Crypto ───────
 // One admin subscription stored in KV under 'pushSubscription'. Sending costs
 // zero KV writes (read-only); only (re)subscribing writes.
@@ -861,6 +883,7 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
     const msg = `DealsSpy Amazon fetch failed: ${e.message}`;
     console.error(msg);
     await saveSyncError('DealsSpyAmazon', msg, env);
+    await recordScraperStatus('dealspy', 'error', msg, 0, env);
     return { success: false, count: 0, message: msg };
   }
 
@@ -870,6 +893,7 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
   } catch (e) {
     const msg = `DealsSpy Amazon parse failed: ${e.message}`;
     await saveSyncError('DealsSpyAmazon', msg, env);
+    await recordScraperStatus('dealspy', 'error', msg, 0, env);
     return { success: false, count: 0, message: msg };
   }
 
@@ -943,6 +967,8 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
   }
 
   if (added.length === 0 && updated.length === 0) {
+    await clearSyncError('DealsSpyAmazon', env);
+    await recordScraperStatus('dealspy', 'working', 'No new deals', 0, env);
     return { success: true, count: 0, message: 'No new or updated DealsSpy Amazon deals.' };
   }
 
@@ -953,6 +979,8 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
 
   const msg = `DS Amazon sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
+  await clearSyncError('DealsSpyAmazon', env);
+  await recordScraperStatus('dealspy', 'working', msg, added.length, env);
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
@@ -1570,6 +1598,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   if (matchesMap.size === 0) {
     const msg = 'IndiaFreeStuff: no deals found (structure may have changed)';
     await saveSyncError('IndiaFreeStuff', msg, env);
+    await recordScraperStatus('indiafreestuff', 'error', msg, 0, env);
     return { success: false, count: 0, message: msg };
   }
 
@@ -1671,6 +1700,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
   if (added.length === 0) {
     await clearSyncError('IndiaFreeStuff', env);
+    await recordScraperStatus('indiafreestuff', 'working', 'No new deals', 0, env);
     return { success: true, count: 0, message: 'IndiaFreeStuff: no new deals found.' };
   }
 
@@ -1679,6 +1709,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   const msg = `IndiaFreeStuff sync: +${added.length} new`;
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('IndiaFreeStuff', env);
+  await recordScraperStatus('indiafreestuff', 'working', msg, added.length, env);
   return { success: true, added: added.length, message: msg, addedProducts: added };
 }
 
@@ -1730,6 +1761,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   } catch (e) {
     const msg = `DealOfTheDayIndia fetch failed: ${e.message}`;
     await saveSyncError('DealOfTheDayIndia', msg, env);
+    await recordScraperStatus('dealoftheday', 'error', msg, 0, env);
     return { success: false, count: 0, message: msg };
   }
 
@@ -1765,6 +1797,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   if (matchesMap.size === 0) {
     const msg = 'DealOfTheDayIndia: no Amazon deals found (structure may have changed)';
     await saveSyncError('DealOfTheDayIndia', msg, env);
+    await recordScraperStatus('dealoftheday', 'error', msg, 0, env);
     return { success: false, count: 0, message: msg };
   }
 
@@ -1800,6 +1833,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
 
   if (added.length === 0) {
     await clearSyncError('DealOfTheDayIndia', env);
+    await recordScraperStatus('dealoftheday', 'working', 'No new deals', 0, env);
     return { success: true, count: 0, message: 'DealOfTheDayIndia: no new Amazon deals.' };
   }
 
@@ -1807,6 +1841,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   const msg = `DealOfTheDayIndia sync: +${added.length} new`;
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('DealOfTheDayIndia', env);
+  await recordScraperStatus('dealoftheday', 'working', msg, added.length, env);
   return { success: true, added: added.length, message: msg, addedProducts: added };
 }
 
@@ -4222,6 +4257,15 @@ export default {
         const remaining = brands.filter(b => b.toLowerCase() !== target);
         await setBlockedBrands(remaining, env);
         return json({ success: true, brands: remaining });
+      }
+
+      // ── GET /scraper-status ──────────────────────────────────────────────────
+      if (url.pathname === '/scraper-status' && request.method === 'GET') {
+        const [statuses, errors] = await Promise.all([
+          getScraperStatus(env),
+          getSyncErrors(env)
+        ]);
+        return json({ statuses, errors });
       }
 
       // ── GET /sync-errors ─────────────────────────────────────────────────────

@@ -121,13 +121,24 @@
     .tab-panel.active { display: block; }
 
     /* ── Stats row ── */
-    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
     .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow-rest); }
     .stat-card .stat-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
     .stat-card .stat-value { font-size: 2rem; font-weight: 800; color: var(--text); line-height: 1; }
     .stat-card.featured .stat-value { color: var(--gold); }
     .stat-card.hidden-stat .stat-value { color: var(--muted); }
     .stat-card.live .stat-value { color: var(--green); }
+
+    /* ── Scraper Status Cards ── */
+    .scraper-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card.scraper-card { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+    .stat-card.scraper-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-color: #cbd5e1; }
+    .scraper-status-badge { display: flex; align-items: center; gap: 8px; font-size: 1.2rem; font-weight: 800; color: var(--text); margin-top: 2px; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .status-dot.green { background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+    .status-dot.red { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+    .status-dot.yellow { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+    .scraper-subtext { font-size: .75rem; font-weight: 500; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* ── Toolbar ── */
     .toolbar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
@@ -375,10 +386,12 @@
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .scraper-stats-row { grid-template-columns: repeat(3, 1fr); }
     }
     @media (max-width: 640px) {
       .app-body { padding: 16px; }
       .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .scraper-stats-row { grid-template-columns: repeat(1, 1fr); gap: 10px; }
       .toolbar-filters { flex-wrap: wrap; }
       .toolbar-filters #dashSearch { width: 100%; flex: none; }
       .toolbar-filters select { flex: 1; min-width: 80px; }
@@ -517,6 +530,34 @@
         <div class="stat-card featured"><div class="stat-label">Featured</div><div class="stat-value" id="statFeatured">—</div></div>
         <div class="stat-card hidden-stat"><div class="stat-label">Hidden</div><div class="stat-value" id="statHidden">—</div></div>
         <div class="stat-card live"><div class="stat-label">Live</div><div class="stat-value" id="statLive">—</div></div>
+      </div>
+
+      <!-- Scraper Status -->
+      <div class="scraper-stats-row">
+        <div class="stat-card scraper-card" id="cardIfs" onclick="filterBySource('indiafree')" title="Click to filter products by IndiaFreeStuff">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="stat-label" style="margin-bottom:0;">IndiaFreeStuff</div>
+            <div class="scraper-status-badge" id="statusIfsBadge"><span class="status-dot green"></span><span id="statusIfsText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
+          </div>
+          <div class="scraper-count-val" id="statusIfsCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
+          <div class="scraper-subtext" id="statusIfsSubtext" style="margin-top:6px;">Loading status…</div>
+        </div>
+        <div class="stat-card scraper-card" id="cardDotd" onclick="filterBySource('dotd')" title="Click to filter products by DealOfTheDay">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="stat-label" style="margin-bottom:0;">DealOfTheDay</div>
+            <div class="scraper-status-badge" id="statusDotdBadge"><span class="status-dot green"></span><span id="statusDotdText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
+          </div>
+          <div class="scraper-count-val" id="statusDotdCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
+          <div class="scraper-subtext" id="statusDotdSubtext" style="margin-top:6px;">Loading status…</div>
+        </div>
+        <div class="stat-card scraper-card" id="cardDealspy" onclick="filterBySource('dealsradar')" title="Click to filter products by DealSpy">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="stat-label" style="margin-bottom:0;">DealSpy</div>
+            <div class="scraper-status-badge" id="statusDealspyBadge"><span class="status-dot green"></span><span id="statusDealspyText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
+          </div>
+          <div class="scraper-count-val" id="statusDealspyCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
+          <div class="scraper-subtext" id="statusDealspySubtext" style="margin-top:6px;">Loading status…</div>
+        </div>
       </div>
 
       <!-- Toolbar -->
@@ -1175,6 +1216,89 @@ function updateStats() {
   document.getElementById('statFeatured').textContent = featured;
   document.getElementById('statHidden').textContent = hiddenProductCount;
   document.getElementById('statLive').textContent = totalProductCount - hiddenProductCount;
+  updateScraperStatuses();
+}
+
+function filterBySource(src) {
+  const sel = document.getElementById('dashSource');
+  if (sel) {
+    sel.value = src;
+    renderList();
+  }
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  if (isNaN(diffMs) || diffMs < 0) return '';
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  return `${days}d ago`;
+}
+
+async function updateScraperStatuses() {
+  try {
+    let backendStatuses = {};
+    let syncErrors = [];
+    try {
+      const resp = await apiFetch('/scraper-status');
+      if (resp.ok) {
+        const data = await resp.json();
+        backendStatuses = data.statuses || {};
+        syncErrors = data.errors || [];
+      }
+    } catch {}
+
+    const sources = [
+      { key: 'indiafreestuff', errName: 'IndiaFreeStuff', prefix: 'ifs_', countId: 'statusIfsCount', badgeId: 'statusIfsBadge', subId: 'statusIfsSubtext' },
+      { key: 'dealoftheday', errName: 'DealOfTheDayIndia', prefix: 'dotd_', countId: 'statusDotdCount', badgeId: 'statusDotdBadge', subId: 'statusDotdSubtext' },
+      { key: 'dealspy', errName: 'DealsSpyAmazon', prefix: 'ds_', altPrefix: 'dr_', countId: 'statusDealspyCount', badgeId: 'statusDealspyBadge', subId: 'statusDealspySubtext' }
+    ];
+
+    for (const src of sources) {
+      const countEl = document.getElementById(src.countId);
+      const badgeEl = document.getElementById(src.badgeId);
+      const subEl = document.getElementById(src.subId);
+      if (!countEl || !badgeEl || !subEl) continue;
+
+      const matchedProds = (allProducts || []).filter(p => {
+        const id = p.id || '';
+        return id.startsWith(src.prefix) || (src.altPrefix && id.startsWith(src.altPrefix));
+      });
+      const totalDeals = matchedProds.length;
+      const liveCount = matchedProds.filter(p => !p.hidden).length;
+
+      let lastScrapedStr = 'N/A';
+      if (matchedProds.length > 0) {
+        const sorted = matchedProds.slice().sort((a,b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
+        if (sorted[0] && sorted[0].addedAt) {
+          lastScrapedStr = timeAgo(sorted[0].addedAt);
+        }
+      }
+
+      countEl.textContent = `${totalDeals.toLocaleString('en-IN')} Deals`;
+
+      const activeErr = syncErrors.find(e => e.source === src.errName || e.source === src.key);
+      const statusObj = backendStatuses[src.key];
+
+      if (activeErr || (statusObj && statusObj.status === 'error')) {
+        const errMsg = activeErr ? activeErr.message : (statusObj ? statusObj.message : 'Sync Error');
+        badgeEl.innerHTML = `<span class="status-dot red"></span><span style="font-size:0.85rem; font-weight:700; color:#ef4444">Issue</span>`;
+        subEl.textContent = `⚠️ ${errMsg.length > 30 ? errMsg.slice(0, 28) + '…' : errMsg} • Last: ${lastScrapedStr}`;
+        subEl.style.color = '#ef4444';
+      } else {
+        badgeEl.innerHTML = `<span class="status-dot green"></span><span style="font-size:0.85rem; font-weight:700; color:#10b981">Working</span>`;
+        subEl.textContent = `${liveCount.toLocaleString('en-IN')} live • Last scraped: ${lastScrapedStr}`;
+        subEl.style.color = 'var(--muted)';
+      }
+    }
+  } catch (e) {
+    console.error('Failed to update scraper statuses:', e);
+  }
 }
 
 let oosFilterActive = false;
