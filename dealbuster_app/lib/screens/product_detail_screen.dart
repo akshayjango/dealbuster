@@ -228,7 +228,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ),
                           ),
                         ],
-                        if (!isFlipkart && p.asin.isNotEmpty) ...[
+                        if (!isFlipkart && (p.asin?.isNotEmpty ?? false)) ...[
                           const SizedBox(height: AppSpace.md),
                           _Card(
                             title: 'Price History',
