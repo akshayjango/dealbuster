@@ -991,16 +991,27 @@
   // CTA link
   const ctaBtn = document.getElementById('ctaBtn');
   ctaBtn.href = link;
-  const linkLower = (link || '').toLowerCase();
-  let label = 'Buy on Amazon';
-  if (linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it') || linkLower.includes('fktr.in')) {
+  const unescapedLink = decodeURIComponent(link || '').toLowerCase();
+  const titleLower = (product.title || '').toLowerCase();
+  let label = 'Buy Deal';
+  if (unescapedLink.includes('flipkart.com') || unescapedLink.includes('fkrt.it') || unescapedLink.includes('fktr.in') || titleLower.includes('flipkart')) {
     label = 'Buy on Flipkart';
-  } else if (linkLower.includes('myntra.com')) {
+  } else if (unescapedLink.includes('myntra.com') || titleLower.includes('myntra')) {
     label = 'Buy on Myntra';
-  } else if (linkLower.includes('ajio.com')) {
+  } else if (unescapedLink.includes('ajio.com') || titleLower.includes('ajio')) {
     label = 'Buy on Ajio';
-  } else if (!linkLower.includes('amazon.in') && !linkLower.includes('amzn.to') && !linkLower.includes('amazon.com') && linkLower.length > 0) {
-    label = 'Buy on Retailer';
+  } else if (unescapedLink.includes('meesho.com') || titleLower.includes('meesho')) {
+    label = 'Buy on Meesho';
+  } else if (unescapedLink.includes('shopsy.in') || titleLower.includes('shopsy')) {
+    label = 'Buy on Shopsy';
+  } else if (unescapedLink.includes('tatacliq.com') || titleLower.includes('tatacliq')) {
+    label = 'Buy on TataCliq';
+  } else if (unescapedLink.includes('nykaa.com') || titleLower.includes('nykaa')) {
+    label = 'Buy on Nykaa';
+  } else if (unescapedLink.includes('amazon.in') || unescapedLink.includes('amzn.to') || unescapedLink.includes('amazon.com')) {
+    label = 'Buy on Amazon';
+  } else {
+    label = 'Buy Deal';
   }
   ctaBtn.querySelector('span').textContent = label;
 

@@ -1567,19 +1567,39 @@ async function readHeadPrefix(res) {
   }
 }
 
+function isValidAsin(cand) {
+  if (!cand || cand.length !== 10) return false;
+  if (!/^[A-Z0-9]{10}$/.test(cand)) return false;
+  if (!/\d/.test(cand)) return false;
+  const invalidWords = new Set([
+    'AUICLIENTS', 'HELPCENTRE', 'CATEGORIES', 'SUNGLASSES', 'COLLECTIONS',
+    'PROMOTIONS', 'DISCOUNTS', 'BESTSELLER', 'NEWARRIVALS', 'SHOPONLINE',
+    'ELECTRONIC', 'APPARELFAS', 'AUTOMOTIVE'
+  ]);
+  if (invalidWords.has(cand)) return false;
+  if (cand.startsWith('NAV') || cand.startsWith('HEADER') || cand.startsWith('FOOTER')) return false;
+  return cand.startsWith('B0') || cand.startsWith('B1') || cand.startsWith('B2') || /^\d/.test(cand);
+}
+
 function extractAsin(str) {
-  if (!str) return null;
-  const matches = [
-    ...str.matchAll(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/gi),
-    ...str.matchAll(/[?&]asin=([A-Z0-9]{10})/gi),
-    ...str.matchAll(/\/([A-Z0-9]{10})(?:\/|\?|#|$)/gi)
-  ];
-  for (const m of matches) {
-    const cand = (m[1] || '').toUpperCase();
-    if (cand.length === 10 && /\d/.test(cand) && cand !== 'AUICLIENTS' && !cand.startsWith('NAV') && !cand.startsWith('HEADER')) {
-      return cand;
+  if (!str || typeof str !== 'string') return null;
+
+  const dpMatch = str.match(/(?:amazon\.[a-z.]+|amzn\.[a-z.]+)\/(?:[\w-]+\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i) ||
+                  str.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) ||
+                  str.match(/[?&]asin=([A-Z0-9]{10})/i);
+  if (dpMatch) {
+    const cand = dpMatch[1].toUpperCase();
+    if (isValidAsin(cand)) return cand;
+  }
+
+  if (/(?:amazon|amzn)/i.test(str)) {
+    const genericMatches = str.matchAll(/\/([A-Z0-9]{10})(?:\/|\?|#|$)/gi);
+    for (const m of genericMatches) {
+      const cand = (m[1] || '').toUpperCase();
+      if (isValidAsin(cand)) return cand;
     }
   }
+
   return null;
 }
 
