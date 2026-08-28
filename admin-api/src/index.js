@@ -1519,15 +1519,14 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     }
   }
 
-  if (newProducts.length > 0) {
-    console.log(`Auto-publishing ${newProducts.length} new non-Amazon deals...`);
-    const updatedProducts = await capLiveAndBury([...newProducts, ...products], env);
-    await saveProductsFile(updatedProducts, sha, `Auto-publish non-Amazon deals: ${newProducts.map(p => p.title.slice(0, 30)).join(', ')}`, env);
-    
+  if (candidateDeals.length > 0) {
+    for (const { deal, availability } of checked) {
+      if (availability && availability.available) {
+        await sendNonAmazonDealPromptToAdmin(deal, env).catch(e => console.error('Prompt non-Amazon failed:', e.message));
+        newSentLinks.push(deal.link);
+      }
+    }
     await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-500)));
-
-    // Send converted deals to public Telegram channel
-    await postDealsAndTrack(newProducts, env).catch(e => console.error('TG auto-post non-Amazon failed:', e.message));
   }
 
   // Surface FLIPKART_SESSION_COOKIE health on the admin dashboard (same bell/push
@@ -3449,6 +3448,41 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
   }
 }
 
+function getStoreNameFromTitleOrUrl(title, url) {
+  const str = ((title || '') + ' ' + (url || '')).toLowerCase();
+  if (str.includes('flipkart') || str.includes('fkrt.it') || str.includes('fktr.in')) return 'Flipkart';
+  if (str.includes('myntra')) return 'Myntra';
+  if (str.includes('ajio')) return 'Ajio';
+  if (str.includes('meesho')) return 'Meesho';
+  if (str.includes('shopsy')) return 'Shopsy';
+  if (str.includes('tatacliq')) return 'TataCliq';
+  if (str.includes('nykaa')) return 'Nykaa';
+  if (str.includes('jiomart')) return 'JioMart';
+  return 'Non-Amazon';
+}
+
+async function sendNonAmazonDealPromptToAdmin(deal, env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  const adminId = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
+  if (!token || !adminId) return;
+
+  const storeName = getStoreNameFromTitleOrUrl(deal.title, deal.link) || 'Flipkart';
+  const text = `📦 New ${storeName} Deal\n\nTitle: ${deal.title || ''}\nPrice: ${deal.price || ''}${deal.mrp ? ` (MRP: ${deal.mrp})` : ''}\nOriginal Link: ${deal.link || ''}\n${deal.image ? `Image: ${deal.image}\n` : ''}\n👉 Reply to this message with your converted EarnKaro affiliate link to publish it!`;
+
+  if (deal.image) {
+    try {
+      await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: adminId, photo: deal.image, caption: text }),
+      });
+      return;
+    } catch (e) {}
+  }
+
+  await tgSend(token, adminId, text);
+}
+
 async function handleTelegramWebhook(request, env) {
   let update;
   try { update = await request.json(); } catch { return new Response('ok'); }
@@ -3473,11 +3507,89 @@ async function handleTelegramWebhook(request, env) {
   const chatId = msg.chat.id;
   const text = msg.text || msg.caption || '';
 
+  // ── 1. Reply to a Non-Amazon / Flipkart deal prompt ────────────────────────
+  if (msg.reply_to_message) {
+    const replyText = msg.reply_to_message.text || msg.reply_to_message.caption || '';
+    if (replyText.includes('Reply to this message with your converted') || replyText.includes('New Flipkart Deal') || replyText.includes('New Non-Amazon Deal')) {
+      const affiliateLinkM = text.match(/https?:\/\/[^\s]+/i);
+      if (!affiliateLinkM) {
+        await tgSend(token, chatId, escTg('❌ Please reply with a valid affiliate link URL.'));
+        return new Response('ok');
+      }
+      const affiliateLink = affiliateLinkM[0].trim();
 
+      const titleM = replyText.match(/Title:\s*(.+)/i);
+      const priceM = replyText.match(/Price:\s*(₹[\d,]+)/i);
+      const mrpM   = replyText.match(/MRP:\s*(₹[\d,]+)/i);
+      const origLinkM = replyText.match(/Original Link:\s*(https?:\/\/[^\s]+)/i);
+      const imageM = replyText.match(/Image:\s*(https?:\/\/[^\s]+)/i);
+
+      const title = titleM ? titleM[1].trim() : 'Non-Amazon Deal';
+      const price = priceM ? priceM[1].trim() : '';
+      const mrp   = mrpM ? mrpM[1].trim() : price;
+      const originalLink = origLinkM ? origLinkM[1].trim() : affiliateLink;
+      let image = imageM ? imageM[1].trim() : '';
+
+      const discNum = mrp && price ? Math.round((1 - parsePrice(price) / parsePrice(mrp)) * 100) : 0;
+      const discStr = discNum > 0 ? `-${discNum}%` : '0%';
+
+      const { products, sha } = await getProductsFile(env);
+
+      const newProduct = {
+        id: 'fk_' + Date.now(),
+        asin: '',
+        title: title,
+        price: price,
+        mrp: mrp,
+        disc: discStr,
+        image: image,
+        link: affiliateLink,
+        category: detectCategoryFromTitle(title),
+        highlights: [],
+        lowestPriceText: null,
+        featured: false,
+        hidden: false,
+        outOfStock: false,
+        order: 0,
+        addedAt: new Date().toISOString(),
+        originalPrice: price
+      };
+
+      const final = await capLiveAndBury([newProduct, ...products], env);
+      await saveProductsFile(final, sha, `Add Non-Amazon deal: ${newProduct.title.slice(0, 60)}`, env);
+
+      let sentLinks = [];
+      try { sentLinks = JSON.parse(await env.KV.get('fkart_sent_tg_urls') || '[]'); } catch (e) {}
+      sentLinks.push(originalLink);
+      await env.KV.put('fkart_sent_tg_urls', JSON.stringify(sentLinks.slice(-500)));
+
+      await postDealsAndTrack([newProduct], env).catch(e => console.error('TG post Non-Amazon reply failed:', e.message));
+
+      await tgSend(token, chatId, escTg('✅ Published deal to Telegram channel and added to site!'));
+      return new Response('ok');
+    }
+  }
+
+  // ── 2. Check if non-Amazon link was sent/forwarded directly to bot ───────────
+  const nonAmzMatch = text.match(/https?:\/\/(?:[a-z0-9-]+\.)*(?:flipkart\.com|fkrt\.it|fktr\.in|myntra\.com|ajio\.com|meesho\.com|shopsy\.in|tatacliq\.com|nykaa\.com|jiomart\.com)[^\s]*/i);
+  if (nonAmzMatch && !msg.reply_to_message) {
+    const rawUrl = nonAmzMatch[0];
+    const storeName = getStoreNameFromTitleOrUrl(text, rawUrl);
+    let title = trimTitle(text.replace(/https?:\/\/[^\s]+/g, '').trim()) || `${storeName} Special Deal`;
+    let price = '';
+    let mrp = '';
+    const priceM = text.match(/(?:Deal Price|Price|₹)\s*:\s*₹?\s*([\d,]+)/i) || text.match(/₹\s*([\d,]+)/);
+    if (priceM) price = '₹' + priceM[1].replace(/,/g, '');
+    const mrpM = text.match(/(?:MRP|Original Price)\s*:\s*₹?\s*([\d,]+)/i);
+    if (mrpM) mrp = '₹' + mrpM[1].replace(/,/g, '');
+
+    await sendNonAmazonDealPromptToAdmin({ title, price, mrp, link: rawUrl }, env);
+    return new Response('ok');
+  }
 
   // Help command
   if (text.trim() === '/start' || text.trim() === '/help') {
-    await tgSend(token, chatId, escTg('👋 DealBuster Bot\n\nSend me:\n• Forward any deal message with a link → I swap the link and repost\n\nCommands:\n/help — this message'));
+    await tgSend(token, chatId, escTg('👋 DealBuster Bot\n\nSend me:\n• Forward any deal message with a link → I swap the link and repost\n• Non-Amazon deal → Reply with EarnKaro link to publish\n\nCommands:\n/help — this message'));
     return new Response('ok');
   }
 
