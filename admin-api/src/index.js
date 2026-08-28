@@ -669,7 +669,7 @@ function detectCategoryFromTitle(title) {
 async function fetchAmazonPageData(asin) {
   try {
     const r = await fetchWithTimeout(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS }, 5000);
-    if (!r.ok) return { badge: null, highlights: [], category: null };
+    if (!r.ok) return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false };
     const html = await r.text();
 
     const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?|ever)|Best\s+price\s+in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?)/i);
@@ -721,21 +721,69 @@ async function fetchAmazonPageData(asin) {
       }
     }
 
-    // Star rating + review count — same page load, no extra request
-    const ratingM = html.match(/(\d(?:\.\d)?)\s+out of 5 stars/i);
-    const rating = ratingM ? parseFloat(ratingM[1]) : null;
-    const reviewM = html.match(/id="acrCustomerReviewText"[^>]*>([\d,]+)\s*ratings?/i);
-    const reviewCount = reviewM ? parseInt(reviewM[1].replace(/,/g, ''), 10) : null;
+    // Star rating + review count — multi-pattern JSON-LD & Regex parsing
+    let rating = null;
+    let reviewCount = null;
 
-    // Check low stock ("Only 1 left in stock.", "Only 2 left in stock.", "Only 3 left in stock.", "Only 4 left in stock.")
+    const schemaRegex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let match;
+    while ((match = schemaRegex.exec(html)) !== null) {
+      try {
+        const data = JSON.parse(match[1].trim());
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          if (item && item.aggregateRating) {
+            if (item.aggregateRating.ratingValue != null) rating = parseFloat(item.aggregateRating.ratingValue);
+            if (item.aggregateRating.reviewCount || item.aggregateRating.ratingCount) {
+              reviewCount = parseInt(item.aggregateRating.reviewCount || item.aggregateRating.ratingCount, 10);
+            }
+            break;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (rating === null || isNaN(rating)) {
+      const ratingM = html.match(/"ratingValue"\s*:\s*"?(\d(?:\.\d)?)"?/i) ||
+                      html.match(/(\d(?:\.\d)?)\s+out of 5 stars/i) ||
+                      html.match(/(\d(?:\.\d)?)\s+out of 5/i) ||
+                      html.match(/class="[^\"]*a-icon-star[^\"]*"[^\>]*>\s*<span[^\>]*>(\d(?:\.\d)?)/i) ||
+                      html.match(/a-star-(?:small-)?(\d)-(\d)/i);
+      if (ratingM) {
+        if (ratingM[2] !== undefined && ratingM[1].length === 1 && ratingM[2].length === 1) {
+          rating = parseFloat(`${ratingM[1]}.${ratingM[2]}`);
+        } else {
+          rating = parseFloat(ratingM[1]);
+        }
+      }
+    }
+
+    if (reviewCount === null || isNaN(reviewCount)) {
+      const reviewM = html.match(/id="acrCustomerReviewText"[^>]*>([\d,]+)\s*ratings?/i) ||
+                      html.match(/"ratingCount"\s*:\s*"?([\d,]+)"?/i) ||
+                      html.match(/([\d,]+)\s*customer ratings/i);
+      if (reviewM) reviewCount = parseInt(reviewM[1].replace(/,/g, ''), 10);
+    }
+
+    // Check low stock ("Only 1 left in stock.", "Only 2 left in stock.", etc.)
     const lowStockM = html.match(/only\s+([1-4])\s+left\s+in\s+stock/i);
     const lowStock = !!lowStockM;
 
     // Check undeliverable message
     const undeliverable = html.toLowerCase().includes('cannot be shipped to your selected delivery location');
 
-    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable };
-  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false }; }
+    // Check Out-of-Stock ("Currently unavailable", "We don't know when or if this item will be back in stock")
+    const htmlLower = html.toLowerCase();
+    const isOOS = htmlLower.includes('currently unavailable') ||
+                  htmlLower.includes("don't know when or if this item will be back in stock") ||
+                  html.includes('id="outOfStock"') ||
+                  html.includes('schema.org/OutOfStock') ||
+                  html.includes('schema.org/outOfStock') ||
+                  html.includes('"availability":"OutOfStock"') ||
+                  html.includes('"availability":"http://schema.org/OutOfStock"');
+
+    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS };
+  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false }; }
 }
 
 // ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
@@ -2115,11 +2163,11 @@ async function checkLowestPriceBadges(env) {
       if (!updated) return;
       updated.lastBadgeCheck = Date.now();
 
-      const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable } = await fetchAmazonPageData(p.asin);
+      const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS } = await fetchAmazonPageData(p.asin);
 
-      // Filter out low rating (< 3.6), low stock (Only 1-4 left), or undeliverable deals permanently!
-      if ((rating != null && rating < 3.6) || lowStock || undeliverable) {
-        console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, lowStock=${lowStock}, undeliverable=${undeliverable}`);
+      // Filter out low rating (< 3.6), low stock (Only 1-4 left), undeliverable, or out of stock deals permanently!
+      if ((rating != null && rating < 3.6) || lowStock || undeliverable || isOOS) {
+        console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, lowStock=${lowStock}, undeliverable=${undeliverable}, isOOS=${isOOS}`);
         productMap.delete(p.id);
         await addDeletedAsin(p.asin, env);
         changed = true;
