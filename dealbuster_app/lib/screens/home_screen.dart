@@ -51,9 +51,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _load();
     _scrollController.addListener(_handleScroll);
     WidgetsBinding.instance.addObserver(this);
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _autoRefreshTimer?.cancel();
+    final interval = _failed ? const Duration(seconds: 4) : _kAutoRefreshInterval;
     _autoRefreshTimer = Timer.periodic(
-      _kAutoRefreshInterval,
-      (_) => _autoRefresh(),
+      interval,
+      (_) {
+        if (_failed || _all.isEmpty) {
+          _load();
+        } else {
+          _autoRefresh();
+        }
+      },
     );
   }
 
@@ -69,7 +81,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _autoRefresh();
+    if (state == AppLifecycleState.resumed) {
+      if (_failed || _all.isEmpty) {
+        _load();
+      } else {
+        _autoRefresh();
+      }
+    }
   }
 
   void _handleScroll() {
@@ -112,32 +130,47 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _failed = false;
     });
     try {
-      final products = await _api.fetchProductsFresh();
+      var products = await _api.fetchProductsFresh();
       if (!mounted) return;
-      if (products == null) {
+      if (products == null || products.isEmpty) {
+        products = await _api.getCachedProducts();
+      }
+      if (products.isEmpty) {
         setState(() {
           _loading = false;
           _failed = true;
         });
       } else {
         setState(() {
-          _all = products;
+          _all = products!;
           _loading = false;
-          _failed = products.isEmpty;
+          _failed = false;
         });
       }
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _failed = true;
-      });
+      final cached = await _api.getCachedProducts();
+      if (!mounted) return;
+      if (cached.isNotEmpty) {
+        setState(() {
+          _all = cached;
+          _loading = false;
+          _failed = false;
+        });
+      } else {
+        setState(() {
+          _loading = false;
+          _failed = true;
+        });
+      }
     }
+    _startTimer();
   }
 
   // Background refresh — on the 5-minute timer and whenever the app is
@@ -148,6 +181,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // drops etc.) without moving position, per the site's own rule.
   Future<void> _autoRefresh() async {
     if (_loading) return;
+    if (_failed || _all.isEmpty) {
+      await _load();
+      return;
+    }
     try {
       // fetchProductsFresh (not fetchProducts) — on any failure we want to
       // know and retry, not silently get served the stale on-disk cache
@@ -171,7 +208,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           .toList();
 
       if (newOnly.isEmpty) {
-        setState(() => _all = updatedExisting);
+        setState(() {
+          _all = updatedExisting;
+          _failed = false;
+          _loading = false;
+        });
+        _startTimer();
         return;
       }
 
@@ -181,7 +223,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           hasScroll ? _scrollController.position.maxScrollExtent : 0.0;
       final atTop = !hasScroll || oldPixels <= _kAtTopEpsilon;
 
-      setState(() => _all = [...newOnly, ...updatedExisting]);
+      setState(() {
+        _all = [...newOnly, ...updatedExisting];
+        _failed = false;
+        _loading = false;
+      });
+      _startTimer();
 
       if (atTop) return;
 
