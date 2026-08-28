@@ -1519,14 +1519,15 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     }
   }
 
-  if (candidateDeals.length > 0) {
-    for (const { deal, availability } of checked) {
-      if (availability && availability.available) {
-        await sendNonAmazonDealPromptToAdmin(deal, env).catch(e => console.error('Prompt non-Amazon failed:', e.message));
-        newSentLinks.push(deal.link);
-      }
-    }
+  if (newProducts.length > 0) {
+    console.log(`Auto-publishing ${newProducts.length} new non-Amazon deals with CueLinks...`);
+    const updatedProducts = await capLiveAndBury([...newProducts, ...products], env);
+    await saveProductsFile(updatedProducts, sha, `Auto-publish non-Amazon deals: ${newProducts.map(p => p.title.slice(0, 30)).join(', ')}`, env);
+    
     await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-500)));
+
+    // Send converted deals to public Telegram channel
+    await postDealsAndTrack(newProducts, env).catch(e => console.error('TG auto-post non-Amazon failed:', e.message));
   }
 
   // Surface FLIPKART_SESSION_COOKIE health on the admin dashboard (same bell/push
