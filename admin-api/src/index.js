@@ -3563,15 +3563,18 @@ async function handleTelegramWebhook(request, env) {
         try {
           const { asinM, finalUrl } = await resolveAsin(span.url);
           let affiliateLink;
-          if (hasUptoOffInTitle(text)) {
-            const targetUrl = asinM ? `https://www.amazon.in/dp/${asinM[1]}` : finalUrl;
-            affiliateLink = buildManualCueLink(targetUrl, env);
-          } else if (asinM) {
+          if (asinM) {
             affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
+          } else if (finalUrl.includes('amazon.') || finalUrl.includes('amzn.')) {
+            try {
+              const u = new URL(finalUrl);
+              u.searchParams.set('tag', TAG);
+              affiliateLink = u.toString();
+            } catch (e) {
+              affiliateLink = buildManualCueLink(finalUrl, env);
+            }
           } else {
-            const u = new URL(finalUrl);
-            u.searchParams.set('tag', TAG);
-            affiliateLink = u.toString();
+            affiliateLink = buildManualCueLink(finalUrl, env);
           }
           const placeholder = `%%DBLINK${links.length}%%`;
           pieces.push(text.slice(cursor, span.start), placeholder);
