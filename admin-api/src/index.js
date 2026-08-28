@@ -4478,10 +4478,57 @@ export default {
           const { orderedIds } = await request.json();
           if (!Array.isArray(orderedIds)) return json({ error: 'orderedIds must be an array' }, 400);
           const { products, sha } = await getProductsFile(env);
-          const map = new Map(products.map(p=>[p.id,p]));
-          const reordered = orderedIds.map((id,i) => map.has(id) ? {...map.get(id),order:i} : null).filter(Boolean);
-          let nextOrder = reordered.length;
-          return json({ success: true });
+          const map = new Map(products.map(p => [p.id, p]));
+          const seen = new Set();
+          const reordered = [];
+          for (let i = 0; i < orderedIds.length; i++) {
+            const id = orderedIds[i];
+            if (map.has(id) && !seen.has(id)) {
+              seen.add(id);
+              reordered.push({ ...map.get(id), order: reordered.length });
+            }
+          }
+          for (const p of products) {
+            if (!seen.has(p.id)) {
+              reordered.push({ ...p, order: reordered.length });
+            }
+          }
+          await saveProductsFile(reordered, sha, 'Reordered products', env);
+          return json({ success: true, message: 'Products reordered successfully.' });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── POST /products/:id/push-to-bottom ────────────────────────────────────
+      const pushBottomMatch = url.pathname.match(/^\/products\/([^/]+)\/push-to-bottom$/);
+      if (pushBottomMatch && request.method === 'POST') {
+        try {
+          const targetId = pushBottomMatch[1];
+          const { products, sha } = await getProductsFile(env);
+          const item = products.find(p => p.id === targetId || (p.asin && p.asin.toUpperCase() === targetId.toUpperCase()));
+          if (!item) return json({ error: 'Product not found' }, 404);
+
+          const others = products.filter(p => p.id !== item.id);
+          const reordered = [...others, item].map((p, i) => ({ ...p, order: i }));
+
+          await saveProductsFile(reordered, sha, `Pushed product ${item.id} to bottom`, env);
+          return json({ success: true, message: 'Deal pushed to bottom successfully!' });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── POST /products/:id/push-to-top ───────────────────────────────────────
+      const pushTopMatch = url.pathname.match(/^\/products\/([^/]+)\/push-to-top$/);
+      if (pushTopMatch && request.method === 'POST') {
+        try {
+          const targetId = pushTopMatch[1];
+          const { products, sha } = await getProductsFile(env);
+          const item = products.find(p => p.id === targetId || (p.asin && p.asin.toUpperCase() === targetId.toUpperCase()));
+          if (!item) return json({ error: 'Product not found' }, 404);
+
+          const others = products.filter(p => p.id !== item.id);
+          const reordered = [item, ...others].map((p, i) => ({ ...p, order: i }));
+
+          await saveProductsFile(reordered, sha, `Pushed product ${item.id} to top`, env);
+          return json({ success: true, message: 'Deal pushed to top successfully!' });
         } catch (e) { return json({ error: e.message }, 502); }
       }
 

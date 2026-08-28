@@ -1333,7 +1333,7 @@ function toggleOOSFilter() {
 
 async function pushAllOOSToBottom() {
   const oosProducts = allProducts.filter(p => p.outOfStock);
-  if (!oosProducts.length) { alert('No out-of-stock products found.'); return; }
+  if (!oosProducts.length) { showToast('No out-of-stock products found.', 'error'); return; }
   if (!confirm(`Push ${oosProducts.length} out-of-stock products to bottom?`)) return;
   try {
     const resp = await apiFetch('/products/push-oos-to-bottom', { method: 'POST' });
@@ -1342,14 +1342,15 @@ async function pushAllOOSToBottom() {
     // Reorder locally: non-OOS first, OOS at bottom
     allProducts = [...allProducts.filter(p => !p.outOfStock), ...allProducts.filter(p => p.outOfStock)];
     updateStats(); renderList(); updateNotifications();
-  } catch (e) { alert('Failed: ' + e.message); }
+    showToast(data.message || `Pushed ${oosProducts.length} OOS products to bottom!`);
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
 }
 
 function isZeroPrice(p) { return !p.price || p.price === '₹0' || p.price === '₹'; }
 
 async function pushZeroPriceToBottom() {
   const zeroPriceProducts = allProducts.filter(isZeroPrice);
-  if (!zeroPriceProducts.length) { alert('No zero-price products found.'); return; }
+  if (!zeroPriceProducts.length) { showToast('No zero-price products found.', 'error'); return; }
   if (!confirm(`Push ${zeroPriceProducts.length} zero-price products to bottom?`)) return;
   try {
     const resp = await apiFetch('/products/push-zero-price-to-bottom', { method: 'POST' });
@@ -1357,7 +1358,8 @@ async function pushZeroPriceToBottom() {
     if (data.error) throw new Error(data.error);
     allProducts = [...allProducts.filter(p => !isZeroPrice(p)), ...allProducts.filter(isZeroPrice)];
     updateStats(); renderList(); updateNotifications();
-  } catch (e) { alert('Failed: ' + e.message); }
+    showToast(data.message || `Pushed ${zeroPriceProducts.length} zero-price products to bottom!`);
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
 }
 
 function renderList() {
@@ -1686,24 +1688,48 @@ function reorderDrop(fromVisual, toVisual) {
   });
 }
 
+function showToast(message, type = 'success') {
+  let toastContainer = document.getElementById('toastContainer');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toastContainer';
+    toastContainer.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+    document.body.appendChild(toastContainer);
+  }
+
+  const toast = document.createElement('div');
+  const bgColor = type === 'error' ? '#ef4444' : '#10b981';
+  toast.style.cssText = `background:${bgColor};color:#fff;padding:12px 18px;border-radius:10px;font-size:0.88rem;font-weight:600;box-shadow:0 10px 25px -5px rgba(0,0,0,0.3);pointer-events:auto;transition:all 0.3s ease;transform:translateY(10px);opacity:0;`;
+  toast.textContent = message;
+
+  toastContainer.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.style.transform = 'translateY(0)';
+    toast.style.opacity = '1';
+  });
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
 async function pushToTop(id) {
   const item = allProducts.find(p => p.id === id);
   if (!item) return;
 
-  // Move it to index 0 of allProducts
+  // Move item immediately to index 0 in local state for instant feedback
   allProducts = [item, ...allProducts.filter(p => p.id !== id)].map((p, i) => ({ ...p, order: i }));
   renderList();
 
-  const orderedIds = allProducts.map(p => p.id);
   try {
-    const resp = await apiFetch('/products/reorder', {
-      method: 'POST',
-      body: { orderedIds }
-    });
+    const resp = await apiFetch(`/products/${id}/push-to-top`, { method: 'POST' });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
+    showToast(data.message || 'Deal pushed to top successfully!');
   } catch (e) {
-    alert('Failed to push to top: ' + e.message);
+    showToast('Failed to push to top: ' + e.message, 'error');
     loadProducts();
   }
 }
@@ -1712,19 +1738,17 @@ async function pushToBottom(id) {
   const item = allProducts.find(p => p.id === id);
   if (!item) return;
 
+  // Move item immediately to bottom in local state for instant feedback
   allProducts = [...allProducts.filter(p => p.id !== id), item].map((p, i) => ({ ...p, order: i }));
   renderList();
 
-  const orderedIds = allProducts.map(p => p.id);
   try {
-    const resp = await apiFetch('/products/reorder', {
-      method: 'POST',
-      body: { orderedIds }
-    });
+    const resp = await apiFetch(`/products/${id}/push-to-bottom`, { method: 'POST' });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
+    showToast(data.message || 'Deal pushed to bottom successfully!');
   } catch (e) {
-    alert('Failed to push to bottom: ' + e.message);
+    showToast('Failed to push to bottom: ' + e.message, 'error');
     loadProducts();
   }
 }
