@@ -3511,6 +3511,56 @@ async function handleTelegramWebhook(request, env) {
   // ── 1. Reply to a Non-Amazon / Flipkart deal prompt ────────────────────────
   if (msg.reply_to_message) {
     const replyText = msg.reply_to_message.text || msg.reply_to_message.caption || '';
+    const kvPendingKey = `pending_ml_${msg.reply_to_message.message_id}`;
+    const kvPending = await env.KV.get(kvPendingKey);
+
+    // Multi-Link EarnKaro Reply Handling
+    if (kvPending || replyText.includes('Multi-Link Deal')) {
+      const affiliateLinks = text.match(/https?:\/\/[^\s]+/gi) || [];
+      if (!affiliateLinks.length) {
+        await tgSend(token, chatId, escTg('❌ Please reply with valid converted EarnKaro link URLs.'));
+        return new Response('ok');
+      }
+
+      let pending = null;
+      try { pending = JSON.parse(kvPending || '{}'); } catch (e) {}
+
+      const rawText = pending?.rawText || (msg.reply_to_message.text || msg.reply_to_message.caption || '');
+      const NON_AMZ_RE = /https?:\/\/(?:[a-z0-9-]+\.)*(?:flipkart\.com|fkrt\.it|fktr\.in|myntra\.com|ajio\.com|meesho\.com|shopsy\.in|tatacliq\.com|nykaa\.com|jiomart\.com)[^\s]*/gi;
+      const origLinks = pending?.originalLinks || Array.from(rawText.matchAll(NON_AMZ_RE), m => m[0]);
+
+      let htmlText = escHtml(rawText);
+      htmlText = htmlText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!');
+
+      origLinks.forEach((origUrl, idx) => {
+        const affUrl = affiliateLinks[idx] || affiliateLinks[affiliateLinks.length - 1];
+        const btnHtml = `<a href="${escHtml(affUrl)}">👉 Check Now</a>`;
+        htmlText = htmlText.split(escHtml(origUrl)).join(btnHtml);
+        htmlText = htmlText.split(origUrl).join(btnHtml);
+      });
+
+      for (const ch of TG_CHANNELS) {
+        if (pending?.photoId || msg.reply_to_message.photo) {
+          const photoId = pending?.photoId || msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id;
+          await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML' }),
+          });
+        } else {
+          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true }),
+          });
+        }
+      }
+
+      await tgSend(token, chatId, escTg(`✅ Published multi-link deal to ${TG_CHANNELS.length} channels with ${affiliateLinks.length} EarnKaro links!`));
+      return new Response('ok');
+    }
+
+    // Single-Link Non-Amazon EarnKaro Reply Handling
     if (replyText.includes('Reply to this message with your converted') || replyText.includes('New Flipkart Deal') || replyText.includes('New Non-Amazon Deal')) {
       const affiliateLinkM = text.match(/https?:\/\/[^\s]+/i);
       if (!affiliateLinkM) {
@@ -3571,10 +3621,49 @@ async function handleTelegramWebhook(request, env) {
     }
   }
 
-  // ── 2. Check if non-Amazon link was sent/forwarded directly to bot ───────────
-  const nonAmzMatch = text.match(/https?:\/\/(?:[a-z0-9-]+\.)*(?:flipkart\.com|fkrt\.it|fktr\.in|myntra\.com|ajio\.com|meesho\.com|shopsy\.in|tatacliq\.com|nykaa\.com|jiomart\.com)[^\s]*/i);
-  if (nonAmzMatch && !msg.reply_to_message) {
-    const rawUrl = nonAmzMatch[0];
+  // ── 2. Check if non-Amazon link(s) sent/forwarded directly to bot ────────────
+  const NON_AMZ_RE = /https?:\/\/(?:[a-z0-9-]+\.)*(?:flipkart\.com|fkrt\.it|fktr\.in|myntra\.com|ajio\.com|meesho\.com|shopsy\.in|tatacliq\.com|nykaa\.com|jiomart\.com)[^\s]*/gi;
+  const nonAmzMatches = Array.from(text.matchAll(NON_AMZ_RE), m => m[0]);
+  const uniqueNonAmzLinks = Array.from(new Set(nonAmzMatches));
+
+  if (uniqueNonAmzLinks.length > 0 && !msg.reply_to_message) {
+    if (uniqueNonAmzLinks.length > 1) {
+      // Multi-link non-Amazon deal
+      const linksListStr = uniqueNonAmzLinks.map((url, i) => `${i + 1}. ${url}`).join('\n');
+      const promptMsgText = `📦 New Non-Amazon Multi-Link Deal (${uniqueNonAmzLinks.length} Links)\n\nOriginal Links:\n${linksListStr}\n\n👉 Reply to this message with your ${uniqueNonAmzLinks.length} converted EarnKaro affiliate links (one URL per line, in order) to publish it!`;
+
+      let promptMsg;
+      if (msg.photo && msg.photo.length > 0) {
+        const photoId = msg.photo[msg.photo.length - 1].file_id;
+        const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, photo: photoId, caption: promptMsgText }),
+        });
+        try { promptMsg = await r.json(); } catch (e) {}
+      } else {
+        const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: promptMsgText }),
+        });
+        try { promptMsg = await r.json(); } catch (e) {}
+      }
+
+      const promptMsgId = promptMsg?.result?.message_id;
+      if (promptMsgId) {
+        await env.KV.put(`pending_ml_${promptMsgId}`, JSON.stringify({
+          rawText: text,
+          photoId: msg.photo ? msg.photo[msg.photo.length - 1].file_id : null,
+          originalLinks: uniqueNonAmzLinks
+        }), { expirationTtl: 86400 });
+      }
+
+      return new Response('ok');
+    }
+
+    // Single-link non-Amazon deal
+    const rawUrl = uniqueNonAmzLinks[0];
     const storeName = getStoreNameFromTitleOrUrl(text, rawUrl);
     let title = trimTitle(text.replace(/https?:\/\/[^\s]+/g, '').trim()) || `${storeName} Special Deal`;
     let price = '';
