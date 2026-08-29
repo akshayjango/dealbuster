@@ -3735,8 +3735,6 @@ async function handleTelegramWebhook(request, env) {
   // - a link hidden behind styled anchor text, e.g. "👉 Click Here 🛍️" — some
   //   source channels format links this way, and the destination URL isn't in
   //   `text`/`caption` at all then, only in the message's `entities` metadata.
-  const AMZ_HOST_RE = /^(?:www\.)?(?:amazon\.in|amzn\.in|amzn\.to|amazn\.lt)$/i;
-  const isAmazonUrl = u => { try { return AMZ_HOST_RE.test(new URL(u).hostname); } catch { return false; } };
   const entities = msg.entities || msg.caption_entities || [];
   let linkSpans = []; // { start, end, url } — end is exclusive
   for (const ent of entities) {
