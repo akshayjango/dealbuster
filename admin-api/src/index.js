@@ -3529,38 +3529,60 @@ async function handleTelegramWebhook(request, env) {
       let pending = null;
       try { pending = JSON.parse(kvPending || '{}'); } catch (e) {}
 
-      const rawText = pending?.rawText || (msg.reply_to_message.text || msg.reply_to_message.caption || '');
-      const NON_AMZ_RE = /https?:\/\/(?:[a-z0-9-]+\.)*(?:flipkart\.com|fkrt\.it|fktr\.in|myntra\.com|ajio\.com|meesho\.com|shopsy\.in|tatacliq\.com|nykaa\.com|jiomart\.com)[^\s]*/gi;
-      const origLinks = pending?.originalLinks || Array.from(rawText.matchAll(NON_AMZ_RE), m => m[0]);
+      const rawText = pending?.rawText;
+      const NON_AMZ_RE = /https?:\/\/[^\s]+/gi;
+      const origLinks = pending?.originalLinks || Array.from((msg.reply_to_message.text || '').matchAll(NON_AMZ_RE), m => m[0]);
 
-      let htmlText = escHtml(rawText);
-      htmlText = htmlText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!');
+      let htmlText = '';
+      if (rawText && rawText.trim().length > 0) {
+        htmlText = escHtml(rawText);
+        htmlText = htmlText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!');
 
-      origLinks.forEach((origUrl, idx) => {
-        const affUrl = affiliateLinks[idx] || affiliateLinks[affiliateLinks.length - 1];
-        const btnHtml = `<a href="${escHtml(affUrl)}">👉 Check Now</a>`;
-        htmlText = htmlText.split(escHtml(origUrl)).join(btnHtml);
-        htmlText = htmlText.split(origUrl).join(btnHtml);
-      });
+        origLinks.forEach((origUrl, idx) => {
+          const affUrl = affiliateLinks[idx] || affiliateLinks[affiliateLinks.length - 1];
+          const btnHtml = `<a href="${escHtml(affUrl)}">👉 Check Now</a>`;
+          htmlText = htmlText.split(escHtml(origUrl)).join(btnHtml);
+          htmlText = htmlText.split(origUrl).join(btnHtml);
+        });
+      } else {
+        // Fallback: Construct clean multi-link deal message
+        const lines = affiliateLinks.map((affUrl, idx) => `${idx + 1}. <a href="${escHtml(affUrl)}">👉 Check Now</a>`);
+        htmlText = `🔥 <b>Non-Amazon Special Deals</b>\n\n${lines.join('\n')}\n\n📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!`;
+      }
+
+      const photoId = pending?.photoId || (msg.reply_to_message.photo ? msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id : null);
+      let sendError = null;
 
       for (const ch of TG_CHANNELS) {
-        if (pending?.photoId || msg.reply_to_message.photo) {
-          const photoId = pending?.photoId || msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id;
-          await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        let r;
+        if (photoId) {
+          r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML' }),
           });
         } else {
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true }),
           });
         }
+
+        const resJson = await r.json().catch(() => ({}));
+        if (!r.ok || !resJson.ok) {
+          console.error(`Telegram API send failed to ${ch}:`, resJson);
+          sendError = resJson.description || `HTTP ${r.status}`;
+        }
       }
 
-      await tgSend(token, chatId, escTg(`✅ Published multi-link deal to ${TG_CHANNELS.length} channels with ${affiliateLinks.length} EarnKaro links!`));
+      if (sendError) {
+        await tgSend(token, chatId, escTg(`❌ Telegram API Error: ${sendError}`));
+        return new Response('ok');
+      }
+
+      await tgSend(token, chatId, escTg(`✅ Published multi-link deal to ${TG_CHANNELS.length} channel(s) with ${affiliateLinks.length} EarnKaro links!`));
+      return new Response('ok');
       return new Response('ok');
     }
 
