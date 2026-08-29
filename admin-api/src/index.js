@@ -3626,9 +3626,24 @@ async function handleTelegramWebhook(request, env) {
   }
 
   // ── 2. Check if non-Amazon link(s) sent/forwarded directly to bot ────────────
-  const NON_AMZ_RE = /https?:\/\/(?:[a-z0-9-]+\.)*(?:flipkart\.com|fkrt\.it|fktr\.in|myntra\.com|ajio\.com|meesho\.com|shopsy\.in|tatacliq\.com|nykaa\.com|jiomart\.com)[^\s]*/gi;
-  const nonAmzMatches = Array.from(text.matchAll(NON_AMZ_RE), m => m[0]);
-  const uniqueNonAmzLinks = Array.from(new Set(nonAmzMatches));
+  const AMZ_HOST_RE = /^(?:www\.)?(?:amazon\.in|amzn\.in|amzn\.to|amazn\.lt)$/i;
+  const isAmazonUrl = u => { try { return AMZ_HOST_RE.test(new URL(u).hostname); } catch { return false; } };
+
+  const msgEntities = msg.entities || msg.caption_entities || [];
+  const allMessageUrls = [];
+  for (const ent of msgEntities) {
+    if (ent.type === 'text_link' && ent.url) {
+      if (!allMessageUrls.includes(ent.url)) allMessageUrls.push(ent.url);
+    } else if (ent.type === 'url') {
+      const raw = text.slice(ent.offset, ent.offset + ent.length);
+      if (raw && !allMessageUrls.includes(raw)) allMessageUrls.push(raw);
+    }
+  }
+  for (const m of text.matchAll(/https?:\/\/[^\s]+/gi)) {
+    if (!allMessageUrls.includes(m[0])) allMessageUrls.push(m[0]);
+  }
+
+  const uniqueNonAmzLinks = allMessageUrls.filter(u => !isAmazonUrl(u));
 
   if (uniqueNonAmzLinks.length > 0 && !msg.reply_to_message) {
     if (uniqueNonAmzLinks.length > 1) {
@@ -3677,7 +3692,35 @@ async function handleTelegramWebhook(request, env) {
     const mrpM = text.match(/(?:MRP|Original Price)\s*:\s*₹?\s*([\d,]+)/i);
     if (mrpM) mrp = '₹' + mrpM[1].replace(/,/g, '');
 
-    await sendNonAmazonDealPromptToAdmin({ title, price, mrp, link: rawUrl }, env);
+    const promptMsgText = `📦 New ${storeName} Deal\n\nTitle: ${title}\n${price ? `Price: ${price}\n` : ''}${mrp ? `MRP: ${mrp}\n` : ''}Original Link: ${rawUrl}\n\n👉 Reply to this message with your converted EarnKaro affiliate link to publish it!`;
+
+    let promptMsg;
+    if (msg.photo && msg.photo.length > 0) {
+      const photoId = msg.photo[msg.photo.length - 1].file_id;
+      const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, photo: photoId, caption: promptMsgText }),
+      });
+      try { promptMsg = await r.json(); } catch (e) {}
+    } else {
+      const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: promptMsgText }),
+      });
+      try { promptMsg = await r.json(); } catch (e) {}
+    }
+
+    const promptMsgId = promptMsg?.result?.message_id;
+    if (promptMsgId) {
+      await env.KV.put(`pending_ml_${promptMsgId}`, JSON.stringify({
+        rawText: text,
+        photoId: msg.photo ? msg.photo[msg.photo.length - 1].file_id : null,
+        originalLinks: [rawUrl]
+      }), { expirationTtl: 86400 });
+    }
+
     return new Response('ok');
   }
 
