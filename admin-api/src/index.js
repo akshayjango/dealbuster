@@ -2271,13 +2271,16 @@ async function checkLowestPriceBadges(env) {
         }
       }
 
-      // Filter out low rating (< 3.6), low stock (Only 1-4 left), undeliverable, or out of stock deals permanently!
-      if ((rating != null && rating < 3.6) || lowStock || undeliverable || isOOS) {
-        console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, lowStock=${lowStock}, undeliverable=${undeliverable}, isOOS=${isOOS}`);
+      // Filter out low rating (< 3.6), undeliverable, or out of stock deals permanently! (Do NOT delete lowStock deals like "Only 3 left in stock")
+      if ((rating != null && rating < 3.6) || undeliverable || isOOS) {
+        console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, undeliverable=${undeliverable}, isOOS=${isOOS}`);
         productMap.delete(p.id);
         await addDeletedAsin(p.asin, env);
         changed = true;
         return;
+      }
+      if (lowStock) {
+        updated.lowStock = true;
       }
 
       // Fix wrong category: if Amazon breadcrumb says something different, update
