@@ -1147,7 +1147,48 @@ function buildManualCueLink(url, env = {}) {
 // Title always falls back to the original scraped title on any uncertainty —
 // per CueLinks' own docs, "If the AI service is unavailable, the original
 // title is returned... the request never fails due to AI," so this mirrors
-// that same never-worse-than-before guarantee for the link side too.
+// ── EarnKaro Link Converter API ──────────────────────────────────────────────
+async function convertToEarnKaro(dealText, env) {
+  const token = (env.EARNKARO_API_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o').trim();
+  if (!token || !dealText) return null;
+  try {
+    const res = await fetchWithTimeout('https://ekaro-api.affiliaters.in/api/converter/public', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        deal: dealText,
+        convert_option: 'convert_only'
+      })
+    }, 15000);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.success === 1 && data?.data) {
+        return data.data;
+      }
+    } else {
+      const errText = await res.text().catch(() => '');
+      console.log(`EarnKaro API returned ${res.status}: ${errText.slice(0, 200)}`);
+    }
+  } catch (e) {
+    console.error('EarnKaro conversion failed:', e.message);
+  }
+  return null;
+}
+
+async function convertToEarnKaroLink(url, env) {
+  if (!url) return null;
+  const convertedText = await convertToEarnKaro(url, env);
+  if (convertedText) {
+    const match = convertedText.match(/https?:\/\/[^\s]+/i);
+    if (match) return match[0];
+  }
+  return null;
+}
+
 async function convertToCueLink(url, title, env, inputDescription, channelId) {
   const apiKey = (env.CUELINKS_API_KEY || '').trim();
   if (!apiKey) return { link: buildManualCueLink(url), title, affiliated: null };
@@ -1536,25 +1577,22 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
         continue;
       }
 
-      // Convert link to a real tracked CueLinks affiliate link, and ask CueLinks'
-      // AI to clean up the scraped title (falls back to the manual link wrap and
-      // original title on any uncertainty — see convertToCueLink's comment on
-      // why affiliated:false isn't currently treated as a skip signal). The
-      // original messy scraped title doubles as the "description" input —
-      // CueLinks doesn't generate one from nothing, but rewriting the messy
-      // spec-dump text produces genuinely usable highlight-sized sentences.
-      const { link: cueLink, title: cleanedTitle, description: cleanedDescription } =
+      // Convert link using official EarnKaro Converter API (falls back to CueLinks if unresolvable)
+      const ekaroLink = await convertToEarnKaroLink(deal.link, env);
+      const { link: cueLink, title: cleanedTitle } =
         await convertToCueLink(deal.link, deal.title || '', env, deal.title || '');
+
+      const finalAffiliateLink = ekaroLink || cueLink;
 
       const newProduct = {
         id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
         asin: '',
-        title: cleanedTitle || '',
+        title: deal.title || cleanedTitle || '',
         price: deal.price || '',
         mrp: deal.mrp || '',
         disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
         image: deal.image || '',
-        link: cueLink,
+        link: finalAffiliateLink,
         // Category detection stays on the original scraped title, not the
         // AI-rewritten one — keeps this independent of any rewrite quirks.
         category: deal.category || detectCategoryFromTitle(deal.title),
@@ -3779,6 +3817,79 @@ async function handleTelegramWebhook(request, env) {
   const uniqueNonAmzLinks = allMessageUrls.filter(u => !isAmazonUrl(u));
 
   if (uniqueNonAmzLinks.length > 0 && !msg.reply_to_message) {
+    // Attempt automatic conversion via EarnKaro Converter API
+    const ekaroConverted = await convertToEarnKaro(text, env);
+    if (ekaroConverted && (ekaroConverted.includes('http') || ekaroConverted.includes('www'))) {
+      const photoId = msg.photo ? msg.photo[msg.photo.length - 1].file_id : null;
+      let sendError = null;
+
+      for (const ch of TG_CHANNELS) {
+        let r;
+        if (photoId) {
+          r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: ekaroConverted })
+          });
+        } else {
+          r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, text: ekaroConverted })
+          });
+        }
+
+        const resJson = await r.json().catch(() => ({}));
+        if (!r.ok || !resJson.ok) {
+          console.error(`Telegram API send failed to ${ch}:`, resJson);
+          sendError = resJson.description || `HTTP ${r.status}`;
+        }
+      }
+
+      if (!sendError) {
+        // Also save to products.json for the website
+        try {
+          const rawUrl = uniqueNonAmzLinks[0];
+          const ekaroLinkM = ekaroConverted.match(/https?:\/\/[^\s]+/i);
+          const finalLink = ekaroLinkM ? ekaroLinkM[0] : rawUrl;
+          const storeName = getStoreNameFromTitleOrUrl(text, rawUrl);
+          let title = trimTitle(text.replace(/https?:\/\/[^\s]+/g, '').trim()) || `${storeName} Special Deal`;
+          let price = '';
+          const priceM = text.match(/(?:Deal Price|Price|₹)\s*:\s*₹?\s*([\d,]+)/i) || text.match(/₹\s*([\d,]+)/);
+          if (priceM) price = '₹' + priceM[1].replace(/,/g, '');
+
+          const { products, sha } = await getProductsFile(env);
+          const newProduct = {
+            id: 'fk_' + Date.now(),
+            asin: '',
+            title: title,
+            price: price,
+            mrp: price,
+            disc: '0%',
+            image: '',
+            link: finalLink,
+            category: detectCategoryFromTitle(title),
+            highlights: [],
+            lowestPriceText: null,
+            featured: false,
+            hidden: false,
+            outOfStock: false,
+            order: 0,
+            addedAt: new Date().toISOString(),
+            originalPrice: price
+          };
+
+          const final = await capLiveAndBury([newProduct, ...products], env);
+          await saveProductsFile(final, sha, `Add Non-Amazon EarnKaro deal: ${newProduct.title.slice(0, 60)}`, env);
+        } catch (e) {
+          console.error('Failed to add EarnKaro deal to site:', e.message);
+        }
+
+        await tgSend(token, chatId, escTg('✅ Auto-converted via EarnKaro API & published directly to Telegram channel!'));
+        return new Response('ok');
+      }
+    }
+
     if (uniqueNonAmzLinks.length > 1) {
       // Multi-link non-Amazon deal
       const linksListStr = uniqueNonAmzLinks.map((url, i) => `${i + 1}. ${url}`).join('\n');
