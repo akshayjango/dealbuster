@@ -814,8 +814,8 @@ async function fetchAmazonPageData(asin) {
       if (reviewM) reviewCount = parseInt(reviewM[1].replace(/,/g, ''), 10);
     }
 
-    // Check low stock ("Only 1 left in stock.", "Only 2 left in stock.", etc.)
-    const lowStockM = html.match(/only\s+([1-4])\s+left\s+in\s+stock/i);
+    // Check low stock (strictly "Only 1 left in stock")
+    const lowStockM = html.match(/only\s+(?:1|one)\s+left\s+in\s+stock/i);
     const lowStock = !!lowStockM;
 
     // Check undeliverable message
