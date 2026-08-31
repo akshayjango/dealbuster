@@ -2280,7 +2280,10 @@ async function checkLowestPriceBadges(env) {
         return;
       }
       if (lowStock) {
-        updated.lowStock = true;
+        if (!updated.lowStock) { updated.lowStock = true; changed = true; }
+      } else if (updated.lowStock) {
+        delete updated.lowStock;
+        changed = true;
       }
 
       // Fix wrong category: if Amazon breadcrumb says something different, update
