@@ -664,13 +664,62 @@ function detectCategoryFromTitle(title) {
   return 'Electronics';
 }
 
-// Used only by hourly badge-check cron (not sync)
-// Returns { badge: string|null, highlights: string[], category: string|null }
+function isGenericOrLogoTitle(title) {
+  if (!title || typeof title !== 'string') return true;
+  const t = title.trim().toLowerCase();
+  if (t === 'amazon logo' || t === 'amazon_logo' || t === 'amazonlogo' || t === 'logo' || t === 'amazon' || t === 'nav-logo' || t === 'non-amazon deal') return true;
+  if (t.includes('amazon logo') || t.includes('amazon_logo')) return true;
+  if (t.length < 4) return true;
+  return false;
+}
+
+function isGenericOrLogoImage(url) {
+  if (!url || typeof url !== 'string') return true;
+  const u = url.trim().toLowerCase();
+  if (u.includes('amazon-icon1') || u.includes('amazon_logo') || u.includes('amazon-logo') || u.includes('nav-logo') || u.includes('gno/images') || u.includes('user_action_prompt') || u.includes('transparent-pixel') || u.includes('nav-sprite')) return true;
+  return false;
+}
+
+// Used by hourly badge-check cron & auto-healing
+// Returns { badge: string|null, highlights: string[], category: string|null, rating, reviewCount, lowStock, undeliverable, isOOS, title: string|null, image: string|null }
 async function fetchAmazonPageData(asin) {
   try {
     const r = await fetchWithTimeout(`https://www.amazon.in/dp/${asin}?th=1&psc=1`, { headers: AMZ_HEADERS }, 5000);
-    if (!r.ok) return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false };
+    if (!r.ok) return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false, title: null, image: null };
     const html = await r.text();
+
+    let title = null;
+    const titleElemM = html.match(/id="productTitle"[^>]*>([\s\S]*?)<\/span>/i);
+    if (titleElemM) {
+      title = decodeHtmlEntities(titleElemM[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+    }
+    if (isGenericOrLogoTitle(title)) {
+      const metaTitleM = html.match(/<meta\s+name=["']title["']\s+content=["']([^"']+)["']/i) ||
+                         html.match(/<title>([^<]+)<\/title>/i);
+      if (metaTitleM) {
+        let t = metaTitleM[1].replace(/: Amazon\.in[\s\S]*/i, '').replace(/:\s*Buy\s+[\s\S]*/i, '').trim();
+        if (t && !isGenericOrLogoTitle(t)) title = decodeHtmlEntities(t);
+      }
+    }
+
+    let image = null;
+    const dynImgM = html.match(/data-a-dynamic-image=["']([^"']+)["']/i);
+    if (dynImgM) {
+      try {
+        const imgs = JSON.parse(dynImgM[1].replace(/&quot;/g, '"'));
+        const keys = Object.keys(imgs);
+        if (keys.length > 0 && !isGenericOrLogoImage(keys[0])) image = keys[0];
+      } catch (e) {}
+    }
+    if (!image || isGenericOrLogoImage(image)) {
+      const schemaImgM = html.match(/"image"\s*:\s*\[?\s*"([^"]+)"/i);
+      if (schemaImgM && !isGenericOrLogoImage(schemaImgM[1])) image = schemaImgM[1];
+    }
+    if (!image || isGenericOrLogoImage(image)) {
+      const mainImgM = html.match(/id="(?:landingImage|imgBlkFront|main-image)"[^>]*src=["']([^"']+)["']/i) ||
+                       html.match(/data-old-hires=["']([^"']+)["']/i);
+      if (mainImgM && !isGenericOrLogoImage(mainImgM[1])) image = mainImgM[1];
+    }
 
     const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?|ever)|Best\s+price\s+in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?)/i);
     let badge = badgeM ? badgeM[1].trim() : null;
@@ -782,8 +831,8 @@ async function fetchAmazonPageData(asin) {
                   html.includes('"availability":"OutOfStock"') ||
                   html.includes('"availability":"http://schema.org/OutOfStock"');
 
-    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS };
-  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false }; }
+    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title, image };
+  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false, title: null, image: null }; }
 }
 
 // ── DealsRadar sync (30 new deals / hour, 40 on manual) ───────────────────────
@@ -1891,18 +1940,32 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
     if (added.length >= limit) break;
     if (deletedSet.has(asin) || existingByAsin.has(asin)) continue; // see IFS's same "leave it alone" note above
 
+    let finalTitle = title;
+    let finalImage = image;
+
+    if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
+      const pageData = await fetchAmazonPageData(asin);
+      if (pageData.title && !isGenericOrLogoTitle(pageData.title)) finalTitle = pageData.title;
+      if (pageData.image && !isGenericOrLogoImage(pageData.image)) finalImage = pageData.image;
+
+      if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
+        console.log(`Skipping DOTD deal for ${asin}: generic logo title or image could not be resolved.`);
+        continue;
+      }
+    }
+
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
     const baseLink = `https://www.amazon.in/dp/${asin}`;
-    const link = hasUptoOffInTitle(title) ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
-    const category = detectCategoryFromTitle(title);
+    const link = hasUptoOffInTitle(finalTitle) ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
+    const category = detectCategoryFromTitle(finalTitle);
 
     added.push({
       id: `dotd_${Date.now()}_${added.length}`,
-      asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
-      image, link, category, highlights: ['Great deal on Amazon'],
+      asin, title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
+      image: finalImage, link, category, highlights: ['Great deal on Amazon'],
       lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
       order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
     });
@@ -2187,7 +2250,26 @@ async function checkLowestPriceBadges(env) {
       if (!updated) return;
       updated.lastBadgeCheck = Date.now();
 
-      const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS } = await fetchAmazonPageData(p.asin);
+      const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title: pageTitle, image: pageImage } = await fetchAmazonPageData(p.asin);
+
+      // Auto-heal logo or generic titles/images for existing products!
+      if (isGenericOrLogoTitle(updated.title) || isGenericOrLogoImage(updated.image)) {
+        if (pageTitle && !isGenericOrLogoTitle(pageTitle)) {
+          updated.title = pageTitle;
+          updated.category = category || detectCategoryFromTitle(pageTitle);
+          changed = true;
+        } else if (updated.highlights && updated.highlights.length > 0) {
+          const firstHl = updated.highlights[0].replace(/^Package contains :- /i, '').replace(/^Product: /i, '').split(';')[0].trim();
+          if (firstHl && firstHl.length > 5 && !isGenericOrLogoTitle(firstHl)) {
+            updated.title = firstHl;
+            changed = true;
+          }
+        }
+        if (pageImage && !isGenericOrLogoImage(pageImage)) {
+          updated.image = pageImage;
+          changed = true;
+        }
+      }
 
       // Filter out low rating (< 3.6), low stock (Only 1-4 left), undeliverable, or out of stock deals permanently!
       if ((rating != null && rating < 3.6) || lowStock || undeliverable || isOOS) {
