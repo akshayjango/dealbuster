@@ -2252,7 +2252,7 @@ async function checkLowestPriceBadges(env) {
             changed = true;
           }
         }
-        if (pageImage && !isGenericOrLogoImage(pageImage)) {
+        if (pageImage && !isGenericOrLogoImage(pageImage) && (isGenericOrLogoImage(updated.image) || updated.image !== pageImage)) {
           updated.image = pageImage;
           changed = true;
         }
