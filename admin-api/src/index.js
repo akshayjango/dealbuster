@@ -2508,6 +2508,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
 // ── handlePublish ─────────────────────────────────────────────────────────────
 
 async function handlePublish(body, env) {
+  const today = new Date().toISOString();
   const { product, category, highlights } = body;
   if (product.asin) await restoreAsinIfDeleted(product.asin, env);
 
