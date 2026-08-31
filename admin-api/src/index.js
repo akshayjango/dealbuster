@@ -1478,30 +1478,38 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   const liveOriginalLinks = new Set(
     products
       .filter(p => !isDead(p))
-      .map(p => getOriginalUrl(p.link).toLowerCase())
+      .map(p => getOriginalUrl(p.link).toLowerCase().replace(/\?.*$/, '').replace(/#.*$/, '').trim())
+  );
+  const liveTitles = new Set(
+    products
+      .filter(p => !isDead(p))
+      .map(p => (p.title || '').trim().toLowerCase())
   );
   
   let sentLinks = [];
   try {
     sentLinks = JSON.parse(await env.KV.get('fkart_sent_tg_urls') || '[]');
   } catch (e) {}
-  const sentSet = new Set(sentLinks.map(l => l.toLowerCase()));
+  const sentSet = new Set(sentLinks.map(l => getOriginalUrl(l).toLowerCase().replace(/\?.*$/, '').replace(/#.*$/, '').trim()));
 
   let deletedUrls = [];
   try {
     deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
   } catch (e) {}
-  const deletedSet = new Set(deletedUrls.map(l => l.toLowerCase()));
+  const deletedSet = new Set(deletedUrls.map(l => getOriginalUrl(l).toLowerCase().replace(/\?.*$/, '').replace(/#.*$/, '').trim()));
 
   const newProducts = [];
   const newSentLinks = [...sentLinks];
 
   const candidateDeals = [];
   for (const deal of scrapedDeals) {
-    const origLinkLower = deal.link.toLowerCase();
-    if (liveOriginalLinks.has(origLinkLower)) continue;
-    if (sentSet.has(origLinkLower)) continue;
-    if (deletedSet.has(origLinkLower)) continue;
+    const rawOrig = getOriginalUrl(deal.link || '').toLowerCase().replace(/\?.*$/, '').replace(/#.*$/, '').trim();
+    const titleNorm = (deal.title || '').trim().toLowerCase();
+
+    if (rawOrig && liveOriginalLinks.has(rawOrig)) continue;
+    if (titleNorm && liveTitles.has(titleNorm)) continue;
+    if (rawOrig && sentSet.has(rawOrig)) continue;
+    if (rawOrig && deletedSet.has(rawOrig)) continue;
     candidateDeals.push(deal);
   }
 
@@ -2832,7 +2840,34 @@ async function capLiveAndBury(all, env, cap = 1800) {
   const tombs = [];
   const expired = [];
 
+  const seenAsins = new Set();
+  const seenUrls = new Set();
+  const seenTitles = new Set();
+
   for (const p of all) {
+    if (!p) continue;
+
+    // Deduplicate Amazon deals by ASIN
+    if (p.asin && p.asin.trim().length > 0) {
+      const asinUpper = p.asin.trim().toUpperCase();
+      if (seenAsins.has(asinUpper)) continue;
+      seenAsins.add(asinUpper);
+    }
+
+    // Deduplicate non-Amazon or all deals by canonical product URL
+    const origUrl = getOriginalUrl(p.link || '').toLowerCase().replace(/\?.*$/, '').replace(/#.*$/, '').trim();
+    if (origUrl && origUrl.length > 10) {
+      if (seenUrls.has(origUrl)) continue;
+      seenUrls.add(origUrl);
+    }
+
+    // Deduplicate by normalized title
+    const titleNorm = (p.title || '').trim().toLowerCase();
+    if (titleNorm && titleNorm.length > 5) {
+      if (seenTitles.has(titleNorm)) continue;
+      seenTitles.add(titleNorm);
+    }
+
     // Permanent deletion filter: Amazon deals with a known rating < 3.6 are dropped completely
     if (p.asin && typeof p.rating === 'number' && p.rating < 3.6) {
       continue;
