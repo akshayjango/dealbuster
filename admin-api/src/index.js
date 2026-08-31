@@ -1591,23 +1591,10 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   // over 'ok'/'request_failed' since even one confirmed-anonymous response means
   // every check this run was unauthenticated.
   if (flipkartCookieStatuses.length > 0) {
-    if (flipkartCookieStatuses.includes('expired')) {
-      await saveSyncError(
-        'FlipkartSessionCookie',
-        'Flipkart session cookie appears expired or invalid — deliverability checks are running anonymously again. Re-extract the cookie from a logged-in browser and run: npx wrangler secret put FLIPKART_SESSION_COOKIE',
-        env
-      );
-    } else if (flipkartCookieStatuses.includes('ok')) {
+    if (flipkartCookieStatuses.includes('ok')) {
       await clearSyncError('FlipkartSessionCookie', env);
-    } else {
-      // every attempt was 'request_failed' — ScrapingAnt itself failed (API key/credits/outage),
-      // not necessarily the cookie. Distinct message so it's not confused with an expired cookie.
-      await saveSyncError(
-        'FlipkartSessionCookie',
-        'Flipkart authenticated availability check failed for every candidate this run (ScrapingAnt request error) — check SCRAPINGANT_API_KEYS / credits.',
-        env
-      );
     }
+    // FlipkartSessionCookie error alerts to TG bot DM, push notifications, and dashboard panel disabled per user request.
   }
 }
 
