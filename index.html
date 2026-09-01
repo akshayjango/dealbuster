@@ -3084,7 +3084,7 @@
     });
 
     function renderResults() {
-      const q = soInput.value.trim().toLowerCase();
+      const q = soInput.value.trim();
       soClear.style.display = q ? 'flex' : 'none';
       soGrid.innerHTML = '';
       if (!q) {
@@ -3095,12 +3095,31 @@
       const normQ = normalizeSearchText(q);
       const matches = [];
       const seen = new Set();
-      document.querySelectorAll('#productsGrid .product-card:not([data-clone])').forEach(c => {
-        if (matches.length >= 60) return;
-        const title = c.querySelector('.card-title')?.textContent || '';
+      const allDeals = (window.allProductsData && window.allProductsData.length)
+        ? window.allProductsData
+        : Array.from(document.querySelectorAll('#productsGrid .product-card:not([data-clone])')).map(c => ({
+            title: c.querySelector('.card-title')?.textContent || '',
+            element: c
+          }));
+
+      for (const item of allDeals) {
+        if (matches.length >= 60) break;
+        const title = item.title || '';
         const key = title.trim().toLowerCase();
-        if (normalizeSearchText(key).includes(normQ) && !seen.has(key)) { seen.add(key); matches.push(c); }
-      });
+        if (key && normalizeSearchText(key).includes(normQ) && !seen.has(key)) {
+          seen.add(key);
+          if (item.element) {
+            const cl = item.element.cloneNode(true);
+            cl.style.display = 'flex';
+            matches.push(cl);
+          } else {
+            const cardEl = buildProductCard(item);
+            cardEl.style.display = 'flex';
+            matches.push(cardEl);
+          }
+        }
+      }
+
       if (!matches.length) {
         soHint.textContent = `No deals found for "${soInput.value.trim()}"`;
         soHint.style.display = 'block';
@@ -3108,11 +3127,7 @@
       }
       soHint.style.display = 'none';
       const frag = document.createDocumentFragment();
-      matches.forEach(c => {
-        const cl = c.cloneNode(true);
-        cl.style.display = 'flex';
-        frag.appendChild(cl);
-      });
+      matches.forEach(c => frag.appendChild(c));
       soGrid.appendChild(frag);
     }
 
@@ -3537,6 +3552,7 @@
     const cached = cachedRaw ? sortProducts(cachedRaw) : null;
 
     if (cached && cached.length) {
+      window.allProductsData = cached;
       // Instant render from the last successful fetch on this tab. The fetch
       // below still runs and silently corrects anything stale. Cards build
       // in chunks (see renderProducts) — apply filters/scroll after the
@@ -3560,6 +3576,7 @@
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       const products = sortProducts(Array.isArray(data) ? data : (data.products || []));
+      window.allProductsData = products;
       setCachedProducts(products);
       renderProducts(products,
         () => {
