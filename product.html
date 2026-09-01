@@ -969,7 +969,14 @@
   // Category
   document.getElementById('catTag').textContent = cat;
 
-  // Title
+  const lowestText = params.get('lowestPriceText') || (typeof product !== 'undefined' ? product?.lowestPriceText : null);
+  if (lowestText) {
+    const pill = document.createElement('span');
+    pill.className = 'lowest-price-tag';
+    pill.style.cssText = 'background:#10b981;color:#fff;font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:6px;display:inline-block;margin-left:8px;vertical-align:middle;';
+    pill.innerHTML = `🔥 ${lowestText}`;
+    document.getElementById('catTag')?.insertAdjacentElement('afterend', pill);
+  }
   document.getElementById('productTitle').textContent = title;
 
   // Prices — collection/category deals don't show a specific price at all,

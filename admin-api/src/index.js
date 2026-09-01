@@ -4419,8 +4419,13 @@ export default {
           if(!image){const lM=html.match(/"large"\s*:\s*"([^"]+)"/i);if(lM)image=lM[1];}
           if(image) image=image.replace(/&amp;/g,'&').replace(/&#39;/g,"'").replace(/&quot;/g,'"');
 
-          const lowestPriceM = html.match(/(Lowest\s+price\s+(?:in\s+\d+\s+days|ever))/i);
-          const lowestPriceText = lowestPriceM ? lowestPriceM[1].trim() : null;
+          function extractLowestPriceText(txt) {
+            if (!txt) return null;
+            const m = txt.match(/(Lowest\s+Price\s+(?:in\s+(?:the\s+year|\d+\s+days|30\s+days|7\s+days|90\s+days|365\s+days)|since\s+[A-Za-z0-9_]+|ever))/i);
+            return m ? m[1].trim() : null;
+          }
+
+          const lowestPriceText = extractLowestPriceText(html);
 
           if (title) return json({ title, price, mrp, highlights, category, asin, image, lowestPriceText });
           return json({ error: 'Title not found' }, 404);
