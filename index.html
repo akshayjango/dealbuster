@@ -3520,9 +3520,21 @@
     }
   }
 
+  function sortProducts(list) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter(p => !p.hidden && !p.dead)
+      .sort((a, b) =>
+        (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
+        (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
+        (a.order ?? 999) - (b.order ?? 999)
+      );
+  }
+
   (async () => {
     const grid = document.getElementById('productsGrid');
-    const cached = getCachedProducts();
+    const cachedRaw = getCachedProducts();
+    const cached = cachedRaw ? sortProducts(cachedRaw) : null;
 
     if (cached && cached.length) {
       // Instant render from the last successful fetch on this tab. The fetch
@@ -3547,15 +3559,7 @@
       const resp = await fetch(PRODUCTS_URL, { cache: 'no-cache' });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
-      // Zero-price ("Price unavailable") deals always sink to the bottom,
-      // whatever their position in products.json — the backend sweep only
-      // reorders the file periodically, so this is the display guarantee.
-      const products = (Array.isArray(data) ? data : (data.products || []))
-        .filter(p => !p.hidden)
-        .sort((a, b) =>
-          (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
-          (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
-          (a.order ?? 999) - (b.order ?? 999));
+      const products = sortProducts(Array.isArray(data) ? data : (data.products || []));
       setCachedProducts(products);
       renderProducts(products,
         () => {
