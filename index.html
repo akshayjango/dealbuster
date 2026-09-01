@@ -3327,18 +3327,21 @@
     // Link straight to the clean URL — product.html 307-redirects to /product,
     // and that redirect hop is a known bfcache-eligibility risk that was
     // forcing a full reload on Back navigation.
-    el.href = '/product?' + params.toString();
-    const linkLower = (p.link || '').toLowerCase();
-    let btnText = 'View on Amazon';
-    if (linkLower.includes('flipkart.com') || linkLower.includes('fkrt.it') || linkLower.includes('fktr.in')) {
-      btnText = 'View on Flipkart';
-    } else if (linkLower.includes('myntra.com')) {
-      btnText = 'View on Myntra';
-    } else if (linkLower.includes('ajio.com')) {
-      btnText = 'View on Ajio';
-    } else if (!linkLower.includes('amazon.in') && !linkLower.includes('amzn.to') && !linkLower.includes('amazon.com') && linkLower.length > 0) {
-      btnText = 'View on Retailer';
+    function getStoreNameFromTitleOrUrl(title, url) {
+      const str = ((title || '') + ' ' + (url || '')).toLowerCase();
+      if (str.includes('flipkart') || str.includes('fkrt') || str.includes('fktr')) return 'Flipkart';
+      if (str.includes('myntra') || str.includes('myntr')) return 'Myntra';
+      if (str.includes('ajio') || str.includes('ajiio')) return 'Ajio';
+      if (str.includes('meesho')) return 'Meesho';
+      if (str.includes('shopsy')) return 'Shopsy';
+      if (str.includes('tatacliq') || str.includes('tata cliq')) return 'TataCliq';
+      if (str.includes('nykaa')) return 'Nykaa';
+      if (str.includes('jiomart') || str.includes('jio mart')) return 'JioMart';
+      if (str.includes('amazon') || str.includes('amzn')) return 'Amazon';
+      return 'Retailer';
     }
+    const storeName = getStoreNameFromTitleOrUrl(p.title, p.link);
+    const btnText = `Buy on ${storeName}`;
 
     el.innerHTML = `
       <div class="card-img-wrap">

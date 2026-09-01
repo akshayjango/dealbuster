@@ -992,28 +992,21 @@
   // CTA link
   const ctaBtn = document.getElementById('ctaBtn');
   ctaBtn.href = link;
-  const unescapedLink = decodeURIComponent(link || '').toLowerCase();
-  const titleLower = (title || '').toLowerCase();
-  let label = 'Buy Deal';
-  if (unescapedLink.includes('flipkart.com') || unescapedLink.includes('fkrt.it') || unescapedLink.includes('fktr.in') || titleLower.includes('flipkart')) {
-    label = 'Buy on Flipkart';
-  } else if (unescapedLink.includes('myntra.com') || titleLower.includes('myntra')) {
-    label = 'Buy on Myntra';
-  } else if (unescapedLink.includes('ajio.com') || titleLower.includes('ajio')) {
-    label = 'Buy on Ajio';
-  } else if (unescapedLink.includes('meesho.com') || titleLower.includes('meesho')) {
-    label = 'Buy on Meesho';
-  } else if (unescapedLink.includes('shopsy.in') || titleLower.includes('shopsy')) {
-    label = 'Buy on Shopsy';
-  } else if (unescapedLink.includes('tatacliq.com') || titleLower.includes('tatacliq')) {
-    label = 'Buy on TataCliq';
-  } else if (unescapedLink.includes('nykaa.com') || titleLower.includes('nykaa')) {
-    label = 'Buy on Nykaa';
-  } else if (unescapedLink.includes('amazon.in') || unescapedLink.includes('amzn.to') || unescapedLink.includes('amazon.com')) {
-    label = 'Buy on Amazon';
-  } else {
-    label = 'Buy Deal';
+  function getStoreNameFromTitleOrUrl(title, url) {
+    const str = ((title || '') + ' ' + (url || '')).toLowerCase();
+    if (str.includes('flipkart') || str.includes('fkrt') || str.includes('fktr')) return 'Flipkart';
+    if (str.includes('myntra') || str.includes('myntr')) return 'Myntra';
+    if (str.includes('ajio') || str.includes('ajiio')) return 'Ajio';
+    if (str.includes('meesho')) return 'Meesho';
+    if (str.includes('shopsy')) return 'Shopsy';
+    if (str.includes('tatacliq') || str.includes('tata cliq')) return 'TataCliq';
+    if (str.includes('nykaa')) return 'Nykaa';
+    if (str.includes('jiomart') || str.includes('jio mart')) return 'JioMart';
+    if (str.includes('amazon') || str.includes('amzn')) return 'Amazon';
+    return 'Retailer';
   }
+  const storeName = getStoreNameFromTitleOrUrl(title, link);
+  const label = `Buy on ${storeName}`;
   ctaBtn.querySelector('span').textContent = label;
 
   // Description — feed sources without real bullet points (IndiaFreeStuff, DealsRadar)

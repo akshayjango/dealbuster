@@ -1579,7 +1579,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
 
       // Convert link using official EarnKaro Converter API (falls back to CueLinks if unresolvable)
       const ekaroLink = await convertToEarnKaroLink(deal.link, env);
-      const { link: cueLink, title: cleanedTitle } =
+      const { link: cueLink, title: cleanedTitle, description: cleanedDescription } =
         await convertToCueLink(deal.link, deal.title || '', env, deal.title || '');
 
       const finalAffiliateLink = ekaroLink || cueLink;
