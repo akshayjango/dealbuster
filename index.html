@@ -3320,6 +3320,7 @@
       collection: collection ? '1' : '',
     });
     const el = document.createElement('a');
+    el.href = 'product.html?' + params.toString();
     el.className = 'product-card';
     el.dataset.cat = cat;
     el.dataset.managed = '1';
