@@ -507,6 +507,7 @@
         background: var(--bg); border-radius: 24px 24px 0 0;
         overflow-y: auto; -webkit-overflow-scrolling: touch;
         pointer-events: auto;
+        padding-bottom: 120px;
       }
       html, body { height: 100%; overflow: hidden; }
       .badges-row { margin: 16px 0 0 -6px; gap: 6px; }
@@ -992,7 +993,7 @@
   const ctaBtn = document.getElementById('ctaBtn');
   ctaBtn.href = link;
   const unescapedLink = decodeURIComponent(link || '').toLowerCase();
-  const titleLower = (product.title || '').toLowerCase();
+  const titleLower = (title || '').toLowerCase();
   let label = 'Buy Deal';
   if (unescapedLink.includes('flipkart.com') || unescapedLink.includes('fkrt.it') || unescapedLink.includes('fktr.in') || titleLower.includes('flipkart')) {
     label = 'Buy on Flipkart';
