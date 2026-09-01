@@ -1168,8 +1168,36 @@
         self = allProducts.find(x => (x.asin || '').toUpperCase() === asin);
       }
       if (!self && link && link !== '#') {
-        const cleanTarget = link.toLowerCase();
-        self = allProducts.find(x => (x.link || '').toLowerCase() === cleanTarget);
+        const normLink = link.split('?')[0].toLowerCase();
+        self = allProducts.find(x => x.link && x.link.split('?')[0].toLowerCase() === normLink);
+      }
+
+      if (self) {
+        if (self.title && (title === 'Product' || title === 'Loading product…')) {
+          document.getElementById('productTitle').textContent = self.title;
+          document.title = self.title + ' – Dealbuster';
+        }
+        if (self.price && (current === '₹0' || current === '₹–')) {
+          document.getElementById('priceCurrent').textContent = self.price;
+        }
+        if (self.mrp && (original === '₹0' || original === '₹–')) {
+          document.getElementById('priceOriginal').textContent = self.mrp;
+        }
+        const curNum = parseInt((self.price || current).replace(/[^0-9]/g, ''), 10);
+        const oriNum = parseInt((self.mrp || original).replace(/[^0-9]/g, ''), 10);
+        if (curNum && oriNum && oriNum > curNum) {
+          document.getElementById('savingsTag').textContent = 'You save ₹' + (oriNum - curNum).toLocaleString('en-IN');
+        }
+        if (self.highlights && self.highlights.length && (!highlights.length || highlights.every(isPlaceholder))) {
+          renderHighlights(self.highlights);
+        }
+        if (self.lowestPriceText && !document.querySelector('.lowest-price-tag')) {
+          const pill = document.createElement('span');
+          pill.className = 'lowest-price-tag';
+          pill.style.cssText = 'background:#10b981;color:#fff;font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:6px;display:inline-block;margin-left:8px;vertical-align:middle;';
+          pill.innerHTML = `🔥 ${self.lowestPriceText}`;
+          document.getElementById('catTag')?.insertAdjacentElement('afterend', pill);
+        }
       }
 
       renderPriceHistory(self, current);
