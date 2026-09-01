@@ -969,7 +969,7 @@
   // Category
   document.getElementById('catTag').textContent = cat;
 
-  const lowestText = params.get('lowestPriceText') || (typeof product !== 'undefined' ? product?.lowestPriceText : null);
+  const lowestText = params.get('lowestPriceText');
   if (lowestText) {
     const pill = document.createElement('span');
     pill.className = 'lowest-price-tag';
