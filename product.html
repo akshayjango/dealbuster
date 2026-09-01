@@ -1173,9 +1173,21 @@
   })();
 
   // Share Deal functionality
+  function getCleanShareUrl(rawUrl) {
+    if (!rawUrl) return window.location.href;
+    if (rawUrl.includes('linksredirect.com')) {
+      try {
+        const u = new URL(rawUrl);
+        const target = u.searchParams.get('url') || u.searchParams.get('r') || u.searchParams.get('link');
+        if (target) return decodeURIComponent(target);
+      } catch (e) {}
+    }
+    return rawUrl;
+  }
+
   function shareDeal(triggerBtn) {
     const titleText = `${title} - Amazing deal on Dealbuster!`;
-    const shareUrl = link;
+    const shareUrl = getCleanShareUrl(link);
     const btn = triggerBtn || document.getElementById('shareBtn');
 
     if (navigator.share) {
