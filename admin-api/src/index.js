@@ -2119,11 +2119,10 @@ async function checkAndCleanDeals(env) {
           availMsg.includes('cannot be shipped');
 
         if (isLowStockOrUndeliverable) {
-          console.log(`Deleting product ${p.asin} due to low stock / undeliverable message: ${availMsg}`);
-          productMap.delete(p.id);
-          await addDeletedAsin(p.asin, env);
+          if (!updated.lowStock) { updated.lowStock = true; changed = true; }
+        } else if (updated.lowStock) {
+          delete updated.lowStock;
           changed = true;
-          continue;
         }
 
         if (isOOS) {
@@ -2304,13 +2303,20 @@ async function checkLowestPriceBadges(env) {
         }
       }
 
-      // Filter out low rating (< 3.6), undeliverable, or out of stock deals permanently! (Do NOT delete lowStock deals like "Only 3 left in stock")
-      if ((rating != null && rating < 3.6) || undeliverable || isOOS) {
-        console.log(`Deleting Amazon product ${p.asin}: rating=${rating}, undeliverable=${undeliverable}, isOOS=${isOOS}`);
-        productMap.delete(p.id);
-        await addDeletedAsin(p.asin, env);
+      // Handle out of stock or low rating without permanently deleting or blacklisting
+      if (isOOS || undeliverable) {
+        if (!updated.outOfStock) { updated.outOfStock = true; changed = true; }
+      } else if (updated.outOfStock) {
+        updated.outOfStock = false;
         changed = true;
-        return;
+      }
+
+      if (rating != null && rating < 3.6) {
+        if (!updated.hidden) {
+          updated.hidden = true;
+          updated.dead = new Date().toISOString();
+          changed = true;
+        }
       }
       if (lowStock) {
         if (!updated.lowStock) { updated.lowStock = true; changed = true; }
