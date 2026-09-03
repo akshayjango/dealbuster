@@ -2790,8 +2790,6 @@ function dealLink(product, tag, env = {}) {
 function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const link = dealLink(product, tag, env);
   const title = (isLowest ? 'Lowest ' : '') + escHtml(trimTitle(product.title));
-  const store = !product.asin ? getStoreNameFromTitleOrUrl(product.title, link) : null;
-  const storeBadge = store ? `🛍️ <b>${escHtml(store)} Deal</b>\n\n` : '';
   const price = product.price || '';
   const mrp = product.mrp || '';
   const disc = product.disc || '';
@@ -2799,7 +2797,7 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
   const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-  return detailsBlock ? `${storeBadge}${title}\n${detailsBlock}\n\n👉 ${link}` : `${storeBadge}${title}\n\n👉 ${link}`;
+  return detailsBlock ? `${title}\n${detailsBlock}\n\n👉 ${link}` : `${title}\n\n👉 ${link}`;
 }
 
 // Plain-text caption for pasting into the Facebook deals group. No HTML/markdown
