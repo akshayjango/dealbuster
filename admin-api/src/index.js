@@ -774,14 +774,20 @@ async function fetchAmazonPageData(asin) {
     let rating = null;
     let reviewCount = null;
 
+    // Only trust a JSON-LD block whose @type is (or includes) "Product" — the
+    // page embeds several ld+json blocks (breadcrumbs, related/sponsored
+    // items) and an untyped scan lets whichever one happens to sit later in
+    // the HTML silently overwrite the real product's rating with a stranger's.
     const schemaRegex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
     let match;
-    while ((match = schemaRegex.exec(html)) !== null) {
+    while (rating === null && (match = schemaRegex.exec(html)) !== null) {
       try {
         const data = JSON.parse(match[1].trim());
         const items = Array.isArray(data) ? data : [data];
         for (const item of items) {
-          if (item && item.aggregateRating) {
+          const type = item && item['@type'];
+          const isProduct = type === 'Product' || (Array.isArray(type) && type.includes('Product'));
+          if (isProduct && item.aggregateRating) {
             if (item.aggregateRating.ratingValue != null) rating = parseFloat(item.aggregateRating.ratingValue);
             if (item.aggregateRating.reviewCount || item.aggregateRating.ratingCount) {
               reviewCount = parseInt(item.aggregateRating.reviewCount || item.aggregateRating.ratingCount, 10);
@@ -792,12 +798,19 @@ async function fetchAmazonPageData(asin) {
       } catch (e) {}
     }
 
-    if (rating === null || isNaN(rating)) {
-      const ratingM = html.match(/"ratingValue"\s*:\s*"?(\d(?:\.\d)?)"?/i) ||
-                      html.match(/(\d(?:\.\d)?)\s+out of 5 stars/i) ||
-                      html.match(/(\d(?:\.\d)?)\s+out of 5/i) ||
-                      html.match(/class="[^\"]*a-icon-star[^\"]*"[^\>]*>\s*<span[^\>]*>(\d(?:\.\d)?)/i) ||
-                      html.match(/a-star-(?:small-)?(\d)-(\d)/i);
+    // Regex fallback — scoped to the customer-reviews widget only. An
+    // unscoped html.match() grabs the FIRST "X out of 5 stars" anywhere on
+    // the page, which can belong to a "customers also viewed" carousel item
+    // rather than this product.
+    const acrM = html.match(/id="(?:averageCustomerReviews|acrPopover)"([\s\S]{0,1500})/i);
+    const acrScope = acrM ? acrM[1] : null;
+
+    if ((rating === null || isNaN(rating)) && acrScope) {
+      const ratingM = acrScope.match(/"ratingValue"\s*:\s*"?(\d(?:\.\d)?)"?/i) ||
+                      acrScope.match(/(\d(?:\.\d)?)\s+out of 5 stars/i) ||
+                      acrScope.match(/(\d(?:\.\d)?)\s+out of 5/i) ||
+                      acrScope.match(/class="[^\"]*a-icon-star[^\"]*"[^\>]*>\s*<span[^\>]*>(\d(?:\.\d)?)/i) ||
+                      acrScope.match(/a-star-(?:small-)?(\d)-(\d)/i);
       if (ratingM) {
         if (ratingM[2] !== undefined && ratingM[1].length === 1 && ratingM[2].length === 1) {
           rating = parseFloat(`${ratingM[1]}.${ratingM[2]}`);
@@ -807,10 +820,11 @@ async function fetchAmazonPageData(asin) {
       }
     }
 
-    if (reviewCount === null || isNaN(reviewCount)) {
-      const reviewM = html.match(/id="acrCustomerReviewText"[^>]*>([\d,]+)\s*ratings?/i) ||
-                      html.match(/"ratingCount"\s*:\s*"?([\d,]+)"?/i) ||
-                      html.match(/([\d,]+)\s*customer ratings/i);
+    if ((reviewCount === null || isNaN(reviewCount)) && acrScope) {
+      const reviewM = acrScope.match(/id="acrCustomerReviewText"[^>]*>([\d,]+)\s*ratings?/i) ||
+                      acrScope.match(/"ratingCount"\s*:\s*"?([\d,]+)"?/i) ||
+                      acrScope.match(/([\d,]+)\s*customer ratings/i) ||
+                      html.match(/id="acrCustomerReviewText"[^>]*>([\d,]+)\s*ratings?/i);
       if (reviewM) reviewCount = parseInt(reviewM[1].replace(/,/g, ''), 10);
     }
 
@@ -822,9 +836,14 @@ async function fetchAmazonPageData(asin) {
     const undeliverable = html.toLowerCase().includes('cannot be shipped to your selected delivery location');
 
     // Check Out-of-Stock ("Currently unavailable", "We don't know when or if this item will be back in stock")
+    // Scoped to the availability widget where possible — an unscoped full-page
+    // scan can false-positive on an unrelated "Currently unavailable" related
+    // item elsewhere on the page.
     const htmlLower = html.toLowerCase();
-    const isOOS = htmlLower.includes('currently unavailable') ||
-                  htmlLower.includes("don't know when or if this item will be back in stock") ||
+    const availM = html.match(/id="availability"([\s\S]{0,600})/i);
+    const availLower = availM ? availM[1].toLowerCase() : htmlLower;
+    const isOOS = availLower.includes('currently unavailable') ||
+                  availLower.includes("don't know when or if this item will be back in stock") ||
                   html.includes('id="outOfStock"') ||
                   html.includes('schema.org/OutOfStock') ||
                   html.includes('schema.org/outOfStock') ||
@@ -2157,6 +2176,7 @@ async function checkAndCleanDeals(env) {
         }
 
         // No price from API — don't overwrite with NaN, skip price update
+        const amPrice = listing?.price?.amount;
         if (!amPrice || amPrice <= 0) continue;
 
         const dbPrice = parsePrice(p.price);
@@ -2912,8 +2932,12 @@ async function capLiveAndBury(all, env, cap = 1800) {
       seenTitles.add(titleNorm);
     }
 
-    // Permanent deletion filter: Amazon deals with a known rating < 3.6 are dropped completely
-    if (p.asin && typeof p.rating === 'number' && p.rating < 3.6) {
+    // Low-rated Amazon deals get removed like any other departure — tombstoned,
+    // not silently deleted. A bare `continue` here used to skip the tombstone
+    // path entirely (no dead marker, no TG ledger clear on expiry), which is
+    // the one removal path in this file that left no trace — see CLAUDE.md §5b.
+    if (p.asin && typeof p.rating === 'number' && p.rating < 3.6 && !isDead(p)) {
+      tombs.push(makeTombstone(p));
       continue;
     }
 
@@ -3184,6 +3208,25 @@ async function handleApprovalCallback(cq, env) {
   if (entry.messageId) await tgSetKeyboard(token, TG_ADMIN_ID, entry.messageId, [fbCaptionRow(entry.product)]).catch(() => {});
 
   if (action === 'a') {
+    // The approval snapshot (entry.product) is taken once at queue time and
+    // can sit for up to APPROVAL_TTL_MS (4h). Price/badge/sync crons run every
+    // 5-15 min in the meantime and can hide or evict the product before the
+    // admin taps Approve — re-check against the live file so we don't tell
+    // the admin "posted" for a deal that's already gone from the site.
+    let stillLive = true;
+    try {
+      const { products } = await getProductsFile(env);
+      const current = products.find(x => x.id === productId);
+      stillLive = !!current && !current.hidden && !current.outOfStock && !isZeroPrice(current);
+    } catch (e) {
+      console.error('Approval live-check failed:', e.message);
+    }
+    if (!stillLive) {
+      await tgAnswerCallback(token, cq.id, '⚠️ No longer live, not posted');
+      await tgSend(token, TG_ADMIN_ID, escTg(`⚠️ Not posted (no longer live on site): ${entry.product.title.slice(0,60)}`));
+      return new Response('ok');
+    }
+
     // companionDm off: the approval DM above already carries these buttons.
     // force: the DO ledger already holds this deal's marks from queue time
     // (queueForApproval's /posted/claim) — without force the DO would skip it
