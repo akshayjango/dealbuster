@@ -201,13 +201,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 14),
                   _PriceRow(product: p),
                   (() {
-                    final linkLower = p.link.toLowerCase();
-                    final isFlipkart = linkLower.contains('flipkart.com') || linkLower.contains('fkrt.it') || linkLower.contains('fktr.in');
+                    final store = p.storeName;
+                    final isAmazon = store == 'Amazon' && (p.asin?.isNotEmpty ?? false);
                     
                     List<String> highlightsToRender = p.highlights;
-                    if (highlightsToRender.isEmpty && isFlipkart) {
+                    if (highlightsToRender.isEmpty) {
                       highlightsToRender = [
-                        'Handpicked deal, verified live on Flipkart at the time of posting.',
+                        'Handpicked deal, verified live on $store at the time of posting.',
                         'Discounted price shown is off the listed MRP - check the product page for the exact current price',
                       ];
                     }
@@ -228,7 +228,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ),
                           ),
                         ],
-                        if (!isFlipkart && (p.asin?.isNotEmpty ?? false)) ...[
+                        if (isAmazon) ...[
                           const SizedBox(height: AppSpace.md),
                           _Card(
                             title: 'Price History',
@@ -242,7 +242,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
           ),
-          _BuyBar(link: p.link, onBuy: () => _launch(p.link)),
+          _BuyBar(storeName: p.storeName, onBuy: () => _launch(p.link)),
         ],
       ),
         ),
@@ -749,8 +749,8 @@ class _DashedLinePainter extends CustomPainter {
 }
 
 class _BuyBar extends StatefulWidget {
-  const _BuyBar({required this.link, required this.onBuy});
-  final String link;
+  const _BuyBar({required this.storeName, required this.onBuy});
+  final String storeName;
   final VoidCallback onBuy;
 
   @override
@@ -798,19 +798,7 @@ class _BuyBarState extends State<_BuyBar> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    (() {
-                      final l = widget.link.toLowerCase();
-                      if (l.contains('flipkart.com') || l.contains('fkrt.it') || l.contains('fktr.in')) {
-                        return 'Buy on Flipkart';
-                      }
-                      if (l.contains('myntra.com')) {
-                        return 'Buy on Myntra';
-                      }
-                      if (l.contains('ajio.com')) {
-                        return 'Buy on Ajio';
-                      }
-                      return 'Buy on Amazon';
-                    })(),
+                    'Buy on ${widget.storeName}',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: Colors.white,
                           fontSize: 15,

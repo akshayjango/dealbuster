@@ -95,6 +95,42 @@ class Product {
     return (ori > cur) ? (ori - cur) : 0;
   }
 
+  // Reliable store detection matching web site's getStoreNameFromTitleOrUrl()
+  String get storeName {
+    final str = '${title.toLowerCase()} ${link.toLowerCase()}';
+    if (str.contains('myntra') || str.contains('myntr') || str.contains('myntr.it')) {
+      return 'Myntra';
+    }
+    if (str.contains('flipkart') || str.contains('fkrt') || str.contains('fktr') || str.contains('fkrt.it') || str.contains('fktr.in')) {
+      return 'Flipkart';
+    }
+    if (str.contains('ajio') || str.contains('ajiio')) {
+      return 'Ajio';
+    }
+    if (str.contains('meesho')) {
+      return 'Meesho';
+    }
+    if (str.contains('shopsy')) {
+      return 'Shopsy';
+    }
+    if (str.contains('tatacliq') || str.contains('tata cliq')) {
+      return 'TataCliq';
+    }
+    if (str.contains('nykaa')) {
+      return 'Nykaa';
+    }
+    if (str.contains('jiomart') || str.contains('jio mart')) {
+      return 'JioMart';
+    }
+    if (asin != null && asin!.isNotEmpty) {
+      return 'Amazon';
+    }
+    if (str.contains('amazon') || str.contains('amzn') || str.contains('amzn.to') || str.contains('amzn.in')) {
+      return 'Amazon';
+    }
+    return 'Retailer';
+  }
+
   factory Product.fromJson(Map<String, dynamic> json) {
     var historyList = json['priceHistory'] as List?;
     List<PricePoint> history = historyList != null
