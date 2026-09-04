@@ -519,8 +519,8 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
     }
   }
 
-  // For IndiaFreeStuff, try direct fetch first with browser headers
-  if (targetUrl.includes('indiafreestuff.in')) {
+  // For IndiaFreeStuff & DealsSpy, try direct fetch first with browser headers
+  if (targetUrl.includes('indiafreestuff.in') || targetUrl.includes('dealsspy.in')) {
     try {
       const directRes = await fetchWithTimeout(targetUrl, {
         headers: {
@@ -533,15 +533,15 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
       if (directRes.ok) {
         const text = await directRes.clone().text().catch(() => '');
         if (!text.includes('Just a moment...') && !text.includes('cf-browser-verification')) {
-          console.log(`Direct fetch for IndiaFreeStuff succeeded (${directRes.status})`);
+          console.log(`Direct fetch for ${targetUrl.includes('dealsspy.in') ? 'DealsSpy' : 'IndiaFreeStuff'} succeeded (${directRes.status})`);
           return directRes;
         }
-        console.log(`Direct fetch for IndiaFreeStuff hit Cloudflare WAF challenge, trying proxies...`);
+        console.log(`Direct fetch for ${targetUrl.includes('dealsspy.in') ? 'DealsSpy' : 'IndiaFreeStuff'} hit Cloudflare WAF challenge, trying proxies...`);
       } else {
-        console.log(`Direct fetch for IndiaFreeStuff returned ${directRes.status}, trying proxies...`);
+        console.log(`Direct fetch for ${targetUrl.includes('dealsspy.in') ? 'DealsSpy' : 'IndiaFreeStuff'} returned ${directRes.status}, trying proxies...`);
       }
     } catch (e) {
-      console.log(`Direct fetch for IndiaFreeStuff failed: ${e.message}, trying proxies...`);
+      console.log(`Direct fetch for ${targetUrl.includes('dealsspy.in') ? 'DealsSpy' : 'IndiaFreeStuff'} failed: ${e.message}, trying proxies...`);
     }
   }
 
@@ -901,7 +901,6 @@ function parseDealsSpyHtml(html) {
 }
 
 async function scrapeIfsNonAmazonDeals(env) {
-  if (!env.SCRAPER_API_URL) return [];
   const targetUrls = [
     'https://www.indiafreestuff.in/trending',
     'https://www.indiafreestuff.in/stores/flipkart',
@@ -2241,18 +2240,22 @@ async function checkAndCleanDeals(env) {
   // (it has a real price to come back to).
   // Existing tombstones pass through untouched — capLiveAndBury (every sync
   // run) owns expiry, because expiry must also clear the TG ledger.
-  const mid = [], priceClimbed = [], lowStock = [], oos = [], tombs = [];
+  const liveInStock = [], oos = [], tombs = [];
   for (const p of products) {
     const updated = productMap.get(p.id) || p;
     if (isDead(updated)) tombs.push(updated);
     else if (updated.outOfStock) oos.push(updated);
     else if (isZeroPrice(updated)) tombs.push(makeTombstone(updated));
-    else if (updated.lowStock) lowStock.push(updated);
-    else if (updated.priceIncreased) priceClimbed.push(updated);
-    else mid.push(updated);
+    else liveInStock.push(updated);
   }
+  // Keep live in-stock deals strictly ordered: featured first, then newest addedAt first
+  liveInStock.sort((a, b) => {
+    if (a.featured && !b.featured) return -1;
+    if (!a.featured && b.featured) return 1;
+    return Date.parse(b.addedAt || 0) - Date.parse(a.addedAt || 0);
+  });
   const newlyDead = tombs.length - products.filter(isDead).length;
-  const finalOrder = [...mid, ...priceClimbed, ...lowStock, ...oos, ...tombs];
+  const finalOrder = [...liveInStock, ...oos, ...tombs];
   const orderChanged = finalOrder.length !== products.length ||
     finalOrder.some((p, i) => p.id !== products[i]?.id || isDead(p) !== isDead(products[i]));
 
@@ -2953,12 +2956,12 @@ async function capLiveAndBury(all, env, cap = 1800) {
     }
   }
 
-  // Sort all live deals (featured first, price-increased last, newest addedAt first)
+  // Sort all live deals: featured first, in-stock deals newest addedAt first, out-of-stock deals at bottom
   liveDeals.sort((a, b) => {
     if (a.featured && !b.featured) return -1;
     if (!a.featured && b.featured) return 1;
-    if (a.priceIncreased && !b.priceIncreased) return 1;
-    if (!a.priceIncreased && b.priceIncreased) return -1;
+    if (a.outOfStock && !b.outOfStock) return 1;
+    if (!a.outOfStock && b.outOfStock) return -1;
     return Date.parse(b.addedAt || 0) - Date.parse(a.addedAt || 0);
   });
 

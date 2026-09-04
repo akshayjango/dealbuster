@@ -199,15 +199,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       if (!mounted || fetched == null || fetched.isEmpty) return;
 
-      final fetchedById = {for (final p in fetched) p.id: p};
+      final hasScroll = _scrollController.hasClients;
+      final oldPixels = hasScroll ? _scrollController.position.pixels : 0.0;
+      final oldMaxExtent =
+          hasScroll ? _scrollController.position.maxScrollExtent : 0.0;
+      final atTop = !hasScroll || oldPixels <= _kAtTopEpsilon;
+
+      if (atTop) {
+        // User is at the top of the feed: cleanly adopt the true server order
+        setState(() {
+          _all = fetched!;
+          _failed = false;
+          _loading = false;
+        });
+        _startTimer();
+        return;
+      }
+
+      // If user is scrolled down: only genuinely newer deals should be prepended.
       final oldIds = {for (final p in _all) p.id};
-      final newOnly = fetched.where((p) => !oldIds.contains(p.id)).toList();
+      DateTime latestExistingTime = DateTime.fromMillisecondsSinceEpoch(0);
+      for (final p in _all) {
+        if (!p.featured) {
+          final t = DateTime.tryParse(p.addedAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
+          if (t.isAfter(latestExistingTime)) latestExistingTime = t;
+        }
+      }
+
+      final brandNew = fetched.where((p) {
+        if (oldIds.contains(p.id)) return false;
+        final t = DateTime.tryParse(p.addedAt);
+        return t != null && t.isAfter(latestExistingTime);
+      }).toList();
+
+      final fetchedById = {for (final p in fetched) p.id: p};
       final updatedExisting = _all
           .where((p) => fetchedById.containsKey(p.id))
           .map((p) => fetchedById[p.id]!)
           .toList();
 
-      if (newOnly.isEmpty) {
+      if (brandNew.isEmpty) {
         setState(() {
           _all = updatedExisting;
           _failed = false;
@@ -217,24 +248,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         return;
       }
 
-      final hasScroll = _scrollController.hasClients;
-      final oldPixels = hasScroll ? _scrollController.position.pixels : 0.0;
-      final oldMaxExtent =
-          hasScroll ? _scrollController.position.maxScrollExtent : 0.0;
-      final atTop = !hasScroll || oldPixels <= _kAtTopEpsilon;
-
       setState(() {
-        _all = [...newOnly, ...updatedExisting];
+        _all = [...brandNew, ...updatedExisting];
         _failed = false;
         _loading = false;
       });
       _startTimer();
 
-      if (atTop) return;
-
-      // Scrolled down: nudge the dot and silently correct the scroll
-      // offset by however much the new cards pushed everything down by,
-      // so the viewport keeps showing exactly what it was showing.
+      // Scrolled down: nudge the dot and silently correct the scroll offset
       _hasNewDeals.value = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_scrollController.hasClients) return;

@@ -3540,11 +3540,12 @@
   function sortProducts(list) {
     if (!Array.isArray(list)) return [];
     return list
-      .filter(p => !p.hidden && !p.dead)
+      .filter(p => !p.hidden && !p.dead && !p.outOfStock)
       .sort((a, b) =>
         (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
         (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
-        (a.order ?? 999) - (b.order ?? 999)
+        (a.order ?? 999) - (b.order ?? 999) ||
+        (Date.parse(b.addedAt || 0) - Date.parse(a.addedAt || 0))
       );
   }
 
