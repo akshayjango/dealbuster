@@ -1451,19 +1451,19 @@ async function checkListingAvailability(url, scrapedPrice, env) {
 
     // Price variation check: flag price increases (>15% for >=₹500, >25% for <₹500)
     let priceIncreased = false;
-    if (scrapedPrice > 0) {
-      const listedPrice = extractPageListedPrice(html);
-      if (listedPrice && listedPrice > 0) {
-        if (shouldDemote(scrapedPrice, listedPrice)) {
-          priceIncreased = true;
-          console.log(`Non-Amazon deal price increased (${scrapedPrice} -> ${listedPrice}): ${url}`);
-        }
+    let listedPrice = null;
+    const pagePrice = extractPageListedPrice(html);
+    if (pagePrice && pagePrice > 0) {
+      listedPrice = pagePrice;
+      if (scrapedPrice > 0 && shouldDemote(scrapedPrice, listedPrice)) {
+        priceIncreased = true;
+        console.log(`Non-Amazon deal price increased (${scrapedPrice} -> ${listedPrice}): ${url}`);
       }
     }
 
-    return { available: true, cookieHealth, rating, reviewCount, priceIncreased };
+    return { available: true, cookieHealth, rating, reviewCount, priceIncreased, listedPrice };
   } catch (e) {
-    return { available: true, cookieHealth, rating: null, reviewCount: null, priceIncreased: false }; // Fallback to available if fetch errors
+    return { available: true, cookieHealth, rating: null, reviewCount: null, priceIncreased: false, listedPrice: null };
   }
 }
 
@@ -1660,6 +1660,110 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     }
     // FlipkartSessionCookie error alerts to TG bot DM, push notifications, and dashboard panel disabled per user request.
   }
+}
+
+async function checkNonAmazonPricesAndOOS(env, limit = 12) {
+  const { products, sha } = await getProductsFile(env);
+  if (!products.length) return { success: true, message: 'No products.' };
+
+  const nonAmz = products.filter(p => !p.asin && !isDead(p));
+  if (!nonAmz.length) return { success: true, message: 'No active non-Amazon products to check.' };
+
+  // Rotate oldest-checked first
+  const sorted = [...nonAmz].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
+  const toCheck = sorted.slice(0, limit);
+
+  const productMap = new Map(products.map(p => [p.id, { ...p }]));
+  let changed = false;
+  let oosChanges = 0;
+  let priceChanges = 0;
+  const now = Date.now();
+
+  const CHUNK_SIZE = 4;
+  for (let i = 0; i < toCheck.length; i += CHUNK_SIZE) {
+    const chunk = toCheck.slice(i, i + CHUNK_SIZE);
+    await Promise.all(chunk.map(async (p) => {
+      const item = productMap.get(p.id);
+      if (!item) return;
+      item.lastChecked = now;
+
+      const currentPriceNum = parsePrice(item.price) || 0;
+      const targetUrl = getOriginalUrl(item.link) || item.link;
+      const availability = await checkListingAvailability(targetUrl, currentPriceNum, env);
+
+      if (!availability.available) {
+        if (!item.outOfStock) {
+          item.outOfStock = true;
+          changed = true;
+          oosChanges++;
+          console.log(`Non-Amazon item marked OOS (${availability.reason}): ${item.title.slice(0, 30)}`);
+        }
+      } else {
+        if (item.outOfStock) {
+          item.outOfStock = false;
+          changed = true;
+          oosChanges++;
+          console.log(`Non-Amazon item back in stock: ${item.title.slice(0, 30)}`);
+        }
+
+        if (availability.rating && !item.rating) {
+          item.rating = availability.rating;
+          changed = true;
+        }
+        if (availability.reviewCount && !item.reviewCount) {
+          item.reviewCount = availability.reviewCount;
+          changed = true;
+        }
+
+        if (availability.listedPrice && availability.listedPrice > 0) {
+          const newPriceStr = '₹' + Math.round(availability.listedPrice).toLocaleString('en-IN');
+          const oldPriceNum = parsePrice(item.price) || 0;
+          const newPriceNum = Math.round(availability.listedPrice);
+
+          if (oldPriceNum > 0 && newPriceNum !== oldPriceNum) {
+            item.priceHistory = appendPriceHistory(item, newPriceStr);
+            if (newPriceNum < oldPriceNum) {
+              item.priceDropText = `Price dropped from ${item.price}`;
+            } else if (item.priceDropText) {
+              delete item.priceDropText;
+            }
+            item.price = newPriceStr;
+            const mrpNum = parsePrice(item.mrp) || 0;
+            if (mrpNum > newPriceNum) {
+              item.disc = `-${Math.round((1 - newPriceNum / mrpNum) * 100)}%`;
+            }
+            changed = true;
+            priceChanges++;
+            console.log(`Non-Amazon item price updated (${oldPriceNum} -> ${newPriceNum}): ${item.title.slice(0, 30)}`);
+          }
+        }
+      }
+    }));
+  }
+
+  // Consistent ordering: featured first, live in-stock newest first, OOS at bottom, tombs at end
+  const liveInStock = [], oos = [], tombs = [];
+  for (const p of products) {
+    const updated = productMap.get(p.id) || p;
+    if (isDead(updated)) tombs.push(updated);
+    else if (updated.outOfStock) oos.push(updated);
+    else if (isZeroPrice(updated)) tombs.push(makeTombstone(updated));
+    else liveInStock.push(updated);
+  }
+
+  liveInStock.sort((a, b) => {
+    if (a.featured && !b.featured) return -1;
+    if (!a.featured && b.featured) return 1;
+    return Date.parse(b.addedAt || 0) - Date.parse(a.addedAt || 0);
+  });
+  oos.sort((a, b) => Date.parse(b.addedAt || 0) - Date.parse(a.addedAt || 0));
+
+  const finalOrder = [...liveInStock, ...oos, ...tombs];
+  const reordered = finalOrder.map((p, i) => ({ ...p, order: i }));
+
+  const msg = `Non-Amazon check: checked ${toCheck.length}, ${priceChanges} price updates, ${oosChanges} stock changes`;
+  await saveProductsFile(reordered, sha, msg, env);
+  return { success: true, checked: toCheck.length, priceChanges, oosChanges, message: msg };
 }
 
 async function readHeadPrefix(res) {
@@ -4617,6 +4721,15 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── /check-non-amazon-prices (manual test trigger) ────────────────────────
+      if (url.pathname === '/check-non-amazon-prices' && request.method === 'GET') {
+        try {
+          const limit = parseInt(url.searchParams.get('limit') || '12', 10);
+          const r = await checkNonAmazonPricesAndOOS(env, limit);
+          return json(r);
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── /test-cuelink (debug: isolate convertToCueLink from scraping/dedup noise) ──
       if (url.pathname === '/test-cuelink' && request.method === 'GET') {
         const testUrl = url.searchParams.get('url');
@@ -5217,6 +5330,13 @@ export default {
             console.log('Non-Amazon deals auto-publish complete');
           } catch (e) {
             console.error('Non-Amazon auto-publish cron error:', e.message);
+          }
+          try {
+            console.log('Non-Amazon price/stock check start');
+            const r = await checkNonAmazonPricesAndOOS(env, 12);
+            console.log('Non-Amazon price/stock check:', r.message);
+          } catch (e) {
+            console.error('Non-Amazon price/stock check error:', e.message);
           }
         })
       );
