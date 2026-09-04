@@ -502,7 +502,9 @@ class _PriceRow extends StatelessWidget {
               ),
         ),
         const SizedBox(width: 10),
-        if (product.mrp != product.price)
+        if (product.mrp != product.price &&
+            product.mrp.replaceAll(RegExp(r'[^0-9]'), '').length <= 5 &&
+            product.price.replaceAll(RegExp(r'[^0-9]'), '').length <= 5)
           Text(
             product.mrp,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -518,7 +520,9 @@ class _PriceRow extends StatelessWidget {
         ] else if (product.couponPercent != null) ...[
           const SizedBox(width: 8),
           CouponBadge(percent: product.couponPercent!, fontSize: 12.5),
-        ] else if (product.savingsAmount > 0) ...[
+        ] else if (product.savingsAmount > 0 &&
+            product.mrp.replaceAll(RegExp(r'[^0-9]'), '').length <= 5 &&
+            product.price.replaceAll(RegExp(r'[^0-9]'), '').length <= 5) ...[
           const SizedBox(width: 6),
           Text(
             'You save ₹${product.savingsAmount}',

@@ -2283,7 +2283,10 @@ async function checkAndCleanDeals(env) {
         if (!amPrice || amPrice <= 0) continue;
 
         const dbPrice = parsePrice(p.price);
-        const amMrp = listing?.dealDetails?.originalPrice?.amount || listing?.price?.amount || dbPrice || amPrice;
+        let amMrp = listing?.dealDetails?.originalPrice?.amount || listing?.price?.amount || dbPrice || amPrice;
+        if (Math.round(amMrp).toString().length > 5 || Math.round(amPrice).toString().length > 5) {
+          amMrp = amPrice;
+        }
         const newDisc = amPrice && amMrp && amMrp > amPrice ? Math.round((1 - amPrice / amMrp) * 100) : 0;
         const newPriceStr = '₹' + Math.round(amPrice).toLocaleString('en-IN');
         const newMrpStr = '₹' + Math.round(amMrp).toLocaleString('en-IN');
@@ -2699,7 +2702,11 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
       // MRP
       const mrpM = html.match(/class="[^"]*a-text-price[^"]*"[^>]*><span[^>]*>₹([\d,]+)/i) ||
                    html.match(/M\.R\.P\.[^₹]*₹\s*([\d,]+)/i);
-      const mrp = mrpM ? parseInt(mrpM[1].replace(/,/g,'')) : price;
+      let mrp = mrpM ? parseInt(mrpM[1].replace(/,/g,'')) : price;
+      // Sanitize scraped MRP: if MRP digits > 5 (or price digits > 5), paise was accidentally concatenated (e.g. 124999.00 -> 12499900)
+      if (String(mrp).length > 5 || String(price).length > 5) {
+        mrp = price;
+      }
       const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
       if (discNum < 10) continue; // skip near-zero discount
 

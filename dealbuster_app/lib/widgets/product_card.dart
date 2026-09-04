@@ -148,7 +148,9 @@ class ProductCard extends StatelessWidget {
                         product.price,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      if (product.mrp != product.price && product.price.replaceAll(RegExp(r'[^0-9]'), '').length < 6) ...[
+                      if (product.mrp != product.price &&
+                          product.mrp.replaceAll(RegExp(r'[^0-9]'), '').length <= 5 &&
+                          product.price.replaceAll(RegExp(r'[^0-9]'), '').length <= 5) ...[
                         const SizedBox(width: 6),
                         Text(
                           product.mrp,
@@ -167,7 +169,9 @@ class ProductCard extends StatelessWidget {
                   ] else if (product.couponPercent != null) ...[
                     const SizedBox(height: 3),
                     CouponBadge(percent: product.couponPercent!),
-                  ] else if (product.savingsAmount > 0) ...[
+                  ] else if (product.savingsAmount > 0 &&
+                      product.mrp.replaceAll(RegExp(r'[^0-9]'), '').length <= 5 &&
+                      product.price.replaceAll(RegExp(r'[^0-9]'), '').length <= 5) ...[
                     const SizedBox(height: 7),
                     Text(
                       'You save ₹${product.savingsAmount}',

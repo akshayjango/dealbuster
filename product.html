@@ -986,13 +986,21 @@
     document.querySelector('.price-row').style.display = 'none';
   } else {
     document.getElementById('priceCurrent').textContent = current;
-    document.getElementById('priceOriginal').textContent = original;
-
-    // Savings calculation
     const cur = parseInt(current.replace(/[^0-9]/g, ''));
     const ori = parseInt(original.replace(/[^0-9]/g, ''));
-    if (cur && ori && ori > cur) {
-      document.getElementById('savingsTag').textContent = 'You save ₹' + (ori - cur).toLocaleString('en-IN');
+    const curDigits = current.replace(/[^0-9]/g, '').length;
+    const oriDigits = original.replace(/[^0-9]/g, '').length;
+
+    if (ori && ori !== cur && oriDigits <= 5 && curDigits <= 5) {
+      document.getElementById('priceOriginal').textContent = original;
+      if (cur && ori > cur) {
+        document.getElementById('savingsTag').textContent = 'You save ₹' + (ori - cur).toLocaleString('en-IN');
+      } else {
+        document.getElementById('savingsTag').style.display = 'none';
+      }
+    } else {
+      document.getElementById('priceOriginal').style.display = 'none';
+      document.getElementById('savingsTag').style.display = 'none';
     }
   }
 
