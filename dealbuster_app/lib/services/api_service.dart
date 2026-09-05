@@ -61,6 +61,7 @@ class ApiService {
     final parsed = jsonDecode(jsonBody);
     final List<dynamic> list = parsed is List ? parsed : (parsed['products'] ?? []);
     
+    final uptoRegex = RegExp(r'\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\s*off\b', caseSensitive: false);
     return list
         .map<Product>((json) => Product.fromJson(json))
         .where((p) => 
@@ -68,7 +69,8 @@ class ApiService {
             !p.outOfStock &&
             p.price.isNotEmpty && 
             p.price != '₹0' && 
-            p.price != '₹')
+            p.price != '₹' &&
+            !uptoRegex.hasMatch(p.title))
         .toList();
   }
 }

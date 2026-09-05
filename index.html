@@ -3537,10 +3537,16 @@
     }
   }
 
+  function hasUptoOffInTitle(title) {
+    if (!title || typeof title !== 'string') return false;
+    return /\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\s*off\b/i.test(title) ||
+           (/\b(?:up\s*to|upto)\s*\d+\s*%\b/i.test(title) && /\boff\b/i.test(title));
+  }
+
   function sortProducts(list) {
     if (!Array.isArray(list)) return [];
     return list
-      .filter(p => !p.hidden && !p.dead && !p.outOfStock)
+      .filter(p => !p.hidden && !p.dead && !p.outOfStock && !hasUptoOffInTitle(p.title))
       .sort((a, b) =>
         (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
         (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||

@@ -1077,10 +1077,14 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
       if (added.length >= limit) break;
       const image = deal.image || asinImage(asin);
 
+      const isUpto = hasUptoOffInTitle(deal.title);
       added.push({
         id: `ds_${Date.now()}_${added.length}`,
         asin, title: deal.title || '', price: priceStr, mrp: mrpStr, disc: discStr,
-        image, link, category, highlights, lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
+        image, link, category, highlights, lowestPriceText: null, featured: false,
+        hidden: isUpto ? true : false,
+        isUptoDeal: isUpto ? true : undefined,
+        outOfStock: false,
         order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
       });
     }
@@ -1129,7 +1133,40 @@ function sanitizeTitle(title) {
 // Helper to check if title contains "upto X% off" or "up to X% off"
 function hasUptoOffInTitle(title) {
   if (!title || typeof title !== 'string') return false;
-  return /\b(?:up\s*to|upto)\s*\d+\s*%\s*off\b/i.test(title);
+  return /\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\s*off\b/i.test(title) ||
+         (/\b(?:up\s*to|upto)\s*\d+\s*%\b/i.test(title) && /\boff\b/i.test(title));
+}
+
+// Helper to check if a deal message/text indicates an "upto" deal
+function isUptoDealText(text) {
+  if (!text || typeof text !== 'string') return false;
+  return /\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\b/i.test(text) ||
+         /\b(?:up\s*to|upto)\b[^\n]{0,40}\b(?:off|discount|starting|sale|deals?)\b/i.test(text) ||
+         /\b(?:off|discount|sale)\b[^\n]{0,40}\b(?:up\s*to|upto)\b/i.test(text);
+}
+
+// Universal link extractor: extracts ANY link (short, long, plain domain) without restriction
+function extractAnyUrls(text, msg = {}) {
+  const urls = [];
+  const entities = msg.entities || msg.caption_entities || [];
+  for (const ent of entities) {
+    if (ent.type === 'text_link' && ent.url) {
+      if (!urls.includes(ent.url)) urls.push(ent.url);
+    } else if (ent.type === 'url') {
+      const raw = (text || '').slice(ent.offset, ent.offset + ent.length).trim();
+      if (raw && !urls.includes(raw)) urls.push(raw);
+    }
+  }
+  for (const m of (text || '').matchAll(/https?:\/\/[^\s<>"')]+/gi)) {
+    if (!urls.includes(m[0])) urls.push(m[0]);
+  }
+  if (!urls.length) {
+    for (const m of (text || '').matchAll(/\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s<>"')]+)?/gi)) {
+      const u = m[0].startsWith('http') ? m[0] : `https://${m[0]}`;
+      if (!urls.includes(u)) urls.push(u);
+    }
+  }
+  return urls;
 }
 
 // Hand-built fallback — used when CUELINKS_API_KEY isn't configured, or the
@@ -1964,14 +2001,17 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     if (asin) {
       // Amazon deal only
       if (deletedSet.has(asin) || existingByAsin.has(asin)) continue;
-      const baseLink = `https://www.amazon.in/dp/${asin}`;
-      const link = hasUptoOffInTitle(title) ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
+      const isUpto = hasUptoOffInTitle(title);
+      const link = isUpto ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
 
       added.push({
         id: `ifs_${Date.now()}_${added.length}`,
         asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
         image, link, category, highlights: ['Great deal on Amazon'],
-        lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
+        lowestPriceText: null, featured: false,
+        hidden: isUpto ? true : false,
+        isUptoDeal: isUpto ? true : undefined,
+        outOfStock: false,
         order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
       });
     }
@@ -2113,15 +2153,18 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
-    const baseLink = `https://www.amazon.in/dp/${asin}`;
-    const link = hasUptoOffInTitle(finalTitle) ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
+    const isUpto = hasUptoOffInTitle(finalTitle);
+    const link = isUpto ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
     const category = detectCategoryFromTitle(finalTitle);
 
     added.push({
       id: `dotd_${Date.now()}_${added.length}`,
       asin, title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
       image: finalImage, link, category, highlights: ['Great deal on Amazon'],
-      lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
+      lowestPriceText: null, featured: false,
+      hidden: isUpto ? true : false,
+      isUptoDeal: isUpto ? true : undefined,
+      outOfStock: false,
       order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
     });
   }
@@ -2738,15 +2781,19 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
       }
       if (!category) category = detectCategoryFromTitle(title);
 
+      const isUpto = hasUptoOffInTitle(title);
       added.push({
         id: `amzdeal_${Date.now()}_${added.length}`,
         asin, title,
         price: '₹' + price.toLocaleString('en-IN'),
         mrp: '₹' + mrp.toLocaleString('en-IN'),
         disc: discNum > 0 ? `-${discNum}%` : '0%',
-        image, link: hasUptoOffInTitle(title) ? buildManualCueLink(`https://www.amazon.in/dp/${asin}`, env) : `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
+        image, link: isUpto ? buildManualCueLink(`https://www.amazon.in/dp/${asin}`, env) : `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
         category, highlights: highlights.length ? highlights : ['Great deal on Amazon'],
-        lowestPriceText: null, featured: false, hidden: false, outOfStock: false,
+        lowestPriceText: null, featured: false,
+        hidden: isUpto ? true : false,
+        isUptoDeal: isUpto ? true : undefined,
+        outOfStock: false,
         order: 0, addedAt: new Date().toISOString(), originalPrice: '₹' + price.toLocaleString('en-IN'),
       });
     } catch (e) {
@@ -3420,11 +3467,92 @@ async function postDealsAndTrack(products, env) {
   });
   if (!list.length) return;
 
-  if (!(await isAutopostEnabled(env))) {
-    await queueForApproval(list, env);
+  const uptoDeals = list.filter(p => hasUptoOffInTitle(p.title));
+  const normalDeals = list.filter(p => !hasUptoOffInTitle(p.title));
+
+  if (uptoDeals.length > 0) {
+    // Amazon "upto" deals must prompt admin to reply with custom link
+    await promptAdminForUptoDeals(uptoDeals, env);
+  }
+
+  if (normalDeals.length > 0) {
+    if (!(await isAutopostEnabled(env))) {
+      await queueForApproval(normalDeals, env);
+      return;
+    }
+    await sendToChannels(normalDeals, env);
+  }
+}
+
+async function promptAdminForUptoDeals(products, env) {
+  const token = env.TELEGRAM_BOT_TOKEN;
+  if (!token) { console.error('Cannot prompt for upto deals — TELEGRAM_BOT_TOKEN missing'); return; }
+
+  const queued = [];
+  try {
+    const items = products.map(p => ({ id: p.id, asin: p.asin || null }));
+    const { fresh } = await pendingApprovalsDO(env, '/posted/claim', { items });
+    const freshSet = new Set(fresh);
+    queued.push(...products.filter(p => freshSet.has(p.id)));
+  } catch (e) {
+    console.error('Upto deal claim failed:', e.message);
     return;
   }
-  await sendToChannels(list, env);
+
+  try {
+    const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+    products.forEach(p => markPosted(p, ids));
+    await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
+  } catch (e) {
+    console.error('KV mirror failed (advisory only):', e.message);
+  }
+
+  if (!queued.length) return;
+
+  const adminId = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
+
+  for (const p of queued) {
+    const rawUrl = p.asin ? `https://www.amazon.in/dp/${p.asin}` : getOriginalUrl(p.link || '');
+    const promptText = `📦 <b>New Amazon Deal (Up to % off)</b>\n\n<b>${escHtml(p.title)}</b>\n${p.price ? `Deal Price: <b>${escHtml(p.price)}</b>\n` : ''}${p.mrp ? `MRP: ${escHtml(p.mrp)}\n` : ''}Original Link: ${escHtml(rawUrl)}\n\n👉 <b>Reply to this message with your link to publish to Telegram!</b>\n<i>(Accepts any link: short, long, EarnKaro, CueLinks, etc.)</i>`;
+
+    try {
+      let promptMsg = null;
+      if (p.image) {
+        const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: adminId, photo: p.image, caption: promptText, parse_mode: 'HTML' }),
+        });
+        promptMsg = await r.json().catch(() => null);
+        if (!r.ok) {
+          const r2 = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: adminId, text: promptText, parse_mode: 'HTML', disable_web_page_preview: true }),
+          });
+          promptMsg = await r2.json().catch(() => null);
+        }
+      } else {
+        const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: adminId, text: promptText, parse_mode: 'HTML', disable_web_page_preview: true }),
+        });
+        promptMsg = await r.json().catch(() => null);
+      }
+
+      const promptMsgId = promptMsg?.result?.message_id;
+      if (promptMsgId && env.KV) {
+        await env.KV.put(`pending_scraped_upto_${promptMsgId}`, JSON.stringify({
+          product: p,
+          originalLink: rawUrl,
+          promptedAt: Date.now(),
+        }), { expirationTtl: 86400 });
+      }
+    } catch (e) {
+      console.error('Failed to send upto deal prompt to admin:', e.message);
+    }
+  }
 }
 
 // Does the actual send — talks to the DO (or the KV fallback). Called by
@@ -3695,7 +3823,8 @@ async function getUnpostedTgFresh(env) {
   const MAX_TG_POST_AGE_MS = 12 * 60 * 60 * 1000; // Only post deals added in the last 12 hours
   const now = Date.now();
   const unposted = products.filter(p => {
-    if (p.hidden || p.outOfStock || isZeroPrice(p) || isAlreadyPosted(p, postedIds)) return false;
+    const isUpto = hasUptoOffInTitle(p.title);
+    if ((p.hidden && !isUpto) || p.outOfStock || isZeroPrice(p) || isAlreadyPosted(p, postedIds)) return false;
     if (cutoffMs !== null && Date.parse(p.addedAt) < cutoffMs) return false;
     const addedTime = Date.parse(p.addedAt || 0);
     if (!addedTime || (now - addedTime) > MAX_TG_POST_AGE_MS) return false;
@@ -3824,9 +3953,128 @@ async function handleTelegramWebhook(request, env) {
   const chatId = msg.chat.id;
   const text = msg.text || msg.caption || '';
 
-  // ── 1. Reply to a Non-Amazon / Flipkart deal prompt ────────────────────────
+  // ── 1. Reply to deal prompts ──────────────────────────────────────────────
   if (msg.reply_to_message) {
     const replyText = msg.reply_to_message.text || msg.reply_to_message.caption || '';
+    const repliedMsgId = msg.reply_to_message.message_id;
+
+    // A) Forwarded Amazon "Up to" deal reply
+    const kvFwdKey = `pending_fwd_upto_${repliedMsgId}`;
+    const kvFwdPending = env.KV ? await env.KV.get(kvFwdKey) : null;
+    if (kvFwdPending || replyText.includes("Forwarded Amazon 'Up to' Deal Detected")) {
+      const userUrls = extractAnyUrls(text, msg);
+      if (!userUrls.length) {
+        await tgSend(token, chatId, escTg('❌ Please reply with a valid link URL.'));
+        return new Response('ok');
+      }
+
+      let fwdData = null;
+      try { fwdData = JSON.parse(kvFwdPending || '{}'); } catch (e) {}
+
+      const rawText = fwdData?.rawText || replyText;
+      const links = fwdData?.links || [];
+      const photoId = fwdData?.photoId || (msg.reply_to_message.photo ? msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id : null);
+
+      let htmlText = escHtml(rawText);
+      htmlText = htmlText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!');
+
+      if (links.length > 0) {
+        links.forEach((l, idx) => {
+          const affUrl = userUrls[idx] || userUrls[userUrls.length - 1];
+          const useButton = links.length > 1 || affUrl.length > 60;
+          const rendered = useButton ? `<a href="${escHtml(affUrl)}">👉 Check Now</a>` : escHtml(affUrl);
+          htmlText = htmlText.split(l.placeholder).join(rendered);
+          if (l.originalUrl) {
+            htmlText = htmlText.split(escHtml(l.originalUrl)).join(rendered);
+            htmlText = htmlText.split(l.originalUrl).join(rendered);
+          }
+        });
+      } else {
+        const fallbackUrl = userUrls[0];
+        const btnHtml = `<a href="${escHtml(fallbackUrl)}">👉 Check Now</a>`;
+        htmlText += `\n\n${btnHtml}`;
+      }
+
+      for (const ch of TG_CHANNELS) {
+        if (photoId) {
+          await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML' }),
+          });
+        } else {
+          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true }),
+          });
+        }
+      }
+
+      if (env.KV) await env.KV.delete(kvFwdKey).catch(() => {});
+      await tgSend(token, chatId, escTg('✅ Published deal to Telegram channel!'));
+      return new Response('ok');
+    }
+
+    // B) Scraped Amazon "Up to % off" deal reply
+    const kvScrapedKey = `pending_scraped_upto_${repliedMsgId}`;
+    const kvScrapedPending = env.KV ? await env.KV.get(kvScrapedKey) : null;
+    if (kvScrapedPending || replyText.includes('New Amazon Deal (Up to % off)')) {
+      const userUrls = extractAnyUrls(text, msg);
+      if (!userUrls.length) {
+        await tgSend(token, chatId, escTg('❌ Please reply with a valid link URL.'));
+        return new Response('ok');
+      }
+      const userLink = userUrls[0];
+
+      let scrapedData = null;
+      try { scrapedData = JSON.parse(kvScrapedPending || '{}'); } catch (e) {}
+      const product = scrapedData?.product || {
+        title: (replyText.match(/Title:\s*(.+)/i) || [,'Amazon Deal'])[1].trim(),
+        price: (replyText.match(/Deal Price:\s*(₹[\d,]+)/i) || [,''])[1].trim(),
+        mrp: (replyText.match(/MRP:\s*(₹[\d,]+)/i) || [,''])[1].trim(),
+      };
+
+      const title = escHtml(trimTitle(product.title));
+      const price = product.price || '';
+      const mrp = product.mrp || '';
+      const disc = product.disc || '';
+      const priceRow = price ? `✅Deal Price: <b>${escHtml(price)}</b>` : '';
+      const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
+      const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
+      const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
+      const channelMsg = detailsBlock ? `${title}\n${detailsBlock}\n\n👉 ${userLink}` : `${title}\n\n👉 ${userLink}`;
+
+      const photo = product.image || (msg.reply_to_message.photo ? msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id : null);
+
+      for (const ch of TG_CHANNELS) {
+        if (photo) {
+          const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, photo: photo, caption: channelMsg, parse_mode: 'HTML' }),
+          });
+          if (!r.ok) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_web_page_preview: true }),
+            });
+          }
+        } else {
+          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_web_page_preview: true }),
+          });
+        }
+      }
+
+      if (env.KV) await env.KV.delete(kvScrapedKey).catch(() => {});
+      await tgSend(token, chatId, escTg('✅ Published deal to Telegram channel!'));
+      return new Response('ok');
+    }
+
     const kvPendingKey = `pending_ml_${msg.reply_to_message.message_id}`;
     const kvPending = await env.KV.get(kvPendingKey);
 
@@ -3900,12 +4148,12 @@ async function handleTelegramWebhook(request, env) {
 
     // Single-Link Non-Amazon EarnKaro Reply Handling
     if (replyText.includes('Reply to this message with your converted') || replyText.includes('New Flipkart Deal') || replyText.includes('New Non-Amazon Deal')) {
-      const affiliateLinkM = text.match(/https?:\/\/[^\s]+/i);
-      if (!affiliateLinkM) {
+      const userUrls = extractAnyUrls(text, msg);
+      if (!userUrls.length) {
         await tgSend(token, chatId, escTg('❌ Please reply with a valid affiliate link URL.'));
         return new Response('ok');
       }
-      const affiliateLink = affiliateLinkM[0].trim();
+      const affiliateLink = userUrls[0];
 
       const titleM = replyText.match(/Title:\s*(.+)/i);
       const priceM = replyText.match(/Price:\s*(₹[\d,]+)/i);
@@ -4202,20 +4450,23 @@ async function handleTelegramWebhook(request, env) {
     // Feature 3: forwarded message — replace link with embedded Buy Now, no preview
     const isForward = !!(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
     if (isForward) {
-      // Resolve every Amazon link independently — one bad/expired link shouldn't sink the rest.
-      // Category/search links (no ASIN) still earn affiliate commission with the tag param,
-      // so fall back to tagging the resolved URL directly instead of dropping the link.
-      // Rebuilt by offset (not string split/join) since a hidden text_link's
-      // destination URL doesn't appear in `text` at all — only its span does.
-      // Each resolved link goes in as a placeholder so escHtml below can't
-      // mangle it; a link that fails to resolve leaves its original display
-      // text (raw URL or anchor text like "Click Here") untouched in place.
-      const links = []; // { placeholder, affiliateLink }
+      let isUpto = isUptoDealText(text);
+
+      const links = []; // { placeholder, affiliateLink, originalUrl }
       const pieces = [];
       let cursor = 0;
       for (const span of linkSpans) {
         try {
-          const { asinM, finalUrl } = await resolveAsin(span.url);
+          const { asinM, finalUrl, html } = await resolveAsin(span.url);
+          if (html) {
+            const titleM = html.match(/id="productTitle"[^>]*>\s*([\s\S]*?)\s*<\/span>/);
+            if (titleM) {
+              const itemTitle = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
+              if (hasUptoOffInTitle(itemTitle) || isUptoDealText(itemTitle)) {
+                isUpto = true;
+              }
+            }
+          }
           let affiliateLink;
           if (asinM) {
             affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
@@ -4232,7 +4483,7 @@ async function handleTelegramWebhook(request, env) {
           }
           const placeholder = `%%DBLINK${links.length}%%`;
           pieces.push(text.slice(cursor, span.start), placeholder);
-          links.push({ placeholder, affiliateLink });
+          links.push({ placeholder, affiliateLink, originalUrl: span.url });
           cursor = span.end;
         } catch (e) {
           console.error('Link resolve failed for', span.url, e.message);
@@ -4243,6 +4494,43 @@ async function handleTelegramWebhook(request, env) {
       const resolved = links.length;
       if (!resolved) {
         await tgSend(token, chatId, escTg('❌ Could not resolve any links in this message.'));
+        return new Response('ok');
+      }
+
+      if (isUpto) {
+        // Amazon "upto" deal forwarded! Prompt the admin to reply with custom link.
+        const linksCount = linkSpans.length;
+        const promptLinksStr = linkSpans.map((s, i) => `${i + 1}. ${s.url}`).join('\n');
+        const promptMsgText = `📦 <b>Forwarded Amazon 'Up to' Deal Detected</b>${linksCount > 1 ? ` (${linksCount} Links)` : ''}\n\n${linksCount > 1 ? `Original Links:\n${promptLinksStr}` : `Original Link: ${linkSpans[0].url}`}\n\n👉 <b>Reply to this message with your link${linksCount > 1 ? 's (one per line, in order)' : ''} to publish to Telegram!</b>\n<i>(Accepts any link: short, long, EarnKaro, CueLinks, etc.)</i>`;
+
+        let promptMsg = null;
+        if (msg.photo && msg.photo.length > 0) {
+          const photoId = msg.photo[msg.photo.length - 1].file_id;
+          const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, photo: photoId, caption: promptMsgText, parse_mode: 'HTML' }),
+          });
+          promptMsg = await r.json().catch(() => null);
+        } else {
+          const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: promptMsgText, parse_mode: 'HTML', disable_web_page_preview: true }),
+          });
+          promptMsg = await r.json().catch(() => null);
+        }
+
+        const promptMsgId = promptMsg?.result?.message_id;
+        if (promptMsgId && env.KV) {
+          await env.KV.put(`pending_fwd_upto_${promptMsgId}`, JSON.stringify({
+            rawText: newText,
+            photoId: msg.photo ? msg.photo[msg.photo.length - 1].file_id : null,
+            links: links.map(l => ({ placeholder: l.placeholder, originalUrl: l.originalUrl })),
+            promptedAt: Date.now(),
+          }), { expirationTtl: 86400 });
+        }
+
         return new Response('ok');
       }
       newText = newText.replace(/\n{3,}/g, '\n\n').trim();
@@ -4306,7 +4594,7 @@ export default {
     if (url0.pathname === '/public/products.json' && request.method === 'GET') {
       try {
         const { products } = await getProductsFile(env);
-        const visible = products.filter(p => !p.hidden);
+        const visible = products.filter(p => !p.hidden && !hasUptoOffInTitle(p.title));
         return new Response(JSON.stringify(visible), {
           headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         });
