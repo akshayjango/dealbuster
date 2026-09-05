@@ -4382,7 +4382,27 @@ async function handleTelegramWebhook(request, env) {
 
   // Help command
   if (text.trim() === '/start' || text.trim() === '/help') {
-    await tgSend(token, chatId, escTg('👋 DealBuster Bot\n\nSend me:\n• Forward any deal message with a link → I swap the link and repost\n• Non-Amazon deal → Reply with EarnKaro link to publish\n\nCommands:\n/help — this message'));
+    await tgSend(token, chatId, escTg('👋 DealBuster Bot\n\nSend me:\n• Forward any deal message with a link → I swap the link and repost\n• Non-Amazon deal → Reply with EarnKaro link to publish\n\nCommands:\n/help — this message\n/sync_ifs — trigger IndiaFreeStuff sync now\n/clear_errors — clear sync errors'));
+    return new Response('ok');
+  }
+
+  // Admin command: Trigger IndiaFreeStuff sync immediately
+  if (text.trim() === '/sync' || text.trim() === '/sync_ifs') {
+    await tgSend(token, chatId, escTg('⏳ Running IndiaFreeStuff sync...'));
+    try {
+      const r = await scrapeAndSyncIndiaFreeStuff(env, 30);
+      await clearSyncError('IndiaFreeStuff', env);
+      await tgSend(token, chatId, escTg(`✅ IndiaFreeStuff sync finished: ${r.message || 'success'}`));
+    } catch (e) {
+      await tgSend(token, chatId, escTg(`❌ IndiaFreeStuff sync error: ${e.message}`));
+    }
+    return new Response('ok');
+  }
+
+  // Admin command: Clear sync errors from KV
+  if (text.trim() === '/clear_errors') {
+    await clearSyncError('IndiaFreeStuff', env);
+    await tgSend(token, chatId, escTg('✅ Cleared sync errors from KV!'));
     return new Response('ok');
   }
 
