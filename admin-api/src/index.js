@@ -2001,6 +2001,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     if (asin) {
       // Amazon deal only
       if (deletedSet.has(asin) || existingByAsin.has(asin)) continue;
+      const baseLink = `https://www.amazon.in/dp/${asin}`;
       const isUpto = hasUptoOffInTitle(title);
       const link = isUpto ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
 
