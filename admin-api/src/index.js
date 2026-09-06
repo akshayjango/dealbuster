@@ -2062,62 +2062,64 @@ function decodeHtmlEntities(str) {
 async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   const blockedBrands = await getBlockedBrands(env);
   let html;
-  try {
-    // Their site serves this listing page through a server-side page cache
-    // (Jetpack Boost, on Hostinger) that can lag well behind what's actually
-    // posted — a plain fetch here can return the SAME snapshot for 20+
-    // minutes (confirmed: two plain fetches minutes apart came back
-    // byte-identical, `X-Jetpack-Boost-Cache: hit`, while a request with a
-    // cache-busting query param came back `miss` with fresher deals). The
-    // random param forces a cache miss so every cron tick sees the real
-    // current page instead of a stale one.
-    const bust = `?_cb=${Date.now()}`;
-    let r = await fetchWithTimeout('https://dealofthedayindia.com/store/amazon/' + bust, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
-    if (!r.ok) {
-      await new Promise(res => setTimeout(res, 3000));
-      r = await fetchWithTimeout('https://dealofthedayindia.com/store/amazon/' + bust, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
-    }
-    if (!r.ok) throw new Error(`HTTP ${r.status} after retry`);
-    console.log('DOTD debug: jetpack-cache=' + (r.headers.get('x-jetpack-boost-cache') || 'n/a') + ' hcdn-status=' + (r.headers.get('x-hcdn-cache-status') || 'n/a'));
-    html = await r.text();
-  } catch (e) {
-    const msg = `DealOfTheDayIndia fetch failed: ${e.message}`;
-    await saveSyncError('DealOfTheDayIndia', msg, env);
-    await recordScraperStatus('dealoftheday', 'error', msg, 0, env);
-    return { success: false, count: 0, message: msg };
-  }
+  const urlsToTry = [
+    'https://dealofthedayindia.com/store/amazon/?_cb=' + Date.now(),
+    'https://dealofthedayindia.com/?_cb=' + Date.now(),
+    'https://dealofthedayindia.com/?s=amazon&_cb=' + Date.now()
+  ];
 
-  const blocks = html.split('<div class="col_item offer_grid');
   const matchesMap = new Map(); // asin -> { title, image, price, mrp }
+  let lastError = null;
 
-  for (let i = 1; i < blocks.length; i++) {
-    const block = blocks[i];
+  for (const fetchUrl of urlsToTry) {
+    try {
+      let r = await fetchWithTimeout(fetchUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+      if (!r.ok && fetchUrl.includes('/store/amazon/')) {
+        // If /store/amazon/ 404s, quickly fall through to homepage and search endpoints
+        continue;
+      }
+      if (!r.ok) {
+        await new Promise(res => setTimeout(res, 2000));
+        r = await fetchWithTimeout(fetchUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } });
+      }
+      if (!r.ok) continue;
 
-    const asinM = block.match(/go\.php\?https?:\/\/(?:www\.)?amazon\.in\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-    if (!asinM) continue;
-    const asin = asinM[1].toUpperCase();
-    if (matchesMap.has(asin)) continue;
+      const pageHtml = await r.text();
+      const blocks = pageHtml.split('<div class="col_item offer_grid');
 
-    // First <img> in the block is the product photo; its alt text is the title.
-    const imgM = block.match(/<img\s+src="([^"]+)"[^>]*\salt="([^"]{5,}?)"/);
-    if (!imgM) continue;
-    const title = decodeHtmlEntities(imgM[2].replace(/\s+/g, ' ').trim());
-    if (!title || title.length < 5) continue;
-    if (isBrandBlocked(title, blockedBrands)) continue;
-    // Their thumbnail is already the real Amazon CDN image, just undersized —
-    // swap the size suffix instead of a second fetch to re-derive it.
-    const image = imgM[1].replace(/_S[XY]\d+_/, '_SL500_');
+      for (let i = 1; i < blocks.length; i++) {
+        const block = blocks[i];
 
-    const priceM = block.match(/rh_regular_price">([\d,]+)<\/span>\s*<del>([\d,]+)<\/del>/);
-    const price = priceM ? parseInt(priceM[1].replace(/,/g, '')) : 0;
-    const mrp = priceM ? parseInt(priceM[2].replace(/,/g, '')) : price;
-    if (!(price > 0)) continue; // ₹0/blank price is unpostable — see IFS's same guard above
+        const asinM = block.match(/go\.php\?https?:\/\/(?:www\.)?amazon\.in\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+        if (!asinM) continue;
+        const asin = asinM[1].toUpperCase();
+        if (matchesMap.has(asin)) continue;
 
-    matchesMap.set(asin, { title, image, price, mrp });
+        // Extract img src and alt resiliently across attribute orders
+        const srcM = block.match(/<img[^>]+src="([^"]+)"[^>]*>/i);
+        const altM = block.match(/<img[^>]+alt="([^"]{5,}?)"[^>]*>/i);
+        if (!srcM || !altM) continue;
+
+        const title = decodeHtmlEntities(altM[1].replace(/\s+/g, ' ').trim());
+        if (!title || title.length < 5) continue;
+        if (isBrandBlocked(title, blockedBrands)) continue;
+
+        const image = srcM[1].replace(/_S[XY]\d+_/, '_SL500_');
+
+        const priceM = block.match(/rh_regular_price">([\d,]+)<\/span>\s*<del>([\d,]+)<\/del>/);
+        const price = priceM ? parseInt(priceM[1].replace(/,/g, '')) : 0;
+        const mrp = priceM ? parseInt(priceM[2].replace(/,/g, '')) : price;
+        if (!(price > 0)) continue; // ₹0/blank price is unpostable
+
+        matchesMap.set(asin, { title, image, price, mrp });
+      }
+    } catch (e) {
+      lastError = e;
+    }
   }
 
   if (matchesMap.size === 0) {
-    const msg = 'DealOfTheDayIndia: no Amazon deals found (structure may have changed)';
+    const msg = lastError ? `DealOfTheDayIndia fetch failed: ${lastError.message}` : 'DealOfTheDayIndia: no Amazon deals found (structure may have changed)';
     await saveSyncError('DealOfTheDayIndia', msg, env);
     await recordScraperStatus('dealoftheday', 'error', msg, 0, env);
     return { success: false, count: 0, message: msg };
