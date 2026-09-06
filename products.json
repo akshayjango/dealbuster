@@ -34,14 +34,16 @@
     ],
     "lowestPriceText": null,
     "featured": false,
-    "hidden": false,
-    "outOfStock": false,
+    "hidden": true,
+    "outOfStock": true,
     "order": 1,
     "addedAt": "2026-09-06T05:24:29.760Z",
     "originalPrice": "",
     "rating": null,
     "reviewCount": null,
-    "priceIncreased": false
+    "priceIncreased": false,
+    "lastChecked": 1788672274352,
+    "dead": "2026-09-06T05:25:07.728Z"
   },
   {
     "id": "fk_1788672266938_wxtzg",
@@ -59,14 +61,16 @@
     ],
     "lowestPriceText": null,
     "featured": false,
-    "hidden": false,
-    "outOfStock": false,
+    "hidden": true,
+    "outOfStock": true,
     "order": 2,
     "addedAt": "2026-09-06T05:24:26.938Z",
     "originalPrice": "",
     "rating": null,
     "reviewCount": null,
-    "priceIncreased": false
+    "priceIncreased": false,
+    "lastChecked": 1788672274352,
+    "dead": "2026-09-06T05:25:07.728Z"
   },
   {
     "id": "ds_1788672017506_0",
@@ -2494,7 +2498,7 @@
     "rating": 4.4,
     "reviewCount": 4767,
     "priceIncreased": false,
-    "lastChecked": 1788666886956
+    "lastChecked": 1788672274352
   },
   {
     "id": "ds_1788666618149_0",
@@ -3014,7 +3018,7 @@
     "rating": 4.4,
     "reviewCount": 301,
     "priceIncreased": false,
-    "lastChecked": 1788666041018
+    "lastChecked": 1788672274352
   },
   {
     "id": "ds_1788665716917_0",
@@ -4504,7 +4508,7 @@
     "rating": 4.4,
     "reviewCount": 8778,
     "priceIncreased": false,
-    "lastChecked": 1788666041018
+    "lastChecked": 1788672274352
   },
   {
     "id": "fk_1788658763301_0bw26",
@@ -4531,7 +4535,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1788666041018
+    "lastChecked": 1788672274352
   },
   {
     "id": "amzdeal_1788658697254_0",
@@ -6063,7 +6067,7 @@
     "rating": 4.1,
     "reviewCount": 170,
     "priceIncreased": false,
-    "lastChecked": 1788666041018
+    "lastChecked": 1788672274352
   },
   {
     "id": "amzdeal_1788636211768_0",
@@ -14207,7 +14211,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1788666886956
+    "lastChecked": 1788672274352
   },
   {
     "id": "amzdeal_1788617311435_0",
@@ -17480,7 +17484,7 @@
     "rating": 4.4,
     "reviewCount": 590,
     "priceIncreased": false,
-    "lastChecked": 1788666886956
+    "lastChecked": 1788672274352
   },
   {
     "id": "amzdeal_1788611011570_0",
@@ -48367,7 +48371,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1788664232749
+    "lastChecked": 1788672274352
   },
   {
     "id": "amzdeal_1788497603499_0",
@@ -49023,7 +49027,7 @@
     "rating": 3.9,
     "reviewCount": 529,
     "priceIncreased": true,
-    "lastChecked": 1788665131635
+    "lastChecked": 1788672274352
   },
   {
     "id": "amzdeal_1788496703566_0",
@@ -49155,7 +49159,7 @@
     "rating": 3.9,
     "reviewCount": 78,
     "priceIncreased": false,
-    "lastChecked": 1788665131635
+    "lastChecked": 1788672274352
   },
   {
     "id": "fk_1788495902167_poiu6",
@@ -87330,8 +87334,8 @@
     ],
     "lowestPriceText": null,
     "featured": false,
-    "hidden": true,
-    "outOfStock": true,
+    "hidden": false,
+    "outOfStock": false,
     "order": 3108,
     "addedAt": "2026-09-04T03:55:22.835Z",
     "originalPrice": "₹149",
