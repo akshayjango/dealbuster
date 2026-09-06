@@ -2154,6 +2154,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
+    const baseLink = `https://www.amazon.in/dp/${asin}`;
     const isUpto = hasUptoOffInTitle(finalTitle);
     const link = isUpto ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
     const category = detectCategoryFromTitle(finalTitle);
