@@ -572,6 +572,13 @@
             <option value="dotd">DealOfTheDayIndia</option>
             <option value="indiafree">IndiaFreeStuff</option>
           </select>
+          <select id="dashStore" onchange="renderList()">
+            <option value="">All Stores</option>
+            <option value="amazon">Amazon</option>
+            <option value="flipkart">Flipkart</option>
+            <option value="myntra">Myntra</option>
+            <option value="ajio">Ajio</option>
+          </select>
           <select id="dashCat" onchange="renderList()">
             <option value="">All Categories</option>
             <option value="Electronics">Electronics</option>
@@ -1362,9 +1369,20 @@ async function pushZeroPriceToBottom() {
   } catch (e) { showToast('Failed: ' + e.message, 'error'); }
 }
 
+function getStoreName(p) {
+  if (p.asin && p.asin.length === 10) return 'amazon';
+  const str = ((p.title || '') + ' ' + (p.link || '')).toLowerCase();
+  if (str.includes('amazon') || str.includes('amzn')) return 'amazon';
+  if (str.includes('flipkart') || str.includes('fkrt') || str.includes('fktr')) return 'flipkart';
+  if (str.includes('myntra') || str.includes('myntr')) return 'myntra';
+  if (str.includes('ajio') || str.includes('ajiio')) return 'ajio';
+  return 'other';
+}
+
 function renderList() {
   const q = (document.getElementById('dashSearch')?.value || '').toLowerCase();
   const src = document.getElementById('dashSource')?.value || '';
+  const store = document.getElementById('dashStore')?.value || '';
   const cat = document.getElementById('dashCat')?.value || '';
 
   let filtered = allProducts.filter(p => {
@@ -1376,10 +1394,11 @@ function renderList() {
       src === 'indiafree' ? (p.id || '').startsWith('ifs_') :
       src === 'manual' ? (!(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('dotd_') && !(p.id || '').startsWith('amzdeal_')) :
       true);
+    const matchStore = !store || getStoreName(p) === store;
     const matchOOS = !oosFilterActive || p.outOfStock;
     const noPrice = !p.price || p.price === '₹0' || p.price === '₹';
     const matchNoPrice = !noPriceFilterActive || noPrice;
-    return matchQ && matchCat && matchSrc && matchOOS && matchNoPrice;
+    return matchQ && matchCat && matchSrc && matchStore && matchOOS && matchNoPrice;
   });
 
   if (sortMode === 'price') {
