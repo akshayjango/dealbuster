@@ -1130,19 +1130,23 @@ function sanitizeTitle(title) {
     .trim();
 }
 
-// Helper to check if title contains "upto X% off" or "up to X% off"
+// Helper to check if title contains "upto X% off", "min/minimum X% off", "% off from", etc.
 function hasUptoOffInTitle(title) {
   if (!title || typeof title !== 'string') return false;
-  return /\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\s*off\b/i.test(title) ||
-         (/\b(?:up\s*to|upto)\s*\d+\s*%\b/i.test(title) && /\boff\b/i.test(title));
+  return /\b(?:up\s*to|upto|min(?:imum)?)\s*\d+\s*(?:%|percent)?\s*(?:to\s*\d+\s*(?:%|percent)?)?\s*off\b/i.test(title) ||
+         (/\b(?:up\s*to|upto|min(?:imum)?)\s*\d+\s*%\b/i.test(title) && /\boff\b/i.test(title)) ||
+         /\b\d+\s*%\s*off\s*(?:from|onwards|starting)\b/i.test(title) ||
+         /\b(?:starting\s*from|from)\s*₹?\s*\d+\s*(?:with|and)?\s*\d+\s*%\s*off\b/i.test(title) ||
+         /\b\d+\s*%\s*to\s*\d+\s*%\s*off\b/i.test(title);
 }
 
-// Helper to check if a deal message/text indicates an "upto" deal
+// Helper to check if a deal message/text indicates an "upto" or "minimum % off" deal
 function isUptoDealText(text) {
   if (!text || typeof text !== 'string') return false;
-  return /\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\b/i.test(text) ||
-         /\b(?:up\s*to|upto)\b[^\n]{0,40}\b(?:off|discount|starting|sale|deals?)\b/i.test(text) ||
-         /\b(?:off|discount|sale)\b[^\n]{0,40}\b(?:up\s*to|upto)\b/i.test(text);
+  if (hasUptoOffInTitle(text)) return true;
+  return /\b(?:up\s*to|upto|min(?:imum)?)\s*\d+\s*(?:%|percent)\b/i.test(text) ||
+         /\b(?:up\s*to|upto|min(?:imum)?)\b[^\n]{0,40}\b(?:off|discount|starting|sale|deals?)\b/i.test(text) ||
+         /\b(?:off|discount|sale)\b[^\n]{0,40}\b(?:up\s*to|upto|min(?:imum)?)\b/i.test(text);
 }
 
 // Universal link extractor: extracts ANY link (short, long, plain domain) without restriction

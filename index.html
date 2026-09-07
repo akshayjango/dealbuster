@@ -3539,8 +3539,11 @@
 
   function hasUptoOffInTitle(title) {
     if (!title || typeof title !== 'string') return false;
-    return /\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\s*off\b/i.test(title) ||
-           (/\b(?:up\s*to|upto)\s*\d+\s*%\b/i.test(title) && /\boff\b/i.test(title));
+    return /\b(?:up\s*to|upto|min(?:imum)?)\s*\d+\s*(?:%|percent)?\s*(?:to\s*\d+\s*(?:%|percent)?)?\s*off\b/i.test(title) ||
+           (/\b(?:up\s*to|upto|min(?:imum)?)\s*\d+\s*%\b/i.test(title) && /\boff\b/i.test(title)) ||
+           /\b\d+\s*%\s*off\s*(?:from|onwards|starting)\b/i.test(title) ||
+           /\b(?:starting\s*from|from)\s*₹?\s*\d+\s*(?:with|and)?\s*\d+\s*%\s*off\b/i.test(title) ||
+           /\b\d+\s*%\s*to\s*\d+\s*%\s*off\b/i.test(title);
   }
 
   function sortProducts(list) {
