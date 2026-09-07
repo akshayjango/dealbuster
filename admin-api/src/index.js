@@ -1650,7 +1650,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
         price: deal.price || '',
         mrp: deal.mrp || '',
         disc: deal.mrp && deal.price ? `-${Math.round((1 - parsePrice(deal.price) / parsePrice(deal.mrp)) * 100)}%` : '0%',
-        image: deal.image || '',
+        image: deal.image || 'images/dealbuster_icon.png',
         link: finalAffiliateLink,
         // Category detection stays on the original scraped title, not the
         // AI-rewritten one — keeps this independent of any rewrite quirks.
@@ -4187,7 +4187,7 @@ async function handleTelegramWebhook(request, env) {
         price: price,
         mrp: mrp,
         disc: discStr,
-        image: image,
+        image: image || 'images/dealbuster_icon.png',
         link: affiliateLink,
         category: detectCategoryFromTitle(title),
         highlights: [],
@@ -4285,7 +4285,7 @@ async function handleTelegramWebhook(request, env) {
             price: price,
             mrp: price,
             disc: '0%',
-            image: '',
+            image: 'images/dealbuster_icon.png',
             link: finalLink,
             category: detectCategoryFromTitle(title),
             highlights: [],

@@ -939,20 +939,24 @@
   document.getElementById('bc-title').textContent = title;
 
   // Image
-  if (imgSrc) {
-    const img = document.createElement('img');
-    img.src = imgSrc;
-    img.alt = title;
-    img.onload = () => {
-      img.classList.add('loaded');
-      document.querySelector('.product-img-box > svg').style.display = 'none';
-      document.querySelector('.img-placeholder-text').style.display = 'none';
-    };
-    document.getElementById('imgBox').prepend(img);
-    // Popup backdrop (mobile only, no-op element on desktop): the same hero
-    // image, blurred behind the sheet — see .popup-backdrop CSS.
-    document.getElementById('popupBackdrop').style.backgroundImage = `url("${imgSrc}")`;
-  }
+  const finalImgSrc = imgSrc || 'images/dealbuster_icon.png';
+  const img = document.createElement('img');
+  img.src = finalImgSrc;
+  img.alt = title;
+  img.onload = () => {
+    img.classList.add('loaded');
+    document.querySelector('.product-img-box > svg').style.display = 'none';
+    document.querySelector('.img-placeholder-text').style.display = 'none';
+  };
+  img.onerror = () => {
+    if (img.src !== 'images/dealbuster_icon.png' && !img.src.endsWith('/dealbuster_icon.png')) {
+      img.src = 'images/dealbuster_icon.png';
+    }
+  };
+  document.getElementById('imgBox').prepend(img);
+  // Popup backdrop (mobile only, no-op element on desktop): the same hero
+  // image, blurred behind the sheet — see .popup-backdrop CSS.
+  document.getElementById('popupBackdrop').style.backgroundImage = `url("${finalImgSrc}")`;
 
   // Discount pill
   document.getElementById('discountPill').textContent = discount + ' OFF';

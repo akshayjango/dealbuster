@@ -151,7 +151,7 @@ class Product {
           ? (json['image']?.toString() ?? '')
           : ((json['image']?.toString() ?? '').isNotEmpty
               ? 'https://dealbuster.in/${(json['image']?.toString() ?? '').replaceFirst(RegExp(r'^/'), '')}'
-              : ''),
+              : 'https://dealbuster.in/images/dealbuster_icon.png'),
       link: json['link']?.toString() ?? '',
       category: (json['category']?.toString() ?? 'other').toLowerCase(),
       highlights: List<String>.from(json['highlights'] ?? [])

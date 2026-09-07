@@ -377,6 +377,16 @@ class _ImageBlock extends StatelessWidget {
                       child: CachedNetworkImage(
                         imageUrl: product.image,
                         fit: BoxFit.contain,
+                        errorWidget: (context, url, error) => Center(
+                          child: Image.network(
+                            'https://dealbuster.in/images/dealbuster_icon.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.image_not_supported_outlined,
+                              color: AppColors.ink400,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
