@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/product.dart';
 import '../services/api_service.dart';
+import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/svg_icons.dart';
 import '../widgets/category_tabs.dart';
@@ -44,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String _category = 'all';
   bool _loading = true;
   bool _failed = false;
+  String? _pendingDeepLinkProductId;
 
   @override
   void initState() {
@@ -52,6 +54,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _scrollController.addListener(_handleScroll);
     WidgetsBinding.instance.addObserver(this);
     _startTimer();
+
+    // Listen for push notification deal taps
+    PushNotificationService.instance.productToOpen.addListener(_handlePushNotificationTap);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handlePushNotificationTap();
+    });
+  }
+
+  void _handlePushNotificationTap() {
+    final productId = PushNotificationService.instance.productToOpen.value;
+    if (productId == null || productId.isEmpty) return;
+    PushNotificationService.instance.productToOpen.value = null;
+
+    if (_loading || _all.isEmpty) {
+      _pendingDeepLinkProductId = productId;
+    } else {
+      _openProductById(productId);
+    }
+  }
+
+  void _checkPendingDeepLink() {
+    if (_pendingDeepLinkProductId != null) {
+      final id = _pendingDeepLinkProductId!;
+      _pendingDeepLinkProductId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openProductById(id);
+      });
+    }
+  }
+
+  void _openProductById(String productId) {
+    final cleanId = productId.trim().toUpperCase();
+    final match = _all.cast<Product?>().firstWhere(
+      (p) {
+        if (p == null) return false;
+        if (p.id.toUpperCase() == cleanId) return true;
+        if (p.asin != null && p.asin!.toUpperCase() == cleanId) return true;
+        return false;
+      },
+      orElse: () => null,
+    );
+
+    if (match != null && mounted) {
+      showProductDetailSheet(context, match);
+    }
   }
 
   void _startTimer() {
@@ -72,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    PushNotificationService.instance.productToOpen.removeListener(_handlePushNotificationTap);
     _autoRefreshTimer?.cancel();
     _scrollController.dispose();
     _showScrollTop.dispose();
@@ -152,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _loading = false;
           _failed = false;
         });
+        _checkPendingDeepLink();
       }
     } catch (_) {
       if (!mounted) return;
@@ -163,6 +212,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _loading = false;
           _failed = false;
         });
+        _checkPendingDeepLink();
       } else {
         setState(() {
           _loading = false;

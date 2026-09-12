@@ -461,6 +461,76 @@ async function notifyAdminPush(title, body, env) {
   } catch (e) { console.error('Push notify failed:', e.message); }
 }
 
+// ── Deal Push Notification to App (OneSignal) ────────────────────────────────
+async function sendDealPushNotification(product, title, body, env) {
+  const appId = env.ONESIGNAL_APP_ID;
+  const apiKey = env.ONESIGNAL_REST_API_KEY;
+
+  let imageUrl = null;
+  if (product.image) {
+    imageUrl = product.image.startsWith('http')
+      ? product.image
+      : `https://raw.githubusercontent.com/akshayjango/dealbuster/main/${product.image}`;
+  }
+
+  // If OneSignal credentials are not set in Worker environment, return a helpful notice
+  if (!appId || !apiKey) {
+    console.warn('OneSignal not configured in Worker env (ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY missing)');
+    return {
+      success: true,
+      simulated: true,
+      message: 'Push notification preview generated! Set ONESIGNAL_APP_ID and ONESIGNAL_REST_API_KEY in Worker env to broadcast live.',
+      deal: { id: product.id, title, body, imageUrl }
+    };
+  }
+
+  const payload = {
+    app_id: appId,
+    included_segments: ['Total Subscriptions'],
+    headings: { en: title },
+    contents: { en: body },
+    data: {
+      productId: product.id,
+      asin: product.asin || '',
+      link: product.link || ''
+    },
+    android_accent_color: 'FFFF5A3C', // DealBuster brand color
+    small_icon: 'ic_launcher'
+  };
+
+  if (imageUrl) {
+    payload.big_picture = imageUrl;
+  }
+
+  try {
+    const res = await fetchWithTimeout('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': `Basic ${apiKey}`
+      },
+      body: JSON.stringify(payload)
+    }, 10000);
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.errors?.[0] || `OneSignal HTTP ${res.status}`);
+    }
+
+    return {
+      success: true,
+      recipients: data.recipients || 0,
+      notificationId: data.id,
+      message: `Push notification sent to ${data.recipients || 0} devices!`
+    };
+  } catch (err) {
+    console.error('Failed to send OneSignal push notification:', err.message);
+    return {
+      error: `Failed to deliver push notification: ${err.message}`
+    };
+  }
+}
+
 // ── Amazon helpers ────────────────────────────────────────────────────────────
 
 const AMZ_HEADERS = {
@@ -4933,6 +5003,24 @@ export default {
         if (isZeroPrice(product)) return json({ error: 'Product has no price — refusing to post' }, 400);
         const posted = await sendToChannels([product], env, { force: !!force });
         return json({ success: true, posted, alreadyPosted: posted === 0 });
+      }
+
+      // ── POST /send-deal-push (Per-deal push notification to Android app) ─────
+      if (url.pathname === '/send-deal-push' && request.method === 'POST') {
+        const { id, title, body } = await request.json();
+        if (!id) return json({ error: 'Missing deal id' }, 400);
+        const { products } = await getProductsFile(env);
+        const product = products.find(p => p.id === id);
+        if (!product) return json({ error: 'Product not found' }, 404);
+
+        const pushTitle = (title || '🏷️ Lowest Price Detected!').trim();
+        const pushBody = (body || `${product.title || ''}${product.price ? ` - Now at ${product.price}` : ''}`).trim();
+
+        const result = await sendDealPushNotification(product, pushTitle, pushBody, env);
+        if (result.error) {
+          return json({ error: result.error }, 502);
+        }
+        return json(result);
       }
 
       // ── /upload ──────────────────────────────────────────────────────────────
