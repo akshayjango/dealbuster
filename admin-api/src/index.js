@@ -3269,7 +3269,7 @@ async function queueForApproval(products, env) {
 
   const entries = [];
   for (const p of queued) {
-    const text = formatDealMsg(p, tag, false, env);
+    const text = formatDealMsg(p, tag, !!p.lowestPriceText, env);
     const keyboard = { inline_keyboard: [
       [
         { text: '✅ Approve', callback_data: `tgappr_a_${p.id}` },
@@ -3345,7 +3345,7 @@ async function handleApprovalCallback(cq, env) {
         return new Response('ok');
       }
       const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
-      const caption = formatFbCaption(p, tag, false, env);
+      const caption = formatFbCaption(p, tag, !!p.lowestPriceText, env);
       await tgSend(token, TG_ADMIN_ID, `<pre>${escHtml(caption)}</pre>`, { parse_mode: 'HTML' });
       await tgAnswerCallback(token, cq.id, '📘 Caption sent — tap it to copy');
     } catch (e) {
@@ -3872,7 +3872,7 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
   const noPrice = !product.price || product.price === '₹0' || product.price === '₹';
   if (noPrice) return;
   const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
-  const msg = formatDealMsg(product, tag, false, env);
+  const msg = formatDealMsg(product, tag, !!product.lowestPriceText, env);
   for (const ch of TG_CHANNELS) {
     try {
       if (product.image) {
@@ -5399,9 +5399,12 @@ export default {
           const { products, sha } = await getProductsFile(env);
           const idx = products.findIndex(p => p.id === id);
           if (idx === -1) return json({ error: 'Product not found' }, 404);
+          if (updates.lowestPriceText !== undefined) {
+            updates.lastBadgeCheck = Date.now();
+          }
           products[idx] = { ...products[idx], ...updates };
           await saveProductsFile(products, sha, `Update product: ${products[idx].title.slice(0,60)}`, env);
-          return json({ success: true, product: products[idx] });
+          return json({ success: true, product: products[idx], message: updates.lowestPriceText ? 'Deal marked as Lowest Price successfully!' : 'Deal updated successfully!' });
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
