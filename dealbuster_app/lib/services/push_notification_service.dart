@@ -1,59 +1,96 @@
+import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
 
-/// Service managing OneSignal push notifications and deep linking to deals.
+/// Top-level background message handler for FCM
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint('[FCM Background] Message received: ${message.messageId}');
+}
+
+/// Service managing Firebase Cloud Messaging push notifications and deal deep linking.
 class PushNotificationService {
   PushNotificationService._();
   static final PushNotificationService instance = PushNotificationService._();
 
-  /// OneSignal App ID for DealBuster.
-  /// Replace with your OneSignal App ID from dashboard (e.g. from keys or remote config).
-  static const String defaultAppId = 'YOUR_ONESIGNAL_APP_ID';
+  /// Topic subscribed to by all app users for deal broadcasts
+  static const String dealsTopic = 'deals';
 
   /// ValueNotifier holding the product ID to open when a push notification is tapped.
   final ValueNotifier<String?> productToOpen = ValueNotifier<String?>(null);
 
   bool _initialized = false;
 
-  /// Initializes the OneSignal SDK and sets up notification click handlers.
-  Future<void> init([String appId = defaultAppId]) async {
+  /// Initializes Firebase and Firebase Cloud Messaging listeners.
+  Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
 
     try {
-      if (kDebugMode) {
-        OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-      }
+      await Firebase.initializeApp();
 
-      if (appId.isNotEmpty && appId != 'YOUR_ONESIGNAL_APP_ID') {
-        OneSignal.initialize(appId);
-      }
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-      // Handle notification clicks (Paytm-style small status bar notification tapped)
-      OneSignal.Notifications.addClickListener((event) {
-        final additionalData = event.notification.additionalData;
-        if (additionalData != null) {
-          final productId = additionalData['productId'] as String? ??
-              additionalData['id'] as String? ??
-              additionalData['dealId'] as String?;
+      // Configure foreground notification presentation
+      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-          if (productId != null && productId.isNotEmpty) {
-            productToOpen.value = productId;
-          }
-        }
+      // Auto-subscribe to deals broadcast topic
+      await FirebaseMessaging.instance.subscribeToTopic(dealsTopic);
+
+      // Handle notification tapped while app is running in background
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        _handleMessagePayload(message);
       });
+
+      // Handle notification tapped when app was completely terminated (cold start)
+      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        _handleMessagePayload(initialMessage);
+      }
     } catch (e) {
-      debugPrint('[PushNotificationService] Initialization error: $e');
+      debugPrint('[FCM Service] Initialization notice: $e');
     }
   }
 
-  /// Prompts the Android 13+ native permission dialog.
+  void _handleMessagePayload(RemoteMessage message) {
+    final data = message.data;
+    final productId = data['productId'] as String? ??
+        data['id'] as String? ??
+        data['dealId'] as String?;
+
+    if (productId != null && productId.isNotEmpty) {
+      productToOpen.value = productId;
+    }
+  }
+
+  /// Prompts the Android 13+ native permission dialog for notifications.
   Future<bool> requestPermission() async {
     try {
-      final granted = await OneSignal.Notifications.requestPermission(true);
+      final settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+
+      final granted = settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+
+      if (granted) {
+        await FirebaseMessaging.instance.subscribeToTopic(dealsTopic);
+      }
       return granted;
     } catch (e) {
-      debugPrint('[PushNotificationService] Request permission error: $e');
+      debugPrint('[FCM Service] Request permission error: $e');
       return false;
     }
   }
@@ -61,7 +98,9 @@ class PushNotificationService {
   /// Checks if notification permission is currently granted.
   Future<bool> hasPermission() async {
     try {
-      return OneSignal.Notifications.permission;
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      return settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
     } catch (_) {
       return false;
     }

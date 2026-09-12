@@ -462,9 +462,95 @@ async function notifyAdminPush(title, body, env) {
 }
 
 // ── Deal Push Notification to App (OneSignal) ────────────────────────────────
+// ── Deal Push Notification to App (Firebase Cloud Messaging - FCM v1) ────────
+function fcmBase64UrlEncode(buffer) {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fcmPemToArrayBuffer(pem) {
+  const b64 = pem
+    .replace(/-----BEGIN[ A-Z0-9_-]+-----/g, '')
+    .replace(/-----END[ A-Z0-9_-]+-----/g, '')
+    .replace(/[\r\n\s]/g, '');
+  const raw = atob(b64);
+  const buf = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    buf[i] = raw.charCodeAt(i);
+  }
+  return buf.buffer;
+}
+
+async function getGoogleOAuth2AccessToken(serviceAccount, env) {
+  if (env.KV) {
+    const cached = await env.KV.get('fcm_oauth_token');
+    if (cached) return cached;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
+    iss: serviceAccount.client_email,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now
+  };
+
+  const encHeader = fcmBase64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
+  const encClaim = fcmBase64UrlEncode(new TextEncoder().encode(JSON.stringify(claim)));
+  const signingInput = `${encHeader}.${encClaim}`;
+
+  const keyBuffer = fcmPemToArrayBuffer(serviceAccount.private_key);
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    keyBuffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  );
+
+  const jwt = `${signingInput}.${fcmBase64UrlEncode(signature)}`;
+
+  const tokenResp = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
+  }, 8000);
+
+  const tokenData = await tokenResp.json().catch(() => ({}));
+  if (!tokenResp.ok || !tokenData.access_token) {
+    throw new Error(tokenData.error_description || tokenData.error || `OAuth2 error HTTP ${tokenResp.status}`);
+  }
+
+  if (env.KV) {
+    await env.KV.put('fcm_oauth_token', tokenData.access_token, { expirationTtl: 3000 }).catch(() => {});
+  }
+
+  return tokenData.access_token;
+}
+
 async function sendDealPushNotification(product, title, body, env) {
-  const appId = env.ONESIGNAL_APP_ID;
-  const apiKey = env.ONESIGNAL_REST_API_KEY;
+  let serviceAccount = null;
+  if (env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      serviceAccount = typeof env.FIREBASE_SERVICE_ACCOUNT === 'string'
+        ? JSON.parse(env.FIREBASE_SERVICE_ACCOUNT)
+        : env.FIREBASE_SERVICE_ACCOUNT;
+    } catch (e) {
+      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', e.message);
+    }
+  }
 
   let imageUrl = null;
   if (product.image) {
@@ -473,60 +559,70 @@ async function sendDealPushNotification(product, title, body, env) {
       : `https://raw.githubusercontent.com/akshayjango/dealbuster/main/${product.image}`;
   }
 
-  // If OneSignal credentials are not set in Worker environment, return a helpful notice
-  if (!appId || !apiKey) {
-    console.warn('OneSignal not configured in Worker env (ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY missing)');
+  if (!serviceAccount || !serviceAccount.project_id || !serviceAccount.client_email || !serviceAccount.private_key) {
     return {
       success: true,
       simulated: true,
-      message: 'Push notification preview generated! Set ONESIGNAL_APP_ID and ONESIGNAL_REST_API_KEY in Worker env to broadcast live.',
+      message: 'Notification preview generated! Set FIREBASE_SERVICE_ACCOUNT in Worker secrets to broadcast live via Firebase.',
       deal: { id: product.id, title, body, imageUrl }
     };
   }
 
-  const payload = {
-    app_id: appId,
-    included_segments: ['Total Subscriptions'],
-    headings: { en: title },
-    contents: { en: body },
-    data: {
-      productId: product.id,
-      asin: product.asin || '',
-      link: product.link || ''
-    },
-    android_accent_color: 'FFFF5A3C', // DealBuster brand color
-    small_icon: 'ic_launcher'
-  };
-
-  if (imageUrl) {
-    payload.big_picture = imageUrl;
-  }
-
   try {
-    const res = await fetchWithTimeout('https://onesignal.com/api/v1/notifications', {
+    const accessToken = await getGoogleOAuth2AccessToken(serviceAccount, env);
+
+    const fcmMessage = {
+      message: {
+        topic: 'deals',
+        notification: {
+          title: title,
+          body: body
+        },
+        data: {
+          productId: String(product.id || ''),
+          asin: String(product.asin || ''),
+          link: String(product.link || '')
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            channel_id: 'deals_channel',
+            icon: 'ic_launcher',
+            color: '#FF5A3C',
+            sound: 'default'
+          }
+        }
+      }
+    };
+
+    if (imageUrl) {
+      fcmMessage.message.notification.image = imageUrl;
+    }
+
+    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
+    const resp = await fetchWithTimeout(fcmUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': `Basic ${apiKey}`
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': `Bearer ${accessToken}`
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(fcmMessage)
     }, 10000);
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.errors?.[0] || `OneSignal HTTP ${res.status}`);
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      throw new Error(data.error?.message || `FCM HTTP ${resp.status}`);
     }
 
     return {
       success: true,
-      recipients: data.recipients || 0,
-      notificationId: data.id,
-      message: `Push notification sent to ${data.recipients || 0} devices!`
+      messageId: data.name,
+      message: 'Push notification broadcasted successfully to all devices via Firebase!'
     };
   } catch (err) {
-    console.error('Failed to send OneSignal push notification:', err.message);
+    console.error('Failed to send FCM push notification:', err.message);
     return {
-      error: `Failed to deliver push notification: ${err.message}`
+      error: `Failed to deliver via Firebase: ${err.message}`
     };
   }
 }
