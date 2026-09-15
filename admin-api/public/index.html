@@ -850,8 +850,16 @@
     <!-- ── CUELINKS OFFERS TAB ── -->
     <div class="tab-panel" id="tabOffers">
       <div class="offers-intro">
-        <p>Live coupons/deals from CueLinks' own feed — read-only viewer. Not connected to the public site yet; UI for showing these to visitors is still to be decided.</p>
+        <p>Live coupons and deals from CueLinks' feed — showing Rupee (₹) offers only.</p>
       </div>
+
+      <!-- Subtab Navigation for Deals / Coupons / All -->
+      <div class="subtab-nav" style="margin-bottom: 16px;">
+        <button id="offersTabDeals" class="active" onclick="switchOffersType('deal')">🏷 Deals</button>
+        <button id="offersTabCoupons" onclick="switchOffersType('coupon')">🎟 Coupons</button>
+        <button id="offersTabAll" onclick="switchOffersType('all')">All</button>
+      </div>
+
       <div class="toolbar">
         <div class="toolbar-row toolbar-filters">
           <input type="text" id="offersSearch" placeholder="Search offers (title/merchant)…" onkeydown="if(event.key==='Enter'){offersPage=1;loadOffers();}" style="flex:1;min-width:0;"/>
@@ -1182,6 +1190,98 @@ function switchSubtab(tab) {
 // ── CueLinks Offers (read-only viewer) ─────────────────────────────────────────
 let offersLoadedOnce = false;
 let offersPage = 1;
+let currentRawOffers = [];
+let currentOffersTab = 'deal'; // 'deal' | 'coupon' | 'all'
+
+function isRupeeOffer(o) {
+  if (!o) return false;
+  const text = [o.title, o.description, o.terms, o.currency].filter(Boolean).join(' ');
+  // Exclude dollar ($ or USD) and other non-rupee foreign currencies
+  if (/\$|€|£|\busd\b|\beur\b|\bgbp\b/i.test(text)) return false;
+  if (o.currency && !/^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) {
+    if (/^(?:usd|\$|eur|€|gbp|£|cad|aud)$/i.test(String(o.currency).trim())) return false;
+  }
+  // Must contain rupee indicators: ₹, Rs, Rs., Rs ., Rupee, Rupees, INR
+  const rupeePattern = /(?:₹|\b(?:rs\s*\.?|rupees?|inr)\b)/i;
+  if (rupeePattern.test(text)) return true;
+  if (o.currency && /^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) return true;
+  return false;
+}
+
+function isCouponOffer(o) {
+  return (o.offer_type && String(o.offer_type).toLowerCase() === 'coupon') || Boolean(o.coupon_code && String(o.coupon_code).trim());
+}
+
+function switchOffersType(type) {
+  currentOffersTab = type;
+  const btnDeals = document.getElementById('offersTabDeals');
+  const btnCoupons = document.getElementById('offersTabCoupons');
+  const btnAll = document.getElementById('offersTabAll');
+  if (btnDeals) btnDeals.classList.toggle('active', type === 'deal');
+  if (btnCoupons) btnCoupons.classList.toggle('active', type === 'coupon');
+  if (btnAll) btnAll.classList.toggle('active', type === 'all');
+  renderOffersList();
+}
+
+function renderOffersList() {
+  const list = document.getElementById('offersList');
+  if (!list) return;
+
+  const rupeeOffers = currentRawOffers.filter(isRupeeOffer);
+
+  const dealsCount = rupeeOffers.filter(o => !isCouponOffer(o)).length;
+  const couponsCount = rupeeOffers.filter(o => isCouponOffer(o)).length;
+  const btnDeals = document.getElementById('offersTabDeals');
+  const btnCoupons = document.getElementById('offersTabCoupons');
+  const btnAll = document.getElementById('offersTabAll');
+  if (btnDeals) btnDeals.textContent = `🏷 Deals (${dealsCount})`;
+  if (btnCoupons) btnCoupons.textContent = `🎟 Coupons (${couponsCount})`;
+  if (btnAll) btnAll.textContent = `All (${rupeeOffers.length})`;
+
+  let filtered = rupeeOffers;
+  if (currentOffersTab === 'deal') {
+    filtered = rupeeOffers.filter(o => !isCouponOffer(o));
+  } else if (currentOffersTab === 'coupon') {
+    filtered = rupeeOffers.filter(o => isCouponOffer(o));
+  }
+
+  if (!rupeeOffers.length) {
+    list.innerHTML = '<div class="loading">No Rupee offers found on this page. Try searching or go to the next page.</div>';
+    return;
+  }
+
+  if (!filtered.length) {
+    const tabName = currentOffersTab === 'deal' ? 'Deals' : 'Coupons';
+    const otherTab = currentOffersTab === 'deal' ? 'Coupons' : 'Deals';
+    const otherCount = currentOffersTab === 'deal' ? couponsCount : dealsCount;
+    list.innerHTML = `<div class="loading">No ${tabName} found on this page (${otherCount} in ${otherTab} tab).</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(o => {
+    const isCoupon = isCouponOffer(o);
+    const priceLine = (o.original_price || o.discount_price || o.percent_off)
+      ? `<span class="offer-price-tag">${o.percent_off ? o.percent_off + '% off' : ''}${o.discount_price ? ' · ₹' + o.discount_price : ''}${o.original_price ? ' (was ₹' + o.original_price + ')' : ''}</span>`
+      : '';
+    return `
+    <div class="product-row offer-row">
+      <div class="product-row-info" style="min-width:0;">
+        <div class="product-row-title">${escHtml(o.title || '(no title)')}</div>
+        <div class="offer-description">${escHtml(o.description || '')}</div>
+        <div class="product-row-meta">
+          <span class="offer-badge">${escHtml(o.campaign_name || 'Unknown merchant')}</span>
+          <span class="offer-badge offer-badge-type">${isCoupon ? '🎟 Coupon' : '🏷 Deal'}</span>
+          ${o.coupon_code ? `<span class="offer-badge offer-code" title="Coupon code">${escHtml(o.coupon_code)}</span>` : ''}
+          ${priceLine}
+          <span class="offer-badge offer-dates">${escHtml(o.start_date || '')} → ${escHtml(o.end_date || '')}</span>
+        </div>
+      </div>
+      <div class="product-row-prices">
+        <a class="btn btn-ghost btn-sm" href="${escHtml(o.tracking_url || '#')}" target="_blank" rel="noopener noreferrer" ${!o.tracking_url ? 'style="pointer-events:none;opacity:.4;"' : ''}>Open ↗</a>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 async function loadOffers() {
   offersLoadedOnce = true;
@@ -1192,7 +1292,7 @@ async function loadOffers() {
 
   const q = document.getElementById('offersSearch').value.trim();
   const campaignId = document.getElementById('offersCampaignId').value.trim();
-  const params = new URLSearchParams({ per_page: '20', page: String(offersPage) });
+  const params = new URLSearchParams({ per_page: '50', page: String(offersPage) });
   if (q) params.set('q', q);
   if (campaignId) params.set('campaign_id', campaignId);
 
@@ -1204,41 +1304,15 @@ async function loadOffers() {
       return;
     }
     const body = outer.body || {};
-    const offers = body.data || [];
+    currentRawOffers = body.data || [];
     const meta = body.meta || {};
 
-    if (!offers.length) {
-      list.innerHTML = '<div class="loading">No offers found for this filter.</div>';
-      return;
-    }
-
-    list.innerHTML = offers.map(o => {
-      const priceLine = (o.original_price || o.discount_price || o.percent_off)
-        ? `<span class="offer-price-tag">${o.percent_off ? o.percent_off + '% off' : ''}${o.discount_price ? ' · ₹' + o.discount_price : ''}${o.original_price ? ' (was ₹' + o.original_price + ')' : ''}</span>`
-        : '';
-      return `
-      <div class="product-row offer-row">
-        <div class="product-row-info" style="min-width:0;">
-          <div class="product-row-title">${escHtml(o.title || '(no title)')}</div>
-          <div class="offer-description">${escHtml(o.description || '')}</div>
-          <div class="product-row-meta">
-            <span class="offer-badge">${escHtml(o.campaign_name || 'Unknown merchant')}</span>
-            <span class="offer-badge offer-badge-type">${o.offer_type === 'coupon' ? '🎟 Coupon' : '🏷 Deal'}</span>
-            ${o.coupon_code ? `<span class="offer-badge offer-code">${escHtml(o.coupon_code)}</span>` : ''}
-            ${priceLine}
-            <span class="offer-badge offer-dates">${escHtml(o.start_date || '')} → ${escHtml(o.end_date || '')}</span>
-          </div>
-        </div>
-        <div class="product-row-prices">
-          <a class="btn btn-ghost btn-sm" href="${escHtml(o.tracking_url || '#')}" target="_blank" rel="noopener noreferrer" ${!o.tracking_url ? 'style="pointer-events:none;opacity:.4;"' : ''}>Open ↗</a>
-        </div>
-      </div>`;
-    }).join('');
+    renderOffersList();
 
     const totalPages = meta.total_pages || 1;
     pagination.innerHTML = `
       <button class="btn btn-ghost btn-sm" onclick="offersPage=Math.max(1,offersPage-1);loadOffers();" ${offersPage <= 1 ? 'disabled' : ''}>← Prev</button>
-      <span class="offers-page-info">Page ${meta.page || offersPage} of ${totalPages} (${meta.total || offers.length} total)</span>
+      <span class="offers-page-info">Page ${meta.page || offersPage} of ${totalPages}</span>
       <button class="btn btn-ghost btn-sm" onclick="offersPage=offersPage+1;loadOffers();" ${!meta.next_page ? 'disabled' : ''}>Next →</button>
     `;
   } catch (e) {

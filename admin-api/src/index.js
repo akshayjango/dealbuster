@@ -5293,7 +5293,7 @@ export default {
         if (!apiKey) return json({ error: 'CUELINKS_API_KEY not configured' }, 400);
         const q = url.searchParams.get('q') || '';
         const campaignId = url.searchParams.get('campaign_id') || '';
-        const perPage = url.searchParams.get('per_page') || '10';
+        const perPage = url.searchParams.get('per_page') || '50';
         const page = url.searchParams.get('page') || '1';
         try {
           const params = new URLSearchParams({ per_page: perPage, page });
@@ -5305,6 +5305,20 @@ export default {
             10000
           );
           const body = await res.json().catch(() => ({}));
+          if (body && Array.isArray(body.data)) {
+            const rupeeRegex = /(?:₹|\b(?:rs\s*\.?|rupees?|inr)\b)/i;
+            body.data = body.data.filter(o => {
+              if (!o) return false;
+              const text = [o.title, o.description, o.terms, o.currency].filter(Boolean).join(' ');
+              if (/\$|€|£|\busd\b|\beur\b|\bgbp\b/i.test(text)) return false;
+              if (o.currency && !/^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) {
+                if (/^(?:usd|\$|eur|€|gbp|£|cad|aud)$/i.test(String(o.currency).trim())) return false;
+              }
+              if (rupeeRegex.test(text)) return true;
+              if (o.currency && /^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) return true;
+              return false;
+            });
+          }
           return json({ status: res.status, body });
         } catch (e) {
           return json({ error: e.message }, 502);
