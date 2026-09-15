@@ -5314,6 +5314,9 @@ export default {
               if (o.currency && !/^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) {
                 if (/^(?:usd|\$|eur|€|gbp|£|cad|aud)$/i.test(String(o.currency).trim())) return false;
               }
+              const isCoupon = (o.offer_type && String(o.offer_type).toLowerCase() === 'coupon') || Boolean(o.coupon_code && String(o.coupon_code).trim());
+              if (isCoupon) return true;
+              // Deals require explicit Rupee indicator
               if (rupeeRegex.test(text)) return true;
               if (o.currency && /^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) return true;
               return false;

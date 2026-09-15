@@ -850,7 +850,7 @@
     <!-- ── CUELINKS OFFERS TAB ── -->
     <div class="tab-panel" id="tabOffers">
       <div class="offers-intro">
-        <p>Live coupons and deals from CueLinks' feed — showing Rupee (₹) offers only.</p>
+        <p>Live coupons and deals from CueLinks' feed — deals in Rupee (₹), coupons excluding dollar ($).</p>
       </div>
 
       <!-- Subtab Navigation for Deals / Coupons / All -->
@@ -1193,15 +1193,20 @@ let offersPage = 1;
 let currentRawOffers = [];
 let currentOffersTab = 'deal'; // 'deal' | 'coupon' | 'all'
 
-function isRupeeOffer(o) {
+function hasDollarOrForeign(o) {
   if (!o) return false;
   const text = [o.title, o.description, o.terms, o.currency].filter(Boolean).join(' ');
   // Exclude dollar ($ or USD) and other non-rupee foreign currencies
-  if (/\$|€|£|\busd\b|\beur\b|\bgbp\b/i.test(text)) return false;
+  if (/\$|€|£|\busd\b|\beur\b|\bgbp\b/i.test(text)) return true;
   if (o.currency && !/^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) {
-    if (/^(?:usd|\$|eur|€|gbp|£|cad|aud)$/i.test(String(o.currency).trim())) return false;
+    if (/^(?:usd|\$|eur|€|gbp|£|cad|aud)$/i.test(String(o.currency).trim())) return true;
   }
-  // Must contain rupee indicators: ₹, Rs, Rs., Rs ., Rupee, Rupees, INR
+  return false;
+}
+
+function hasRupee(o) {
+  if (!o) return false;
+  const text = [o.title, o.description, o.terms, o.currency].filter(Boolean).join(' ');
   const rupeePattern = /(?:₹|\b(?:rs\s*\.?|rupees?|inr)\b)/i;
   if (rupeePattern.test(text)) return true;
   if (o.currency && /^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) return true;
@@ -1210,6 +1215,12 @@ function isRupeeOffer(o) {
 
 function isCouponOffer(o) {
   return (o.offer_type && String(o.offer_type).toLowerCase() === 'coupon') || Boolean(o.coupon_code && String(o.coupon_code).trim());
+}
+
+function isEligibleOffer(o) {
+  if (!o || hasDollarOrForeign(o)) return false;
+  if (isCouponOffer(o)) return true; // Coupons show everything as long as no $
+  return hasRupee(o); // Deals require explicit Rupee
 }
 
 function switchOffersType(type) {
@@ -1227,33 +1238,33 @@ function renderOffersList() {
   const list = document.getElementById('offersList');
   if (!list) return;
 
-  const rupeeOffers = currentRawOffers.filter(isRupeeOffer);
+  const validOffers = currentRawOffers.filter(isEligibleOffer);
 
-  const dealsCount = rupeeOffers.filter(o => !isCouponOffer(o)).length;
-  const couponsCount = rupeeOffers.filter(o => isCouponOffer(o)).length;
+  const deals = validOffers.filter(o => !isCouponOffer(o));
+  const coupons = validOffers.filter(o => isCouponOffer(o));
   const btnDeals = document.getElementById('offersTabDeals');
   const btnCoupons = document.getElementById('offersTabCoupons');
   const btnAll = document.getElementById('offersTabAll');
-  if (btnDeals) btnDeals.textContent = `🏷 Deals (${dealsCount})`;
-  if (btnCoupons) btnCoupons.textContent = `🎟 Coupons (${couponsCount})`;
-  if (btnAll) btnAll.textContent = `All (${rupeeOffers.length})`;
+  if (btnDeals) btnDeals.textContent = `🏷 Deals (${deals.length})`;
+  if (btnCoupons) btnCoupons.textContent = `🎟 Coupons (${coupons.length})`;
+  if (btnAll) btnAll.textContent = `All (${validOffers.length})`;
 
-  let filtered = rupeeOffers;
+  let filtered = validOffers;
   if (currentOffersTab === 'deal') {
-    filtered = rupeeOffers.filter(o => !isCouponOffer(o));
+    filtered = deals;
   } else if (currentOffersTab === 'coupon') {
-    filtered = rupeeOffers.filter(o => isCouponOffer(o));
+    filtered = coupons;
   }
 
-  if (!rupeeOffers.length) {
-    list.innerHTML = '<div class="loading">No Rupee offers found on this page. Try searching or go to the next page.</div>';
+  if (!validOffers.length) {
+    list.innerHTML = '<div class="loading">No eligible offers found on this page. Try searching or go to the next page.</div>';
     return;
   }
 
   if (!filtered.length) {
     const tabName = currentOffersTab === 'deal' ? 'Deals' : 'Coupons';
     const otherTab = currentOffersTab === 'deal' ? 'Coupons' : 'Deals';
-    const otherCount = currentOffersTab === 'deal' ? couponsCount : dealsCount;
+    const otherCount = currentOffersTab === 'deal' ? coupons.length : deals.length;
     list.innerHTML = `<div class="loading">No ${tabName} found on this page (${otherCount} in ${otherTab} tab).</div>`;
     return;
   }
