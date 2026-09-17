@@ -407,7 +407,7 @@
       .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
       .scraper-stats-row { grid-template-columns: repeat(1, 1fr); gap: 10px; }
       .toolbar-filters { flex-wrap: wrap; }
-      .toolbar-filters #dashSearch { width: 100%; flex: none; }
+      .toolbar-filters #dashSearch, .toolbar-filters .dash-search-wrap { width: 100%; flex: none; }
       .toolbar-filters select { flex: 1; min-width: 80px; }
       .two-col { grid-template-columns: 1fr; }
       .tab-nav {
@@ -480,7 +480,7 @@
 <div class="screen" id="screenApp">
   <!-- Header -->
   <header class="app-header">
-    <div class="app-logo" onclick="switchTab('dashboard')" style="cursor:pointer;">Deal<span>buster</span> <small>ADMIN</small></div>
+    <div class="app-logo" onclick="resetAndRefreshDashboard()" style="cursor:pointer;" title="Reset filters & refresh dashboard">Deal<span>buster</span> <small>ADMIN</small></div>
     <nav class="tab-nav">
       <button class="active" onclick="switchTab('dashboard')">Dashboard</button>
       <button onclick="switchTab('addDeal')">Add Deal</button>
@@ -578,7 +578,10 @@
       <div class="toolbar">
         <!-- Row 1: search + filters -->
         <div class="toolbar-row toolbar-filters">
-          <input type="text" id="dashSearch" placeholder="Search…" oninput="renderList()" style="flex:1;min-width:0;"/>
+          <div class="dash-search-wrap" style="position:relative;flex:1;min-width:0;display:flex;align-items:center;">
+            <input type="text" id="dashSearch" placeholder="Search products, brand, ASIN…" oninput="onSearchInput()" onkeydown="if(event.key==='Enter')onSearchEnter()" style="width:100%;padding-right:28px;"/>
+            <button id="dashSearchClear" type="button" onclick="clearDashSearch()" style="display:none;position:absolute;right:8px;background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px 4px;line-height:1;" title="Clear search">✕</button>
+          </div>
           <select id="dashSource" onchange="renderList()">
             <option value="">All Sources</option>
             <option value="manual">Manual</option>
@@ -634,6 +637,7 @@
       </div>
 
       <!-- List -->
+      <div id="dashResultsCount" style="font-size:0.78rem;color:var(--muted);font-weight:600;padding:2px 4px 6px;display:none;"></div>
       <div class="products-list" id="productsList">
         <div class="loading"><div class="spinner"></div>Loading products…</div>
       </div>
@@ -1166,15 +1170,22 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
-function switchTab(tab) {
+function switchTab(tab, forceReload = false) {
   document.querySelectorAll('.tab-nav button').forEach((b, i) => {
     b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1) || (tab === 'offers' && i === 2));
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   const panelId = tab === 'dashboard' ? 'tabDashboard' : tab === 'offers' ? 'tabOffers' : 'tabAddDeal';
   document.getElementById(panelId).classList.add('active');
-  if (tab === 'dashboard') loadProducts();
+  if (tab === 'dashboard') {
+    if (forceReload || !allProducts || !allProducts.length) {
+      loadProducts();
+    } else {
+      renderList();
+    }
+  }
   if (tab === 'offers' && !offersLoadedOnce) loadOffers();
+  saveUIState();
 }
 
 function switchSubtab(tab) {
@@ -1370,7 +1381,9 @@ async function loadProducts() {
       tgPostedSet = new Set(t.posted || []);
     } catch { tgPostedSet = new Set(); }
     updateStats();
+    restoreUIState();
     renderList();
+    restoreSavedScroll();
     updateNotifications();
   } catch (e) {
     document.getElementById('productsList').innerHTML = `<div class="loading" style="color:var(--red)">Failed to load: ${escHtml(e.message)}</div>`;
@@ -1538,14 +1551,235 @@ function getStoreName(p) {
   return 'other';
 }
 
-function renderList() {
-  const q = (document.getElementById('dashSearch')?.value || '').toLowerCase();
+// ── Search, UI State & Infinite Scrolling ─────────────────────────────────────
+const CHUNK_SIZE = 40;
+let currentFiltered = [];
+let renderedCount = 0;
+let listObserver = null;
+let searchDebounceTimer = null;
+let isRestoringState = false;
+
+function onSearchInput() {
+  const val = document.getElementById('dashSearch')?.value || '';
+  const clearBtn = document.getElementById('dashSearchClear');
+  if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    renderList(true);
+  }, 150);
+}
+
+function onSearchEnter() {
+  clearTimeout(searchDebounceTimer);
+  renderList(true);
+}
+
+function clearDashSearch() {
+  const input = document.getElementById('dashSearch');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  const clearBtn = document.getElementById('dashSearchClear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  clearTimeout(searchDebounceTimer);
+  renderList(true);
+}
+
+function resetAndRefreshDashboard() {
+  const input = document.getElementById('dashSearch');
+  if (input) input.value = '';
+  const clearBtn = document.getElementById('dashSearchClear');
+  if (clearBtn) clearBtn.style.display = 'none';
+
+  const src = document.getElementById('dashSource');
+  if (src) src.value = '';
+  const store = document.getElementById('dashStore');
+  if (store) store.value = '';
+  const cat = document.getElementById('dashCat');
+  if (cat) cat.value = '';
+
+  oosFilterActive = false;
+  const oosBtn = document.getElementById('oosFilterBtn');
+  if (oosBtn) {
+    oosBtn.style.background = '';
+    oosBtn.style.color = '';
+    oosBtn.style.borderColor = '';
+  }
+  const pushOOSBtn = document.getElementById('pushOOSBottomBtn');
+  if (pushOOSBtn) pushOOSBtn.style.display = 'none';
+
+  noPriceFilterActive = false;
+  const npBtn = document.getElementById('nopriceFilterBtn');
+  if (npBtn) {
+    npBtn.classList.remove('btn-outline');
+    npBtn.style.borderColor = '';
+    npBtn.style.color = '';
+  }
+
+  showHiddenActive = false;
+  document.getElementById('showHiddenBtn')?.classList.remove('btn-outline');
+
+  sortMode = null;
+  const sortP = document.getElementById('sortPriceBtn');
+  const sortD = document.getElementById('sortDiscBtn');
+  if (sortP) { sortP.classList.remove('btn-outline'); sortP.textContent = '↑ Price'; }
+  if (sortD) { sortD.classList.remove('btn-outline'); sortD.textContent = '% Discount'; }
+
+  try {
+    sessionStorage.removeItem('db_admin_ui_state');
+  } catch {}
+
+  switchTab('dashboard', true);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Dashboard refreshed');
+}
+
+function saveUIState() {
+  if (isRestoringState) return;
+  try {
+    const activeTabBtn = document.querySelector('.tab-nav button.active');
+    const tabIndex = [...document.querySelectorAll('.tab-nav button')].indexOf(activeTabBtn);
+    const tab = tabIndex === 1 ? 'addDeal' : tabIndex === 2 ? 'offers' : 'dashboard';
+
+    const state = {
+      tab,
+      search: document.getElementById('dashSearch')?.value || '',
+      source: document.getElementById('dashSource')?.value || '',
+      store: document.getElementById('dashStore')?.value || '',
+      cat: document.getElementById('dashCat')?.value || '',
+      oos: !!oosFilterActive,
+      noPrice: !!noPriceFilterActive,
+      showHidden: !!showHiddenActive,
+      sortMode: sortMode,
+      scrollY: window.scrollY || 0
+    };
+    sessionStorage.setItem('db_admin_ui_state', JSON.stringify(state));
+  } catch {}
+}
+
+let pendingScrollY = null;
+
+function restoreUIState() {
+  try {
+    const raw = sessionStorage.getItem('db_admin_ui_state');
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    isRestoringState = true;
+
+    if (state.search !== undefined) {
+      const searchInput = document.getElementById('dashSearch');
+      if (searchInput) searchInput.value = state.search;
+      const clearBtn = document.getElementById('dashSearchClear');
+      if (clearBtn) clearBtn.style.display = state.search ? 'block' : 'none';
+    }
+    if (state.source !== undefined && document.getElementById('dashSource')) {
+      document.getElementById('dashSource').value = state.source;
+    }
+    if (state.store !== undefined && document.getElementById('dashStore')) {
+      document.getElementById('dashStore').value = state.store;
+    }
+    if (state.cat !== undefined && document.getElementById('dashCat')) {
+      document.getElementById('dashCat').value = state.cat;
+    }
+    if (state.oos !== undefined) {
+      oosFilterActive = !!state.oos;
+      const oosBtn = document.getElementById('oosFilterBtn');
+      if (oosBtn) {
+        oosBtn.style.background = oosFilterActive ? '#fee2e2' : '';
+        oosBtn.style.color = oosFilterActive ? '#dc2626' : '';
+        oosBtn.style.borderColor = oosFilterActive ? '#dc2626' : '';
+      }
+      const pushOOSBtn = document.getElementById('pushOOSBottomBtn');
+      if (pushOOSBtn) pushOOSBtn.style.display = oosFilterActive ? 'inline-flex' : 'none';
+    }
+    if (state.noPrice !== undefined) {
+      noPriceFilterActive = !!state.noPrice;
+      const npBtn = document.getElementById('nopriceFilterBtn');
+      if (npBtn) {
+        npBtn.classList.toggle('btn-outline', noPriceFilterActive);
+        npBtn.style.borderColor = noPriceFilterActive ? '#d97706' : '';
+        npBtn.style.color = noPriceFilterActive ? '#d97706' : '';
+      }
+    }
+    if (state.showHidden !== undefined) {
+      showHiddenActive = !!state.showHidden;
+      document.getElementById('showHiddenBtn')?.classList.toggle('btn-outline', showHiddenActive);
+    }
+    if (state.sortMode !== undefined) {
+      sortMode = state.sortMode;
+      document.getElementById('sortPriceBtn')?.classList.toggle('btn-outline', sortMode === 'price');
+      document.getElementById('sortDiscBtn')?.classList.toggle('btn-outline', sortMode === 'disc');
+    }
+    if (state.scrollY != null) {
+      pendingScrollY = state.scrollY;
+    }
+    if (state.tab && state.tab !== 'dashboard') {
+      setTimeout(() => switchTab(state.tab), 0);
+    }
+  } catch (e) {
+    console.warn('Could not restore state:', e);
+  } finally {
+    isRestoringState = false;
+  }
+}
+
+function restoreSavedScroll() {
+  if (pendingScrollY != null && pendingScrollY > 0) {
+    const approxRowHeight = 70;
+    const neededCount = Math.min(currentFiltered.length, Math.ceil(pendingScrollY / approxRowHeight) + 15);
+    while (renderedCount < neededCount && renderedCount < currentFiltered.length) {
+      renderNextChunk();
+    }
+    const targetY = pendingScrollY;
+    pendingScrollY = null;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: targetY, behavior: 'instant' });
+    });
+  }
+}
+
+let scrollSaveTimer = null;
+window.addEventListener('scroll', () => {
+  clearTimeout(scrollSaveTimer);
+  scrollSaveTimer = setTimeout(saveUIState, 200);
+}, { passive: true });
+
+window.addEventListener('pagehide', saveUIState);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    saveUIState();
+  }
+});
+
+function renderList(resetScroll = false) {
+  const searchInput = document.getElementById('dashSearch');
+  const qRaw = (searchInput?.value || '').trim();
+  const q = qRaw.toLowerCase();
+  const clearBtn = document.getElementById('dashSearchClear');
+  if (clearBtn) clearBtn.style.display = qRaw ? 'block' : 'none';
+
   const src = document.getElementById('dashSource')?.value || '';
   const store = document.getElementById('dashStore')?.value || '';
   const cat = document.getElementById('dashCat')?.value || '';
 
-  let filtered = allProducts.filter(p => {
-    const matchQ = !q || p.title.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q);
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+
+  currentFiltered = allProducts.filter(p => {
+    let matchQ = true;
+    if (tokens.length) {
+      const pTitle = (p.title || '').toLowerCase();
+      const pCat = (p.category || '').toLowerCase();
+      const pAsin = (p.asin || '').toLowerCase();
+      const pStore = getStoreName(p);
+      matchQ = tokens.every(tok =>
+        pTitle.includes(tok) ||
+        pCat.includes(tok) ||
+        pAsin.includes(tok) ||
+        pStore.includes(tok)
+      );
+    }
     const matchCat = !cat || p.category === cat;
     const matchSrc = !src ||
       (src === 'dealsradar' ? (p.id || '').startsWith('dr_') :
@@ -1562,51 +1796,127 @@ function renderList() {
 
   if (sortMode === 'price') {
     const parseP = s => parseFloat((s || '').replace(/[^\d.]/g, '')) || Infinity;
-    filtered.sort((a, b) => parseP(a.price) - parseP(b.price));
+    currentFiltered.sort((a, b) => parseP(a.price) - parseP(b.price));
   } else if (sortMode === 'disc') {
     const parseD = s => parseInt((s || '').replace(/[^\d]/g, '')) || 0;
-    filtered.sort((a, b) => parseD(b.disc) - parseD(a.disc));
+    currentFiltered.sort((a, b) => parseD(b.disc) - parseD(a.disc));
   } else {
-    // Featured first, then by order
-    filtered = [
-      ...filtered.filter(p => p.featured),
-      ...filtered.filter(p => !p.featured),
+    currentFiltered = [
+      ...currentFiltered.filter(p => p.featured),
+      ...currentFiltered.filter(p => !p.featured),
     ];
   }
 
-  if (!filtered.length) {
-    document.getElementById('productsList').innerHTML = '<div class="loading">No products found.</div>';
-    return;
+  const countBadge = document.getElementById('dashResultsCount');
+  if (countBadge) {
+    if (qRaw || src || store || cat || oosFilterActive || noPriceFilterActive) {
+      countBadge.textContent = `Found ${currentFiltered.length} deal${currentFiltered.length === 1 ? '' : 's'}`;
+      countBadge.style.display = 'block';
+    } else {
+      countBadge.textContent = '';
+      countBadge.style.display = 'none';
+    }
   }
 
   const listEl = document.getElementById('productsList');
   listEl.innerHTML = '';
-  filtered.forEach((p, i) => {
-    listEl.appendChild(buildProductRow(p, i));
+  renderedCount = 0;
+
+  if (!currentFiltered.length) {
+    listEl.innerHTML = '<div class="loading">No products found.</div>';
+    saveUIState();
+    return;
+  }
+
+  renderNextChunk();
+  setupInfiniteScroll();
+
+  if (resetScroll) {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  saveUIState();
+}
+
+function renderNextChunk() {
+  if (renderedCount >= currentFiltered.length) return;
+  const listEl = document.getElementById('productsList');
+  const nextSlice = currentFiltered.slice(renderedCount, renderedCount + CHUNK_SIZE);
+  const fragment = document.createDocumentFragment();
+
+  nextSlice.forEach((p, idx) => {
+    fragment.appendChild(buildProductRow(p, renderedCount + idx));
   });
+
+  const oldSentinel = document.getElementById('listSentinel');
+  if (oldSentinel) oldSentinel.remove();
+
+  listEl.appendChild(fragment);
+  renderedCount += nextSlice.length;
+
+  if (renderedCount < currentFiltered.length) {
+    const sentinel = document.createElement('div');
+    sentinel.id = 'listSentinel';
+    sentinel.style.cssText = 'padding:16px;text-align:center;color:var(--muted);font-size:.8rem;font-weight:600;';
+    sentinel.innerHTML = `<span style="opacity:0.7;">Showing ${renderedCount} of ${currentFiltered.length} deals…</span>`;
+    listEl.appendChild(sentinel);
+
+    if (listObserver) {
+      listObserver.observe(sentinel);
+    }
+  }
+}
+
+function setupInfiniteScroll() {
+  if (listObserver) {
+    listObserver.disconnect();
+  }
+  if ('IntersectionObserver' in window) {
+    listObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          listObserver.unobserve(entry.target);
+          renderNextChunk();
+        }
+      });
+    }, { rootMargin: '300px' });
+
+    const sentinel = document.getElementById('listSentinel');
+    if (sentinel) {
+      listObserver.observe(sentinel);
+    }
+  } else {
+    window.onscroll = () => {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+        renderNextChunk();
+      }
+    };
+  }
 }
 
 function buildProductRow(p, visualIndex) {
   const row = document.createElement('div');
   row.className = 'product-row' + (p.featured ? ' featured-row' : '') + (p.hidden ? ' hidden-row' : '') + (isTgPosted(p) ? ' tg-posted-row' : '');
   row.dataset.id = p.id;
-  row.draggable = true;
 
-  // Drag events
-  row.addEventListener('dragstart', e => {
-    dragSrcIndex = visualIndex;
-    row.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-  });
-  row.addEventListener('dragend', () => row.classList.remove('dragging'));
-  row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drag-over'); });
-  row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
-  row.addEventListener('drop', e => {
-    e.preventDefault();
-    row.classList.remove('drag-over');
-    if (dragSrcIndex === null || dragSrcIndex === visualIndex) return;
-    reorderDrop(dragSrcIndex, visualIndex);
-  });
+  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (!isTouchDevice) {
+    row.draggable = true;
+    row.addEventListener('dragstart', e => {
+      dragSrcIndex = visualIndex;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+    row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drag-over'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.classList.remove('drag-over');
+      if (dragSrcIndex === null || dragSrcIndex === visualIndex) return;
+      reorderDrop(dragSrcIndex, visualIndex);
+    });
+  }
 
   const imgSrc = p.image
     ? (p.image.startsWith('http') ? p.image : `https://raw.githubusercontent.com/akshayjango/dealbuster/main/${p.image}`)
@@ -1616,7 +1926,7 @@ function buildProductRow(p, visualIndex) {
   row.innerHTML = `
     <span class="drag-handle" title="Drag to reorder">⠿</span>
     <a class="product-row-link-area" href="${linkHref}" target="_blank" rel="noopener noreferrer" title="Open on Amazon" ${!p.link ? 'style="cursor:default;pointer-events:none;"' : ''}>
-      <img class="product-row-img" src="${escHtml(imgSrc)}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2252%22 height=%2252%22%3E%3Crect width=%2252%22 height=%2252%22 fill=%22%23f3f4f6%22/%3E%3C/svg%3E'"/>
+      <img class="product-row-img" src="${escHtml(imgSrc)}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2252%22 height=%2252%22%3E%3Crect width=%2252%22 height=%2252%22 fill=%22%23f3f4f6%22/%3E%3C/svg%3E'"/>
       <div class="product-row-info">
         <div class="product-row-title">${escHtml(p.title)}</div>
         <div class="product-row-meta">
@@ -1865,26 +2175,20 @@ async function deleteProduct(id) {
 
 // Drag-and-drop reorder
 function reorderDrop(fromVisual, toVisual) {
-  // Rebuild current visual order (featured first)
-  const featured = allProducts.filter(p => p.featured);
-  const nonFeatured = allProducts.filter(p => !p.featured);
-  let visual = [...featured, ...nonFeatured];
+  const movedItem = currentFiltered[fromVisual];
+  const targetItem = currentFiltered[toVisual];
+  if (!movedItem || !targetItem || movedItem.id === targetItem.id) return;
 
-  const q = (document.getElementById('dashSearch')?.value || '').toLowerCase();
-  const cat = document.getElementById('dashCat')?.value || '';
-  if (q || cat) {
-    // If filtered, just move within the allProducts array by id
-    const movedId = visual[fromVisual]?.id;
-    const targetId = visual[toVisual]?.id;
-    if (!movedId || !targetId) return;
-    const movedItem = allProducts.find(p => p.id === movedId);
-    allProducts = allProducts.filter(p => p.id !== movedId);
-    const targetIdx = allProducts.findIndex(p => p.id === targetId);
-    allProducts.splice(targetIdx, 0, movedItem);
-  } else {
-    const moved = visual.splice(fromVisual, 1)[0];
-    visual.splice(toVisual, 0, moved);
-    allProducts = visual;
+  const movedId = movedItem.id;
+  const targetId = targetItem.id;
+
+  const itemToMove = allProducts.find(p => p.id === movedId);
+  if (!itemToMove) return;
+
+  allProducts = allProducts.filter(p => p.id !== movedId);
+  const targetIdx = allProducts.findIndex(p => p.id === targetId);
+  if (targetIdx !== -1) {
+    allProducts.splice(targetIdx, 0, itemToMove);
   }
 
   allProducts = allProducts.map((p, i) => ({ ...p, order: i }));
@@ -2871,8 +3175,19 @@ async function goToProduct(id) {
   document.querySelectorAll('.tab-nav button').forEach((b, i) => b.classList.toggle('active', i === 0));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tabDashboard').classList.add('active');
-  // Wait for products to load
-  await loadProducts();
+  // If not loaded, wait for load
+  if (!allProducts || !allProducts.length) {
+    await loadProducts();
+  } else {
+    renderList();
+  }
+  // Ensure product is rendered in chunks
+  const targetIdx = currentFiltered.findIndex(p => p.id === id);
+  if (targetIdx !== -1) {
+    while (renderedCount <= targetIdx && renderedCount < currentFiltered.length) {
+      renderNextChunk();
+    }
+  }
   // Now scroll and highlight
   const el = document.querySelector(`.product-row[data-id="${id}"]`);
   if (el) {
