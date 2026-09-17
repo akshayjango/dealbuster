@@ -2043,12 +2043,15 @@ async function toggleFeatured(id) {
   updateStats();
   renderList();
   try {
-    await apiFetch(`/products/${id}`, { method: 'PUT', body: { featured: newVal } });
+    const resp = await apiFetch(`/products/${id}`, { method: 'PUT', body: { featured: newVal } });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.error) throw new Error(data.error || ('HTTP ' + resp.status));
+    showToast(newVal ? 'Deal marked as Featured!' : 'Deal unfeatured successfully!');
   } catch (e) {
     p.featured = !newVal; // revert
     updateStats();
     renderList();
-    alert('Failed: ' + e.message);
+    showToast('Failed to update featured status: ' + e.message, 'error');
   }
 }
 
@@ -2082,12 +2085,15 @@ async function toggleHidden(id) {
   updateStats();
   renderList();
   try {
-    await apiFetch(`/products/${id}`, { method: 'PUT', body: { hidden: newVal } });
+    const resp = await apiFetch(`/products/${id}`, { method: 'PUT', body: { hidden: newVal } });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.error) throw new Error(data.error || ('HTTP ' + resp.status));
+    showToast(newVal ? 'Deal hidden successfully!' : 'Deal is now visible on site!');
   } catch (e) {
     p.hidden = !newVal;
     updateStats();
     renderList();
-    alert('Failed: ' + e.message);
+    showToast('Failed to update visibility: ' + e.message, 'error');
   }
 }
 
@@ -2101,12 +2107,15 @@ async function useDealBusterLogo(id) {
   updateStats();
   renderList();
   try {
-    await apiFetch(`/products/${id}`, { method: 'PUT', body: { image: newImage } });
+    const resp = await apiFetch(`/products/${id}`, { method: 'PUT', body: { image: newImage } });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.error) throw new Error(data.error || ('HTTP ' + resp.status));
+    showToast('Changed image to DealBuster logo successfully!');
   } catch (e) {
     p.image = oldImage;
     updateStats();
     renderList();
-    alert('Failed to update image: ' + e.message);
+    showToast('Failed to update image: ' + e.message, 'error');
   }
 }
 
