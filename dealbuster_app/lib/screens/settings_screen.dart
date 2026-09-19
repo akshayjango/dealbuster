@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -91,12 +92,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Settings',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             color: AppColors.ink,
-            fontSize: 18,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
           ),
         ),
         bottom: PreferredSize(
