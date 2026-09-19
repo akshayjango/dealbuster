@@ -121,31 +121,6 @@
     "createdAt": "2026-09-19T18:20:03.000Z"
   },
   {
-    "id": "banner_myntra_5",
-    "store": "myntra",
-    "storeName": "Myntra",
-    "badgeText": "MEGA CLEARANCE",
-    "lines": [
-      {
-        "text": "Min",
-        "size": "small"
-      },
-      {
-        "text": "70% Off",
-        "size": "big"
-      },
-      {
-        "text": "On Puma Clothing",
-        "size": "small"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/rzaBhRu",
-    "active": true,
-    "order": 5,
-    "createdAt": "2026-09-19T18:20:04.000Z"
-  },
-  {
     "id": "banner_flipkart_1",
     "store": "flipkart",
     "storeName": "Flipkart",
@@ -171,8 +146,33 @@
     "imageUrl": "images/banners/flipkart_sunscreen.png",
     "link": "https://fktr.in/A11kK4v",
     "active": true,
-    "order": 6,
+    "order": 5,
     "createdAt": "2026-09-19T18:20:11.000Z"
+  },
+  {
+    "id": "banner_myntra_5",
+    "store": "myntra",
+    "storeName": "Myntra",
+    "badgeText": "MEGA CLEARANCE",
+    "lines": [
+      {
+        "text": "Min",
+        "size": "small"
+      },
+      {
+        "text": "70% Off",
+        "size": "big"
+      },
+      {
+        "text": "On Puma Clothing",
+        "size": "small"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/rzaBhRu",
+    "active": true,
+    "order": 6,
+    "createdAt": "2026-09-19T18:20:04.000Z"
   },
   {
     "id": "banner_myntra_7",
