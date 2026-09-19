@@ -27,9 +27,7 @@ class OffersScreen extends StatefulWidget {
 
 class OffersScreenState extends State<OffersScreen> {
   final ApiService _api = ApiService();
-  final ScrollController _couponsScrollController = ScrollController();
-  final ScrollController _discountsScrollController = ScrollController();
-  final PageController _pageController = PageController();
+  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -54,8 +52,7 @@ class OffersScreenState extends State<OffersScreen> {
   @override
   void initState() {
     super.initState();
-    _couponsScrollController.addListener(() => _onScroll(_couponsScrollController));
-    _discountsScrollController.addListener(() => _onScroll(_discountsScrollController));
+    _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
     _loadOffers();
   }
@@ -63,20 +60,19 @@ class OffersScreenState extends State<OffersScreen> {
   @override
   void dispose() {
     _searchDebounceTimer?.cancel();
-    _couponsScrollController.dispose();
-    _discountsScrollController.dispose();
-    _pageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _showScrollTop.dispose();
     super.dispose();
   }
 
-  void _onScroll(ScrollController sc) {
-    if (!sc.hasClients) return;
-    final currentOffset = sc.offset;
-    final maxOffset = sc.position.maxScrollExtent;
-    final userDirection = sc.position.userScrollDirection;
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final currentOffset = _scrollController.offset;
+    final maxOffset = _scrollController.position.maxScrollExtent;
+    final userDirection = _scrollController.position.userScrollDirection;
 
     // Bottom tab bar show/hide coordination
     if (widget.isTabBarVisible != null) {
@@ -91,13 +87,8 @@ class OffersScreenState extends State<OffersScreen> {
       }
     }
 
-    // Scroll-to-top button visibility for active tab
-    final activeSc = _selectedTab == OfferTab.coupons
-        ? _couponsScrollController
-        : _discountsScrollController;
-    if (sc == activeSc) {
-      _updateScrollTopButton(sc);
-    }
+    // Scroll-to-top button visibility
+    _updateScrollTopButton(_scrollController);
 
     // Infinite scroll trigger: when scrolled near bottom
     if (currentOffset >= maxOffset - 300) {
@@ -142,11 +133,8 @@ class OffersScreenState extends State<OffersScreen> {
   }
 
   void _scrollToTop() {
-    final activeSc = _selectedTab == OfferTab.coupons
-        ? _couponsScrollController
-        : _discountsScrollController;
-    if (activeSc.hasClients) {
-      activeSc.animateTo(
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
         0,
         duration: const Duration(milliseconds: 420),
         curve: Curves.easeOutCubic,
@@ -174,16 +162,10 @@ class OffersScreenState extends State<OffersScreen> {
 
     if (_selectedTab != OfferTab.coupons) {
       _selectedTab = OfferTab.coupons;
-      if (_pageController.hasClients) {
-        _pageController.jumpToPage(OfferTab.coupons.index);
-      }
     }
 
-    if (_couponsScrollController.hasClients) {
-      _couponsScrollController.jumpTo(0);
-    }
-    if (_discountsScrollController.hasClients) {
-      _discountsScrollController.jumpTo(0);
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
     }
     _showScrollTop.value = false;
     if (mounted) setState(() {});
@@ -194,15 +176,10 @@ class OffersScreenState extends State<OffersScreen> {
       setState(() {
         _selectedTab = tab;
       });
-      _pageController.animateToPage(
-        tab.index,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeInOutCubic,
-      );
-      final sc = tab == OfferTab.coupons
-          ? _couponsScrollController
-          : _discountsScrollController;
-      _updateScrollTopButton(sc);
+      if (_scrollController.hasClients && _scrollController.offset > 44.0) {
+        _scrollController.jumpTo(44.0);
+      }
+      _updateScrollTopButton(_scrollController);
     }
   }
 
@@ -512,6 +489,8 @@ class OffersScreenState extends State<OffersScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final isCoupons = _selectedTab == OfferTab.coupons;
+    final activeItems = isCoupons ? _filteredCoupons : _filteredDiscounts;
 
     return PopScope(
       canPop: !_searchFocusNode.hasFocus && _searchQuery.isEmpty,
@@ -541,247 +520,239 @@ class OffersScreenState extends State<OffersScreen> {
                 RefreshIndicator(
                   color: AppColors.brand,
                   onRefresh: _handleRefresh,
-                  notificationPredicate: (notification) =>
-                      notification.metrics.axis == Axis.vertical,
-                  child: Column(
-                    children: [
-                // ── Top Header & Title (Total number tag removed per request) ──
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Offers',
-                      style: GoogleFonts.sora(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── Search Field (Identical to Deals search bar) ──
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: DealSearchBar(
-                    editable: true,
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    hintText: 'Search coupons, deals or stores...',
-                    trailing: _isSearchingServer
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.brand,
-                            ),
-                          )
-                        : null,
-                    onClear: () {
-                      _searchDebounceTimer?.cancel();
-                      _searchFocusNode.unfocus();
-                      setState(() {
-                        _searchQuery = '';
-                        _serverSearchResults = null;
-                        _isSearchingServer = false;
-                      });
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // ── Segmented Tabs with Smooth Sliding Pill Animation (No numbers in tabs) ──
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    height: 42,
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1EFF6),
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final tabWidth = constraints.maxWidth / 2;
-                        return Stack(
-                          children: [
-                            // Animated sliding white background pill
-                            AnimatedPositioned(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeInOutCubic,
-                              left: _selectedTab == OfferTab.coupons ? 0 : tabWidth,
-                              top: 0,
-                              bottom: 0,
-                              width: tabWidth,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(19),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF14121F).withValues(alpha: 0.08),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 1.5),
-                                    ),
-                                  ],
-                                ),
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    slivers: [
+                      // ── Top Header Title (Scrolls away on scroll down) ──
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Offers',
+                              style: GoogleFonts.sora(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
+                                letterSpacing: -0.4,
                               ),
                             ),
-                            // Tab buttons on top
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildTabButton(
-                                    tab: OfferTab.coupons,
-                                    label: 'Coupons',
-                                    icon: Icons.confirmation_number_rounded,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _buildTabButton(
-                                    tab: OfferTab.discounts,
-                                    label: 'Discounts',
-                                    icon: Icons.local_offer_rounded,
-                                  ),
-                                ),
-                              ],
+                          ),
+                        ),
+                      ),
+
+                      // ── Sticky Search Bar & Segmented Tabs (Pinned on scroll down) ──
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _OffersStickyHeaderDelegate(
+                          searchBar: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
                             ),
-                          ],
-                        );
-                      },
-                    ),
+                            child: DealSearchBar(
+                              editable: true,
+                              controller: _searchController,
+                              focusNode: _searchFocusNode,
+                              hintText: 'Search coupons, deals or stores...',
+                              trailing: _isSearchingServer
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.brand,
+                                      ),
+                                    )
+                                  : null,
+                              onClear: () {
+                                _searchDebounceTimer?.cancel();
+                                _searchFocusNode.unfocus();
+                                setState(() {
+                                  _searchQuery = '';
+                                  _serverSearchResults = null;
+                                  _isSearchingServer = false;
+                                });
+                              },
+                            ),
+                          ),
+                          tabs: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Container(
+                              height: 42,
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1EFF6),
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final tabWidth = constraints.maxWidth / 2;
+                                  return Stack(
+                                    children: [
+                                      // Animated sliding white background pill
+                                      AnimatedPositioned(
+                                        duration:
+                                            const Duration(milliseconds: 250),
+                                        curve: Curves.easeInOutCubic,
+                                        left: _selectedTab == OfferTab.coupons
+                                            ? 0
+                                            : tabWidth,
+                                        top: 0,
+                                        bottom: 0,
+                                        width: tabWidth,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(19),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF14121F)
+                                                    .withValues(alpha: 0.08),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 1.5),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      // Tab buttons on top
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildTabButton(
+                                              tab: OfferTab.coupons,
+                                              label: 'Coupons',
+                                              icon: Icons
+                                                  .confirmation_number_rounded,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: _buildTabButton(
+                                              tab: OfferTab.discounts,
+                                              label: 'Discounts',
+                                              icon: Icons.local_offer_rounded,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // ── Main Content Area ──
+                      if (_isLoading)
+                        _buildLoadingSkeletonSliver()
+                      else if (_errorMessage != null && _allOffers.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _buildErrorState(),
+                        )
+                      else if (activeItems.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _isSearchingServer
+                              ? _buildLoadingSkeletonWidget()
+                              : _buildEmptyState(isCoupons: isCoupons),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                if (index == activeItems.length) {
+                                  return const Padding(
+                                    padding:
+                                        EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.2,
+                                          color: AppColors.brand,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                final offer = activeItems[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: offer.isCoupon
+                                      ? _CouponCard(
+                                          offer: offer,
+                                          onTap: () =>
+                                              _handleCouponTap(offer),
+                                        )
+                                      : _DiscountCard(
+                                          offer: offer,
+                                          onTap: () =>
+                                              _handleDiscountTap(offer),
+                                        ),
+                                );
+                              },
+                              childCount: activeItems.length +
+                                  (_isLoadingMore ? 1 : 0),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+                // ── Scroll to Top Button (Synced with active tab & bottom bar) ──
+                ValueListenableBuilder<bool>(
+                  valueListenable:
+                      widget.isTabBarVisible ?? ValueNotifier<bool>(true),
+                  builder: (context, isBarVisible, _) {
+                    final double bottomPos = 16.0 +
+                        bottomPadding +
+                        (isBarVisible ? DealBottomNavBar.barHeight : 0.0);
 
-                const SizedBox(height: 10),
-
-                // ── Main Content Area with Sliding PageView ──
-                Expanded(
-                  child: _isLoading
-                      ? _buildLoadingSkeleton()
-                      : _errorMessage != null && _allOffers.isEmpty
-                          ? _buildErrorState()
-                          : PageView(
-                              controller: _pageController,
-                              onPageChanged: (index) {
-                                final newTab = OfferTab.values[index];
-                                setState(() {
-                                  _selectedTab = newTab;
-                                });
-                                final sc = newTab == OfferTab.coupons
-                                    ? _couponsScrollController
-                                    : _discountsScrollController;
-                                _updateScrollTopButton(sc);
-                              },
-                              children: [
-                                _buildTabList(
-                                  items: _filteredCoupons,
-                                  scrollController: _couponsScrollController,
-                                  isCoupons: true,
-                                ),
-                                _buildTabList(
-                                  items: _filteredDiscounts,
-                                  scrollController: _discountsScrollController,
-                                  isCoupons: false,
-                                ),
-                              ],
+                    return AnimatedPositioned(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeInOutCubic,
+                      right: 16,
+                      bottom: bottomPos,
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _showScrollTop,
+                        builder: (context, show, child) => IgnorePointer(
+                          ignoring: !show,
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            opacity: show ? 1 : 0,
+                            child: AnimatedSlide(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOut,
+                              offset: show ? Offset.zero : const Offset(0, 0.3),
+                              child: child,
                             ),
+                          ),
+                        ),
+                        child: _ScrollTopButton(
+                          onTap: _scrollToTop,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
           ),
-            // ── Scroll to Top Button (Synced with active tab & bottom bar) ──
-            ValueListenableBuilder<bool>(
-              valueListenable:
-                  widget.isTabBarVisible ?? ValueNotifier<bool>(true),
-              builder: (context, isBarVisible, _) {
-                final double bottomPos = 16.0 +
-                    bottomPadding +
-                    (isBarVisible ? DealBottomNavBar.barHeight : 0.0);
-
-                return AnimatedPositioned(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeInOutCubic,
-                  right: 16,
-                  bottom: bottomPos,
-                  child: ValueListenableBuilder<bool>(
-                    valueListenable: _showScrollTop,
-                    builder: (context, show, child) => IgnorePointer(
-                      ignoring: !show,
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 200),
-                        opacity: show ? 1 : 0,
-                        child: AnimatedSlide(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          offset: show ? Offset.zero : const Offset(0, 0.3),
-                          child: child,
-                        ),
-                      ),
-                    ),
-                    child: _ScrollTopButton(
-                      onTap: _scrollToTop,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
         ),
       ),
-    ),
-  ),
-);
-}
-
-  Widget _buildTabList({
-    required List<Offer> items,
-    required ScrollController scrollController,
-    required bool isCoupons,
-  }) {
-    return items.isEmpty
-        ? (_isSearchingServer
-            ? _buildLoadingSkeleton()
-            : _buildEmptyState(isCoupons: isCoupons))
-        : ListView.separated(
-            controller: scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
-            itemCount: items.length + (_isLoadingMore ? 1 : 0),
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              if (index == items.length) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: AppColors.brand,
-                      ),
-                    ),
-                  ),
-                );
-              }
-              final offer = items[index];
-              return offer.isCoupon
-                  ? _CouponCard(
-                      offer: offer,
-                      onTap: () => _handleCouponTap(offer),
-                    )
-                  : _DiscountCard(
-                      offer: offer,
-                      onTap: () => _handleDiscountTap(offer),
-                    );
-            },
-          );
+    );
   }
 
   Widget _buildTabButton({
@@ -817,39 +788,63 @@ class OffersScreenState extends State<OffersScreen> {
     );
   }
 
-  Widget _buildLoadingSkeleton() {
-    return ListView.separated(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
-      itemCount: 4,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (_, __) => Container(
-        height: 150,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF14121F).withValues(alpha: 0.05),
-          ),
+  Widget _buildSkeletonCard() {
+    return Container(
+      height: 150,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF14121F).withValues(alpha: 0.05),
         ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(width: 80, height: 16, color: const Color(0xFFF3F2F7)),
-                const Spacer(),
-                Container(width: 90, height: 16, color: const Color(0xFFF3F2F7)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Container(width: double.infinity, height: 18, color: const Color(0xFFF3F2F7)),
-            const SizedBox(height: 8),
-            Container(width: 200, height: 14, color: const Color(0xFFF3F2F7)),
-            const Spacer(),
-            Container(width: double.infinity, height: 38, color: const Color(0xFFF3F2F7)),
-          ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 80, height: 16, color: const Color(0xFFF3F2F7)),
+              const Spacer(),
+              Container(width: 90, height: 16, color: const Color(0xFFF3F2F7)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(width: double.infinity, height: 18, color: const Color(0xFFF3F2F7)),
+          const SizedBox(height: 8),
+          Container(width: 200, height: 14, color: const Color(0xFFF3F2F7)),
+          const Spacer(),
+          Container(width: double.infinity, height: 38, color: const Color(0xFFF3F2F7)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingSkeletonSliver() {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (_, index) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildSkeletonCard(),
+          ),
+          childCount: 4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSkeletonWidget() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+      child: Column(
+        children: List.generate(
+          3,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildSkeletonCard(),
+          ),
         ),
       ),
     );
@@ -934,6 +929,52 @@ class OffersScreenState extends State<OffersScreen> {
       ),
     );
   }
+}
+
+class _OffersStickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget searchBar;
+  final Widget tabs;
+
+  _OffersStickyHeaderDelegate({
+    required this.searchBar,
+    required this.tabs,
+  });
+
+  static const double headerHeight = 113.0;
+
+  @override
+  double get minExtent => headerHeight;
+
+  @override
+  double get maxExtent => headerHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      height: headerHeight,
+      color: AppColors.bg,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          searchBar,
+          const SizedBox(height: 8),
+          tabs,
+          const SizedBox(height: 8),
+          Container(
+            height: 1,
+            color: AppColors.cardStroke,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _OffersStickyHeaderDelegate oldDelegate) => true;
 }
 
 // ── Custom Painter for Dashed Border on Coupon Chip ───────────────────────────

@@ -79,9 +79,11 @@ void main() {
     // RefreshIndicator is a descendant of SafeArea
     expect(find.descendant(of: safeAreaFinder, matching: refreshFinder), findsOneWidget);
 
-    // RefreshIndicator contains the main column and scrollable content
+    // CustomScrollView is descendant of RefreshIndicator
+    expect(find.descendant(of: refreshFinder, matching: find.byType(CustomScrollView)), findsOneWidget);
+
+    // Sticky header contains search bar and tabs in Column
     expect(find.descendant(of: refreshFinder, matching: find.byType(Column)), findsWidgets);
-    expect(find.descendant(of: refreshFinder, matching: find.byType(ListView)), findsWidgets);
   });
 
   testWidgets('PriceDropBadge renders with graph arrow line down icon and text', (tester) async {
