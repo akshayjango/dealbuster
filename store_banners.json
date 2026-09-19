@@ -300,31 +300,6 @@
     "createdAt": "2026-09-19T18:20:09.000Z"
   },
   {
-    "id": "banner_myntra_11",
-    "store": "myntra",
-    "storeName": "Myntra",
-    "badgeText": "STYLE STEAL",
-    "lines": [
-      {
-        "text": "Footwear",
-        "size": "small"
-      },
-      {
-        "text": "Under",
-        "size": "big"
-      },
-      {
-        "text": "₹899",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/KpWsBZD",
-    "active": true,
-    "order": 12,
-    "createdAt": "2026-09-19T18:20:10.000Z"
-  },
-  {
     "id": "banner_flipkart_2",
     "store": "flipkart",
     "storeName": "Flipkart",
@@ -346,8 +321,33 @@
     "imageUrl": "images/banners/flipkart-banner-1789824600511.webp",
     "link": "https://fktr.in/pR3DwM4",
     "active": true,
-    "order": 13,
+    "order": 12,
     "createdAt": "2026-09-19T18:20:12.000Z"
+  },
+  {
+    "id": "banner_myntra_11",
+    "store": "myntra",
+    "storeName": "Myntra",
+    "badgeText": "STYLE STEAL",
+    "lines": [
+      {
+        "text": "Footwear",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹899",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/KpWsBZD",
+    "active": true,
+    "order": 13,
+    "createdAt": "2026-09-19T18:20:10.000Z"
   },
   {
     "id": "banner_amazon_1",
