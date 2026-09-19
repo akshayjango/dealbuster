@@ -67,6 +67,9 @@ android {
     buildTypes {
         release {
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -74,3 +77,8 @@ android {
 flutter {
     source '../..'
 }
+
+dependencies {
+    implementation "androidx.activity:activity-ktx:1.9.3"
+}
+
