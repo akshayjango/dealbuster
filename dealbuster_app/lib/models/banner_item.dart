@@ -33,10 +33,11 @@ class BannerItem {
     required this.link,
     this.active = true,
     this.order = 0,
-  });
+    String? template,
+  }) : _template = template;
 
   final String id;
-  final String store; // 'myntra', 'flipkart', 'ajio', 'amazon'
+  final String store; // 'myntra', 'flipkart', 'ajio', 'amazon' or with variant 'flipkart_2'
   final String storeName;
   final String? badgeText;
   final List<BannerLine> lines;
@@ -44,6 +45,22 @@ class BannerItem {
   final String link;
   final bool active;
   final int order;
+  final String? _template;
+
+  String get storeKey {
+    final s = store.toLowerCase().trim();
+    if (s.contains('_')) return s.split('_')[0];
+    return s;
+  }
+
+  String get template {
+    if (_template != null && _template!.trim().isNotEmpty) {
+      return _template!.toLowerCase().trim();
+    }
+    final s = store.toLowerCase().trim();
+    if (s.contains('_')) return s;
+    return '${s}_1';
+  }
 
   String get fullImageUrl {
     if (imageUrl.isEmpty) return '';
@@ -56,9 +73,12 @@ class BannerItem {
 
   factory BannerItem.fromJson(Map<String, dynamic> json) {
     final rawLines = json['lines'] as List<dynamic>? ?? [];
+    final rawStore = (json['store'] as String? ?? 'myntra').toLowerCase();
+    final rawTemplate = json['template'] as String? ?? json['theme'] as String?;
     return BannerItem(
       id: json['id'] as String? ?? '',
-      store: (json['store'] as String? ?? 'myntra').toLowerCase(),
+      store: rawStore,
+      template: rawTemplate,
       storeName: json['storeName'] as String? ?? 'Store',
       badgeText: json['badgeText'] as String?,
       lines: rawLines
@@ -74,6 +94,7 @@ class BannerItem {
   Map<String, dynamic> toJson() => {
     'id': id,
     'store': store,
+    'template': template,
     'storeName': storeName,
     'badgeText': badgeText,
     'lines': lines.map((l) => l.toJson()).toList(),

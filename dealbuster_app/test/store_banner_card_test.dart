@@ -5,13 +5,19 @@ import 'package:dealbuster_app/widgets/store_banner_card.dart';
 
 void main() {
   testWidgets('StoreBannerCard renders successfully for all stores with SVG logos', (tester) async {
-    final stores = ['myntra', 'flipkart', 'ajio', 'amazon'];
+    final templates = [
+      'myntra', 'flipkart', 'ajio', 'amazon',
+      'flipkart_1', 'flipkart_2', 'flipkart_3',
+      'amazon_1', 'amazon_2', 'amazon_3',
+      'myntra_1', 'myntra_2', 'myntra_3',
+      'ajio_1', 'ajio_2', 'ajio_3',
+    ];
 
-    for (final store in stores) {
+    for (final t in templates) {
       final banner = BannerItem(
-        id: 'test_$store',
-        store: store,
-        storeName: store.toUpperCase(),
+        id: 'test_$t',
+        store: t,
+        storeName: t.toUpperCase(),
         badgeText: 'TEST BADGE',
         imageUrl: '',
         link: 'https://dealbuster.in',

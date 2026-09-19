@@ -84,7 +84,7 @@ class StoresScreenState extends State<StoresScreen> {
   List<BannerItem> get _filteredBanners {
     if (_selectedStoreFilter == 'all') return _banners;
     return _banners
-        .where((b) => b.store.toLowerCase() == _selectedStoreFilter)
+        .where((b) => b.storeKey == _selectedStoreFilter)
         .toList();
   }
 

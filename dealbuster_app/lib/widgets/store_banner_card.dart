@@ -35,7 +35,7 @@ class StoreBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = _getStoreTheme(banner.store);
+    final theme = _getStoreTheme(banner.template);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -67,7 +67,7 @@ class StoreBannerCard extends StatelessWidget {
                   Positioned.fill(
                     child: CustomPaint(
                       painter: _BannerBackgroundPainter(
-                        store: banner.store,
+                        template: banner.template,
                         accentColor: theme.accentColor,
                       ),
                     ),
@@ -168,7 +168,7 @@ class StoreBannerCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: _buildStoreLogo(banner.store, banner.storeName),
+                          child: _buildStoreLogo(banner.storeKey, banner.storeName),
                         ),
 
                         const SizedBox(height: 12),
@@ -285,35 +285,137 @@ class StoreBannerCard extends StatelessWidget {
     }
   }
 
-  _StoreTheme _getStoreTheme(String store) {
-    switch (store.toLowerCase()) {
-      case 'myntra':
-        return const _StoreTheme(
-          gradient: LinearGradient(
-            colors: [Color(0xFFFF1768), Color(0xFFFA1368), Color(0xFFC2004F)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          shadowColor: Color(0xFFFA1368),
-          accentColor: Colors.white,
-          textColor: Color(0xFF111827),
-          badgeBgColor: Color(0xFFE50956),
-          badgeTextColor: Colors.white,
-        );
+  _StoreTheme _getStoreTheme(String template) {
+    switch (template.toLowerCase()) {
+      // Flipkart templates
       case 'flipkart':
+      case 'flipkart_1':
         return const _StoreTheme(
           gradient: LinearGradient(
-            colors: [Color(0xFF2B7CF6), Color(0xFF1A64E8), Color(0xFF0747BC)],
+            colors: [Color(0xFF2563EB), Color(0xFF1D4ED8), Color(0xFF1E40AF)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          shadowColor: Color(0xFF1A64E8),
+          shadowColor: Color(0xFF1D4ED8),
           accentColor: Color(0xFF60A5FA),
           textColor: Color(0xFF1E3A8A),
           badgeBgColor: Color(0xFFFF2E63),
           badgeTextColor: Colors.white,
         );
+      case 'flipkart_2':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0284C7), Color(0xFF0369A1), Color(0xFF075985)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFF0369A1),
+          accentColor: Color(0xFF38BDF8),
+          textColor: Color(0xFF075985),
+          badgeBgColor: Color(0xFFFF2E63),
+          badgeTextColor: Colors.white,
+        );
+      case 'flipkart_3':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8), Color(0xFF172554)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFF1D4ED8),
+          accentColor: Color(0xFF93C5FD),
+          textColor: Color(0xFF172554),
+          badgeBgColor: Color(0xFFFF2E63),
+          badgeTextColor: Colors.white,
+        );
+
+      // Amazon templates - Golden amber and warm, NO dark brown
+      case 'amazon':
+      case 'amazon_1':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFFB300), Color(0xFFFB8C00), Color(0xFFE65100)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFFFB8C00),
+          accentColor: Color(0xFFFFF176),
+          textColor: Color(0xFF7C2D12),
+          badgeBgColor: Color(0xFF131921),
+          badgeTextColor: Color(0xFFFF9900),
+        );
+      case 'amazon_2':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFFA000), Color(0xFFFF6D00), Color(0xFFDD2C00)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFFFF6D00),
+          accentColor: Color(0xFFFFE082),
+          textColor: Color(0xFF7C2D12),
+          badgeBgColor: Color(0xFF131921),
+          badgeTextColor: Color(0xFFFF9900),
+        );
+      case 'amazon_3':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFFC107), Color(0xFFFFA000), Color(0xFFF57C00)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFFFFA000),
+          accentColor: Color(0xFFFFF59D),
+          textColor: Color(0xFF7C2D12),
+          badgeBgColor: Color(0xFF131921),
+          badgeTextColor: Color(0xFFFF9900),
+        );
+
+      // Myntra templates
+      case 'myntra':
+      case 'myntra_1':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFF1768), Color(0xFFE11D48), Color(0xFFBE123C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFFE11D48),
+          accentColor: Colors.white,
+          textColor: Color(0xFF111827),
+          badgeBgColor: Color(0xFF9F1239),
+          badgeTextColor: Colors.white,
+        );
+      case 'myntra_2':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFB7185), Color(0xFFE11D48), Color(0xFF9F1239)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFFE11D48),
+          accentColor: Colors.white,
+          textColor: Color(0xFF111827),
+          badgeBgColor: Color(0xFF881337),
+          badgeTextColor: Colors.white,
+        );
+      case 'myntra_3':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFF2A6D), Color(0xFFD91B5C), Color(0xFF881337)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFFD91B5C),
+          accentColor: Colors.white,
+          textColor: Color(0xFF111827),
+          badgeBgColor: Color(0xFF4C0519),
+          badgeTextColor: Colors.white,
+        );
+
+      // AJIO templates
       case 'ajio':
+      case 'ajio_1':
         return const _StoreTheme(
           gradient: LinearGradient(
             colors: [Color(0xFF475569), Color(0xFF334155), Color(0xFF1E293B)],
@@ -323,22 +425,36 @@ class StoreBannerCard extends StatelessWidget {
           shadowColor: Color(0xFF1E293B),
           accentColor: Color(0xFF94A3B8),
           textColor: Color(0xFF1E293B),
-          badgeBgColor: Color(0xFF1E293B),
+          badgeBgColor: Color(0xFF0F172A),
           badgeTextColor: Colors.white,
         );
-      case 'amazon':
+      case 'ajio_2':
         return const _StoreTheme(
           gradient: LinearGradient(
-            colors: [Color(0xFFF59E0B), Color(0xFFD97706), Color(0xFF78350F)],
+            colors: [Color(0xFF3B4B5E), Color(0xFF263545), Color(0xFF141E28)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          shadowColor: Color(0xFFB45309),
-          accentColor: Color(0xFFFDE68A),
-          textColor: Color(0xFF78350F),
-          badgeBgColor: Color(0xFF131921),
-          badgeTextColor: Color(0xFFFF9900),
+          shadowColor: Color(0xFF141E28),
+          accentColor: Color(0xFF94A3B8),
+          textColor: Color(0xFF141E28),
+          badgeBgColor: Color(0xFF0A1017),
+          badgeTextColor: Colors.white,
         );
+      case 'ajio_3':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFF334155), Color(0xFF1E293B), Color(0xFF0F172A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFF0F172A),
+          accentColor: Color(0xFF64748B),
+          textColor: Color(0xFF0F172A),
+          badgeBgColor: Color(0xFF020617),
+          badgeTextColor: Colors.white,
+        );
+
       default:
         return const _StoreTheme(
           gradient: LinearGradient(
@@ -376,17 +492,149 @@ class _StoreTheme {
 
 class _BannerBackgroundPainter extends CustomPainter {
   const _BannerBackgroundPainter({
-    required this.store,
+    required this.template,
     required this.accentColor,
   });
 
-  final String store;
+  final String template;
   final Color accentColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    switch (store.toLowerCase()) {
+    switch (template.toLowerCase()) {
+      // --- FLIPKART TEMPLATES ---
+      case 'flipkart':
+      case 'flipkart_1':
+        // Soft ambient radial glow on the right, no diagonal lines
+        final glowPaint = Paint()
+          ..shader = RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.14),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.78, size.height * 0.5),
+              radius: size.width * 0.45,
+            ),
+          );
+        canvas.drawCircle(
+          Offset(size.width * 0.78, size.height * 0.5),
+          size.width * 0.45,
+          glowPaint,
+        );
+        break;
+
+      case 'flipkart_2':
+        // Curved subtle wave arc aura
+        final arcPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.08)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 32;
+        canvas.drawCircle(
+          Offset(size.width * 0.9, size.height * 1.1),
+          size.width * 0.55,
+          arcPaint,
+        );
+        final arcPaint2 = Paint()
+          ..color = Colors.white.withValues(alpha: 0.05)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 20;
+        canvas.drawCircle(
+          Offset(size.width * 0.9, size.height * 1.1),
+          size.width * 0.75,
+          arcPaint2,
+        );
+        break;
+
+      case 'flipkart_3':
+        // Modern micro-dot grid on top-left
+        final dotPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.1)
+          ..style = PaintingStyle.fill;
+        for (double x = 12; x < size.width * 0.4; x += 16) {
+          for (double y = 12; y < size.height * 0.55; y += 16) {
+            canvas.drawCircle(Offset(x, y), 1.4, dotPaint);
+          }
+        }
+        break;
+
+      // --- AMAZON TEMPLATES (Warm, radiant golden amber - NO dark brown) ---
+      case 'amazon':
+      case 'amazon_1':
+        // Warm golden radial glow behind product area
+        final glowPaint = Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFFFF9C4).withValues(alpha: 0.28),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.78, size.height * 0.55),
+              radius: size.width * 0.42,
+            ),
+          );
+        canvas.drawCircle(
+          Offset(size.width * 0.78, size.height * 0.55),
+          size.width * 0.42,
+          glowPaint,
+        );
+        break;
+
+      case 'amazon_2':
+        // Soft concentric warm golden aura rings
+        final ringPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.12)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2;
+        canvas.drawCircle(
+          Offset(size.width * 0.8, size.height * 0.55),
+          65,
+          ringPaint,
+        );
+        canvas.drawCircle(
+          Offset(size.width * 0.8, size.height * 0.55),
+          95,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.07)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
+        break;
+
+      case 'amazon_3':
+        // Ambient sunburst corner glow & micro dots
+        final dotPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.14)
+          ..style = PaintingStyle.fill;
+        for (double x = 10; x < size.width * 0.38; x += 15) {
+          for (double y = 10; y < size.height * 0.5; y += 15) {
+            canvas.drawCircle(Offset(x, y), 1.5, dotPaint);
+          }
+        }
+        final glowPaint3 = Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFFFE082).withValues(alpha: 0.22),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.82, size.height * 0.6),
+              radius: 80,
+            ),
+          );
+        canvas.drawCircle(
+          Offset(size.width * 0.82, size.height * 0.6),
+          80,
+          glowPaint3,
+        );
+        break;
+
+      // --- MYNTRA TEMPLATES ---
       case 'myntra':
+      case 'myntra_1':
         // Halftone dot matrix pattern on top left
         final dotPaint = Paint()
           ..color = Colors.white.withValues(alpha: 0.14)
@@ -398,25 +646,43 @@ class _BannerBackgroundPainter extends CustomPainter {
         }
         break;
 
-      case 'flipkart':
-        // Diagonal translucent stripes
-        final stripePaint = Paint()
-          ..color = Colors.white.withValues(alpha: 0.08)
-          ..strokeWidth = 14
-          ..style = PaintingStyle.stroke;
-        canvas.drawLine(
-          Offset(size.width * 0.45, 0),
-          Offset(size.width * 0.85, size.height),
-          stripePaint,
-        );
-        canvas.drawLine(
-          Offset(size.width * 0.65, 0),
-          Offset(size.width * 1.05, size.height),
-          stripePaint,
+      case 'myntra_2':
+        // Soft ambient pink glow
+        final glowPaint = Paint()
+          ..shader = RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.2),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * 0.78, size.height * 0.55),
+              radius: size.width * 0.4,
+            ),
+          );
+        canvas.drawCircle(
+          Offset(size.width * 0.78, size.height * 0.55),
+          size.width * 0.4,
+          glowPaint,
         );
         break;
 
+      case 'myntra_3':
+        // Subtle diagonal wave contour
+        final wavePaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.08)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 24;
+        canvas.drawCircle(
+          Offset(size.width * 0.85, size.height * 1.0),
+          size.width * 0.6,
+          wavePaint,
+        );
+        break;
+
+      // --- AJIO TEMPLATES ---
       case 'ajio':
+      case 'ajio_1':
         // Subtle dot matrix in corner
         final dotPaint = Paint()
           ..color = Colors.white.withValues(alpha: 0.1)
@@ -428,24 +694,45 @@ class _BannerBackgroundPainter extends CustomPainter {
         }
         break;
 
-      case 'amazon':
-        // Warm glow radial accent
+      case 'ajio_2':
+        // Clean radial moonlight glow
         final glowPaint = Paint()
           ..shader = RadialGradient(
             colors: [
-              const Color(0xFFFDE68A).withValues(alpha: 0.22),
+              Colors.white.withValues(alpha: 0.12),
               Colors.transparent,
             ],
           ).createShader(
             Rect.fromCircle(
-              center: Offset(size.width * 0.75, size.height * 0.7),
+              center: Offset(size.width * 0.78, size.height * 0.55),
               radius: 90,
             ),
           );
         canvas.drawCircle(
-          Offset(size.width * 0.75, size.height * 0.7),
+          Offset(size.width * 0.78, size.height * 0.55),
           90,
           glowPaint,
+        );
+        break;
+
+      case 'ajio_3':
+        // Subtle concentric steel rings
+        final ringPaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.08)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawCircle(
+          Offset(size.width * 0.82, size.height * 0.5),
+          70,
+          ringPaint,
+        );
+        canvas.drawCircle(
+          Offset(size.width * 0.82, size.height * 0.5),
+          110,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.05)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
         );
         break;
     }
@@ -453,6 +740,6 @@ class _BannerBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BannerBackgroundPainter oldDelegate) {
-    return oldDelegate.store != store;
+    return oldDelegate.template != template;
   }
 }
