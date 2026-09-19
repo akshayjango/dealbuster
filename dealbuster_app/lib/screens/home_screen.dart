@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/home_banner_item.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
 import '../services/push_notification_service.dart';
@@ -51,6 +52,8 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   double _scrollUpStartOffset = 0.0;
 
   List<Product> _all = [];
+  bool _showDefaultAnimatedBanner = true;
+  List<HomeBannerItem> _homeBanners = const [];
   String _category = 'sort';
   String _sortOption = 'new';
   bool _loading = true;
@@ -310,6 +313,16 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _loading = true;
       _failed = false;
     });
+
+    _api.fetchHomeBanners().then((data) {
+      if (mounted) {
+        setState(() {
+          _showDefaultAnimatedBanner = data.showDefaultAnimatedBanner;
+          _homeBanners = data.banners;
+        });
+      }
+    }).catchError((_) {});
+
     try {
       var products = await _api.fetchProductsFresh();
       if (!mounted) return;
@@ -362,6 +375,16 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _load();
       return;
     }
+
+    _api.fetchHomeBannersFresh().then((data) {
+      if (mounted && data != null) {
+        setState(() {
+          _showDefaultAnimatedBanner = data.showDefaultAnimatedBanner;
+          _homeBanners = data.banners;
+        });
+      }
+    }).catchError((_) {});
+
     try {
       // fetchProductsFresh (not fetchProducts) — on any failure we want to
       // know and retry, not silently get served the stale on-disk cache
@@ -606,6 +629,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: HomeHeaderDelegate(
+                      hasBanner: _showDefaultAnimatedBanner || _homeBanners.isNotEmpty,
                       searchBar: Padding(
                         padding: const EdgeInsets.fromLTRB(
                             AppSpace.md, AppSpace.sm, AppSpace.md, AppSpace.sm),
@@ -617,7 +641,11 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                      heroBanner: HeroBanner(liveDealCount: _all.length),
+                      heroBanner: HeroBanner(
+                        liveDealCount: _all.length,
+                        showDefaultAnimatedBanner: _showDefaultAnimatedBanner,
+                        customBanners: _homeBanners,
+                      ),
                       categoryTabs: CategoryTabs(
                         controller: _categoryScrollController,
                         selected: _category,
@@ -1228,14 +1256,16 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.searchBar,
     required this.heroBanner,
     required this.categoryTabs,
+    this.hasBanner = true,
   });
 
   final Widget searchBar;
   final Widget heroBanner;
   final Widget categoryTabs;
+  final bool hasBanner;
 
   static const double searchBarHeight = 62.0;
-  static const double bannerHeight = 192.0;
+  double get bannerHeight => hasBanner ? 192.0 : 0.0;
   static const double tabsHeight = 48.0;
 
   @override
@@ -1250,8 +1280,9 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final double diff = maxExtent - minExtent;
     final double collapsePercent =
-        (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+        diff > 0 ? (shrinkOffset / diff).clamp(0.0, 1.0) : 0.0;
     final showShadow = overlapsContent || collapsePercent > 0.9;
 
     return Material(
@@ -1263,16 +1294,17 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
         clipBehavior: Clip.hardEdge,
         children: [
           // 1. Hero Banner (collapses/fades out as we scroll) - bottom layer
-          Positioned(
-            top: searchBarHeight - (collapsePercent * bannerHeight),
-            left: 0,
-            right: 0,
-            height: bannerHeight,
-            child: Opacity(
-              opacity: (1.0 - collapsePercent * 1.8).clamp(0.0, 1.0),
-              child: heroBanner,
+          if (hasBanner)
+            Positioned(
+              top: searchBarHeight - (collapsePercent * bannerHeight),
+              left: 0,
+              right: 0,
+              height: bannerHeight,
+              child: Opacity(
+                opacity: (1.0 - collapsePercent * 1.8).clamp(0.0, 1.0),
+                child: heroBanner,
+              ),
             ),
-          ),
 
           // 2. Category Tabs (pins below Search Bar when collapsed) - middle layer
           Positioned(

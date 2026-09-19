@@ -304,6 +304,47 @@ async function saveBannersFile(banners, sha, message, env) {
   return resp.json();
 }
 
+// ── Home Banners helpers ────────────────────────────────────────────────────
+
+async function getHomeBannersFile(env) {
+  const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/home_banners.json`;
+  const resp = await fetchWithTimeout(apiUrl, { headers: ghHeaders(env) });
+  if (resp.status === 404) return { showDefaultAnimatedBanner: true, banners: [], sha: null };
+  if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.message || `GitHub fetch failed for home_banners: ${resp.status}`); }
+  const file = await resp.json();
+  let base64 = file.content;
+  if (!base64 || file.encoding === 'none') {
+    const blobUrl = `https://api.github.com/repos/akshayjango/dealbuster/git/blobs/${file.sha}`;
+    const blobResp = await fetchWithTimeout(blobUrl, { headers: ghHeaders(env) });
+    if (!blobResp.ok) { const err = await blobResp.json().catch(() => ({})); throw new Error(err.message || `GitHub blob fetch failed: ${blobResp.status}`); }
+    base64 = (await blobResp.json()).content;
+  }
+  const rawBytes = atob(base64.replace(/\n/g, ''));
+  const uint8 = new Uint8Array(rawBytes.length);
+  for (let i = 0; i < rawBytes.length; i++) uint8[i] = rawBytes.charCodeAt(i);
+  const parsed = JSON.parse(new TextDecoder('utf-8').decode(uint8));
+  const showDefault = (parsed && typeof parsed.showDefaultAnimatedBanner === 'boolean') ? parsed.showDefaultAnimatedBanner : true;
+  const banners = (parsed && Array.isArray(parsed.banners)) ? parsed.banners : (Array.isArray(parsed) ? parsed : []);
+  return { showDefaultAnimatedBanner: showDefault, banners, sha: file.sha };
+}
+
+async function saveHomeBannersFile(data, sha, message, env) {
+  const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/home_banners.json`;
+  const payload = {
+    showDefaultAnimatedBanner: data.showDefaultAnimatedBanner !== false,
+    banners: Array.isArray(data.banners) ? data.banners : []
+  };
+  const rawJson = JSON.stringify(payload, null, 2);
+  const body = { message, content: encodeBase64Unicode(rawJson) };
+  if (sha) body.sha = sha;
+  const resp = await fetchWithTimeout(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 15000);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.message || `GitHub home banner write failed: ${resp.status}`);
+  }
+  return resp.json();
+}
+
 async function deleteGithubFile(path, commitMsg, env) {
   try {
     let cleanPath = (path || '').trim().replace(/\\/g, '/').replace(/\.\./g, '');
@@ -4872,6 +4913,26 @@ export default {
       }
     }
 
+    // ── Public: home banners feed (no auth) ───────────────────────────────────
+    if (url0.pathname === '/public/home-banners' && request.method === 'GET') {
+      try {
+        const { showDefaultAnimatedBanner, banners } = await getHomeBannersFile(env);
+        const activeBanners = banners.filter(b => b.active !== false);
+        return new Response(JSON.stringify({
+          success: true,
+          showDefaultAnimatedBanner,
+          banners: activeBanners
+        }), {
+          headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message, showDefaultAnimatedBanner: true, banners: [] }), {
+          status: 502,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // ── Public CueLinks Offers endpoint for Mobile App ─────────────────────────
     if (url0.pathname === '/public/offers' && request.method === 'GET') {
       const apiKey = (env.CUELINKS_API_KEY || '').trim();
@@ -5381,6 +5442,122 @@ export default {
           }
 
           return json({ success: true, banners: filtered });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── GET /home-banners (admin: list all home banners and config) ─────────
+      if (url.pathname === '/home-banners' && request.method === 'GET') {
+        try {
+          const { showDefaultAnimatedBanner, banners } = await getHomeBannersFile(env);
+          return json({ showDefaultAnimatedBanner, banners });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── POST /home-banners/config (admin: toggle default animated banner) ───
+      if (url.pathname === '/home-banners/config' && request.method === 'POST') {
+        try {
+          const { showDefaultAnimatedBanner } = await request.json();
+          const { banners, sha } = await getHomeBannersFile(env);
+          const updated = {
+            showDefaultAnimatedBanner: showDefaultAnimatedBanner !== false,
+            banners
+          };
+          await saveHomeBannersFile(updated, sha, `Update home banner config: default banner ${updated.showDefaultAnimatedBanner ? 'enabled' : 'disabled'}`, env);
+          return json({ success: true, showDefaultAnimatedBanner: updated.showDefaultAnimatedBanner });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── POST /home-banners (admin: create or update a home banner) ──────────
+      if (url.pathname === '/home-banners' && request.method === 'POST') {
+        try {
+          const data = await request.json();
+          const { showDefaultAnimatedBanner, banners, sha } = await getHomeBannersFile(env);
+          let updatedBanners;
+          let oldImageToClean = null;
+          if (data.id) {
+            const idx = banners.findIndex(b => b.id === data.id);
+            if (idx >= 0) {
+              const oldBanner = banners[idx];
+              if (oldBanner.imageUrl && data.imageUrl && oldBanner.imageUrl !== data.imageUrl) {
+                let oldImg = oldBanner.imageUrl.trim().replace(/^\/+/, '');
+                if (oldImg.startsWith('images/banners/') && !oldImg.includes('dealbuster_icon')) {
+                  const usedElsewhere = banners.some(b => b.id !== data.id && (b.imageUrl || '').replace(/^\/+/, '') === oldImg);
+                  if (!usedElsewhere) {
+                    oldImageToClean = oldImg;
+                  }
+                }
+              }
+              banners[idx] = {
+                ...oldBanner,
+                store: data.store || oldBanner.store || 'amazon',
+                storeName: data.storeName || oldBanner.storeName || 'Amazon',
+                badgeText: data.badgeText !== undefined ? data.badgeText : oldBanner.badgeText,
+                title: data.title !== undefined ? data.title : oldBanner.title,
+                subtitle: data.subtitle !== undefined ? data.subtitle : oldBanner.subtitle,
+                imageUrl: data.imageUrl !== undefined ? data.imageUrl : oldBanner.imageUrl,
+                link: data.link !== undefined ? data.link : oldBanner.link,
+                active: data.active !== undefined ? data.active : oldBanner.active,
+                updatedAt: new Date().toISOString(),
+              };
+              updatedBanners = [...banners];
+            } else {
+              return json({ error: 'Banner not found' }, 404);
+            }
+          } else {
+            const newBanner = {
+              id: 'hbanner_' + Date.now(),
+              store: data.store || 'amazon',
+              storeName: data.storeName || (data.store ? data.store.charAt(0).toUpperCase() + data.store.slice(1) : 'Amazon'),
+              badgeText: data.badgeText || '',
+              title: data.title || '',
+              subtitle: data.subtitle || '',
+              imageUrl: data.imageUrl || '',
+              link: data.link || '',
+              active: data.active !== false,
+              order: banners.length,
+              createdAt: new Date().toISOString(),
+            };
+            updatedBanners = [newBanner, ...banners];
+          }
+          await saveHomeBannersFile({ showDefaultAnimatedBanner, banners: updatedBanners }, sha, `Update home banners (${data.id ? 'edit ' + data.id : 'add new'})`, env);
+          if (oldImageToClean) {
+            await deleteGithubFile(oldImageToClean, `Delete replaced home banner image: ${oldImageToClean}`, env);
+          }
+          return json({ success: true, banners: updatedBanners, showDefaultAnimatedBanner });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── POST /home-banners/reorder (admin: save new order of home banners) ──
+      if (url.pathname === '/home-banners/reorder' && request.method === 'POST') {
+        try {
+          const { banners: newBanners } = await request.json();
+          const { showDefaultAnimatedBanner, sha } = await getHomeBannersFile(env);
+          await saveHomeBannersFile({ showDefaultAnimatedBanner, banners: newBanners }, sha, `Reorder home banners`, env);
+          return json({ success: true, banners: newBanners });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── DELETE /home-banners/:id (admin: delete home banner and its uploaded image) ─
+      const delHomeBannerMatch = url.pathname.match(/^\/home-banners\/([^/]+)$/);
+      if (delHomeBannerMatch && request.method === 'DELETE') {
+        try {
+          const bannerId = delHomeBannerMatch[1];
+          const { showDefaultAnimatedBanner, banners, sha } = await getHomeBannersFile(env);
+          const target = banners.find(b => b.id === bannerId);
+          const filtered = banners.filter(b => b.id !== bannerId);
+          await saveHomeBannersFile({ showDefaultAnimatedBanner, banners: filtered }, sha, `Delete home banner ${bannerId}`, env);
+
+          // Auto-delete image from GitHub if stored in images/banners/ and not used by any other banner
+          if (target && target.imageUrl) {
+            let imgPath = target.imageUrl.trim().replace(/^\/+/, '');
+            if (imgPath.startsWith('images/banners/') && !imgPath.includes('dealbuster_icon')) {
+              const isUsedByOther = filtered.some(b => (b.imageUrl || '').replace(/^\/+/, '') === imgPath);
+              if (!isUsedByOther) {
+                await deleteGithubFile(imgPath, `Delete home banner image for ${bannerId}: ${imgPath}`, env);
+              }
+            }
+          }
+          return json({ success: true, banners: filtered, showDefaultAnimatedBanner });
         } catch (e) { return json({ error: e.message }, 502); }
       }
 

@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../models/home_banner_item.dart';
 import '../theme/app_theme.dart';
 
 // ---------------------------------------------------------------- timing
@@ -57,9 +61,16 @@ const _products = <_Product>[
 ];
 
 class HeroBanner extends StatefulWidget {
-  const HeroBanner({super.key, required this.liveDealCount});
+  const HeroBanner({
+    super.key,
+    required this.liveDealCount,
+    this.showDefaultAnimatedBanner = true,
+    this.customBanners = const [],
+  });
 
   final int liveDealCount;
+  final bool showDefaultAnimatedBanner;
+  final List<HomeBannerItem> customBanners;
 
   @override
   State<HeroBanner> createState() => _HeroBannerState();
@@ -67,24 +78,105 @@ class HeroBanner extends StatefulWidget {
 
 class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateMixin {
   late final AnimationController _c;
+  late final PageController _pageController;
+  Timer? _timer;
+  int _currentPage = 0;
+
+  int get _totalCount =>
+      (widget.showDefaultAnimatedBanner ? 1 : 0) + widget.customBanners.length;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 6000), // 6 seconds loop
     )..repeat();
+    _startAutoSlide();
+  }
+
+  @override
+  void didUpdateWidget(covariant HeroBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showDefaultAnimatedBanner != widget.showDefaultAnimatedBanner ||
+        oldWidget.customBanners.length != widget.customBanners.length) {
+      if (_currentPage >= _totalCount && _totalCount > 0) {
+        _currentPage = 0;
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(0);
+        }
+      }
+      _startAutoSlide();
+    }
+  }
+
+  void _startAutoSlide() {
+    _timer?.cancel();
+    if (_totalCount <= 1) return;
+    _timer = Timer.periodic(const Duration(milliseconds: 5500), (_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final next = (_currentPage + 1) % _totalCount;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 550),
+        curve: Curves.easeInOutCubic,
+      );
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
     _c.dispose();
     super.dispose();
   }
 
+  Widget _buildDefaultAnimatedBanner() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_bg0, _bg1, _bg2],
+        ),
+      ),
+      child: LayoutBuilder(builder: (context, box) {
+        final w = box.maxWidth;
+        if (w <= 0) return const SizedBox();
+        final s = w / 686.0; // reference canvas -> real px
+        return AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) => _Frame(
+            t: _c.value * _Cues.total,
+            s: s,
+            w: w,
+            h: 176.0,
+            liveDealCount: widget.liveDealCount,
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildCustomBanner(HomeBannerItem banner) {
+    return _CustomBannerCard(banner: banner);
+  }
+
+  Widget _buildBannerAt(int index) {
+    if (widget.showDefaultAnimatedBanner) {
+      if (index == 0) return _buildDefaultAnimatedBanner();
+      return _buildCustomBanner(widget.customBanners[index - 1]);
+    }
+    return _buildCustomBanner(widget.customBanners[index]);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final count = _totalCount;
+    if (count == 0) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.fromLTRB(
         AppSpace.md,
@@ -95,38 +187,269 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
       height: 176,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_bg0, _bg1, _bg2],
-        ),
         boxShadow: [
           BoxShadow(
-            color: _bg2.withValues(alpha: 0.15),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-            spreadRadius: -4,
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+            spreadRadius: -3,
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: LayoutBuilder(builder: (context, box) {
-          final w = box.maxWidth;
-          if (w <= 0) return const SizedBox();
-          final s = w / 686.0; // reference canvas -> real px
-          return AnimatedBuilder(
-            animation: _c,
-            builder: (context, _) => _Frame(
-              t: _c.value * _Cues.total,
-              s: s,
-              w: w,
-              h: 176.0,
-              liveDealCount: widget.liveDealCount,
-            ),
-          );
-        }),
+        child: count == 1
+            ? _buildBannerAt(0)
+            : Stack(
+                children: [
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollStartNotification) {
+                        _timer?.cancel();
+                      } else if (notification is ScrollEndNotification) {
+                        _startAutoSlide();
+                      }
+                      return false;
+                    },
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: count,
+                      onPageChanged: (idx) {
+                        setState(() {
+                          _currentPage = idx;
+                        });
+                      },
+                      itemBuilder: (context, idx) => _buildBannerAt(idx),
+                    ),
+                  ),
+                  // Bottom right dots indicator
+                  Positioned(
+                    bottom: 12,
+                    right: 14,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(count, (i) {
+                        final isActive = i == _currentPage;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                          width: isActive ? 14 : 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                            color: isActive
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
       ),
+    );
+  }
+}
+
+class _CustomBannerCard extends StatelessWidget {
+  const _CustomBannerCard({required this.banner});
+
+  final HomeBannerItem banner;
+
+  Future<void> _launch() async {
+    final raw = banner.link.trim();
+    if (raw.isEmpty) return;
+    try {
+      final uri = Uri.parse(raw);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Full background image
+        if (banner.fullImageUrl.isNotEmpty)
+          CachedNetworkImage(
+            imageUrl: banner.fullImageUrl,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_bg0, _bg1, _bg2],
+                ),
+              ),
+            ),
+            errorWidget: (_, __, ___) => Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_bg0, _bg1, _bg2],
+                ),
+              ),
+            ),
+          )
+        else
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_bg0, _bg1, _bg2],
+              ),
+            ),
+          ),
+
+        // Readability gradient overlay
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.42),
+                Colors.black.withValues(alpha: 0.05),
+                Colors.black.withValues(alpha: 0.88),
+              ],
+              stops: const [0.0, 0.42, 1.0],
+            ),
+          ),
+        ),
+
+        // Top Left: Store Tag / Badge
+        Positioned(
+          top: 14,
+          left: 16,
+          right: 16,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  banner.storeName.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    banner.badgeText!.trim().toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.8,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Bottom Left: Title and Subtitle
+        Positioned(
+          bottom: 14,
+          left: 16,
+          right: 64, // Space for page indicator dots if carousel
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (banner.title.isNotEmpty)
+                Text(
+                  banner.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              if (banner.subtitle.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  banner.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w500,
+                    height: 1.25,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Click / Tap Handler
+        Positioned.fill(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: banner.link.trim().isNotEmpty ? _launch : null,
+              splashColor: Colors.white.withValues(alpha: 0.15),
+              highlightColor: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -171,32 +494,39 @@ class _Frame extends StatelessWidget {
           width: 250,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _LiveBadge(count: liveDealCount, ping: ping),
-                const SizedBox(height: 12),
-                Text(
-                  'Deals that\ndon\'t wait.',
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    height: 1.05,
-                  ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 210),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _LiveBadge(count: liveDealCount, ping: ping),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Deals that\ndon\'t wait.',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        height: 1.05,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Fresh price drops tracked\naround the clock.',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12.0,
+                        fontWeight: FontWeight.w500,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                Text(
-                  'Fresh price drops tracked\naround the clock.',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 12.0,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
+              ),
             ),
           ),
         ),

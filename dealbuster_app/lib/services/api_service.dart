@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/banner_item.dart';
+import '../models/home_banner_item.dart';
 import '../models/offer.dart';
 import '../models/product.dart';
 
@@ -15,6 +16,9 @@ class ApiService {
   static const String _bannersUrl =
       'https://dealbuster-admin-api.vakshay083.workers.dev/public/banners';
   static const String _bannersCacheKey = 'db_banners_cache_v1';
+  static const String _homeBannersUrl =
+      'https://dealbuster-admin-api.vakshay083.workers.dev/public/home-banners';
+  static const String _homeBannersCacheKey = 'db_home_banners_cache_v1';
 
   // Fetch live products with dynamic updates. Falls back to the on-disk
   // cache on failure, so callers that just want "something to show" (the
@@ -190,6 +194,50 @@ class ApiService {
     } catch (_) {
       return [];
     }
+  }
+
+  // ── Home Hero Banners ───────────────────────────────────────────────────────
+  Future<HomeBannersData> fetchHomeBanners() async {
+    return await fetchHomeBannersFresh() ?? await getCachedHomeBanners();
+  }
+
+  Future<HomeBannersData?> fetchHomeBannersFresh() async {
+    try {
+      final response = await http.get(Uri.parse(_homeBannersUrl)).timeout(
+        const Duration(seconds: 10),
+      );
+
+      if (response.statusCode == 200) {
+        final String body = response.body;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_homeBannersCacheKey, body);
+        return _parseHomeBanners(body);
+      }
+    } catch (_) {
+      // Fall through to cache/fallback
+    }
+    return null;
+  }
+
+  Future<HomeBannersData> getCachedHomeBanners() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString(_homeBannersCacheKey);
+      if (cachedData != null) {
+        return _parseHomeBanners(cachedData);
+      }
+    } catch (_) {}
+    return const HomeBannersData(showDefaultAnimatedBanner: true, banners: []);
+  }
+
+  HomeBannersData _parseHomeBanners(String jsonBody) {
+    try {
+      final parsed = jsonDecode(jsonBody);
+      if (parsed is Map<String, dynamic>) {
+        return HomeBannersData.fromJson(parsed);
+      }
+    } catch (_) {}
+    return const HomeBannersData(showDefaultAnimatedBanner: true, banners: []);
   }
 
   static const List<BannerItem> _initialFallbackBanners = [

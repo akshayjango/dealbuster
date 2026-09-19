@@ -952,6 +952,7 @@
       <button onclick="switchTab('addDeal')">Add Deal</button>
       <button onclick="switchTab('offers')">CueLinks Offers</button>
       <button onclick="switchTab('banners')">Store Banners</button>
+      <button onclick="switchTab('homeBanners')">Home Banners</button>
     </nav>
     <div class="header-right" style="position:relative;">
       <!-- Notification Icon Button -->
@@ -1521,6 +1522,156 @@
       </div>
     </div>
 
+    <!-- ── HOME BANNERS TAB ── -->
+    <div class="tab-panel" id="tabHomeBanners">
+      <div class="banners-header-row">
+        <div>
+          <h2 style="font-size:1.25rem;font-weight:800;color:var(--text);margin-bottom:4px;">Home Banners</h2>
+          <p style="font-size:0.85rem;color:var(--muted);margin:0;">Control and create visual hero banners displayed on the app Home screen.</p>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-outline btn-sm" onclick="resetHomeBannerForm()">+ New Home Banner</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadHomeBanners(true)" title="Refresh home banners">↻</button>
+        </div>
+      </div>
+
+      <!-- Config Card: Show/Hide Default Animated Banner -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow-rest);flex-wrap:wrap;gap:12px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">
+            ✨
+          </div>
+          <div>
+            <div style="font-size:0.95rem;font-weight:700;color:var(--text);">Default Animated Shopping Bag Banner</div>
+            <div style="font-size:0.82rem;color:var(--muted);margin-top:2px;">Display the original 3D animated hero banner in the mobile app home screen feed.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-left:auto;">
+          <span id="defaultBannerStatusText" style="font-size:0.82rem;font-weight:700;color:var(--green);">Visible</span>
+          <label class="toggle-switch" title="Show or hide default animated banner">
+            <input type="checkbox" id="toggleDefaultAnimatedBanner" checked onchange="toggleDefaultAnimatedBanner()"/>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="banners-builder-grid">
+        <!-- Left: Form Controls -->
+        <div class="add-card" style="margin-bottom:0;">
+          <h3 id="homeBannerFormTitle" style="font-size:0.98rem;font-weight:700;margin-bottom:16px;">Create Home Banner</h3>
+          
+          <div class="two-col">
+            <div class="field">
+              <label>Store</label>
+              <select id="homeBannerStore" onchange="renderHomeBannerPreview()">
+                <option value="amazon" selected>Amazon</option>
+                <option value="flipkart">Flipkart</option>
+                <option value="myntra">Myntra</option>
+                <option value="ajio">AJIO</option>
+                <option value="shopsy">Shopsy</option>
+                <option value="meesho">Meesho</option>
+                <option value="tatacliq">Tata CLiQ</option>
+                <option value="nykaa">Nykaa</option>
+                <option value="dealbuster">DealBuster Special</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Top-Left Deal Badge (Optional)</label>
+              <input type="text" id="homeBannerBadge" placeholder="e.g. DEAL OF THE DAY, BIG SAVING" oninput="renderHomeBannerPreview()"/>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Offer / Destination Link URL</label>
+            <input type="text" id="homeBannerLink" placeholder="https://amzn.to/... or https://fkrt.it/..." oninput="renderHomeBannerPreview()"/>
+            <small style="color:var(--muted);font-size:11px;display:block;margin-top:4px;">Tapping the banner in the app opens this link directly.</small>
+          </div>
+
+          <div class="field">
+            <label>Banner Title (Bottom Main Text)</label>
+            <input type="text" id="homeBannerTitle" placeholder="e.g. Mega Electronics Sale" oninput="renderHomeBannerPreview()"/>
+          </div>
+
+          <div class="field">
+            <label>Banner Subtitle (Bottom Secondary Text)</label>
+            <input type="text" id="homeBannerSubtitle" placeholder="e.g. Up to 70% Off • Limited Time Offer" oninput="renderHomeBannerPreview()"/>
+          </div>
+
+          <!-- Full Background Image Uploader -->
+          <div class="field" style="margin-top:14px;">
+            <label>Full Background Image (Required)</label>
+            
+            <!-- Resolution Hint Box -->
+            <div style="background:var(--primary-soft);border:1px dashed var(--primary);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:var(--primary-dark);line-height:1.45;">
+              📐 <strong>Recommended Resolution: 1080 × 528 px</strong> (or 1200 × 586 px, aspect ratio ~2.05 : 1)<br>
+              <span style="font-size:0.76rem;color:var(--muted);">Image will fill the entire hero banner background with high sharpness.</span>
+            </div>
+
+            <div class="img-upload-row">
+              <input type="file" id="homeBannerImageFile" accept="image/*" onchange="uploadHomeBannerImage()" style="display:none"/>
+              <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('homeBannerImageFile').click()" id="homeBannerUploadBtn">
+                📁 Upload Background Image
+              </button>
+              <span id="homeBannerImageFileName" style="font-size:.82rem;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">No image chosen</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:8px;">
+              <span style="font-size:.8rem;color:var(--muted);white-space:nowrap;">OR Path/URL:</span>
+              <input type="text" id="homeBannerImageUrl" placeholder="images/banners/... or https://..." oninput="renderHomeBannerPreview()" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:inherit;"/>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="clearHomeBannerImage()" title="Remove image">✕</button>
+            </div>
+            <div class="img-status" id="homeBannerUploadStatus"></div>
+            <small style="color:var(--muted);font-size:11px;display:block;margin-top:3px;">⚡ Auto-converted to WebP & compressed before uploading to GitHub</small>
+          </div>
+
+          <input type="hidden" id="editingHomeBannerId" value=""/>
+
+          <div class="publish-actions" style="margin-top:20px;">
+            <button class="btn btn-outline" type="button" onclick="resetHomeBannerForm()">Reset</button>
+            <button class="btn" type="button" id="saveHomeBannerBtn" onclick="saveHomeBannerForm()">Save Banner</button>
+          </div>
+          <div id="homeBannerSaveStatus" style="margin-top:10px;font-size:0.85rem;font-weight:600;"></div>
+        </div>
+
+        <!-- Right: Real-time Live Preview -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">
+              Live Interactive Hero Banner Preview
+            </label>
+            <span style="font-size:0.75rem;color:var(--muted);font-weight:600;">App Home Feed (176dp height, full bg)</span>
+          </div>
+
+          <!-- Dynamic Home Banner Container -->
+          <div id="homeBannerLivePreviewWrapper">
+            <!-- Rendered by renderHomeBannerPreview() -->
+          </div>
+
+          <!-- Link Test preview box -->
+          <div style="margin-top:16px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;">Click Target URL:</div>
+              <div id="homeBannerPreviewLinkText" style="font-size:0.82rem;color:var(--primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">No link set</div>
+            </div>
+            <a id="homeBannerPreviewLinkBtn" href="#" target="_blank" class="btn btn-ghost btn-sm" style="display:none;white-space:nowrap;">Test Link ↗</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Existing Home Banners List -->
+      <div style="margin-top:36px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <h3 style="font-size:1.1rem;font-weight:800;margin:0;">Active Home Banners</h3>
+            <span id="homeBannersCountBadge" style="background:var(--primary);color:#fff;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:999px;">0</span>
+          </div>
+        </div>
+
+        <div id="homeBannersListContainer" class="banners-cards-grid">
+          <div class="loading"><div class="spinner"></div>Loading home banners…</div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /app-body -->
 </div><!-- /screenApp -->
 
@@ -1819,10 +1970,10 @@ function showScreen(id) {
 
 function switchTab(tab, forceReload = false) {
   document.querySelectorAll('.tab-nav button').forEach((b, i) => {
-    b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1) || (tab === 'offers' && i === 2) || (tab === 'banners' && i === 3));
+    b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1) || (tab === 'offers' && i === 2) || (tab === 'banners' && i === 3) || (tab === 'homeBanners' && i === 4));
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  const panelId = tab === 'dashboard' ? 'tabDashboard' : tab === 'offers' ? 'tabOffers' : tab === 'banners' ? 'tabBanners' : 'tabAddDeal';
+  const panelId = tab === 'dashboard' ? 'tabDashboard' : tab === 'offers' ? 'tabOffers' : tab === 'banners' ? 'tabBanners' : tab === 'homeBanners' ? 'tabHomeBanners' : 'tabAddDeal';
   const panel = document.getElementById(panelId);
   if (panel) panel.classList.add('active');
   if (tab === 'dashboard') {
@@ -1836,6 +1987,10 @@ function switchTab(tab, forceReload = false) {
   if (tab === 'banners') {
     if (!bannersLoadedOnce || forceReload) loadBanners();
     renderBannerPreview();
+  }
+  if (tab === 'homeBanners') {
+    if (!homeBannersLoadedOnce || forceReload) loadHomeBanners();
+    renderHomeBannerPreview();
   }
   saveUIState();
 }
@@ -2293,7 +2448,7 @@ function saveUIState() {
   try {
     const activeTabBtn = document.querySelector('.tab-nav button.active');
     const tabIndex = [...document.querySelectorAll('.tab-nav button')].indexOf(activeTabBtn);
-    const tab = tabIndex === 1 ? 'addDeal' : tabIndex === 2 ? 'offers' : tabIndex === 3 ? 'banners' : 'dashboard';
+    const tab = tabIndex === 1 ? 'addDeal' : tabIndex === 2 ? 'offers' : tabIndex === 3 ? 'banners' : tabIndex === 4 ? 'homeBanners' : 'dashboard';
 
     const state = {
       tab,
@@ -4889,6 +5044,400 @@ async function moveBanner(id, direction) {
     await apiFetch('/banners/reorder', { method: 'POST', body: { banners: allBanners } });
   } catch (err) {
     console.error('Failed to save banner reorder:', err);
+  }
+}
+
+// ── Home Banners (Hero Carousel) ──────────────────────────────────────────────
+let allHomeBanners = [];
+let homeBannersLoadedOnce = false;
+let showDefaultAnimatedBannerConfig = true;
+
+async function loadHomeBanners(forceReload = false) {
+  const container = document.getElementById('homeBannersListContainer');
+  const badgeEl = document.getElementById('homeBannersCountBadge');
+  if (!container) return;
+
+  if (forceReload || !homeBannersLoadedOnce) {
+    container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading home banners…</div>';
+  }
+
+  try {
+    const resp = await apiFetch('/home-banners');
+    const data = await resp.json();
+    allHomeBanners = Array.isArray(data.banners) ? data.banners : [];
+    showDefaultAnimatedBannerConfig = data.showDefaultAnimatedBanner !== false;
+    homeBannersLoadedOnce = true;
+
+    // Update default animated banner toggle
+    const toggleEl = document.getElementById('toggleDefaultAnimatedBanner');
+    const statusTextEl = document.getElementById('defaultBannerStatusText');
+    if (toggleEl) toggleEl.checked = showDefaultAnimatedBannerConfig;
+    if (statusTextEl) {
+      statusTextEl.textContent = showDefaultAnimatedBannerConfig ? 'Visible' : 'Hidden';
+      statusTextEl.style.color = showDefaultAnimatedBannerConfig ? 'var(--green)' : 'var(--muted)';
+    }
+
+    if (badgeEl) badgeEl.textContent = allHomeBanners.length;
+    renderHomeBannersList();
+  } catch (e) {
+    container.innerHTML = `<div class="loading" style="color:var(--red);">Failed to load home banners: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function toggleDefaultAnimatedBanner() {
+  const toggleEl = document.getElementById('toggleDefaultAnimatedBanner');
+  const statusTextEl = document.getElementById('defaultBannerStatusText');
+  if (!toggleEl) return;
+  const isChecked = toggleEl.checked;
+
+  if (statusTextEl) {
+    statusTextEl.textContent = isChecked ? 'Visible' : 'Hidden';
+    statusTextEl.style.color = isChecked ? 'var(--green)' : 'var(--muted)';
+  }
+
+  try {
+    const resp = await apiFetch('/home-banners/config', {
+      method: 'POST',
+      body: { showDefaultAnimatedBanner: isChecked }
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Failed to update config');
+    showToast(isChecked ? 'Default animated banner enabled' : 'Default animated banner disabled');
+  } catch (err) {
+    toggleEl.checked = !isChecked;
+    if (statusTextEl) {
+      statusTextEl.textContent = !isChecked ? 'Visible' : 'Hidden';
+      statusTextEl.style.color = !isChecked ? 'var(--green)' : 'var(--muted)';
+    }
+    alert('Error updating banner toggle: ' + err.message);
+  }
+}
+
+function getHomeBannerDataFromForm() {
+  const store = document.getElementById('homeBannerStore')?.value || 'amazon';
+  const selEl = document.getElementById('homeBannerStore');
+  const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text : (store.charAt(0).toUpperCase() + store.slice(1));
+  const badgeText = document.getElementById('homeBannerBadge')?.value?.trim() || '';
+  const link = document.getElementById('homeBannerLink')?.value?.trim() || '';
+  const title = document.getElementById('homeBannerTitle')?.value?.trim() || '';
+  const subtitle = document.getElementById('homeBannerSubtitle')?.value?.trim() || '';
+  const imageUrl = document.getElementById('homeBannerImageUrl')?.value?.trim() || '';
+
+  return { store, storeName, badgeText, link, title, subtitle, imageUrl };
+}
+
+function renderHomeBannerCardHtml(b) {
+  const store = (b.store || 'amazon').toLowerCase();
+  const storeName = b.storeName || (store.charAt(0).toUpperCase() + store.slice(1));
+  const badgeText = b.badgeText || '';
+  const title = b.title || 'Deals That Don\'t Wait';
+  const subtitle = b.subtitle || 'Fresh price drops tracked around the clock';
+  let imgUrl = b.imageUrl || '';
+  if (imgUrl && !imgUrl.startsWith('http') && !imgUrl.startsWith('data:')) {
+    imgUrl = 'https://dealbuster.in/' + imgUrl.replace(/^\/+/, '');
+  }
+
+  const bgStyle = imgUrl 
+    ? `background-image: url('${escHtml(imgUrl)}'); background-size: cover; background-position: center;`
+    : `background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);`;
+
+  return `
+    <div style="position:relative; width:100%; height:176px; border-radius:26px; overflow:hidden; ${bgStyle} box-shadow:0 8px 24px -6px rgba(0,0,0,0.3); font-family:'Segoe UI', system-ui, sans-serif; display:flex; flex-direction:column; justify-content:space-between; padding:16px 18px; box-sizing:border-box; color:#fff;">
+      <!-- Subtle multi-stop readability gradient overlay -->
+      <div style="position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.85) 100%); pointer-events:none; border-radius:26px;"></div>
+      
+      <!-- Top Row: Store Badge + Deal Badge -->
+      <div style="position:relative; z-index:2; display:flex; align-items:center; gap:8px;">
+        <span style="background:rgba(255,255,255,0.92); color:#111; font-size:10.5px; font-weight:800; padding:3.5px 10px; border-radius:999px; text-transform:uppercase; letter-spacing:0.04em; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+          ${escHtml(storeName)}
+        </span>
+        ${badgeText ? `
+          <span style="background:rgba(0,0,0,0.55); color:#fff; border:1px solid rgba(255,255,255,0.3); font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:0.03em; backdrop-filter:blur(4px);">
+            ${escHtml(badgeText)}
+          </span>
+        ` : ''}
+      </div>
+
+      <!-- Bottom Row: Title + Subtitle -->
+      <div style="position:relative; z-index:2;">
+        <div style="font-size:18px; font-weight:800; color:#fff; line-height:1.2; text-shadow:0 2px 8px rgba(0,0,0,0.6); max-width:90%;">
+          ${escHtml(title)}
+        </div>
+        ${subtitle ? `
+          <div style="font-size:12px; font-weight:500; color:rgba(255,255,255,0.88); line-height:1.3; margin-top:4px; text-shadow:0 1px 4px rgba(0,0,0,0.6); max-width:90%;">
+            ${escHtml(subtitle)}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderHomeBannerPreview() {
+  const container = document.getElementById('homeBannerLivePreviewWrapper');
+  if (!container) return;
+
+  const data = getHomeBannerDataFromForm();
+  container.innerHTML = renderHomeBannerCardHtml(data);
+
+  // Link test preview
+  const linkTextEl = document.getElementById('homeBannerPreviewLinkText');
+  const linkBtnEl = document.getElementById('homeBannerPreviewLinkBtn');
+  if (linkTextEl && linkBtnEl) {
+    if (data.link) {
+      linkTextEl.textContent = data.link;
+      linkBtnEl.href = data.link;
+      linkBtnEl.style.display = 'inline-flex';
+    } else {
+      linkTextEl.textContent = 'No link set';
+      linkBtnEl.style.display = 'none';
+    }
+  }
+}
+
+async function uploadHomeBannerImage() {
+  const fileInput = document.getElementById('homeBannerImageFile');
+  const statusEl = document.getElementById('homeBannerUploadStatus');
+  const nameEl = document.getElementById('homeBannerImageFileName');
+  const uploadBtn = document.getElementById('homeBannerUploadBtn');
+  const urlInput = document.getElementById('homeBannerImageUrl');
+
+  if (!fileInput || !fileInput.files.length) return;
+  const file = fileInput.files[0];
+  nameEl.textContent = file.name;
+
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = '⚡ Optimizing & converting hero banner image…';
+  uploadBtn.disabled = true;
+
+  try {
+    // 1200px max width for hero background sharpness with high fidelity
+    const opt = await optimizeImageFile(file, 1200, 0.85);
+    statusEl.textContent = `Uploading to GitHub (${formatBytes(opt.optimizedSize)})…`;
+
+    const ts = Date.now();
+    const filename = `banners/home-banner-${ts}.${opt.ext}`;
+
+    const resp = await apiFetch('/upload', { method: 'POST', body: { filename, content: opt.base64 } });
+    const data = await resp.json();
+    if (data.success) {
+      const origStr = formatBytes(opt.originalSize);
+      const optStr = formatBytes(opt.optimizedSize);
+      const savedPct = Math.round((1 - opt.optimizedSize / opt.originalSize) * 100);
+      const statsBadge = opt.originalSize > opt.optimizedSize && savedPct > 0
+        ? `<span style="font-size:11px;opacity:0.85;margin-left:4px;color:var(--text);font-weight:600;">(⚡ ${origStr} ➔ ${optStr}, -${savedPct}%)</span>`
+        : `<span style="font-size:11px;opacity:0.85;margin-left:4px;">(${optStr})</span>`;
+
+      statusEl.style.color = 'var(--green)';
+      statusEl.innerHTML = `✓ Uploaded successfully! ${statsBadge}`;
+      urlInput.value = data.path;
+      renderHomeBannerPreview();
+    } else {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Upload failed: ' + (data.details || data.error || 'Unknown error');
+    }
+  } catch (err) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = 'Error: ' + err.message;
+  } finally {
+    uploadBtn.disabled = false;
+  }
+}
+
+function clearHomeBannerImage() {
+  document.getElementById('homeBannerImageUrl').value = '';
+  document.getElementById('homeBannerImageFileName').textContent = 'No image chosen';
+  document.getElementById('homeBannerUploadStatus').textContent = '';
+  document.getElementById('homeBannerImageFile').value = '';
+  renderHomeBannerPreview();
+}
+
+function renderHomeBannersList() {
+  const container = document.getElementById('homeBannersListContainer');
+  if (!container) return;
+
+  if (!allHomeBanners.length) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 36px 20px; text-align: center; color: var(--muted); background: var(--card); border: 1px dashed var(--border); border-radius: 16px;">
+        <div style="font-size: 28px; margin-bottom: 8px;">🖼️</div>
+        <div style="font-weight: 700; font-size: 1rem; color: var(--text);">No custom home banners yet</div>
+        <div style="font-size: 0.85rem; margin-top: 4px;">Create your first home banner above using the form and image uploader.</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = allHomeBanners.map((b, idx) => {
+    return `
+      <div class="banner-admin-item" id="homeBannerItem_${b.id}">
+        <div class="banner-admin-card-preview">
+          ${renderHomeBannerCardHtml(b)}
+        </div>
+        <div class="banner-admin-item-meta">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.75rem;font-weight:800;color:var(--text);text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;">
+              ${escHtml(b.storeName || b.store || 'Banner')} • <span style="color:var(--muted);font-weight:600;">#${idx + 1}</span>
+            </span>
+            <label class="toggle-switch" title="Toggle active/inactive in app">
+              <input type="checkbox" ${b.active !== false ? 'checked' : ''} onchange="toggleHomeBannerActive('${b.id}')"/>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="banner-admin-url" title="${escHtml(b.link || 'No link')}">
+            🔗 ${escHtml(b.link || 'No link set')}
+          </div>
+          <div class="banner-admin-actions">
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-ghost btn-sm" onclick="moveHomeBanner('${b.id}', -1)" title="Move up" ${idx === 0 ? 'disabled' : ''}>↑</button>
+              <button class="btn btn-ghost btn-sm" onclick="moveHomeBanner('${b.id}', 1)" title="Move down" ${idx === allHomeBanners.length - 1 ? 'disabled' : ''}>↓</button>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-outline btn-sm" onclick="editHomeBanner('${b.id}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteHomeBanner('${b.id}')">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function saveHomeBannerForm() {
+  const saveBtn = document.getElementById('saveHomeBannerBtn');
+  const statusEl = document.getElementById('homeBannerSaveStatus');
+  const editingId = document.getElementById('editingHomeBannerId').value;
+  const store = document.getElementById('homeBannerStore').value;
+  const selEl = document.getElementById('homeBannerStore');
+  const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text : (store.charAt(0).toUpperCase() + store.slice(1));
+  const badgeText = document.getElementById('homeBannerBadge').value.trim();
+  const link = document.getElementById('homeBannerLink').value.trim();
+  const title = document.getElementById('homeBannerTitle').value.trim();
+  const subtitle = document.getElementById('homeBannerSubtitle').value.trim();
+  const imageUrl = document.getElementById('homeBannerImageUrl').value.trim();
+
+  if (!imageUrl && !title && !link) {
+    alert('Please provide at least a background image, title, or destination link.');
+    return;
+  }
+
+  saveBtn.disabled = true;
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = 'Saving home banner to repository…';
+
+  try {
+    const payload = {
+      store,
+      storeName,
+      badgeText,
+      title,
+      subtitle,
+      imageUrl,
+      link,
+      active: true
+    };
+    if (editingId) payload.id = editingId;
+
+    const resp = await apiFetch('/home-banners', { method: 'POST', body: payload });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Save failed');
+
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = editingId ? '✓ Home banner updated successfully!' : '✓ Home banner posted successfully!';
+    allHomeBanners = Array.isArray(data.banners) ? data.banners : [];
+    document.getElementById('homeBannersCountBadge').textContent = allHomeBanners.length;
+    renderHomeBannersList();
+
+    setTimeout(() => {
+      resetHomeBannerForm();
+      statusEl.textContent = '';
+    }, 1500);
+  } catch (err) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = 'Error: ' + err.message;
+  } finally {
+    saveBtn.disabled = false;
+  }
+}
+
+function editHomeBanner(id) {
+  const b = allHomeBanners.find(x => x.id === id);
+  if (!b) return;
+
+  document.getElementById('editingHomeBannerId').value = b.id;
+  document.getElementById('homeBannerFormTitle').textContent = 'Edit Home Banner';
+  document.getElementById('saveHomeBannerBtn').textContent = 'Update Banner';
+
+  document.getElementById('homeBannerStore').value = b.store || 'amazon';
+  document.getElementById('homeBannerBadge').value = b.badgeText || '';
+  document.getElementById('homeBannerLink').value = b.link || '';
+  document.getElementById('homeBannerTitle').value = b.title || '';
+  document.getElementById('homeBannerSubtitle').value = b.subtitle || '';
+  document.getElementById('homeBannerImageUrl').value = b.imageUrl || '';
+  document.getElementById('homeBannerImageFileName').textContent = b.imageUrl ? b.imageUrl.split('/').pop() : 'No image chosen';
+
+  renderHomeBannerPreview();
+  document.getElementById('tabHomeBanners').scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetHomeBannerForm() {
+  document.getElementById('editingHomeBannerId').value = '';
+  document.getElementById('homeBannerFormTitle').textContent = 'Create Home Banner';
+  document.getElementById('saveHomeBannerBtn').textContent = 'Save Banner';
+  document.getElementById('homeBannerSaveStatus').textContent = '';
+
+  document.getElementById('homeBannerStore').value = 'amazon';
+  document.getElementById('homeBannerBadge').value = '';
+  document.getElementById('homeBannerLink').value = '';
+  document.getElementById('homeBannerTitle').value = '';
+  document.getElementById('homeBannerSubtitle').value = '';
+  clearHomeBannerImage();
+}
+
+async function deleteHomeBanner(id) {
+  if (!confirm('Are you sure you want to delete this home banner? Its background image will also be removed from GitHub.')) return;
+  try {
+    const resp = await apiFetch(`/home-banners/${id}`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Delete failed');
+    allHomeBanners = Array.isArray(data.banners) ? data.banners : allHomeBanners.filter(b => b.id !== id);
+    document.getElementById('homeBannersCountBadge').textContent = allHomeBanners.length;
+    renderHomeBannersList();
+    showToast('Home banner deleted & image removed');
+  } catch (err) {
+    alert('Failed to delete home banner: ' + err.message);
+  }
+}
+
+async function toggleHomeBannerActive(id) {
+  const b = allHomeBanners.find(x => x.id === id);
+  if (!b) return;
+  const newActive = b.active === false ? true : false;
+  b.active = newActive;
+  try {
+    await apiFetch('/home-banners', { method: 'POST', body: { ...b, active: newActive } });
+    showToast(newActive ? 'Home banner activated' : 'Home banner deactivated');
+  } catch (err) {
+    b.active = !newActive;
+    renderHomeBannersList();
+    alert('Failed to update banner status: ' + err.message);
+  }
+}
+
+async function moveHomeBanner(id, direction) {
+  const idx = allHomeBanners.findIndex(b => b.id === id);
+  if (idx < 0) return;
+  const targetIdx = idx + direction;
+  if (targetIdx < 0 || targetIdx >= allHomeBanners.length) return;
+
+  const temp = allHomeBanners[idx];
+  allHomeBanners[idx] = allHomeBanners[targetIdx];
+  allHomeBanners[targetIdx] = temp;
+  allHomeBanners.forEach((b, i) => b.order = i);
+
+  renderHomeBannersList();
+
+  try {
+    await apiFetch('/home-banners/reorder', { method: 'POST', body: { banners: allHomeBanners } });
+  } catch (err) {
+    console.error('Failed to save home banner reorder:', err);
   }
 }
 
