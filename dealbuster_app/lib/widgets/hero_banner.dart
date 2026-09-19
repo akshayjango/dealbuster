@@ -418,56 +418,54 @@ class _CustomBannerCard extends StatelessWidget {
           ),
         ),
 
-        // Bottom Left: Title and Subtitle
+        // Bottom Left: Text Lines (Big / Small, matching Store Banner styling)
         Positioned(
-          bottom: 22,
+          bottom: 20,
           left: 16,
           right: 18,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: [
-              if (banner.title.isNotEmpty)
-                Text(
-                  banner.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    height: 1.15,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+            children: banner.effectiveLines.map((line) {
+              if (line.text.trim().isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  line.text.trim(),
+                  style: line.isBig
+                      ? GoogleFonts.sora(
+                          color: Colors.white,
+                          fontSize: 23,
+                          fontWeight: FontWeight.w800,
+                          height: 1.12,
+                          letterSpacing: -0.3,
+                          shadows: const [
+                            Shadow(
+                              color: Color(0x33000000),
+                              offset: Offset(0, 1),
+                              blurRadius: 3,
+                            ),
+                          ],
+                        )
+                      : GoogleFonts.inter(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.22,
+                          letterSpacing: -0.1,
+                          shadows: const [
+                            Shadow(
+                              color: Color(0x26000000),
+                              offset: Offset(0, 1),
+                              blurRadius: 2,
+                            ),
+                          ],
+                        ),
                 ),
-              if (banner.subtitle.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  banner.subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.88),
-                    fontSize: 12.0,
-                    fontWeight: FontWeight.w500,
-                    height: 1.25,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        blurRadius: 6,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
+              );
+            }).toList(),
           ),
         ),
 
@@ -540,21 +538,37 @@ class _Frame extends StatelessWidget {
                     const SizedBox(height: 10),
                     Text(
                       'Deals that\ndon\'t wait.',
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.sora(
                         color: Colors.white,
-                        fontSize: 26,
+                        fontSize: 23,
                         fontWeight: FontWeight.w800,
-                        height: 1.05,
+                        height: 1.12,
+                        letterSpacing: -0.3,
+                        shadows: const [
+                          Shadow(
+                            color: Color(0x33000000),
+                            offset: Offset(0, 1),
+                            blurRadius: 3,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
                     Text(
                       'Fresh price drops tracked\naround the clock.',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12.0,
-                        fontWeight: FontWeight.w500,
-                        height: 1.2,
+                      style: GoogleFonts.inter(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.22,
+                        letterSpacing: -0.1,
+                        shadows: const [
+                          Shadow(
+                            color: Color(0x26000000),
+                            offset: Offset(0, 1),
+                            blurRadius: 2,
+                          ),
+                        ],
                       ),
                     ),
                   ],
