@@ -106,174 +106,221 @@ class StoresScreenState extends State<StoresScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        backgroundColor: AppColors.bg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        title: Text(
-          'Stores',
-          style: GoogleFonts.sora(
-            color: AppColors.ink,
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-            letterSpacing: -0.4,
-          ),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Column(
-            children: [
-              // Store filter pills bar
-              SizedBox(
-                height: 46,
-                child: ListView.separated(
-                  clipBehavior: Clip.none,
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-                  itemCount: _storeFilters.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final item = _storeFilters[index];
-                    final isSelected = item['id'] == _selectedStoreFilter;
-
-                    return Center(
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedStoreFilter = item['id']!;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 15,
-                            vertical: 7.5,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: isSelected
-                                ? const LinearGradient(
-                                    colors: [
-                                      Color(0xFFFF7243),
-                                      Color(0xFFFF4222),
-                                    ],
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                  )
-                                : null,
-                            color: isSelected ? null : AppColors.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: isSelected
-                                ? null
-                                : Border.all(
-                                    color: AppColors.cardStroke,
-                                    width: 1,
-                                  ),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: const Color(0xFFFF4222)
-                                          .withValues(alpha: 0.20),
-                                      blurRadius: 5,
-                                      offset: const Offset(0, 1.5),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Text(
-                            item['label']!,
-                            style: GoogleFonts.inter(
-                              color: isSelected ? Colors.white : AppColors.ink,
-                              fontSize: 13,
-                              fontWeight:
-                                  isSelected ? FontWeight.w700 : FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
+      body: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          color: AppColors.brand,
+          onRefresh: _onRefresh,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Text(
+                    'Stores',
+                    style: GoogleFonts.sora(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ),
+              ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StoresTabHeaderDelegate(
+                  filters: _storeFilters,
+                  selectedFilter: _selectedStoreFilter,
+                  onSelectFilter: (id) {
+                    setState(() {
+                      _selectedStoreFilter = id;
+                    });
                   },
                 ),
               ),
-              const SizedBox(height: 6),
-              Container(
-                height: 0.6,
-                color: AppColors.cardStroke,
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.brand,
-                strokeWidth: 2.5,
-              ),
-            )
-          : RefreshIndicator(
-              color: AppColors.brand,
-              onRefresh: _onRefresh,
-              child: filtered.isEmpty
-                  ? ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
+              if (_isLoading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.brand,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+                )
+              else if (filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.45,
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.brand.withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.storefront_rounded,
-                                    size: 32,
-                                    color: AppColors.brand,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'No Store Banners Available',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                const Text(
-                                  'Pull down to refresh or check back shortly.',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.ink700,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: AppColors.brand.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.storefront_rounded,
+                            size: 32,
+                            color: AppColors.brand,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No Store Banners Available',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Pull down to refresh or check back shortly.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.ink700,
                           ),
                         ),
                       ],
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(top: 8, bottom: 90),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 90),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
                         final banner = filtered[index];
                         return StoreBannerCard(
                           key: ValueKey(banner.id),
                           banner: banner,
                         );
                       },
+                      childCount: filtered.length,
                     ),
-            ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+}
+
+class _StoresTabHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final List<Map<String, String>> filters;
+  final String selectedFilter;
+  final ValueChanged<String> onSelectFilter;
+
+  _StoresTabHeaderDelegate({
+    required this.filters,
+    required this.selectedFilter,
+    required this.onSelectFilter,
+  });
+
+  @override
+  double get minExtent => 53.0;
+
+  @override
+  double get maxExtent => 53.0;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      height: 53.0,
+      color: AppColors.bg,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 46,
+            child: ListView.separated(
+              clipBehavior: Clip.none,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+              itemCount: filters.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final item = filters[index];
+                final isSelected = item['id'] == selectedFilter;
+
+                return Center(
+                  child: InkWell(
+                    onTap: () => onSelectFilter(item['id']!),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 7.5,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: isSelected
+                            ? const LinearGradient(
+                                colors: [
+                                  Color(0xFFFF7243),
+                                  Color(0xFFFF4222),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              )
+                            : null,
+                        color: isSelected ? null : AppColors.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: isSelected
+                            ? null
+                            : Border.all(
+                                color: AppColors.cardStroke,
+                                width: 1,
+                              ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFFFF4222)
+                                      .withValues(alpha: 0.20),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 1.5),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Text(
+                        item['label']!,
+                        style: GoogleFonts.inter(
+                          color: isSelected ? Colors.white : AppColors.ink,
+                          fontSize: 13,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            height: 1,
+            color: AppColors.cardStroke,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _StoresTabHeaderDelegate oldDelegate) {
+    return oldDelegate.selectedFilter != selectedFilter ||
+        oldDelegate.filters != filters;
   }
 }

@@ -538,8 +538,13 @@ class OffersScreenState extends State<OffersScreen> {
             bottom: false,
             child: Stack(
               children: [
-                Column(
-                  children: [
+                RefreshIndicator(
+                  color: AppColors.brand,
+                  onRefresh: _handleRefresh,
+                  notificationPredicate: (notification) =>
+                      notification.metrics.axis == Axis.vertical,
+                  child: Column(
+                    children: [
                 // ── Top Header & Title (Total number tag removed per request) ──
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -688,6 +693,7 @@ class OffersScreenState extends State<OffersScreen> {
                 ),
               ],
             ),
+          ),
             // ── Scroll to Top Button (Synced with active tab & bottom bar) ──
             ValueListenableBuilder<bool>(
               valueListenable:
@@ -737,49 +743,45 @@ class OffersScreenState extends State<OffersScreen> {
     required ScrollController scrollController,
     required bool isCoupons,
   }) {
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      color: AppColors.brand,
-      child: items.isEmpty
-          ? (_isSearchingServer
-              ? _buildLoadingSkeleton()
-              : _buildEmptyState(isCoupons: isCoupons))
-          : ListView.separated(
-              controller: scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
-              itemCount: items.length + (_isLoadingMore ? 1 : 0),
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                if (index == items.length) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(
-                      child: SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: AppColors.brand,
-                        ),
+    return items.isEmpty
+        ? (_isSearchingServer
+            ? _buildLoadingSkeleton()
+            : _buildEmptyState(isCoupons: isCoupons))
+        : ListView.separated(
+            controller: scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+            itemCount: items.length + (_isLoadingMore ? 1 : 0),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              if (index == items.length) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: AppColors.brand,
                       ),
                     ),
-                  );
-                }
-                final offer = items[index];
-                return offer.isCoupon
-                    ? _CouponCard(
-                        offer: offer,
-                        onTap: () => _handleCouponTap(offer),
-                      )
-                    : _DiscountCard(
-                        offer: offer,
-                        onTap: () => _handleDiscountTap(offer),
-                      );
-              },
-            ),
-    );
+                  ),
+                );
+              }
+              final offer = items[index];
+              return offer.isCoupon
+                  ? _CouponCard(
+                      offer: offer,
+                      onTap: () => _handleCouponTap(offer),
+                    )
+                  : _DiscountCard(
+                      offer: offer,
+                      onTap: () => _handleDiscountTap(offer),
+                    );
+            },
+          );
   }
 
   Widget _buildTabButton({
@@ -817,6 +819,7 @@ class OffersScreenState extends State<OffersScreen> {
 
   Widget _buildLoadingSkeleton() {
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
       itemCount: 4,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -893,7 +896,8 @@ class OffersScreenState extends State<OffersScreen> {
 
   Widget _buildErrorState() {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
