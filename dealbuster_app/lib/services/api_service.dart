@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/banner_item.dart';
 import '../models/home_banner_item.dart';
@@ -19,6 +22,95 @@ class ApiService {
   static const String _homeBannersUrl =
       'https://dealbuster-admin-api.vakshay083.workers.dev/public/home-banners';
   static const String _homeBannersCacheKey = 'db_home_banners_cache_v1';
+
+  static final RegExp _uptoRegex = RegExp(
+    r'\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\s*off\b',
+    caseSensitive: false,
+  );
+
+  File? _cachedFile;
+
+  Future<File?> _getProductsCacheFile() async {
+    if (_cachedFile != null) return _cachedFile;
+    try {
+      final dir = await getApplicationSupportDirectory();
+      _cachedFile = File('${dir.path}/products_cache.json');
+      return _cachedFile;
+    } catch (e) {
+      debugPrint('[ApiService] Unable to get app support dir: $e');
+      return null;
+    }
+  }
+
+  Future<void> _saveCachedProducts(String body) async {
+    try {
+      final file = await _getProductsCacheFile();
+      if (file != null) {
+        await file.writeAsString(body, flush: true);
+      }
+      // Remove legacy 4MB cache from SharedPreferences to shrink FlutterSharedPreferences.xml
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey(_cacheKey)) {
+        await prefs.remove(_cacheKey);
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Error saving cached products: $e');
+    }
+  }
+
+  Future<String?> _readCachedProducts() async {
+    try {
+      final file = await _getProductsCacheFile();
+      if (file != null && await file.exists()) {
+        return await file.readAsString();
+      }
+      // Migration fallback: check legacy SharedPreferences cache if file doesn't exist yet
+      final prefs = await SharedPreferences.getInstance();
+      final legacyData = prefs.getString(_cacheKey);
+      if (legacyData != null && legacyData.isNotEmpty) {
+        if (file != null) {
+          await file.writeAsString(legacyData, flush: true);
+        }
+        await prefs.remove(_cacheKey);
+        return legacyData;
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Error reading cached products: $e');
+    }
+    return null;
+  }
+
+  // Static worker function executed inside background isolate
+  static List<Product> _parseProductsSync(String jsonBody) {
+    try {
+      final parsed = jsonDecode(jsonBody);
+      final List<dynamic> list =
+          parsed is List ? parsed : (parsed['products'] ?? []);
+
+      return list
+          .map<Product>((json) => Product.fromJson(json))
+          .where((p) =>
+              !p.hidden &&
+              !p.outOfStock &&
+              p.price.isNotEmpty &&
+              p.price != '₹0' &&
+              p.price != '₹' &&
+              !_uptoRegex.hasMatch(p.title))
+          .toList();
+    } catch (e) {
+      debugPrint('[ApiService] Error parsing products: $e');
+      return [];
+    }
+  }
+
+  @visibleForTesting
+  static List<Product> parseProductsSync(String jsonBody) => _parseProductsSync(jsonBody);
+
+  // Parse products in a background isolate using compute to prevent UI thread ANR
+  Future<List<Product>> _parseProducts(String jsonBody) async {
+    if (jsonBody.isEmpty) return [];
+    return await compute(_parseProductsSync, jsonBody);
+  }
 
   // Fetch live products with dynamic updates. Falls back to the on-disk
   // cache on failure, so callers that just want "something to show" (the
@@ -41,11 +133,10 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final String body = response.body;
-        // Cache the response string
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_cacheKey, body);
+        // Asynchronously save to dedicated cache file without blocking UI
+        _saveCachedProducts(body);
 
-        return _parseProducts(body);
+        return await _parseProducts(body);
       }
     } catch (e) {
       // Log connection or timeout errors
@@ -56,33 +147,14 @@ class ApiService {
   // Retrieve cached products
   Future<List<Product>> getCachedProducts() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final cachedData = prefs.getString(_cacheKey);
-      if (cachedData != null) {
-        return _parseProducts(cachedData);
+      final cachedData = await _readCachedProducts();
+      if (cachedData != null && cachedData.isNotEmpty) {
+        return await _parseProducts(cachedData);
       }
     } catch (e) {
       // Cache retrieval error
     }
     return [];
-  }
-
-  // Parse products from string body, filtering out hidden, dead, or zero-price products
-  List<Product> _parseProducts(String jsonBody) {
-    final parsed = jsonDecode(jsonBody);
-    final List<dynamic> list = parsed is List ? parsed : (parsed['products'] ?? []);
-    
-    final uptoRegex = RegExp(r'\b(?:up\s*to|upto)\s*\d+\s*(?:%|percent)\s*off\b', caseSensitive: false);
-    return list
-        .map<Product>((json) => Product.fromJson(json))
-        .where((p) => 
-            !p.hidden && 
-            !p.outOfStock &&
-            p.price.isNotEmpty && 
-            p.price != '₹0' && 
-            p.price != '₹' &&
-            !uptoRegex.hasMatch(p.title))
-        .toList();
   }
 
   // ── CueLinks Offers (Coupons & Discounts) ─────────────────────────────
