@@ -48,6 +48,17 @@ class StoresScreenState extends State<StoresScreen> {
     super.dispose();
   }
 
+  void resetToDefault() {
+    if (_selectedStoreFilter != 'all') {
+      setState(() {
+        _selectedStoreFilter = 'all';
+      });
+    }
+    if (_scrollController.hasClients && _scrollController.offset > 0) {
+      _scrollController.jumpTo(0);
+    }
+  }
+
   void _onScroll() {
     if (widget.isTabBarVisible == null) return;
     if (_scrollController.position.userScrollDirection ==

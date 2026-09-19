@@ -17,6 +17,7 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final ValueNotifier<bool> _isTabBarVisible = ValueNotifier<bool>(true);
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
+  final GlobalKey<StoresScreenState> _storesKey = GlobalKey<StoresScreenState>();
   final GlobalKey<OffersScreenState> _offersKey = GlobalKey<OffersScreenState>();
 
   @override
@@ -30,8 +31,11 @@ class _MainScreenState extends State<MainScreen> {
       if (index == 0) {
         // Tapped active Deals tab -> reset to Sort: New, scroll to top, and refresh
         _homeKey.currentState?.handleDealsTabTap();
+      } else if (index == 1) {
+        // Tapped active Stores tab -> reset to All Stores and scroll to top
+        _storesKey.currentState?.resetToDefault();
       } else if (index == 2) {
-        // Tapped active Offers tab -> scroll to top and clear search if active
+        // Tapped active Offers tab -> reset to Coupons tab, scroll to top and clear search if active
         _offersKey.currentState?.handleOffersTabTap();
       }
       return;
@@ -45,13 +49,19 @@ class _MainScreenState extends State<MainScreen> {
     if (index == 0) {
       // Switched to Deals tab -> reset to Sort: New, scroll to top, and refresh
       _homeKey.currentState?.handleDealsTabTap();
+    } else if (index == 1) {
+      // Returning back to Stores tab -> reset to All Stores (default)
+      _storesKey.currentState?.resetToDefault();
     } else if (index == 2) {
-      // Returning back to Offers tab -> clear search and show top
+      // Returning back to Offers tab -> reset to Coupons tab (default), clear search and show top
       _offersKey.currentState?.resetSearchAndScrollToTop();
     }
 
-    if (previousIndex == 2 && index != 2) {
-      // Switched away from Offers tab -> clear search and reset to top
+    if (previousIndex == 1 && index != 1) {
+      // Switched away from Stores tab -> reset to All Stores
+      _storesKey.currentState?.resetToDefault();
+    } else if (previousIndex == 2 && index != 2) {
+      // Switched away from Offers tab -> reset to Coupons, clear search and reset to top
       _offersKey.currentState?.resetSearchAndScrollToTop();
     }
 
@@ -67,7 +77,9 @@ class _MainScreenState extends State<MainScreen> {
       canPop: _currentIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _currentIndex != 0) {
-          if (_currentIndex == 2) {
+          if (_currentIndex == 1) {
+            _storesKey.currentState?.resetToDefault();
+          } else if (_currentIndex == 2) {
             _offersKey.currentState?.resetSearchAndScrollToTop();
           }
           setState(() => _currentIndex = 0);
@@ -86,6 +98,7 @@ class _MainScreenState extends State<MainScreen> {
                   isTabBarVisible: _isTabBarVisible,
                 ),
                 StoresScreen(
+                  key: _storesKey,
                   isTabBarVisible: _isTabBarVisible,
                 ),
                 OffersScreen(

@@ -172,6 +172,13 @@ class OffersScreenState extends State<OffersScreen> {
       _isSearchingServer = false;
     }
 
+    if (_selectedTab != OfferTab.coupons) {
+      _selectedTab = OfferTab.coupons;
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(OfferTab.coupons.index);
+      }
+    }
+
     if (_couponsScrollController.hasClients) {
       _couponsScrollController.jumpTo(0);
     }
