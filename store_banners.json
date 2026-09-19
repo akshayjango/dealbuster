@@ -296,31 +296,6 @@
     "createdAt": "2026-09-19T18:20:10.000Z"
   },
   {
-    "id": "banner_flipkart_2",
-    "store": "flipkart",
-    "storeName": "Flipkart",
-    "badgeText": "SPECIAL DEAL",
-    "lines": [
-      {
-        "text": "Beauty Store",
-        "size": "small"
-      },
-      {
-        "text": "Under",
-        "size": "big"
-      },
-      {
-        "text": "₹999",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "images/banners/flipkart-banner-1789824600511.webp",
-    "link": "https://fktr.in/pR3DwM4",
-    "active": true,
-    "order": 12,
-    "createdAt": "2026-09-19T18:20:12.000Z"
-  },
-  {
     "id": "banner_ajio_1",
     "store": "ajio",
     "storeName": "AJIO",
@@ -346,8 +321,33 @@
     "imageUrl": "images/banners/ajio_skybags.png",
     "link": "https://ajiio.in/v9Nk4S1",
     "active": true,
-    "order": 13,
+    "order": 12,
     "createdAt": "2026-09-19T18:20:13.000Z"
+  },
+  {
+    "id": "banner_flipkart_2",
+    "store": "flipkart",
+    "storeName": "Flipkart",
+    "badgeText": "SPECIAL DEAL",
+    "lines": [
+      {
+        "text": "Beauty Store",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹999",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "images/banners/flipkart-banner-1789824600511.webp",
+    "link": "https://fktr.in/pR3DwM4",
+    "active": true,
+    "order": 13,
+    "createdAt": "2026-09-19T18:20:12.000Z"
   },
   {
     "id": "banner_amazon_1",
