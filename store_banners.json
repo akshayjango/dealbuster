@@ -125,31 +125,6 @@
     "createdAt": "2026-09-19T18:20:11.000Z"
   },
   {
-    "id": "banner_myntra_4",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "Door Mats",
-        "size": "small"
-      },
-      {
-        "text": "Under",
-        "size": "big"
-      },
-      {
-        "text": "₹399",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/Ig4urKI",
-    "active": true,
-    "order": 5,
-    "createdAt": "2026-09-19T18:20:03.000Z"
-  },
-  {
     "id": "banner_flipkart_2",
     "store": "flipkart_1",
     "storeName": "Flipkart 1",
@@ -171,8 +146,33 @@
     "imageUrl": "images/banners/flipkart-banner-1789824600511.webp",
     "link": "https://fktr.in/pR3DwM4",
     "active": true,
-    "order": 6,
+    "order": 5,
     "createdAt": "2026-09-19T18:20:12.000Z"
+  },
+  {
+    "id": "banner_myntra_4",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "Door Mats",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹399",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/Ig4urKI",
+    "active": true,
+    "order": 6,
+    "createdAt": "2026-09-19T18:20:03.000Z"
   },
   {
     "id": "banner_myntra_5",
