@@ -596,78 +596,83 @@
       align-items: center;
       justify-content: center;
       background: #ffffff;
-      padding: 5px 12px;
-      border-radius: 12px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.14);
-      height: 32px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      height: 24px;
       box-sizing: border-box;
     }
     .banner-store-pill svg {
-      height: 20px;
+      height: 13px;
       width: auto;
-      max-width: 90px;
+      max-width: 80px;
       display: block;
     }
     .banner-badge-pill {
+      position: absolute;
+      top: 12px;
+      right: 0;
       display: inline-flex;
       align-items: center;
       background: rgba(255,255,255,0.92);
       color: #111827;
-      font-size: 0.72rem;
+      font-size: 0.65rem;
       font-weight: 800;
       letter-spacing: 0.4px;
       text-transform: uppercase;
-      padding: 5px 12px;
-      border-radius: 999px;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+      padding: 3.5px 10px 3.5px 8px;
+      border-radius: 6px 0 0 6px;
+      box-shadow: -1px 2px 6px rgba(0,0,0,0.15);
+      z-index: 6;
     }
     .theme-myntra .banner-badge-pill { background: #E50956; color: #fff; }
     .theme-flipkart .banner-badge-pill { background: #FF2E63; color: #fff; }
-    .theme-ajio .banner-badge-pill { background: #ffffff; color: #0F172A; }
+    .theme-ajio .banner-badge-pill { background: #1E293B; color: #fff; }
     .theme-amazon .banner-badge-pill { background: #131921; color: #FF9900; }
 
     /* Banner Content: Text & Cutout Photo */
     .banner-content-row {
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
       position: relative;
       z-index: 5;
-      margin-top: 18px;
-      min-height: 155px;
+      margin-top: 12px;
+      min-height: 140px;
     }
     .banner-text-col {
       display: flex;
       flex-direction: column;
+      justify-content: center;
       gap: 2px;
       flex: 1;
-      max-width: 58%;
+      max-width: 54%;
       z-index: 6;
     }
     .banner-line-small {
-      font-size: 1.05rem;
+      font-size: 0.88rem;
       font-weight: 600;
-      color: #ffffff;
+      color: rgba(255,255,255,0.95);
       line-height: 1.25;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.3);
-      letter-spacing: -0.2px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      letter-spacing: -0.1px;
     }
     .banner-line-big {
-      font-size: 2.15rem;
-      font-weight: 900;
+      font-size: 1.55rem;
+      font-weight: 800;
       color: #ffffff;
-      line-height: 1.05;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.35);
-      letter-spacing: -0.5px;
+      line-height: 1.1;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      letter-spacing: -0.3px;
     }
     .banner-img-col {
       position: absolute;
-      right: -8px;
-      bottom: -15px;
-      width: 46%;
-      height: 185px;
+      right: 6px;
+      bottom: 12px;
+      top: 22px;
+      width: 44%;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
       z-index: 4;
       pointer-events: none;
@@ -676,7 +681,7 @@
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
-      filter: drop-shadow(0 14px 22px rgba(0,0,0,0.4));
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.28));
     }
     .banner-img-placeholder {
       width: 100%;
@@ -4150,7 +4155,6 @@ function renderBannerCardHtml(b, isMini = false) {
     const cls = l.size === 'big' ? 'banner-line-big' : 'banner-line-small';
     return `<div class="${cls}">${escHtml(l.text)}</div>`;
   }).join('');
-
   const imgHtml = imgUrl ? `
     <div class="banner-img-col">
       <img src="${escHtml(imgUrl)}" alt="Product" onerror="this.onerror=null; this.src='https://dealbuster.in/images/dealbuster_icon.png'"/>
@@ -4167,7 +4171,6 @@ function renderBannerCardHtml(b, isMini = false) {
       <div class="banner-top-row">
         <div class="banner-store-pill">
           ${cfg.iconSvg}
-          <span>${cfg.name}</span>
         </div>
         ${badgeText ? `<div class="banner-badge-pill">${escHtml(badgeText)}</div>` : ''}
       </div>

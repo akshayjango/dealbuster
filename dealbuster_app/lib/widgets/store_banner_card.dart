@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/banner_item.dart';
 import 'store_banner_svgs.dart';
@@ -72,15 +73,15 @@ class StoreBannerCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Right-side product image
+                  // Right-side product image (lifted up from bottom)
                   if (banner.fullImageUrl.isNotEmpty)
                     Positioned(
-                      right: 4,
-                      bottom: 0,
-                      top: 45,
+                      right: 6,
+                      bottom: 12,
+                      top: 22,
                       width: MediaQuery.of(context).size.width * 0.44,
                       child: Align(
-                        alignment: Alignment.bottomRight,
+                        alignment: Alignment.centerRight,
                         child: Hero(
                           tag: 'banner_img_${banner.id}',
                           child: CachedNetworkImage(
@@ -88,8 +89,8 @@ class StoreBannerCard extends StatelessWidget {
                             fit: BoxFit.contain,
                             placeholder: (_, __) => const Center(
                               child: SizedBox(
-                                width: 24,
-                                height: 24,
+                                width: 22,
+                                height: 22,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   color: Colors.white70,
@@ -102,83 +103,85 @@ class StoreBannerCard extends StatelessWidget {
                       ),
                     ),
 
+                  // Top-right Deal badge (ribbon coming from the card's right edge, square right corners)
+                  if (banner.badgeText != null &&
+                      banner.badgeText!.trim().isNotEmpty)
+                    Positioned(
+                      top: 12,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.only(
+                          left: 9,
+                          right: 11,
+                          top: 3.5,
+                          bottom: 3.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.badgeBgColor,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(6),
+                            bottomLeft: Radius.circular(6),
+                            topRight: Radius.zero,
+                            bottomRight: Radius.zero,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.16),
+                              blurRadius: 5,
+                              offset: const Offset(-1, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          banner.badgeText!.trim().toUpperCase(),
+                          style: GoogleFonts.sora(
+                            color: theme.badgeTextColor,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                    ),
+
                   // Content layer
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 18,
-                    ),
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Top row: Store badge + Deal badge
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Store logo pill
-                            Container(
-                              height: 32,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
+                        // Store logo pill (smaller size and 6px rounded corners)
+                        Container(
+                          height: 24,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
                               ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.12),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: _buildStoreLogo(banner.store, banner.storeName),
-                            ),
-
-                            // Top-right Deal badge (if provided)
-                            if (banner.badgeText != null &&
-                                banner.badgeText!.trim().isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4.5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.badgeBgColor,
-                                  borderRadius: BorderRadius.circular(30),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.15),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  banner.badgeText!.trim().toUpperCase(),
-                                  style: TextStyle(
-                                    color: theme.badgeTextColor,
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.4,
-                                  ),
-                                ),
-                              ),
-                          ],
+                            ],
+                          ),
+                          child: _buildStoreLogo(banner.store, banner.storeName),
                         ),
 
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 12),
 
-                        // Text Lines column (takes left ~58% space)
+                        // Text Lines column (centered vertically, sits higher up)
                         ConstrainedBox(
                           constraints: BoxConstraints(
                             maxWidth: MediaQuery.of(context).size.width * 0.52,
-                            minHeight: 110,
+                            minHeight: 96,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: banner.lines.map((line) {
                               if (line.text.trim().isEmpty) {
                                 return const SizedBox.shrink();
@@ -188,30 +191,31 @@ class StoreBannerCard extends StatelessWidget {
                                 child: Text(
                                   line.text.trim(),
                                   style: line.isBig
-                                      ? const TextStyle(
+                                      ? GoogleFonts.sora(
                                           color: Colors.white,
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.w900,
-                                          height: 1.08,
-                                          letterSpacing: -0.4,
-                                          shadows: [
+                                          fontSize: 23,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.12,
+                                          letterSpacing: -0.3,
+                                          shadows: const [
                                             Shadow(
-                                              color: Colors.black38,
-                                              offset: Offset(0, 2),
-                                              blurRadius: 6,
+                                              color: Color(0x33000000),
+                                              offset: Offset(0, 1),
+                                              blurRadius: 3,
                                             ),
                                           ],
                                         )
-                                      : const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
+                                      : GoogleFonts.inter(
+                                          color: Colors.white.withValues(alpha: 0.95),
+                                          fontSize: 13.5,
                                           fontWeight: FontWeight.w600,
-                                          height: 1.25,
-                                          shadows: [
+                                          height: 1.22,
+                                          letterSpacing: -0.1,
+                                          shadows: const [
                                             Shadow(
-                                              color: Colors.black26,
+                                              color: Color(0x26000000),
                                               offset: Offset(0, 1),
-                                              blurRadius: 4,
+                                              blurRadius: 2,
                                             ),
                                           ],
                                         ),
@@ -237,25 +241,25 @@ class StoreBannerCard extends StatelessWidget {
       case 'myntra':
         return SvgPicture.string(
           StoreBannerSvgs.myntra,
-          height: 18,
+          height: 13,
           fit: BoxFit.contain,
         );
       case 'flipkart':
         return SvgPicture.string(
           StoreBannerSvgs.flipkart,
-          height: 18,
+          height: 13,
           fit: BoxFit.contain,
         );
       case 'ajio':
         return SvgPicture.string(
           StoreBannerSvgs.ajio,
-          height: 16,
+          height: 11,
           fit: BoxFit.contain,
         );
       case 'amazon':
         return SvgPicture.string(
           StoreBannerSvgs.amazon,
-          height: 18,
+          height: 13,
           fit: BoxFit.contain,
         );
       default:
@@ -264,16 +268,16 @@ class StoreBannerCard extends StatelessWidget {
           children: [
             const Icon(
               Icons.storefront_rounded,
-              size: 16,
+              size: 13,
               color: Color(0xFF1E293B),
             ),
-            const SizedBox(width: 5),
+            const SizedBox(width: 4),
             Text(
               fallbackName,
-              style: const TextStyle(
-                color: Color(0xFF1E293B),
+              style: GoogleFonts.sora(
+                color: const Color(0xFF1E293B),
                 fontWeight: FontWeight.w800,
-                fontSize: 13,
+                fontSize: 11,
               ),
             ),
           ],
