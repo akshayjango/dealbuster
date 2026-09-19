@@ -175,31 +175,6 @@
     "createdAt": "2026-09-19T18:20:03.000Z"
   },
   {
-    "id": "banner_myntra_5",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "Min",
-        "size": "small"
-      },
-      {
-        "text": "70% Off",
-        "size": "big"
-      },
-      {
-        "text": "On Puma Clothing",
-        "size": "small"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/rzaBhRu",
-    "active": true,
-    "order": 7,
-    "createdAt": "2026-09-19T18:20:04.000Z"
-  },
-  {
     "id": "banner_ajio_1",
     "store": "ajio_2",
     "storeName": "AJIO 2",
@@ -225,8 +200,33 @@
     "imageUrl": "images/banners/ajio_skybags.png",
     "link": "https://ajiio.in/v9Nk4S1",
     "active": true,
-    "order": 8,
+    "order": 7,
     "createdAt": "2026-09-19T18:20:13.000Z"
+  },
+  {
+    "id": "banner_myntra_5",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "Min",
+        "size": "small"
+      },
+      {
+        "text": "70% Off",
+        "size": "big"
+      },
+      {
+        "text": "On Puma Clothing",
+        "size": "small"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/rzaBhRu",
+    "active": true,
+    "order": 8,
+    "createdAt": "2026-09-19T18:20:04.000Z"
   },
   {
     "id": "banner_myntra_7",
