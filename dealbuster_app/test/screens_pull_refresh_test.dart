@@ -4,6 +4,7 @@ import 'package:dealbuster_app/screens/stores_screen.dart';
 import 'package:dealbuster_app/screens/offers_screen.dart';
 
 import 'package:dealbuster_app/screens/feed_screen.dart';
+import 'package:dealbuster_app/widgets/deal_badges.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -81,5 +82,19 @@ void main() {
     // RefreshIndicator contains the main column and scrollable content
     expect(find.descendant(of: refreshFinder, matching: find.byType(Column)), findsWidgets);
     expect(find.descendant(of: refreshFinder, matching: find.byType(ListView)), findsWidgets);
+  });
+
+  testWidgets('PriceDropBadge renders with graph arrow line down icon and text', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: PriceDropBadge(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Price Drop'), findsOneWidget);
+    expect(find.byIcon(Icons.trending_down_rounded), findsOneWidget);
   });
 }

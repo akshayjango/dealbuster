@@ -528,10 +528,19 @@ class _PriceRow extends StatelessWidget {
             product.lowestPriceText!.isNotEmpty) ...[
           const SizedBox(width: 8),
           const LowestPriceBadge(fontSize: 12.5),
-        ] else if (product.couponPercent != null) ...[
+        ],
+        if (product.isPriceDrop) ...[
+          const SizedBox(width: 8),
+          const PriceDropBadge(fontSize: 12.5),
+        ],
+        if (product.couponPercent != null &&
+            (product.lowestPriceText == null || product.lowestPriceText!.isEmpty) &&
+            !product.isPriceDrop) ...[
           const SizedBox(width: 8),
           CouponBadge(percent: product.couponPercent!, fontSize: 12.5),
         ] else if (product.savingsAmount > 0 &&
+            (product.lowestPriceText == null || product.lowestPriceText!.isEmpty) &&
+            !product.isPriceDrop &&
             product.mrp.replaceAll(RegExp(r'[^0-9]'), '').length <= 5 &&
             product.price.replaceAll(RegExp(r'[^0-9]'), '').length <= 5) ...[
           const SizedBox(width: 6),

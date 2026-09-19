@@ -1590,6 +1590,10 @@
         <label class="toggle-switch"><input type="checkbox" id="editLowest"/><span class="toggle-slider"></span></label>
       </div>
       <div class="toggle-row">
+        <label>Price Drop</label>
+        <label class="toggle-switch"><input type="checkbox" id="editPriceDrop"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
         <label>Hidden</label>
         <label class="toggle-switch"><input type="checkbox" id="editHidden"/><span class="toggle-slider"></span></label>
       </div>
@@ -2581,6 +2585,7 @@ function buildProductRow(p, visualIndex) {
           ${p.rating ? `<span class="cat-badge">★ ${p.rating}${p.reviewCount ? ` (${p.reviewCount.toLocaleString('en-IN')})` : ''}</span>` : ''}
           ${p.featured ? '<span class="featured-badge">★ Featured</span>' : ''}
           ${p.lowestPriceText ? `<span class="lowest-badge">🏷️ ${escHtml(p.lowestPriceText)}</span>` : ''}
+          ${(p.priceDrop || p.priceDropText) ? `<span class="price-drop-badge" style="background:#eff6ff;color:#2563eb;font-size:.68rem;font-weight:700;padding:1px 6px;border-radius:8px;display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg> Price Drop</span>` : ''}
         </div>
       </div>
     </a>
@@ -2602,6 +2607,10 @@ function buildProductRow(p, visualIndex) {
         <button class="drop-item" onclick="closeMenus();toggleLowestPrice('${p.id}')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${p.lowestPriceText ? '#10b981' : '#374151'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
           ${p.lowestPriceText ? 'Unmark Lowest' : 'Mark as Lowest'}
+        </button>
+        <button class="drop-item" onclick="closeMenus();togglePriceDrop('${p.id}')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${(p.priceDrop || p.priceDropText) ? '#2563eb' : '#374151'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
+          ${(p.priceDrop || p.priceDropText) ? 'Unmark Price Drop' : 'Mark as Price Drop'}
         </button>
         <button class="drop-item" onclick="closeMenus();toggleHidden('${p.id}')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">${p.hidden ? '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" stroke="#374151" stroke-width="1.8" stroke-linecap="round"/><line x1="1" y1="1" x2="23" y2="23" stroke="#374151" stroke-width="1.8" stroke-linecap="round"/>' : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#374151" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="#374151" stroke-width="1.8"/>'}
@@ -2722,6 +2731,35 @@ async function toggleLowestPrice(id) {
     updateStats();
     renderList();
     showToast('Failed to update lowest price: ' + e.message, 'error');
+  }
+}
+
+async function togglePriceDrop(id) {
+  const p = allProducts.find(x => x.id === id);
+  if (!p) return;
+  const wasPriceDrop = !!(p.priceDrop || p.priceDropText);
+  const oldPriceDrop = p.priceDrop;
+  const oldPriceDropText = p.priceDropText;
+  const newPriceDrop = !wasPriceDrop;
+  const newPriceDropText = newPriceDrop ? 'Price Drop' : null;
+  p.priceDrop = newPriceDrop;
+  p.priceDropText = newPriceDropText;
+  updateStats();
+  renderList();
+  try {
+    const resp = await apiFetch(`/products/${id}`, {
+      method: 'PUT',
+      body: { priceDrop: newPriceDrop, priceDropText: newPriceDropText }
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.error) throw new Error(data.error || ('HTTP ' + resp.status));
+    showToast(newPriceDrop ? (data.message || 'Deal marked as Price Drop successfully!') : 'Removed Price Drop tag successfully!');
+  } catch (e) {
+    p.priceDrop = oldPriceDrop; // revert
+    p.priceDropText = oldPriceDropText;
+    updateStats();
+    renderList();
+    showToast('Failed to update price drop: ' + e.message, 'error');
   }
 }
 
@@ -2938,6 +2976,7 @@ function openEdit(id) {
   document.getElementById('editCat').value = p.category || 'Electronics';
   document.getElementById('editFeatured').checked = !!p.featured;
   document.getElementById('editLowest').checked = !!p.lowestPriceText;
+  document.getElementById('editPriceDrop').checked = !!(p.priceDrop || p.priceDropText);
   document.getElementById('editHidden').checked = !!p.hidden;
   document.getElementById('editStatus').innerHTML = '';
 
@@ -3152,6 +3191,10 @@ async function saveEdit() {
     hidden:     document.getElementById('editHidden').checked,
     lowestPriceText: document.getElementById('editLowest').checked
       ? ((allProducts.find(x => x.id === editingId)?.lowestPriceText) || 'Lowest Price')
+      : null,
+    priceDrop: document.getElementById('editPriceDrop').checked,
+    priceDropText: document.getElementById('editPriceDrop').checked
+      ? ((allProducts.find(x => x.id === editingId)?.priceDropText) || 'Price Drop')
       : null,
     highlights,
   };

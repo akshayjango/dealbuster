@@ -169,10 +169,21 @@ class ProductCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  if (product.lowestPriceText != null &&
-                      product.lowestPriceText!.isNotEmpty) ...[
+                  if ((product.lowestPriceText != null &&
+                          product.lowestPriceText!.isNotEmpty) ||
+                      product.isPriceDrop) ...[
                     const SizedBox(height: 3),
-                    const LowestPriceBadge(),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      children: [
+                        if (product.lowestPriceText != null &&
+                            product.lowestPriceText!.isNotEmpty)
+                          const LowestPriceBadge(),
+                        if (product.isPriceDrop)
+                          const PriceDropBadge(),
+                      ],
+                    ),
                   ] else if (product.couponPercent != null) ...[
                     const SizedBox(height: 3),
                     CouponBadge(percent: product.couponPercent!),

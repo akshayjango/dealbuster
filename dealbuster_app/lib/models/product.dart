@@ -33,6 +33,8 @@ class Product {
   final String category;
   final List<String> highlights;
   final String? lowestPriceText;
+  final bool priceDrop;
+  final String? priceDropText;
   final bool featured;
   final bool hidden;
   final bool outOfStock;
@@ -53,6 +55,8 @@ class Product {
     required this.category,
     required this.highlights,
     this.lowestPriceText,
+    this.priceDrop = false,
+    this.priceDropText,
     required this.featured,
     required this.hidden,
     required this.outOfStock,
@@ -61,6 +65,9 @@ class Product {
     required this.rating,
     required this.priceHistory,
   });
+
+  bool get isPriceDrop =>
+      priceDrop || (priceDropText != null && priceDropText!.isNotEmpty);
 
   // Replicate web logic for displaying title: title.split('|')[0].trim()
   // Also strips leading bracketed tags like "[Apply 5% Coupon] [MRP Error]"
@@ -158,6 +165,8 @@ class Product {
           .map((h) => decodeHtmlEntities(h))
           .toList(),
       lowestPriceText: json['lowestPriceText']?.toString(),
+      priceDrop: json['priceDrop'] == true,
+      priceDropText: json['priceDropText']?.toString(),
       featured: json['featured'] == true,
       hidden: json['hidden'] == true,
       outOfStock: json['outOfStock'] == true,

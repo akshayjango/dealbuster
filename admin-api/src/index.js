@@ -152,6 +152,7 @@ function mergeProducts(local, remote) {
       if (lCheck >= rCheck) {
         if (l.price !== undefined) mergedProduct.price = l.price;
         if (l.outOfStock !== undefined) mergedProduct.outOfStock = l.outOfStock;
+        if (l.priceDrop !== undefined) mergedProduct.priceDrop = l.priceDrop;
         if (l.priceDropText !== undefined) mergedProduct.priceDropText = l.priceDropText;
         if (l.lastChecked !== undefined) mergedProduct.lastChecked = l.lastChecked;
         if (l.dead !== undefined) mergedProduct.dead = l.dead;
@@ -5852,9 +5853,18 @@ export default {
           if (updates.lowestPriceText !== undefined) {
             updates.lastBadgeCheck = Date.now();
           }
+          if (updates.priceDrop !== undefined || updates.priceDropText !== undefined) {
+            updates.lastChecked = Date.now();
+          }
           products[idx] = { ...products[idx], ...updates };
           await saveProductsFile(products, sha, `Update product: ${products[idx].title.slice(0,60)}`, env);
-          return json({ success: true, product: products[idx], message: updates.lowestPriceText ? 'Deal marked as Lowest Price successfully!' : 'Deal updated successfully!' });
+          return json({
+            success: true,
+            product: products[idx],
+            message: updates.priceDrop ? 'Deal marked as Price Drop successfully!' :
+                     updates.lowestPriceText ? 'Deal marked as Lowest Price successfully!' :
+                     'Deal updated successfully!'
+          });
         } catch (e) { return json({ error: e.message }, 502); }
       }
 

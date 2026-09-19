@@ -145,3 +145,57 @@ class CouponBadge extends StatelessWidget {
     );
   }
 }
+
+/// A "Price Drop" tag with a graph arrow line down icon,
+/// matching the style of discount and lowest price badges.
+class PriceDropBadge extends StatelessWidget {
+  const PriceDropBadge({
+    super.key,
+    this.text = 'Price Drop',
+    this.fontSize = 11,
+  });
+
+  final String text;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    const iconColor = Color(0xFF2563EB); // Vibrant cobalt blue
+    const bgColor = Color(0xFFEFF6FF);   // Soft pastel blue
+    const borderColor = Color(0xFFBFDBFE); // Refined border stroke
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: fontSize > 11 ? 7.5 : 6.0,
+        vertical: fontSize > 11 ? 3.0 : 2.0,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.trending_down_rounded,
+            size: fontSize + 3,
+            color: iconColor,
+          ),
+          const SizedBox(width: 3.5),
+          Text(
+            text,
+            style: TextStyle(
+              color: iconColor,
+              fontSize: fontSize,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.1,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
