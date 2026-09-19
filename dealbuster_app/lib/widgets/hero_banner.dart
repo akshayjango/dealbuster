@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/home_banner_item.dart';
 import '../theme/app_theme.dart';
+import 'store_banner_svgs.dart';
 
 // ---------------------------------------------------------------- timing
 class _Cues {
@@ -272,6 +273,77 @@ class _CustomBannerCard extends StatelessWidget {
     } catch (_) {}
   }
 
+  Widget _buildStoreLogo(String store, String fallbackName) {
+    final s = store.toLowerCase().trim();
+    final key = s.contains('_') ? s.split('_')[0] : s;
+    switch (key) {
+      case 'myntra':
+        return SvgPicture.string(
+          StoreBannerSvgs.myntra,
+          height: 13,
+          fit: BoxFit.contain,
+        );
+      case 'flipkart':
+        return SvgPicture.string(
+          StoreBannerSvgs.flipkart,
+          height: 13,
+          fit: BoxFit.contain,
+        );
+      case 'ajio':
+        return SvgPicture.string(
+          StoreBannerSvgs.ajio,
+          height: 11,
+          fit: BoxFit.contain,
+        );
+      case 'amazon':
+        return SvgPicture.string(
+          StoreBannerSvgs.amazon,
+          height: 13,
+          fit: BoxFit.contain,
+        );
+      case 'dealbuster':
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              'assets/icons/dealbuster_logo.svg',
+              height: 14,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'DealBuster',
+              style: GoogleFonts.sora(
+                color: const Color(0xFF1E293B),
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        );
+      default:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.storefront_rounded,
+              size: 13,
+              color: Color(0xFF1E293B),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              fallbackName,
+              style: GoogleFonts.sora(
+                color: const Color(0xFF1E293B),
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -337,27 +409,23 @@ class _CustomBannerCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                height: 24,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: Text(
-                  banner.storeName.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.black87,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+                child: _buildStoreLogo(banner.store, banner.storeName),
               ),
               if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
                 const SizedBox(width: 8),

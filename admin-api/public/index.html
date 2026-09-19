@@ -5126,6 +5126,19 @@ function getHomeBannerDataFromForm() {
   return { store, storeName, badgeText, link, title, subtitle, imageUrl };
 }
 
+function getStoreLogoHtml(store, storeName) {
+  const s = (store || '').toLowerCase().trim();
+  const key = s.includes('_') ? s.split('_')[0] : s;
+  if (key === 'myntra') return SVG_MYNTRA;
+  if (key === 'flipkart') return SVG_FLIPKART;
+  if (key === 'ajio') return SVG_AJIO;
+  if (key === 'amazon') return SVG_AMAZON;
+  if (key === 'dealbuster') {
+    return `<span style="display:inline-flex; align-items:center; gap:4px; font-weight:800; font-size:11px; color:#1E293B;"><img src="https://dealbuster.in/images/dealbuster_icon.png" style="height:14px; width:auto; vertical-align:middle;"/>DealBuster</span>`;
+  }
+  return `<span style="font-weight:800; font-size:10.5px; color:#1E293B;">${escHtml(storeName || store.toUpperCase())}</span>`;
+}
+
 function renderHomeBannerCardHtml(b) {
   const store = (b.store || 'amazon').toLowerCase();
   const storeName = b.storeName || (store.charAt(0).toUpperCase() + store.slice(1));
@@ -5141,6 +5154,8 @@ function renderHomeBannerCardHtml(b) {
     ? `background-image: url('${escHtml(imgUrl)}'); background-size: cover; background-position: center;`
     : `background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);`;
 
+  const logoHtml = getStoreLogoHtml(store, storeName);
+
   return `
     <div style="position:relative; width:100%; height:176px; border-radius:26px; overflow:hidden; ${bgStyle} box-shadow:0 8px 24px -6px rgba(0,0,0,0.3); font-family:'Segoe UI', system-ui, sans-serif; display:flex; flex-direction:column; justify-content:space-between; padding:16px 18px; box-sizing:border-box; color:#fff;">
       <!-- Subtle multi-stop readability gradient overlay -->
@@ -5148,9 +5163,9 @@ function renderHomeBannerCardHtml(b) {
       
       <!-- Top Row: Store Badge + Deal Badge -->
       <div style="position:relative; z-index:2; display:flex; align-items:center; gap:8px;">
-        <span style="background:rgba(255,255,255,0.92); color:#111; font-size:10.5px; font-weight:800; padding:3.5px 10px; border-radius:999px; text-transform:uppercase; letter-spacing:0.04em; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
-          ${escHtml(storeName)}
-        </span>
+        <div class="banner-store-pill">
+          ${logoHtml}
+        </div>
         ${badgeText ? `
           <span style="background:rgba(0,0,0,0.55); color:#fff; border:1px solid rgba(255,255,255,0.3); font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:0.03em; backdrop-filter:blur(4px);">
             ${escHtml(badgeText)}

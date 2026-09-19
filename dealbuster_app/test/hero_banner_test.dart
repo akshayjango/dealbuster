@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dealbuster_app/models/home_banner_item.dart';
 import 'package:dealbuster_app/widgets/hero_banner.dart';
@@ -47,7 +48,7 @@ void main() {
     );
 
     expect(find.byType(HeroBanner), findsOneWidget);
-    expect(find.text('AMAZON'), findsOneWidget);
+    expect(find.byType(SvgPicture), findsWidgets);
     expect(find.text('MEGA SALE'), findsOneWidget);
     expect(find.text('Top Electronics Deals'), findsOneWidget);
     expect(find.text('Up to 70% Off on Smartphones'), findsOneWidget);
