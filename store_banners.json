@@ -1,35 +1,53 @@
 [
   {
-    "id": "banner_myntra_1",
-    "store": "myntra",
-    "storeName": "Myntra",
-    "badgeText": "LIMITED DEAL",
-    "lines": [
-      { "text": "Personal Care", "size": "small" },
-      { "text": "Under", "size": "big" },
-      { "text": "₹1200", "size": "big" }
-    ],
-    "imageUrl": "images/banners/myntra_personal_care.png",
-    "link": "https://myntr.it/LbZjwv4",
-    "active": true,
-    "order": 0,
-    "createdAt": "2026-09-19T18:20:00.000Z"
-  },
-  {
     "id": "banner_myntra_2",
     "store": "myntra",
     "storeName": "Myntra",
     "badgeText": "HOT DEAL",
     "lines": [
-      { "text": "WFH Casual Wear", "size": "small" },
-      { "text": "Under", "size": "big" },
-      { "text": "₹399", "size": "big" }
+      {
+        "text": "WFH Casual Wear",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹399",
+        "size": "big"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/p4q8L5W",
     "active": true,
-    "order": 1,
+    "order": 0,
     "createdAt": "2026-09-19T18:20:01.000Z"
+  },
+  {
+    "id": "banner_myntra_1",
+    "store": "myntra",
+    "storeName": "Myntra",
+    "badgeText": "LIMITED DEAL",
+    "lines": [
+      {
+        "text": "Personal Care",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹1200",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "images/banners/myntra_personal_care.png",
+    "link": "https://myntr.it/LbZjwv4",
+    "active": true,
+    "order": 1,
+    "createdAt": "2026-09-19T18:20:00.000Z"
   },
   {
     "id": "banner_myntra_3",
@@ -37,9 +55,18 @@
     "storeName": "Myntra",
     "badgeText": "SPECIAL OFFER",
     "lines": [
-      { "text": "Min", "size": "small" },
-      { "text": "45% Off", "size": "big" },
-      { "text": "On Head & Shoulders", "size": "small" }
+      {
+        "text": "Min",
+        "size": "small"
+      },
+      {
+        "text": "45% Off",
+        "size": "big"
+      },
+      {
+        "text": "On Head & Shoulders",
+        "size": "small"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/rmk8DRc",
@@ -53,9 +80,18 @@
     "storeName": "Myntra",
     "badgeText": "HOME SPECIAL",
     "lines": [
-      { "text": "Door Mats", "size": "small" },
-      { "text": "Under", "size": "big" },
-      { "text": "₹399", "size": "big" }
+      {
+        "text": "Door Mats",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹399",
+        "size": "big"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/Ig4urKI",
@@ -69,9 +105,18 @@
     "storeName": "Myntra",
     "badgeText": "MEGA CLEARANCE",
     "lines": [
-      { "text": "Min", "size": "small" },
-      { "text": "70% Off", "size": "big" },
-      { "text": "On Puma Clothing", "size": "small" }
+      {
+        "text": "Min",
+        "size": "small"
+      },
+      {
+        "text": "70% Off",
+        "size": "big"
+      },
+      {
+        "text": "On Puma Clothing",
+        "size": "small"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/rzaBhRu",
@@ -85,8 +130,14 @@
     "storeName": "Myntra",
     "badgeText": "LIMITED DEAL",
     "lines": [
-      { "text": "90% Off", "size": "big" },
-      { "text": "on Women Fashion", "size": "small" }
+      {
+        "text": "90% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Women Fashion",
+        "size": "small"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/uOHaZJA",
@@ -100,9 +151,18 @@
     "storeName": "Myntra",
     "badgeText": "BEAUTY DROP",
     "lines": [
-      { "text": "FaceWash & Cleaners", "size": "small" },
-      { "text": "Under", "size": "big" },
-      { "text": "₹199", "size": "big" }
+      {
+        "text": "FaceWash & Cleaners",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹199",
+        "size": "big"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/glfKgF1",
@@ -116,9 +176,18 @@
     "storeName": "Myntra",
     "badgeText": "SUMMER STYLE",
     "lines": [
-      { "text": "Min", "size": "small" },
-      { "text": "80% Off", "size": "big" },
-      { "text": "on Sunglasses", "size": "small" }
+      {
+        "text": "Min",
+        "size": "small"
+      },
+      {
+        "text": "80% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Sunglasses",
+        "size": "small"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/Z5snN42",
@@ -132,8 +201,14 @@
     "storeName": "Myntra",
     "badgeText": "TOP OFFER",
     "lines": [
-      { "text": "Every Shirt", "size": "small" },
-      { "text": "Under ₹499", "size": "big" }
+      {
+        "text": "Every Shirt",
+        "size": "small"
+      },
+      {
+        "text": "Under ₹499",
+        "size": "big"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/KzOgeWV",
@@ -147,9 +222,18 @@
     "storeName": "Myntra",
     "badgeText": "LIMITED DEAL",
     "lines": [
-      { "text": "Upto", "size": "small" },
-      { "text": "89% Off", "size": "big" },
-      { "text": "on Shampoo", "size": "small" }
+      {
+        "text": "Upto",
+        "size": "small"
+      },
+      {
+        "text": "89% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Shampoo",
+        "size": "small"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/7QlWW73",
@@ -163,9 +247,18 @@
     "storeName": "Myntra",
     "badgeText": "STYLE STEAL",
     "lines": [
-      { "text": "Footwear", "size": "small" },
-      { "text": "Under", "size": "big" },
-      { "text": "₹899", "size": "big" }
+      {
+        "text": "Footwear",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹899",
+        "size": "big"
+      }
     ],
     "imageUrl": "",
     "link": "https://myntr.it/KpWsBZD",
@@ -179,9 +272,18 @@
     "storeName": "Flipkart",
     "badgeText": "SUMMER DEAL",
     "lines": [
-      { "text": "Min 50% Off", "size": "big" },
-      { "text": "on Best Selling", "size": "small" },
-      { "text": "Watches", "size": "big" }
+      {
+        "text": "Min 50% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Best Selling",
+        "size": "small"
+      },
+      {
+        "text": "Watches",
+        "size": "big"
+      }
     ],
     "imageUrl": "images/banners/flipkart_sunscreen.png",
     "link": "https://fktr.in/A11kK4v",
@@ -195,9 +297,18 @@
     "storeName": "Flipkart",
     "badgeText": "SPECIAL DEAL",
     "lines": [
-      { "text": "Beauty Store", "size": "small" },
-      { "text": "Under", "size": "big" },
-      { "text": "₹999", "size": "big" }
+      {
+        "text": "Beauty Store",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹999",
+        "size": "big"
+      }
     ],
     "imageUrl": "",
     "link": "https://fktr.in/pR3DwM4",
@@ -211,10 +322,22 @@
     "storeName": "AJIO",
     "badgeText": "TRENDING DEAL",
     "lines": [
-      { "text": "Upto", "size": "big" },
-      { "text": "75% Off", "size": "big" },
-      { "text": "on Skybags", "size": "small" },
-      { "text": "Backpacks", "size": "small" }
+      {
+        "text": "Upto",
+        "size": "big"
+      },
+      {
+        "text": "75% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Skybags",
+        "size": "small"
+      },
+      {
+        "text": "Backpacks",
+        "size": "small"
+      }
     ],
     "imageUrl": "images/banners/ajio_skybags.png",
     "link": "https://ajiio.in/v9Nk4S1",
@@ -228,9 +351,18 @@
     "storeName": "Amazon",
     "badgeText": "AMAZON EXCLUSIVE",
     "lines": [
-      { "text": "Upto", "size": "big" },
-      { "text": "30% Off", "size": "big" },
-      { "text": "on Action Cameras", "size": "small" }
+      {
+        "text": "Upto",
+        "size": "big"
+      },
+      {
+        "text": "30% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Action Cameras",
+        "size": "small"
+      }
     ],
     "imageUrl": "",
     "link": "https://link.amazon/B036zv4CE",
