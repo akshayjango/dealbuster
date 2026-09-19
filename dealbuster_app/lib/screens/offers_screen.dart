@@ -541,10 +541,10 @@ class OffersScreenState extends State<OffersScreen> {
                     child: Text(
                       'Offers',
                       style: GoogleFonts.sora(
-                        fontSize: 22,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: AppColors.ink,
-                        letterSpacing: -0.5,
+                        letterSpacing: -0.4,
                       ),
                     ),
                   ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/banner_item.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -99,12 +100,12 @@ class StoresScreenState extends State<StoresScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        title: const Text(
-          'Stores & Offers',
-          style: TextStyle(
+        title: Text(
+          'Stores',
+          style: GoogleFonts.sora(
             color: AppColors.ink,
             fontWeight: FontWeight.w800,
-            fontSize: 20,
+            fontSize: 18,
             letterSpacing: -0.4,
           ),
         ),
@@ -139,21 +140,29 @@ class StoresScreenState extends State<StoresScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.brand
-                                : AppColors.surface,
+                            gradient: isSelected
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFD7453),
+                                      Color(0xFFF52A5C),
+                                    ],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  )
+                                : null,
+                            color: isSelected ? null : AppColors.surface,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.brand
-                                  : AppColors.cardStroke,
-                              width: 1,
-                            ),
+                            border: isSelected
+                                ? null
+                                : Border.all(
+                                    color: AppColors.cardStroke,
+                                    width: 1,
+                                  ),
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color:
-                                          AppColors.brand.withValues(alpha: 0.25),
+                                      color: const Color(0xFFF52A5C)
+                                          .withValues(alpha: 0.35),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -162,7 +171,7 @@ class StoresScreenState extends State<StoresScreen> {
                           ),
                           child: Text(
                             item['label']!,
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                               color: isSelected ? Colors.white : AppColors.ink,
                               fontSize: 13,
                               fontWeight:
