@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/deal_bottom_nav_bar.dart';
+import 'feed_screen.dart';
 import 'home_screen.dart';
 import 'offers_screen.dart';
 import 'placeholder_screens.dart';
@@ -105,7 +106,7 @@ class _MainScreenState extends State<MainScreen> {
                   key: _offersKey,
                   isTabBarVisible: _isTabBarVisible,
                 ),
-                const FeedPlaceholderScreen(),
+                const FeedScreen(),
               ],
             ),
             Positioned(

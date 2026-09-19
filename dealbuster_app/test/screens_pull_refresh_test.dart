@@ -3,8 +3,40 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dealbuster_app/screens/stores_screen.dart';
 import 'package:dealbuster_app/screens/offers_screen.dart';
 
+import 'package:dealbuster_app/screens/feed_screen.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('FeedScreen displays title, illustration, and Coming Soon text without buttons or cards', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: FeedScreen(),
+      ),
+    );
+    await tester.pump();
+
+    // Verify title "Feed"
+    expect(find.text('Feed'), findsOneWidget);
+
+    // Verify headline "Coming Soon"
+    expect(find.text('Coming Soon'), findsOneWidget);
+
+    // Verify description
+    expect(
+      find.text('Discover the latest deals, price drops, shopping updates, and connect with a growing community of deal hunters.'),
+      findsOneWidget,
+    );
+
+    // Verify image asset
+    expect(find.byType(Image), findsOneWidget);
+
+    // Verify no buttons or cards
+    expect(find.byType(ElevatedButton), findsNothing);
+    expect(find.byType(TextButton), findsNothing);
+    expect(find.byType(OutlinedButton), findsNothing);
+    expect(find.byType(Card), findsNothing);
+  });
 
   testWidgets('StoresScreen has root RefreshIndicator', (tester) async {
     await tester.pumpWidget(

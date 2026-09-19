@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'feed_screen.dart';
 
 class StoresPlaceholderScreen extends StatelessWidget {
   const StoresPlaceholderScreen({super.key});
@@ -36,13 +37,7 @@ class FeedPlaceholderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _PlaceholderTabScaffold(
-      title: 'Feed',
-      icon: Icons.explore_rounded,
-      headline: 'Real-time Deal Feed',
-      description:
-          'Live streams of community deals, trending alerts, and price drops as they happen in real-time.',
-    );
+    return const FeedScreen();
   }
 }
 
