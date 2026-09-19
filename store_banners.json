@@ -225,27 +225,6 @@
     "createdAt": "2026-09-19T18:20:07.000Z"
   },
   {
-    "id": "banner_myntra_9",
-    "store": "myntra",
-    "storeName": "Myntra",
-    "badgeText": "TOP OFFER",
-    "lines": [
-      {
-        "text": "Every Shirt",
-        "size": "small"
-      },
-      {
-        "text": "Under ₹499",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/KzOgeWV",
-    "active": true,
-    "order": 9,
-    "createdAt": "2026-09-19T18:20:08.000Z"
-  },
-  {
     "id": "banner_ajio_1",
     "store": "ajio",
     "storeName": "AJIO",
@@ -271,8 +250,29 @@
     "imageUrl": "images/banners/ajio_skybags.png",
     "link": "https://ajiio.in/v9Nk4S1",
     "active": true,
-    "order": 10,
+    "order": 9,
     "createdAt": "2026-09-19T18:20:13.000Z"
+  },
+  {
+    "id": "banner_myntra_9",
+    "store": "myntra",
+    "storeName": "Myntra",
+    "badgeText": "TOP OFFER",
+    "lines": [
+      {
+        "text": "Every Shirt",
+        "size": "small"
+      },
+      {
+        "text": "Under ₹499",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/KzOgeWV",
+    "active": true,
+    "order": 10,
+    "createdAt": "2026-09-19T18:20:08.000Z"
   },
   {
     "id": "banner_myntra_10",
