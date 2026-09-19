@@ -21,6 +21,7 @@ class StoresScreen extends StatefulWidget {
 class StoresScreenState extends State<StoresScreen> {
   final ApiService _api = ApiService();
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _tabsScrollController = ScrollController();
 
   List<BannerItem> _banners = [];
   bool _isLoading = true;
@@ -45,7 +46,41 @@ class StoresScreenState extends State<StoresScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _tabsScrollController.dispose();
     super.dispose();
+  }
+
+  void _onSelectStoreTab(int index, String storeId) {
+    if (_selectedStoreFilter == storeId) return;
+    setState(() {
+      _selectedStoreFilter = storeId;
+    });
+
+    // Smoothly scroll the horizontal tabs bar to keep selected tab centered
+    if (_tabsScrollController.hasClients) {
+      const estimatedTabWidth = 92.0;
+      final screenWidth = MediaQuery.of(context).size.width;
+      final targetOffset = (index * (estimatedTabWidth + 8.0)) -
+          (screenWidth / 2) +
+          (estimatedTabWidth / 2) +
+          16.0;
+      final maxScroll = _tabsScrollController.position.maxScrollExtent;
+      final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+      _tabsScrollController.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    // Smoothly scroll main banners list to top
+    if (_scrollController.hasClients && _scrollController.offset > 0) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   void _onScroll() {
@@ -115,10 +150,12 @@ class StoresScreenState extends State<StoresScreen> {
             children: [
               // Store filter pills bar
               SizedBox(
-                height: 44,
+                height: 46,
                 child: ListView.separated(
+                  controller: _tabsScrollController,
+                  clipBehavior: Clip.none,
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
                   itemCount: _storeFilters.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
@@ -127,24 +164,21 @@ class StoresScreenState extends State<StoresScreen> {
 
                     return Center(
                       child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedStoreFilter = item['id']!;
-                          });
-                        },
+                        onTap: () => _onSelectStoreTab(index, item['id']!),
                         borderRadius: BorderRadius.circular(20),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeInOutCubic,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
+                            horizontal: 15,
+                            vertical: 7.5,
                           ),
                           decoration: BoxDecoration(
                             gradient: isSelected
                                 ? const LinearGradient(
                                     colors: [
-                                      Color(0xFFFD7453),
-                                      Color(0xFFF52A5C),
+                                      Color(0xFFFF7243),
+                                      Color(0xFFFF4222),
                                     ],
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
@@ -161,22 +195,24 @@ class StoresScreenState extends State<StoresScreen> {
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFFF52A5C)
-                                          .withValues(alpha: 0.35),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
+                                      color: const Color(0xFFFF4222)
+                                          .withValues(alpha: 0.20),
+                                      blurRadius: 5,
+                                      offset: const Offset(0, 1.5),
                                     ),
                                   ]
                                 : null,
                           ),
-                          child: Text(
-                            item['label']!,
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeInOut,
                             style: GoogleFonts.inter(
                               color: isSelected ? Colors.white : AppColors.ink,
                               fontSize: 13,
                               fontWeight:
                                   isSelected ? FontWeight.w700 : FontWeight.w600,
                             ),
+                            child: Text(item['label']!),
                           ),
                         ),
                       ),
@@ -184,7 +220,7 @@ class StoresScreenState extends State<StoresScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Container(
                 height: 0.6,
                 color: AppColors.cardStroke,
@@ -203,65 +239,81 @@ class StoresScreenState extends State<StoresScreen> {
           : RefreshIndicator(
               color: AppColors.brand,
               onRefresh: _onRefresh,
-              child: filtered.isEmpty
-                  ? ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.45,
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.brand.withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.storefront_rounded,
-                                    size: 32,
-                                    color: AppColors.brand,
-                                  ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 240),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  );
+                },
+                child: KeyedSubtree(
+                  key: ValueKey<String>(_selectedStoreFilter),
+                  child: filtered.isEmpty
+                      ? ListView(
+                          key: ValueKey<String>('empty_$_selectedStoreFilter'),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.45,
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 64,
+                                      height: 64,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.brand.withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.storefront_rounded,
+                                        size: 32,
+                                        color: AppColors.brand,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'No Store Banners Available',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    const Text(
+                                      'Pull down to refresh or check back shortly.',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.ink700,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'No Store Banners Available',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                const Text(
-                                  'Pull down to refresh or check back shortly.',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.ink700,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
+                          ],
+                        )
+                      : ListView.builder(
+                          key: ValueKey<String>('list_$_selectedStoreFilter'),
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.only(top: 8, bottom: 90),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final banner = filtered[index];
+                            return StoreBannerCard(
+                              key: ValueKey(banner.id),
+                              banner: banner,
+                            );
+                          },
                         ),
-                      ],
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(top: 8, bottom: 90),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final banner = filtered[index];
-                        return StoreBannerCard(
-                          key: ValueKey(banner.id),
-                          banner: banner,
-                        );
-                      },
-                    ),
+                ),
+              ),
             ),
     );
   }
