@@ -254,27 +254,6 @@
     "createdAt": "2026-09-19T18:20:07.000Z"
   },
   {
-    "id": "banner_myntra_9",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "Every Shirt",
-        "size": "small"
-      },
-      {
-        "text": "Under ₹499",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/KzOgeWV",
-    "active": true,
-    "order": 10,
-    "createdAt": "2026-09-19T18:20:08.000Z"
-  },
-  {
     "id": "banner_flipkart_2",
     "store": "flipkart_1",
     "storeName": "Flipkart 1",
@@ -296,8 +275,29 @@
     "imageUrl": "images/banners/flipkart-banner-1789824600511.webp",
     "link": "https://fktr.in/pR3DwM4",
     "active": true,
-    "order": 11,
+    "order": 10,
     "createdAt": "2026-09-19T18:20:12.000Z"
+  },
+  {
+    "id": "banner_myntra_9",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "Every Shirt",
+        "size": "small"
+      },
+      {
+        "text": "Under ₹499",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/KzOgeWV",
+    "active": true,
+    "order": 11,
+    "createdAt": "2026-09-19T18:20:08.000Z"
   },
   {
     "id": "banner_myntra_10",
