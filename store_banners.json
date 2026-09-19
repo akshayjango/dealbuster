@@ -217,31 +217,6 @@
     "createdAt": "2026-09-19T18:20:08.000Z"
   },
   {
-    "id": "banner_myntra_10",
-    "store": "myntra",
-    "storeName": "Myntra",
-    "badgeText": "LIMITED DEAL",
-    "lines": [
-      {
-        "text": "Upto",
-        "size": "small"
-      },
-      {
-        "text": "89% Off",
-        "size": "big"
-      },
-      {
-        "text": "on Shampoo",
-        "size": "small"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/7QlWW73",
-    "active": true,
-    "order": 9,
-    "createdAt": "2026-09-19T18:20:09.000Z"
-  },
-  {
     "id": "banner_flipkart_1",
     "store": "flipkart",
     "storeName": "Flipkart",
@@ -267,8 +242,33 @@
     "imageUrl": "images/banners/flipkart_sunscreen.png",
     "link": "https://fktr.in/A11kK4v",
     "active": true,
-    "order": 10,
+    "order": 9,
     "createdAt": "2026-09-19T18:20:11.000Z"
+  },
+  {
+    "id": "banner_myntra_10",
+    "store": "myntra",
+    "storeName": "Myntra",
+    "badgeText": "LIMITED DEAL",
+    "lines": [
+      {
+        "text": "Upto",
+        "size": "small"
+      },
+      {
+        "text": "89% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Shampoo",
+        "size": "small"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/7QlWW73",
+    "active": true,
+    "order": 10,
+    "createdAt": "2026-09-19T18:20:09.000Z"
   },
   {
     "id": "banner_myntra_11",
