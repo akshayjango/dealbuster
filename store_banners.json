@@ -325,31 +325,6 @@
     "createdAt": "2026-09-19T18:20:09.000Z"
   },
   {
-    "id": "banner_myntra_11",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "Footwear",
-        "size": "small"
-      },
-      {
-        "text": "Under",
-        "size": "big"
-      },
-      {
-        "text": "₹899",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/KpWsBZD",
-    "active": true,
-    "order": 13,
-    "createdAt": "2026-09-19T18:20:10.000Z"
-  },
-  {
     "id": "banner_amazon_1",
     "store": "amazon_1",
     "storeName": "Amazon 1",
@@ -371,7 +346,32 @@
     "imageUrl": "images/banners/amazon-banner-1789825136616.webp",
     "link": "https://link.amazon/B036zv4CE",
     "active": true,
-    "order": 14,
+    "order": 13,
     "createdAt": "2026-09-19T18:20:14.000Z"
+  },
+  {
+    "id": "banner_myntra_11",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "Footwear",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹899",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/KpWsBZD",
+    "active": true,
+    "order": 14,
+    "createdAt": "2026-09-19T18:20:10.000Z"
   }
 ]
