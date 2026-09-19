@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/banner_item.dart';
+import 'store_banner_svgs.dart';
 
 class StoreBannerCard extends StatelessWidget {
   const StoreBannerCard({
@@ -115,9 +117,10 @@ class StoreBannerCard extends StatelessWidget {
                           children: [
                             // Store logo pill
                             Container(
+                              height: 32,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                                horizontal: 10,
+                                vertical: 5,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -130,22 +133,7 @@ class StoreBannerCard extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _buildStoreLogo(banner.store),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    banner.storeName,
-                                    style: TextStyle(
-                                      color: theme.textColor,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              child: _buildStoreLogo(banner.store, banner.storeName),
                             ),
 
                             // Top-right Deal badge (if provided)
@@ -244,62 +232,51 @@ class StoreBannerCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStoreLogo(String store) {
+  Widget _buildStoreLogo(String store, String fallbackName) {
     switch (store.toLowerCase()) {
       case 'myntra':
-        return const Icon(
-          Icons.shopping_bag_rounded,
-          size: 15,
-          color: Color(0xFFFA1368),
+        return SvgPicture.string(
+          StoreBannerSvgs.myntra,
+          height: 18,
+          fit: BoxFit.contain,
         );
       case 'flipkart':
-        return Container(
-          width: 15,
-          height: 15,
-          decoration: const BoxDecoration(
-            color: Color(0xFF2874F0),
-            shape: BoxShape.circle,
-          ),
-          child: const Center(
-            child: Text(
-              'f',
-              style: TextStyle(
-                color: Color(0xFFFFE500),
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                height: 1,
-              ),
-            ),
-          ),
+        return SvgPicture.string(
+          StoreBannerSvgs.flipkart,
+          height: 18,
+          fit: BoxFit.contain,
         );
       case 'ajio':
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: const Text(
-            'A',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
+        return SvgPicture.string(
+          StoreBannerSvgs.ajio,
+          height: 16,
+          fit: BoxFit.contain,
         );
       case 'amazon':
-        return const Icon(
-          Icons.shopping_cart_rounded,
-          size: 15,
-          color: Color(0xFFFF9900),
+        return SvgPicture.string(
+          StoreBannerSvgs.amazon,
+          height: 18,
+          fit: BoxFit.contain,
         );
       default:
-        return const Icon(
-          Icons.storefront_rounded,
-          size: 15,
-          color: Color(0xFF1E293B),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.storefront_rounded,
+              size: 16,
+              color: Color(0xFF1E293B),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              fallbackName,
+              style: const TextStyle(
+                color: Color(0xFF1E293B),
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+          ],
         );
     }
   }
@@ -335,15 +312,15 @@ class StoreBannerCard extends StatelessWidget {
       case 'ajio':
         return const _StoreTheme(
           gradient: LinearGradient(
-            colors: [Color(0xFF263242), Color(0xFF17202D), Color(0xFF0C121B)],
+            colors: [Color(0xFF475569), Color(0xFF334155), Color(0xFF1E293B)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          shadowColor: Color(0xFF0F172A),
-          accentColor: Colors.white24,
-          textColor: Color(0xFF0F172A),
-          badgeBgColor: Colors.white,
-          badgeTextColor: Color(0xFF0F172A),
+          shadowColor: Color(0xFF1E293B),
+          accentColor: Color(0xFF94A3B8),
+          textColor: Color(0xFF1E293B),
+          badgeBgColor: Color(0xFF1E293B),
+          badgeTextColor: Colors.white,
         );
       case 'amazon':
         return const _StoreTheme(
