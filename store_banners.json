@@ -171,31 +171,6 @@
     "createdAt": "2026-09-19T18:20:06.000Z"
   },
   {
-    "id": "banner_myntra_8",
-    "store": "myntra",
-    "storeName": "Myntra",
-    "badgeText": "SUMMER STYLE",
-    "lines": [
-      {
-        "text": "Min",
-        "size": "small"
-      },
-      {
-        "text": "80% Off",
-        "size": "big"
-      },
-      {
-        "text": "on Sunglasses",
-        "size": "small"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/Z5snN42",
-    "active": true,
-    "order": 7,
-    "createdAt": "2026-09-19T18:20:07.000Z"
-  },
-  {
     "id": "banner_flipkart_1",
     "store": "flipkart",
     "storeName": "Flipkart",
@@ -221,8 +196,33 @@
     "imageUrl": "images/banners/flipkart_sunscreen.png",
     "link": "https://fktr.in/A11kK4v",
     "active": true,
-    "order": 8,
+    "order": 7,
     "createdAt": "2026-09-19T18:20:11.000Z"
+  },
+  {
+    "id": "banner_myntra_8",
+    "store": "myntra",
+    "storeName": "Myntra",
+    "badgeText": "SUMMER STYLE",
+    "lines": [
+      {
+        "text": "Min",
+        "size": "small"
+      },
+      {
+        "text": "80% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Sunglasses",
+        "size": "small"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/Z5snN42",
+    "active": true,
+    "order": 8,
+    "createdAt": "2026-09-19T18:20:07.000Z"
   },
   {
     "id": "banner_myntra_9",
