@@ -279,27 +279,6 @@
     "createdAt": "2026-09-19T18:20:07.000Z"
   },
   {
-    "id": "banner_myntra_9",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "Every Shirt",
-        "size": "small"
-      },
-      {
-        "text": "Under ₹499",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/KzOgeWV",
-    "active": false,
-    "order": 11,
-    "createdAt": "2026-09-19T18:20:08.000Z"
-  },
-  {
     "id": "banner_amazon_1",
     "store": "amazon_1",
     "storeName": "Amazon 1",
@@ -321,8 +300,29 @@
     "imageUrl": "images/banners/amazon-banner-1789825136616.webp",
     "link": "https://link.amazon/B036zv4CE",
     "active": true,
-    "order": 12,
+    "order": 11,
     "createdAt": "2026-09-19T18:20:14.000Z"
+  },
+  {
+    "id": "banner_myntra_9",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "Every Shirt",
+        "size": "small"
+      },
+      {
+        "text": "Under ₹499",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/KzOgeWV",
+    "active": false,
+    "order": 12,
+    "createdAt": "2026-09-19T18:20:08.000Z"
   },
   {
     "id": "banner_myntra_10",
