@@ -246,31 +246,6 @@
     "createdAt": "2026-09-19T18:20:08.000Z"
   },
   {
-    "id": "banner_myntra_10",
-    "store": "myntra",
-    "storeName": "Myntra",
-    "badgeText": "LIMITED DEAL",
-    "lines": [
-      {
-        "text": "Upto",
-        "size": "small"
-      },
-      {
-        "text": "89% Off",
-        "size": "big"
-      },
-      {
-        "text": "on Shampoo",
-        "size": "small"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/7QlWW73",
-    "active": true,
-    "order": 10,
-    "createdAt": "2026-09-19T18:20:09.000Z"
-  },
-  {
     "id": "banner_ajio_1",
     "store": "ajio",
     "storeName": "AJIO",
@@ -296,8 +271,33 @@
     "imageUrl": "images/banners/ajio_skybags.png",
     "link": "https://ajiio.in/v9Nk4S1",
     "active": true,
-    "order": 11,
+    "order": 10,
     "createdAt": "2026-09-19T18:20:13.000Z"
+  },
+  {
+    "id": "banner_myntra_10",
+    "store": "myntra",
+    "storeName": "Myntra",
+    "badgeText": "LIMITED DEAL",
+    "lines": [
+      {
+        "text": "Upto",
+        "size": "small"
+      },
+      {
+        "text": "89% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Shampoo",
+        "size": "small"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/7QlWW73",
+    "active": true,
+    "order": 11,
+    "createdAt": "2026-09-19T18:20:09.000Z"
   },
   {
     "id": "banner_myntra_11",
