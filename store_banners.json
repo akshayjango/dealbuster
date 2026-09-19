@@ -150,31 +150,6 @@
     "createdAt": "2026-09-19T18:20:03.000Z"
   },
   {
-    "id": "banner_myntra_5",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "Min",
-        "size": "small"
-      },
-      {
-        "text": "70% Off",
-        "size": "big"
-      },
-      {
-        "text": "On Puma Clothing",
-        "size": "small"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/rzaBhRu",
-    "active": true,
-    "order": 6,
-    "createdAt": "2026-09-19T18:20:04.000Z"
-  },
-  {
     "id": "banner_flipkart_2",
     "store": "flipkart_1",
     "storeName": "Flipkart 1",
@@ -196,8 +171,33 @@
     "imageUrl": "images/banners/flipkart-banner-1789824600511.webp",
     "link": "https://fktr.in/pR3DwM4",
     "active": true,
-    "order": 7,
+    "order": 6,
     "createdAt": "2026-09-19T18:20:12.000Z"
+  },
+  {
+    "id": "banner_myntra_5",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "Min",
+        "size": "small"
+      },
+      {
+        "text": "70% Off",
+        "size": "big"
+      },
+      {
+        "text": "On Puma Clothing",
+        "size": "small"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/rzaBhRu",
+    "active": true,
+    "order": 7,
+    "createdAt": "2026-09-19T18:20:04.000Z"
   },
   {
     "id": "banner_myntra_7",
