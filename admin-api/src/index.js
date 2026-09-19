@@ -303,6 +303,29 @@ async function saveBannersFile(banners, sha, message, env) {
   return resp.json();
 }
 
+async function deleteGithubFile(path, commitMsg, env) {
+  try {
+    let cleanPath = (path || '').trim().replace(/\\/g, '/').replace(/\.\./g, '');
+    if (cleanPath.startsWith('/')) cleanPath = cleanPath.slice(1);
+    if (!cleanPath) return false;
+    const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/${cleanPath}`;
+    const ghHdrs = ghHeaders(env);
+    const getR = await fetchWithTimeout(apiUrl, { headers: ghHdrs }, 10000);
+    if (!getR.ok) return false;
+    const { sha } = await getR.json();
+    if (!sha) return false;
+    const delR = await fetchWithTimeout(apiUrl, {
+      method: 'DELETE',
+      headers: { ...ghHdrs, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: commitMsg || `Delete file: ${cleanPath}`, sha })
+    }, 15000);
+    return delR.ok;
+  } catch (e) {
+    console.error('deleteGithubFile error:', path, e.message);
+    return false;
+  }
+}
+
 // ── KV-based blocked brands (autosync + Telegram filter) ─────────────────────
 
 async function getBlockedBrands(env) {
@@ -5264,12 +5287,8 @@ export default {
       // ── /delete (image) ──────────────────────────────────────────────────────
       if (url.pathname === '/delete' && request.method === 'POST') {
         const { path } = await request.json(); if (!path) return json({ error: 'Missing path' }, 400);
-        const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/${path}`;
-        const ghHdrs = ghHeaders(env);
-        const getR = await fetch(apiUrl, { headers: ghHdrs }); if (!getR.ok) return json({ error: 'File not found' }, 404);
-        const { sha } = await getR.json();
-        const delR = await fetch(apiUrl, { method: 'DELETE', headers: { ...ghHdrs, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Delete image: ${path}`, sha }) });
-        if (!delR.ok) { const err = await delR.json().catch(()=>({})); return json({ error: err.message||'Delete failed' }, 502); }
+        const ok = await deleteGithubFile(path, `Delete image: ${path}`, env);
+        if (!ok) return json({ error: 'Delete failed or file not found' }, 502);
         return json({ success: true });
       }
 
@@ -5287,9 +5306,20 @@ export default {
           const data = await request.json();
           const { banners, sha } = await getBannersFile(env);
           let updated;
+          let oldImageToClean = null;
           if (data.id) {
             const idx = banners.findIndex(b => b.id === data.id);
             if (idx >= 0) {
+              const oldBanner = banners[idx];
+              if (oldBanner.imageUrl && data.imageUrl && oldBanner.imageUrl !== data.imageUrl) {
+                let oldImg = oldBanner.imageUrl.trim().replace(/^\/+/, '');
+                if (oldImg.startsWith('images/banners/') && !oldImg.includes('dealbuster_icon')) {
+                  const usedElsewhere = banners.some(b => b.id !== data.id && (b.imageUrl || '').replace(/^\/+/, '') === oldImg);
+                  if (!usedElsewhere) {
+                    oldImageToClean = oldImg;
+                  }
+                }
+              }
               banners[idx] = { ...banners[idx], ...data };
               updated = banners;
             } else {
@@ -5311,6 +5341,9 @@ export default {
             updated = [newBanner, ...banners];
           }
           await saveBannersFile(updated, sha, `Update store banners (${data.id ? 'edit ' + data.id : 'add new'})`, env);
+          if (oldImageToClean) {
+            await deleteGithubFile(oldImageToClean, `Delete replaced banner image: ${oldImageToClean}`, env);
+          }
           return json({ success: true, banners: updated });
         } catch (e) { return json({ error: e.message }, 502); }
       }
@@ -5325,14 +5358,27 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
-      // ── DELETE /banners/:id (admin: delete a banner) ──────────────────────────
+      // ── DELETE /banners/:id (admin: delete a banner and its uploaded image) ────
       const delBannerMatch = url.pathname.match(/^\/banners\/([^/]+)$/);
       if (delBannerMatch && request.method === 'DELETE') {
         try {
           const bannerId = delBannerMatch[1];
           const { banners, sha } = await getBannersFile(env);
+          const target = banners.find(b => b.id === bannerId);
           const filtered = banners.filter(b => b.id !== bannerId);
           await saveBannersFile(filtered, sha, `Delete store banner ${bannerId}`, env);
+
+          // Auto-delete image from GitHub if stored in images/banners/ and not used by any other banner
+          if (target && target.imageUrl) {
+            let imgPath = target.imageUrl.trim().replace(/^\/+/, '');
+            if (imgPath.startsWith('images/banners/') && !imgPath.includes('dealbuster_icon')) {
+              const isUsedByOther = filtered.some(b => (b.imageUrl || '').replace(/^\/+/, '') === imgPath);
+              if (!isUsedByOther) {
+                await deleteGithubFile(imgPath, `Delete banner image for ${bannerId}: ${imgPath}`, env);
+              }
+            }
+          }
+
           return json({ success: true, banners: filtered });
         } catch (e) { return json({ error: e.message }, 502); }
       }
