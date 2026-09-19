@@ -200,31 +200,6 @@
     "createdAt": "2026-09-19T18:20:04.000Z"
   },
   {
-    "id": "banner_myntra_7",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "FaceWash & Cleaners",
-        "size": "small"
-      },
-      {
-        "text": "Under",
-        "size": "big"
-      },
-      {
-        "text": "₹199",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/glfKgF1",
-    "active": true,
-    "order": 8,
-    "createdAt": "2026-09-19T18:20:06.000Z"
-  },
-  {
     "id": "banner_ajio_1",
     "store": "ajio_2",
     "storeName": "AJIO 2",
@@ -250,8 +225,33 @@
     "imageUrl": "images/banners/ajio_skybags.png",
     "link": "https://ajiio.in/v9Nk4S1",
     "active": true,
-    "order": 9,
+    "order": 8,
     "createdAt": "2026-09-19T18:20:13.000Z"
+  },
+  {
+    "id": "banner_myntra_7",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "FaceWash & Cleaners",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹199",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/glfKgF1",
+    "active": true,
+    "order": 9,
+    "createdAt": "2026-09-19T18:20:06.000Z"
   },
   {
     "id": "banner_myntra_8",
