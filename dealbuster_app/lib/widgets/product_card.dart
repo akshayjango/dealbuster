@@ -34,7 +34,8 @@ class ProductCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: cardShadow(opacity: 0.7),
+          border: Border.all(color: AppColors.cardStroke, width: 0.6),
+          boxShadow: dealCardShadow(),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -65,7 +66,7 @@ class ProductCard extends StatelessWidget {
                             child: Image.network(
                               'https://dealbuster.in/images/dealbuster_icon.png',
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const Icon(
+                              errorBuilder: (_, __, ___) => Icon(
                                 Icons.image_not_supported_outlined,
                                 color: AppColors.ink400,
                               ),

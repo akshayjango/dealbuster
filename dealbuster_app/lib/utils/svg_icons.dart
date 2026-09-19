@@ -69,8 +69,7 @@ class SvgIcons {
 
   static const telegram = '''
 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M21 4 3 11.3l5.6 1.9L11 20l3-4.2 4.5 3.3L21 4Z" stroke="#000" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M8.6 13.2 18 7" stroke="#000" stroke-width="1.4" stroke-linecap="round"/>
+<path d="m20.665 3.717-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701h-.002l.002.001-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15 4.599 3.397c.848.467 1.457.227 1.668-.785l3.019-14.228c.309-1.239-.473-1.553-1.682-1.074z" fill="#000"/>
 </svg>''';
 
   static const whatsapp = '''
@@ -113,6 +112,16 @@ class SvgIcons {
 <path d="M12.6 2.6a2 2 0 0 0-1.4-.6H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2 2 0 0 0 2.8 0l6.6-6.6a2 2 0 0 0 0-2.8Z" stroke="#000" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="7.5" cy="7.5" r="1.1" fill="#000"/>
 </svg>''';
+
+  static const sort = '''
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M7 4v16M7 4L3.5 7.5M7 4l3.5 3.5M17 20V4M17 20l-3.5-3.5M17 20l3.5-3.5" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>''';
+
+  static const rupee = '''
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M18 5H7h3a4 4 0 0 1 0 8H7l6.5 6.5M7 9h11" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>''';
 }
 
 /// Renders one of [SvgIcons]' strings, tinted to [color].
@@ -144,8 +153,8 @@ class CategoryDef {
 }
 
 const kCategories = [
-  CategoryDef('deals', 'Deals', SvgIcons.deals),
-  CategoryDef('all', 'All', SvgIcons.all),
+  CategoryDef('under_500', 'Under 500', SvgIcons.rupee),
+  CategoryDef('sort', 'Sort', SvgIcons.sort),
   CategoryDef('beauty', 'Beauty', SvgIcons.beauty),
   CategoryDef('fashion', 'Fashion', SvgIcons.fashion),
   CategoryDef('health', 'Health', SvgIcons.health),

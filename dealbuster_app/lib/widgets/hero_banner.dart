@@ -88,9 +88,9 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
     return Container(
       margin: const EdgeInsets.fromLTRB(
         AppSpace.md,
-        14,
+        10,
         AppSpace.md,
-        AppSpace.md,
+        6,
       ),
       height: 176,
       decoration: BoxDecoration(

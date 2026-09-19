@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
-import 'home_screen.dart';
+import 'main_screen.dart';
 
 /// Screen prompting the user to allow push notifications for deals.
 /// Inspired by the minimalist notification card & phone mockup design.
@@ -58,7 +58,7 @@ class _NotificationPermissionScreenState
       Navigator.of(context).pop();
     } else {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => const MainScreen()),
       );
     }
   }
@@ -200,7 +200,7 @@ class _NotificationPermissionScreenState
               child: Container(
                 width: 180,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: const Color(0xFFF6F5F9),
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(34),
                     bottom: Radius.circular(34),
@@ -237,6 +237,7 @@ class _NotificationPermissionScreenState
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.cardStroke, width: 0.6),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.08),

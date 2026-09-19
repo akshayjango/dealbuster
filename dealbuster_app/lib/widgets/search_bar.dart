@@ -21,19 +21,24 @@ class DealSearchBar extends StatefulWidget {
     this.onTap,
     this.onChanged,
     this.controller,
+    this.focusNode,
     this.autofocus = false,
     this.onBack,
+    this.hintText = 'Search deals',
+    this.trailing,
+    this.onClear,
   });
 
   final bool editable;
   final VoidCallback? onTap;
   final ValueChanged<String>? onChanged;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final bool autofocus;
-  // When set, the leading search icon is swapped for a back chevron (the
-  // search screen's use of this bar) instead of the plain magnifying glass
-  // shown on the home screen's trigger version.
   final VoidCallback? onBack;
+  final String hintText;
+  final Widget? trailing;
+  final VoidCallback? onClear;
 
   @override
   State<DealSearchBar> createState() => _DealSearchBarState();
@@ -47,11 +52,16 @@ class _DealSearchBarState extends State<DealSearchBar>
   @override
   void initState() {
     super.initState();
+    widget.controller?.addListener(_onControllerChanged);
     _fade = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
     )..forward();
     if (!widget.editable) _scheduleNextWord();
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
   }
 
   void _scheduleNextWord() {
@@ -67,6 +77,7 @@ class _DealSearchBarState extends State<DealSearchBar>
 
   @override
   void dispose() {
+    widget.controller?.removeListener(_onControllerChanged);
     _fade.dispose();
     super.dispose();
   }
@@ -79,6 +90,7 @@ class _DealSearchBarState extends State<DealSearchBar>
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardStroke, width: 0.6),
         boxShadow: cardShadow(),
       ),
       child: Row(
@@ -100,13 +112,18 @@ class _DealSearchBarState extends State<DealSearchBar>
             child: widget.editable
                 ? TextField(
                     controller: widget.controller,
+                    focusNode: widget.focusNode,
                     autofocus: widget.autofocus,
                     onChanged: widget.onChanged,
                     style: Theme.of(context).textTheme.bodyLarge,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
+                      contentPadding: const EdgeInsets.only(bottom: 0.5),
                       border: InputBorder.none,
-                      hintText: 'Search deals',
+                      hintText: widget.hintText,
+                      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.ink400,
+                          ),
                     ),
                   )
                 : Row(
@@ -125,7 +142,10 @@ class _DealSearchBarState extends State<DealSearchBar>
                     ],
                   ),
           ),
-          if (widget.editable &&
+          if (widget.trailing != null) ...[
+            const SizedBox(width: 8),
+            widget.trailing!,
+          ] else if (widget.editable &&
               widget.controller != null &&
               widget.controller!.text.isNotEmpty) ...[
             const SizedBox(width: 8),
@@ -133,6 +153,7 @@ class _DealSearchBarState extends State<DealSearchBar>
               onTap: () {
                 widget.controller!.clear();
                 widget.onChanged?.call('');
+                widget.onClear?.call();
               },
               behavior: HitTestBehavior.opaque,
               child: Container(

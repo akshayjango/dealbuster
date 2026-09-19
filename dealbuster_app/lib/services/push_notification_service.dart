@@ -33,26 +33,31 @@ class PushNotificationService {
 
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-      // Configure foreground notification presentation
-      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      // Configure foreground notification presentation (non-blocking)
+      unawaited(FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
         sound: true,
-      );
+      ));
 
-      // Auto-subscribe to deals broadcast topic
-      await FirebaseMessaging.instance.subscribeToTopic(dealsTopic);
+      // Auto-subscribe to deals broadcast topic in background — NEVER block app startup on network!
+      unawaited(FirebaseMessaging.instance.subscribeToTopic(dealsTopic).catchError((e) {
+        debugPrint('[FCM Service] Topic subscription error: $e');
+      }));
 
       // Handle notification tapped while app is running in background
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         _handleMessagePayload(message);
       });
 
-      // Handle notification tapped when app was completely terminated (cold start)
-      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-      if (initialMessage != null) {
-        _handleMessagePayload(initialMessage);
-      }
+      // Handle notification tapped when app was completely terminated (cold start, non-blocking)
+      FirebaseMessaging.instance.getInitialMessage().then((initialMessage) {
+        if (initialMessage != null) {
+          _handleMessagePayload(initialMessage);
+        }
+      }).catchError((e) {
+        debugPrint('[FCM Service] getInitialMessage error: $e');
+      });
     } catch (e) {
       debugPrint('[FCM Service] Initialization notice: $e');
     }
@@ -86,7 +91,9 @@ class PushNotificationService {
           settings.authorizationStatus == AuthorizationStatus.provisional;
 
       if (granted) {
-        await FirebaseMessaging.instance.subscribeToTopic(dealsTopic);
+        unawaited(FirebaseMessaging.instance.subscribeToTopic(dealsTopic).catchError((e) {
+          debugPrint('[FCM Service] Topic subscription error on grant: $e');
+        }));
       }
       return granted;
     } catch (e) {

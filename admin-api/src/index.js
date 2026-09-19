@@ -268,6 +268,41 @@ async function restoreAsinIfDeleted(asin, env) {
   } catch (e) { console.error('Failed to restore ASIN:', e.message); }
 }
 
+// ── Store Banners helpers ───────────────────────────────────────────────────
+
+async function getBannersFile(env) {
+  const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/store_banners.json`;
+  const resp = await fetchWithTimeout(apiUrl, { headers: ghHeaders(env) });
+  if (resp.status === 404) return { banners: [], sha: null };
+  if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.message || `GitHub fetch failed for store_banners: ${resp.status}`); }
+  const file = await resp.json();
+  let base64 = file.content;
+  if (!base64 || file.encoding === 'none') {
+    const blobUrl = `https://api.github.com/repos/akshayjango/dealbuster/git/blobs/${file.sha}`;
+    const blobResp = await fetchWithTimeout(blobUrl, { headers: ghHeaders(env) });
+    if (!blobResp.ok) { const err = await blobResp.json().catch(() => ({})); throw new Error(err.message || `GitHub blob fetch failed: ${blobResp.status}`); }
+    base64 = (await blobResp.json()).content;
+  }
+  const rawBytes = atob(base64.replace(/\n/g, ''));
+  const uint8 = new Uint8Array(rawBytes.length);
+  for (let i = 0; i < rawBytes.length; i++) uint8[i] = rawBytes.charCodeAt(i);
+  const banners = JSON.parse(new TextDecoder('utf-8').decode(uint8));
+  return { banners: Array.isArray(banners) ? banners : [], sha: file.sha };
+}
+
+async function saveBannersFile(banners, sha, message, env) {
+  const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/store_banners.json`;
+  const rawJson = JSON.stringify(banners, null, 2);
+  const body = { message, content: encodeBase64Unicode(rawJson) };
+  if (sha) body.sha = sha;
+  const resp = await fetchWithTimeout(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 15000);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.message || `GitHub banner write failed: ${resp.status}`);
+  }
+  return resp.json();
+}
+
 // ── KV-based blocked brands (autosync + Telegram filter) ─────────────────────
 
 async function getBlockedBrands(env) {
@@ -4797,6 +4832,22 @@ export default {
       }
     }
 
+    // ── Public: store banners feed (no auth) ──────────────────────────────────
+    if (url0.pathname === '/public/banners' && request.method === 'GET') {
+      try {
+        const { banners } = await getBannersFile(env);
+        const activeBanners = banners.filter(b => b.active !== false);
+        return new Response(JSON.stringify({ success: true, banners: activeBanners }), {
+          headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message, banners: [] }), {
+          status: 502,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // ── Public CueLinks Offers endpoint for Mobile App ─────────────────────────
     if (url0.pathname === '/public/offers' && request.method === 'GET') {
       const apiKey = (env.CUELINKS_API_KEY || '').trim();
@@ -5220,6 +5271,70 @@ export default {
         const delR = await fetch(apiUrl, { method: 'DELETE', headers: { ...ghHdrs, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Delete image: ${path}`, sha }) });
         if (!delR.ok) { const err = await delR.json().catch(()=>({})); return json({ error: err.message||'Delete failed' }, 502); }
         return json({ success: true });
+      }
+
+      // ── GET /banners (admin: list all banners) ────────────────────────────────
+      if (url.pathname === '/banners' && request.method === 'GET') {
+        try {
+          const { banners } = await getBannersFile(env);
+          return json({ banners });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── POST /banners (admin: create or update a banner) ──────────────────────
+      if (url.pathname === '/banners' && request.method === 'POST') {
+        try {
+          const data = await request.json();
+          const { banners, sha } = await getBannersFile(env);
+          let updated;
+          if (data.id) {
+            const idx = banners.findIndex(b => b.id === data.id);
+            if (idx >= 0) {
+              banners[idx] = { ...banners[idx], ...data };
+              updated = banners;
+            } else {
+              updated = [data, ...banners];
+            }
+          } else {
+            const newBanner = {
+              id: 'banner_' + Date.now(),
+              store: data.store || 'myntra',
+              storeName: data.storeName || (data.store ? data.store.charAt(0).toUpperCase() + data.store.slice(1) : 'Store'),
+              badgeText: data.badgeText || '',
+              lines: Array.isArray(data.lines) ? data.lines : [],
+              imageUrl: data.imageUrl || '',
+              link: data.link || '',
+              active: data.active !== false,
+              order: banners.length,
+              createdAt: new Date().toISOString(),
+            };
+            updated = [newBanner, ...banners];
+          }
+          await saveBannersFile(updated, sha, `Update store banners (${data.id ? 'edit ' + data.id : 'add new'})`, env);
+          return json({ success: true, banners: updated });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── POST /banners/reorder (admin: save new order of banners) ───────────────
+      if (url.pathname === '/banners/reorder' && request.method === 'POST') {
+        try {
+          const { banners: newBanners } = await request.json();
+          const { sha } = await getBannersFile(env);
+          await saveBannersFile(newBanners, sha, `Reorder store banners`, env);
+          return json({ success: true, banners: newBanners });
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
+      // ── DELETE /banners/:id (admin: delete a banner) ──────────────────────────
+      const delBannerMatch = url.pathname.match(/^\/banners\/([^/]+)$/);
+      if (delBannerMatch && request.method === 'DELETE') {
+        try {
+          const bannerId = delBannerMatch[1];
+          const { banners, sha } = await getBannersFile(env);
+          const filtered = banners.filter(b => b.id !== bannerId);
+          await saveBannersFile(filtered, sha, `Delete store banner ${bannerId}`, env);
+          return json({ success: true, banners: filtered });
+        } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /fixencoding ─────────────────────────────────────────────────────────

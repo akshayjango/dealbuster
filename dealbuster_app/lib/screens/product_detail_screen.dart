@@ -164,9 +164,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: DefaultTextStyle.merge(
         style: GoogleFonts.inter(),
         child: Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.bg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -362,6 +362,7 @@ class _ImageBlock extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.cardStroke, width: 0.6),
                 boxShadow: cardShadow(),
               ),
             ),
@@ -381,7 +382,7 @@ class _ImageBlock extends StatelessWidget {
                           child: Image.network(
                             'https://dealbuster.in/images/dealbuster_icon.png',
                             fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
+                            errorBuilder: (_, __, ___) => Icon(
                               Icons.image_not_supported_outlined,
                               color: AppColors.ink400,
                             ),
@@ -563,7 +564,8 @@ class _Card extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: cardShadow(opacity: 0.6),
+        border: Border.all(color: AppColors.cardStroke, width: 0.6),
+        boxShadow: cardShadow(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,7 +640,7 @@ class _Highlights extends StatelessWidget {
               onPressed: onToggle,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.brand,
-                side: const BorderSide(color: AppColors.hairline),
+                side: BorderSide(color: AppColors.hairline),
                 padding: const EdgeInsets.fromLTRB(10, 2, 4, 2),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -778,7 +780,7 @@ class _BuyBarState extends State<_BuyBar> {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(AppSpace.md, 12, AppSpace.md, 20),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.bg,
         border: Border(top: BorderSide(color: AppColors.hairline)),
       ),

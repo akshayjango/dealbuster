@@ -13,9 +13,10 @@ class AppColors {
   static const ink = Color(0xFF14121F);
   static const ink700 = Color(0xFF4B4757);
   static const ink400 = Color(0xFF8B879B);
-  static const bg = Color(0xFFF7F5FA);
+  static const bg = Color(0xFFFFFFFF);
   static const surface = Color(0xFFFFFFFF);
   static const hairline = Color(0xFFEDEAF3);
+  static const cardStroke = Color(0x0D14121F);
 
   static const brand = Color(0xFFFF5A3C);
   static const brandDark = Color(0xFFE8431F);
@@ -120,9 +121,31 @@ class AppTheme {
 /// Shared soft drop shadow used across cards so elevation reads consistently.
 List<BoxShadow> cardShadow({double opacity = 1}) => [
       BoxShadow(
-        color: AppColors.ink.withValues(alpha: 0.06 * opacity),
-        blurRadius: 24,
-        offset: const Offset(0, 8),
-        spreadRadius: -6,
+        color: const Color(0xFF14121F).withValues(alpha: 0.045 * opacity),
+        blurRadius: 14,
+        offset: const Offset(0, 4),
+        spreadRadius: -2,
+      ),
+      BoxShadow(
+        color: const Color(0xFF14121F).withValues(alpha: 0.02 * opacity),
+        blurRadius: 6,
+        offset: const Offset(0, 1),
+        spreadRadius: -1,
+      ),
+    ];
+
+/// Dedicated drop shadow for deal cards with slightly darker intensity for crisp separation on pure white.
+List<BoxShadow> dealCardShadow({double opacity = 1}) => [
+      BoxShadow(
+        color: const Color(0xFF14121F).withValues(alpha: 0.065 * opacity),
+        blurRadius: 14,
+        offset: const Offset(0, 4),
+        spreadRadius: -2,
+      ),
+      BoxShadow(
+        color: const Color(0xFF14121F).withValues(alpha: 0.03 * opacity),
+        blurRadius: 6,
+        offset: const Offset(0, 1),
+        spreadRadius: -1,
       ),
     ];

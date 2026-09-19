@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
@@ -12,25 +11,33 @@ import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/svg_icons.dart';
 import '../widgets/category_tabs.dart';
+import '../widgets/deal_bottom_nav_bar.dart';
 import '../widgets/hero_banner.dart';
 import '../widgets/product_card.dart';
 import '../widgets/search_bar.dart';
+import '../widgets/sort_bottom_sheet.dart';
 import 'product_detail_screen.dart';
 import 'search_screen.dart';
+import 'settings_screen.dart';
 
 const _telegramUrl = 'https://t.me/dealbusterindia';
-const _whatsappUrl = 'https://whatsapp.com/channel/0029Vb8eJlcA2pLCSwCSi00V';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+    this.isTabBarVisible,
+  });
+
+  final ValueNotifier<bool>? isTabBarVisible;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _api = ApiService();
   final _scrollController = ScrollController();
+  final _categoryScrollController = ScrollController();
   final _showScrollTop = ValueNotifier(false);
   final _hasNewDeals = ValueNotifier(false);
   Timer? _autoRefreshTimer;
@@ -40,12 +47,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // Anything under this is treated as "already at the top" — a new card
   // can just pop in there instead of needing a scroll-position adjustment.
   static const _kAtTopEpsilon = 2.0;
+  static const _kScrollUpDeltaThreshold = 90.0;
+  double _scrollUpStartOffset = 0.0;
 
   List<Product> _all = [];
-  String _category = 'all';
+  String _category = 'sort';
+  String _sortOption = 'new';
   bool _loading = true;
   bool _failed = false;
   String? _pendingDeepLinkProductId;
+
+  DateTime? _lastPausedTime;
+  DateTime _lastInteractionTime = DateTime.now();
+  static const _kIdleResetDuration = Duration(minutes: 10);
 
   @override
   void initState() {
@@ -107,6 +121,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _autoRefreshTimer = Timer.periodic(
       interval,
       (_) {
+        final now = DateTime.now();
+        if (now.difference(_lastInteractionTime) >= _kIdleResetDuration) {
+          if (_category != 'sort' || _sortOption != 'new') {
+            setState(() {
+              _category = 'sort';
+              _sortOption = 'new';
+            });
+            if (_scrollController.hasClients) {
+              _scrollController.jumpTo(0.0);
+            }
+          }
+        }
         if (_failed || _all.isEmpty) {
           _load();
         } else {
@@ -122,6 +148,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     PushNotificationService.instance.productToOpen.removeListener(_handlePushNotificationTap);
     _autoRefreshTimer?.cancel();
     _scrollController.dispose();
+    _categoryScrollController.dispose();
     _showScrollTop.dispose();
     _hasNewDeals.dispose();
     super.dispose();
@@ -129,7 +156,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _lastPausedTime = DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      final wasPausedOver10m = _lastPausedTime != null &&
+          now.difference(_lastPausedTime!) >= _kIdleResetDuration;
+      final wasIdleOver10m =
+          now.difference(_lastInteractionTime) >= _kIdleResetDuration;
+
+      if (wasPausedOver10m || wasIdleOver10m) {
+        setState(() {
+          _category = 'sort';
+          _sortOption = 'new';
+        });
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(0.0);
+        }
+      }
+      _lastPausedTime = null;
+      _lastInteractionTime = now;
+
       if (_failed || _all.isEmpty) {
         _load();
       } else {
@@ -139,27 +188,53 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _handleScroll() {
+    _lastInteractionTime = DateTime.now();
     if (!_scrollController.hasClients) return;
 
     final currentOffset = _scrollController.offset;
     final userDirection = _scrollController.position.userScrollDirection;
 
+    // Coordinate bottom tab bar visibility:
+    // Disappear on scroll down, reappear on scroll up, and stay visible at the top.
+    if (widget.isTabBarVisible != null) {
+      if (currentOffset <= _kAtTopEpsilon || userDirection == ScrollDirection.forward) {
+        if (!widget.isTabBarVisible!.value) {
+          widget.isTabBarVisible!.value = true;
+        }
+      } else if (userDirection == ScrollDirection.reverse && currentOffset > 20) {
+        if (widget.isTabBarVisible!.value) {
+          widget.isTabBarVisible!.value = false;
+        }
+      }
+    }
+
     bool show = false;
 
     // Only show button if past threshold
     if (currentOffset > _kScrollTopThreshold) {
-      if (userDirection == ScrollDirection.forward) {
-        // User is scrolling UP (dragging content down)
-        show = true;
-      } else if (userDirection == ScrollDirection.reverse) {
-        // User is scrolling DOWN (dragging content up)
+      if (userDirection == ScrollDirection.reverse) {
+        // User is scrolling DOWN: track start of future scroll-up and hide button
+        _scrollUpStartOffset = currentOffset;
         show = false;
+      } else if (userDirection == ScrollDirection.forward) {
+        // User is scrolling UP: only show once user has scrolled up by _kScrollUpDeltaThreshold
+        if (currentOffset > _scrollUpStartOffset) {
+          _scrollUpStartOffset = currentOffset;
+        }
+        final upwardDelta = _scrollUpStartOffset - currentOffset;
+        if (upwardDelta >= _kScrollUpDeltaThreshold) {
+          show = true;
+        } else {
+          // Keep showing if already visible and continuing to scroll up
+          show = _showScrollTop.value;
+        }
       } else {
-        // Keep previous state when idle/holding
+        // Idle/holding: keep current visibility as long as we're past the top threshold
         show = _showScrollTop.value;
       }
     } else {
       // Below threshold: always hide
+      _scrollUpStartOffset = currentOffset;
       show = false;
     }
 
@@ -168,13 +243,65 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _scrollToTop() {
+  void scrollToTop() {
     _hasNewDeals.value = false;
     _scrollController.animateTo(
       0,
       duration: const Duration(milliseconds: 420),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  void handleDealsTabTap() {
+    _hasNewDeals.value = false;
+    _lastInteractionTime = DateTime.now();
+
+    final needsFilterReset = (_category != 'sort' || _sortOption != 'new');
+
+    if (needsFilterReset) {
+      setState(() {
+        _category = 'sort';
+        _sortOption = 'new';
+      });
+    }
+
+    if (_categoryScrollController.hasClients) {
+      _categoryScrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    if (_scrollController.hasClients && _scrollController.offset > 0.0) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    _refreshFromDealsTab();
+  }
+
+  Future<void> _refreshFromDealsTab() async {
+    if (_failed || _all.isEmpty) {
+      await _load();
+      return;
+    }
+    try {
+      final fetched = await _api.fetchProductsFresh();
+      if (!mounted || fetched == null || fetched.isEmpty) return;
+      setState(() {
+        _all = fetched;
+        _failed = false;
+        _loading = false;
+      });
+      _hasNewDeals.value = false;
+      _startTimer();
+    } catch (_) {
+      // Keep existing
+    }
   }
 
   Future<void> _load() async {
@@ -318,20 +445,78 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   List<Product> get _filtered {
-    if (_category == 'all') return _all;
-    if (_category == 'deals') {
+    if (_category == 'under_500' || _category == 'deals') {
       return _all.where((p) {
         final price =
             double.tryParse(p.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
-        final discountPct = int.tryParse(p.disc.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        final hasCoupon = p.couponPercent != null;
-        final isLowestPrice = p.lowestPriceText != null && p.lowestPriceText!.isNotEmpty;
-
-        return (price > 0 && price < 500) ||
-            (discountPct >= 70) ||
-            hasCoupon ||
-            isLowestPrice;
+        return price > 0 && price <= 500;
       }).toList();
+    }
+    if (_category == 'sort' || _category == 'all') {
+      if (_sortOption == 'lowest_price') {
+        final lowest = _all
+            .where((p) =>
+                p.lowestPriceText != null && p.lowestPriceText!.isNotEmpty)
+            .toList();
+        if (lowest.isNotEmpty) return lowest;
+        final sorted = [..._all];
+        sorted.sort((a, b) {
+          final pa =
+              double.tryParse(a.price.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+                  0.0;
+          final pb =
+              double.tryParse(b.price.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+                  0.0;
+          return pa.compareTo(pb);
+        });
+        return sorted;
+      }
+      if (_sortOption == 'coupon') {
+        return _all
+            .where((p) =>
+                p.couponPercent != null ||
+                p.title.toLowerCase().contains('coupon'))
+            .toList();
+      }
+      if (_sortOption == 'discount') {
+        final sorted = [..._all];
+        sorted.sort((a, b) {
+          final da =
+              int.tryParse(a.disc.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          final db =
+              int.tryParse(b.disc.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          return db.compareTo(da);
+        });
+        return sorted;
+      }
+      if (_sortOption == 'low_to_high') {
+        final sorted = [..._all];
+        sorted.sort((a, b) {
+          final pa =
+              double.tryParse(a.price.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+                  0.0;
+          final pb =
+              double.tryParse(b.price.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+                  0.0;
+          return pa.compareTo(pb);
+        });
+        return sorted;
+      }
+      if (_sortOption == 'high_to_low') {
+        final sorted = [..._all];
+        sorted.sort((a, b) {
+          final pa =
+              double.tryParse(a.price.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+                  0.0;
+          final pb =
+              double.tryParse(b.price.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+                  0.0;
+          return pb.compareTo(pa);
+        });
+        return sorted;
+      }
+      // 'new' / default: original feed order (newest first)
+      return _all;
     }
     return _all.where((p) => p.category == _category).toList();
   }
@@ -347,13 +532,63 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     showProductDetailSheet(context, product);
   }
 
+  void _openSortSheet() {
+    _lastInteractionTime = DateTime.now();
+    showSortBottomSheet(
+      context: context,
+      currentSort: _sortOption,
+      onSelectSort: (opt) {
+        _lastInteractionTime = DateTime.now();
+        setState(() {
+          _category = 'sort';
+          _sortOption = opt;
+        });
+        _resetScrollPositionAfterFilter();
+      },
+    );
+  }
+
+  static const double _headerCollapseOffset = 240.0;
+
+  void _resetScrollPositionAfterFilter() {
+    if (_scrollController.hasClients) {
+      final currentOffset = _scrollController.offset;
+      if (currentOffset > 0.0) {
+        _scrollController.jumpTo(_headerCollapseOffset);
+      } else {
+        _scrollController.jumpTo(0.0);
+      }
+    }
+  }
+
+  void _openSettings() {
+    _lastInteractionTime = DateTime.now();
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 320),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const SettingsScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final slide = Tween<Offset>(
+            begin: const Offset(1.0, 0.0),
+            end: Offset.zero,
+          ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation);
+          return SlideTransition(position: slide, child: child);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = _filtered;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
+        bottom: false,
         child: Stack(
           children: [
             RefreshIndicator(
@@ -362,7 +597,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               child: CustomScrollView(
                 controller: _scrollController,
                 slivers: [
-                  SliverToBoxAdapter(child: _TopBar(onLaunch: _launch)),
+                  SliverToBoxAdapter(
+                    child: _TopBar(
+                      onLaunch: _launch,
+                      onOpenSettings: _openSettings,
+                    ),
+                  ),
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: HomeHeaderDelegate(
@@ -379,18 +619,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       heroBanner: HeroBanner(liveDealCount: _all.length),
                       categoryTabs: CategoryTabs(
+                        controller: _categoryScrollController,
                         selected: _category,
+                        sortOption: _sortOption,
+                        onSortTap: _openSortSheet,
                         onSelect: (c) {
-                          if (_category != c) {
-                            setState(() => _category = c);
-                            if (_scrollController.hasClients) {
-                              final currentOffset = _scrollController.offset;
-                              if (currentOffset > 0.0) {
-                                _scrollController.jumpTo(250.0);
-                              } else {
-                                _scrollController.jumpTo(0.0);
-                              }
+                          _lastInteractionTime = DateTime.now();
+                          if (c == 'sort_reset') {
+                            // Tapped an already-selected sort tab again -> deselect and reset to default Sort: New
+                            setState(() {
+                              _category = 'sort';
+                              _sortOption = 'new';
+                            });
+                            _resetScrollPositionAfterFilter();
+                          } else if (c == 'sort') {
+                            if (_category != 'sort') {
+                              setState(() => _category = 'sort');
+                              _resetScrollPositionAfterFilter();
                             }
+                          } else if (_category == c) {
+                            // Tapped the already-selected category tab again -> deselect and reset to default Sort: New
+                            setState(() {
+                              _category = 'sort';
+                              _sortOption = 'new';
+                            });
+                            _resetScrollPositionAfterFilter();
+                          } else {
+                            setState(() => _category = c);
+                            _resetScrollPositionAfterFilter();
                           }
                         },
                       ),
@@ -410,11 +666,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
+                      padding: EdgeInsets.fromLTRB(
                         AppSpace.md,
+                        12.0,
                         AppSpace.md,
-                        AppSpace.md,
-                        AppSpace.xl,
+                        AppSpace.xl + DealBottomNavBar.barHeight + bottomPadding,
                       ),
                       sliver: SliverGrid(
                         gridDelegate:
@@ -443,29 +699,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
             ),
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: ValueListenableBuilder<bool>(
-                valueListenable: _showScrollTop,
-                builder: (context, show, child) => IgnorePointer(
-                  ignoring: !show,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: show ? 1 : 0,
-                    child: AnimatedSlide(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      offset: show ? Offset.zero : const Offset(0, 0.3),
-                      child: child,
+            ValueListenableBuilder<bool>(
+              valueListenable:
+                  widget.isTabBarVisible ?? ValueNotifier<bool>(false),
+              builder: (context, isBarVisible, _) {
+                final double bottomPos = 16.0 +
+                    bottomPadding +
+                    (isBarVisible ? DealBottomNavBar.barHeight : 0.0);
+
+                return AnimatedPositioned(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeInOutCubic,
+                  right: 16,
+                  bottom: bottomPos,
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: _showScrollTop,
+                    builder: (context, show, child) => IgnorePointer(
+                      ignoring: !show,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 200),
+                        opacity: show ? 1 : 0,
+                        child: AnimatedSlide(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          offset: show ? Offset.zero : const Offset(0, 0.3),
+                          child: child,
+                        ),
+                      ),
+                    ),
+                    child: _ScrollTopButton(
+                      hasNewDeals: _hasNewDeals,
+                      onTap: scrollToTop,
                     ),
                   ),
-                ),
-                child: _ScrollTopButton(
-                  hasNewDeals: _hasNewDeals,
-                  onTap: _scrollToTop,
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
@@ -482,39 +750,50 @@ class _ScrollTopButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Shadow lives on this outer, unclipped box; the frosted glass fill
-    // (blur + a translucent tint, so the grid behind stays faintly
-    // visible) is clipped to the circle inside.
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Container(
           width: 44,
           height: 44,
-          decoration:
-              BoxDecoration(shape: BoxShape.circle, boxShadow: cardShadow()),
-          child: ClipOval(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-              child: Material(
-                color: AppColors.ink.withValues(alpha: 0.55),
-                child: InkWell(
-                  onTap: onTap,
-                  child: const Center(
-                    child: Icon(
-                      Icons.keyboard_arrow_up_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xFF14121F).withValues(alpha: 0.08),
+              width: 0.8,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF14121F).withValues(alpha: 0.10),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: const Color(0xFF14121F).withValues(alpha: 0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: const Center(
+                child: Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  color: Color(0xFF3F3B49),
+                  size: 28,
                 ),
               ),
             ),
           ),
         ),
         Positioned(
-          top: -2,
-          right: -2,
+          top: -1,
+          right: 0,
           child: ValueListenableBuilder<bool>(
             valueListenable: hasNewDeals,
             builder: (context, hasNew, _) {
@@ -525,7 +804,7 @@ class _ScrollTopButton extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.gold,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.bg, width: 2),
+                  border: Border.all(color: Colors.white, width: 2),
                 ),
               );
             },
@@ -537,49 +816,46 @@ class _ScrollTopButton extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onLaunch});
+  const _TopBar({required this.onLaunch, required this.onOpenSettings});
   final Future<void> Function(String) onLaunch;
+  final VoidCallback onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          const EdgeInsets.fromLTRB(AppSpace.md, AppSpace.sm, AppSpace.md, 0),
-      child: Row(
-        children: [
-          RichText(
-            text: TextSpan(
-              style: Theme.of(context).textTheme.headlineMedium,
-              children: const [
-                TextSpan(text: 'Deal'),
-                TextSpan(
-                    text: 'Buster', style: TextStyle(color: AppColors.brand)),
-              ],
+    return SizedBox(
+      height: 46.0,
+      child: Padding(
+        padding:
+            const EdgeInsets.fromLTRB(AppSpace.md, AppSpace.sm, AppSpace.md, 0),
+        child: Row(
+          children: [
+            RichText(
+              text: TextSpan(
+                style: Theme.of(context).textTheme.headlineMedium,
+                children: const [
+                  TextSpan(text: 'Deal'),
+                  TextSpan(
+                      text: 'Buster', style: TextStyle(color: AppColors.brand)),
+                ],
+              ),
             ),
-          ),
-          const Spacer(),
-          _IconPill(
-            icon: SvgIcons.telegram,
-            color: const Color(0xFF29A9EA),
-            onTap: () => onLaunch(_telegramUrl),
-          ),
-          const SizedBox(width: 8),
-          _IconPill(
-            icon: SvgIcons.whatsapp,
-            color: const Color(0xFF25D366),
-            onTap: () => onLaunch(_whatsappUrl),
-          ),
-        ],
+            const Spacer(),
+            _TelegramButton(
+              onTap: () => onLaunch(_telegramUrl),
+            ),
+            const SizedBox(width: 8),
+            _MenuButton(
+              onTap: onOpenSettings,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _IconPill extends StatelessWidget {
-  const _IconPill(
-      {required this.icon, required this.color, required this.onTap});
-  final String icon;
-  final Color color;
+class _MenuButton extends StatelessWidget {
+  const _MenuButton({required this.onTap});
   final VoidCallback onTap;
 
   @override
@@ -588,10 +864,105 @@ class _IconPill extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.pill),
       child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        child: Center(child: SvgIcon(icon, size: 17, color: Colors.white)),
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.cardStroke, width: 0.6),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF14121F).withValues(alpha: 0.09),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+              spreadRadius: -1,
+            ),
+            BoxShadow(
+              color: const Color(0xFF14121F).withValues(alpha: 0.04),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 14,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  height: 2.2,
+                  width: 20,
+                  decoration: BoxDecoration(
+                    color: AppColors.ink,
+                    borderRadius: BorderRadius.circular(1.1),
+                  ),
+                ),
+                Container(
+                  height: 2.2,
+                  width: 13,
+                  decoration: BoxDecoration(
+                    color: AppColors.brand,
+                    borderRadius: BorderRadius.circular(1.1),
+                  ),
+                ),
+                Container(
+                  height: 2.2,
+                  width: 17,
+                  decoration: BoxDecoration(
+                    color: AppColors.ink,
+                    borderRadius: BorderRadius.circular(1.1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TelegramButton extends StatelessWidget {
+  const _TelegramButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF25D3C),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFF25D3C).withValues(alpha: 0.32),
+                blurRadius: 9,
+                offset: const Offset(0, 3),
+              ),
+              BoxShadow(
+                color: const Color(0xFF14121F).withValues(alpha: 0.06),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: const Center(
+            child: SvgIcon(
+              SvgIcons.telegram,
+              size: 20,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -652,7 +1023,8 @@ class _ShimmerCardState extends State<_ShimmerCard>
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: cardShadow(opacity: 0.3),
+        border: Border.all(color: AppColors.cardStroke, width: 0.6),
+        boxShadow: dealCardShadow(opacity: 0.5),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -789,17 +1161,20 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayLabel = category == 'sort'
+        ? 'this sort'
+        : (category == 'under_500' ? 'Under 500' : category);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpace.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_rounded,
-                size: 40, color: AppColors.ink400),
+            const Icon(Icons.search_off_rounded, size: 40, color: AppColors.ink400),
             const SizedBox(height: 12),
             Text(
-              'No deals in "$category" right now',
+              'No deals in "$displayLabel" right now',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
@@ -822,8 +1197,7 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded,
-                size: 40, color: AppColors.ink400),
+            const Icon(Icons.wifi_off_rounded, size: 40, color: AppColors.ink400),
             const SizedBox(height: 12),
             Text(
               'Couldn\'t load deals',
@@ -860,11 +1234,15 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget heroBanner;
   final Widget categoryTabs;
 
-  @override
-  double get minExtent => 62.0 + 60.0;
+  static const double searchBarHeight = 62.0;
+  static const double bannerHeight = 192.0;
+  static const double tabsHeight = 48.0;
 
   @override
-  double get maxExtent => 62.0 + 206.0 + 60.0;
+  double get minExtent => searchBarHeight + tabsHeight;
+
+  @override
+  double get maxExtent => searchBarHeight + bannerHeight + tabsHeight;
 
   @override
   Widget build(
@@ -878,18 +1256,18 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
 
     return Material(
       color: AppColors.bg,
-      elevation: showShadow ? 2 : 0,
-      shadowColor: AppColors.ink.withValues(alpha: 0.08),
+      elevation: showShadow ? 1.5 : 0,
+      shadowColor: AppColors.ink.withValues(alpha: 0.05),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         clipBehavior: Clip.hardEdge,
         children: [
           // 1. Hero Banner (collapses/fades out as we scroll) - bottom layer
           Positioned(
-            top: 62.0 - (collapsePercent * 206.0),
+            top: searchBarHeight - (collapsePercent * bannerHeight),
             left: 0,
             right: 0,
-            height: 206.0,
+            height: bannerHeight,
             child: Opacity(
               opacity: (1.0 - collapsePercent * 1.8).clamp(0.0, 1.0),
               child: heroBanner,
@@ -901,7 +1279,7 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
             bottom: 0,
             left: 0,
             right: 0,
-            height: 60.0,
+            height: tabsHeight,
             child: categoryTabs,
           ),
 
@@ -910,7 +1288,7 @@ class HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
             top: 0,
             left: 0,
             right: 0,
-            height: 62.0,
+            height: searchBarHeight,
             child: Container(
               color: AppColors.bg,
               child: searchBar,
