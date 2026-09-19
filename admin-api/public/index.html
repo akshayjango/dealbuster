@@ -2585,7 +2585,7 @@ function buildProductRow(p, visualIndex) {
           ${p.rating ? `<span class="cat-badge">★ ${p.rating}${p.reviewCount ? ` (${p.reviewCount.toLocaleString('en-IN')})` : ''}</span>` : ''}
           ${p.featured ? '<span class="featured-badge">★ Featured</span>' : ''}
           ${p.lowestPriceText ? `<span class="lowest-badge">🏷️ ${escHtml(p.lowestPriceText)}</span>` : ''}
-          ${(p.priceDrop || p.priceDropText) ? `<span class="price-drop-badge" style="background:#eff6ff;color:#2563eb;font-size:.68rem;font-weight:700;padding:1px 6px;border-radius:8px;display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg> Price Drop</span>` : ''}
+          ${(p.priceDrop || p.priceDropText) ? `<span class="price-drop-badge" style="background:#fff2ed;color:#ff5222;border:1px solid #ffd5c8;font-size:.68rem;font-weight:700;padding:1px 6px;border-radius:8px;display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ff5222" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleX(-1);"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg> Price Drop</span>` : ''}
         </div>
       </div>
     </a>
@@ -2609,7 +2609,7 @@ function buildProductRow(p, visualIndex) {
           ${p.lowestPriceText ? 'Unmark Lowest' : 'Mark as Lowest'}
         </button>
         <button class="drop-item" onclick="closeMenus();togglePriceDrop('${p.id}')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${(p.priceDrop || p.priceDropText) ? '#2563eb' : '#374151'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${(p.priceDrop || p.priceDropText) ? '#ff5222' : '#374151'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleX(-1);"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>
           ${(p.priceDrop || p.priceDropText) ? 'Unmark Price Drop' : 'Mark as Price Drop'}
         </button>
         <button class="drop-item" onclick="closeMenus();toggleHidden('${p.id}')">

@@ -91,16 +91,17 @@ class _SortSheet extends StatelessWidget {
                 children: [
                   const SvgIcon(
                     SvgIcons.sort,
-                    size: 20,
+                    size: 18,
                     color: AppColors.brand,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Sort',
                     style: GoogleFonts.sora(
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: AppColors.ink,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   const Spacer(),

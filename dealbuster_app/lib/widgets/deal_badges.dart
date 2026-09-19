@@ -160,9 +160,9 @@ class PriceDropBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const iconColor = Color(0xFF2563EB); // Vibrant cobalt blue
-    const bgColor = Color(0xFFEFF6FF);   // Soft pastel blue
-    const borderColor = Color(0xFFBFDBFE); // Refined border stroke
+    const iconColor = Color(0xFFFF5222); // Brand orange
+    const bgColor = Color(0xFFFFF2ED);   // Light orange soft fill
+    const borderColor = Color(0xFFFFD5C8); // Soft orange border stroke
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -178,10 +178,13 @@ class PriceDropBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            Icons.trending_down_rounded,
-            size: fontSize + 3,
-            color: iconColor,
+          Transform.flip(
+            flipX: true,
+            child: Icon(
+              Icons.trending_down_rounded,
+              size: fontSize + 3,
+              color: iconColor,
+            ),
           ),
           const SizedBox(width: 3.5),
           Text(
