@@ -25,31 +25,6 @@
     "createdAt": "2026-09-19T18:20:01.000Z"
   },
   {
-    "id": "banner_myntra_1",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "Personal Care",
-        "size": "small"
-      },
-      {
-        "text": "Under",
-        "size": "big"
-      },
-      {
-        "text": "₹1200",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "images/banners/myntra_personal_care.png",
-    "link": "https://myntr.it/LbZjwv4",
-    "active": true,
-    "order": 1,
-    "createdAt": "2026-09-19T18:20:00.000Z"
-  },
-  {
     "id": "banner_flipkart_2",
     "store": "flipkart_1",
     "storeName": "Flipkart 1",
@@ -71,8 +46,33 @@
     "imageUrl": "images/banners/flipkart-banner-1789824600511.webp",
     "link": "https://fktr.in/pR3DwM4",
     "active": true,
-    "order": 2,
+    "order": 1,
     "createdAt": "2026-09-19T18:20:12.000Z"
+  },
+  {
+    "id": "banner_myntra_1",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "Personal Care",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹1200",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "images/banners/myntra_personal_care.png",
+    "link": "https://myntr.it/LbZjwv4",
+    "active": true,
+    "order": 2,
+    "createdAt": "2026-09-19T18:20:00.000Z"
   },
   {
     "id": "banner_myntra_3",
