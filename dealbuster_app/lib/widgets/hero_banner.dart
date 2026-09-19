@@ -365,107 +365,118 @@ class _CustomBannerCard extends StatelessWidget {
           ),
         ),
 
-        // Top Left: Store Tag / Badge
-        Positioned(
-          top: 14,
-          left: 16,
-          right: 16,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 24,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+        // Content layer (Top logo pill + vertically centered text lines, matching Store Banner)
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Store Badge + Deal Badge
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 24,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: _buildStoreLogo(banner.store, banner.storeName),
                     ),
+                    if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          banner.badgeText!.trim().toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.8,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-                child: _buildStoreLogo(banner.store, banner.storeName),
-              ),
-              if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    banner.badgeText!.trim().toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.8,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.4,
+
+                // Text Lines (vertically centered in remaining space like Store Banner)
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.54,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: banner.effectiveLines.map((line) {
+                          if (line.text.trim().isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              line.text.trim(),
+                              style: line.isBig
+                                  ? GoogleFonts.sora(
+                                      color: Colors.white,
+                                      fontSize: 23,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.12,
+                                      letterSpacing: -0.3,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Color(0x33000000),
+                                          offset: Offset(0, 1),
+                                          blurRadius: 3,
+                                        ),
+                                      ],
+                                    )
+                                  : GoogleFonts.inter(
+                                      color: Colors.white.withValues(alpha: 0.95),
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.22,
+                                      letterSpacing: -0.1,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Color(0x26000000),
+                                          offset: Offset(0, 1),
+                                          blurRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                 ),
               ],
-            ],
-          ),
-        ),
-
-        // Bottom Left: Text Lines (Big / Small, matching Store Banner styling)
-        Positioned(
-          bottom: 20,
-          left: 16,
-          right: 18,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: banner.effectiveLines.map((line) {
-              if (line.text.trim().isEmpty) {
-                return const SizedBox.shrink();
-              }
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  line.text.trim(),
-                  style: line.isBig
-                      ? GoogleFonts.sora(
-                          color: Colors.white,
-                          fontSize: 23,
-                          fontWeight: FontWeight.w800,
-                          height: 1.12,
-                          letterSpacing: -0.3,
-                          shadows: const [
-                            Shadow(
-                              color: Color(0x33000000),
-                              offset: Offset(0, 1),
-                              blurRadius: 3,
-                            ),
-                          ],
-                        )
-                      : GoogleFonts.inter(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                          height: 1.22,
-                          letterSpacing: -0.1,
-                          shadows: const [
-                            Shadow(
-                              color: Color(0x26000000),
-                              offset: Offset(0, 1),
-                              blurRadius: 2,
-                            ),
-                          ],
-                        ),
-                ),
-              );
-            }).toList(),
+            ),
           ),
         ),
 

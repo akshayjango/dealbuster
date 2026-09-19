@@ -5214,7 +5214,7 @@ function renderHomeBannerCardHtml(b) {
   }).join('');
 
   return `
-    <div style="position:relative; width:100%; height:176px; border-radius:26px; overflow:hidden; ${bgStyle} box-shadow:0 8px 24px -6px rgba(0,0,0,0.3); font-family:'Segoe UI', system-ui, sans-serif; display:flex; flex-direction:column; justify-content:space-between; padding:16px 18px 20px; box-sizing:border-box; color:#fff;">
+    <div style="position:relative; width:100%; height:176px; border-radius:26px; overflow:hidden; ${bgStyle} box-shadow:0 8px 24px -6px rgba(0,0,0,0.3); font-family:'Segoe UI', system-ui, sans-serif; display:flex; flex-direction:column; padding:14px 18px; box-sizing:border-box; color:#fff;">
       <!-- Subtle multi-stop readability gradient overlay -->
       <div style="position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.85) 100%); pointer-events:none; border-radius:26px;"></div>
       
@@ -5230,8 +5230,8 @@ function renderHomeBannerCardHtml(b) {
         ` : ''}
       </div>
 
-      <!-- Bottom Row: Text Lines (Big / Small, matching store banners) -->
-      <div style="position:relative; z-index:2; display:flex; flex-direction:column; gap:2px; max-width:85%;">
+      <!-- Middle: Vertically Centered Text Lines (matching store banners) -->
+      <div style="position:relative; z-index:2; flex:1; display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:54%;">
         ${linesHtml}
       </div>
     </div>
