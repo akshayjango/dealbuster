@@ -146,31 +146,6 @@
     "createdAt": "2026-09-19T18:20:04.000Z"
   },
   {
-    "id": "banner_myntra_7",
-    "store": "myntra",
-    "storeName": "Myntra",
-    "badgeText": "BEAUTY DROP",
-    "lines": [
-      {
-        "text": "FaceWash & Cleaners",
-        "size": "small"
-      },
-      {
-        "text": "Under",
-        "size": "big"
-      },
-      {
-        "text": "₹199",
-        "size": "big"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/glfKgF1",
-    "active": true,
-    "order": 6,
-    "createdAt": "2026-09-19T18:20:06.000Z"
-  },
-  {
     "id": "banner_flipkart_1",
     "store": "flipkart",
     "storeName": "Flipkart",
@@ -196,8 +171,33 @@
     "imageUrl": "images/banners/flipkart_sunscreen.png",
     "link": "https://fktr.in/A11kK4v",
     "active": true,
-    "order": 7,
+    "order": 6,
     "createdAt": "2026-09-19T18:20:11.000Z"
+  },
+  {
+    "id": "banner_myntra_7",
+    "store": "myntra",
+    "storeName": "Myntra",
+    "badgeText": "BEAUTY DROP",
+    "lines": [
+      {
+        "text": "FaceWash & Cleaners",
+        "size": "small"
+      },
+      {
+        "text": "Under",
+        "size": "big"
+      },
+      {
+        "text": "₹199",
+        "size": "big"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/glfKgF1",
+    "active": true,
+    "order": 7,
+    "createdAt": "2026-09-19T18:20:06.000Z"
   },
   {
     "id": "banner_myntra_8",
