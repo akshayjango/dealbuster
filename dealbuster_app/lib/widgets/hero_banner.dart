@@ -201,58 +201,23 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: count == 1
             ? _buildBannerAt(0)
-            : Stack(
-                children: [
-                  NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (notification is ScrollStartNotification) {
-                        _timer?.cancel();
-                      } else if (notification is ScrollEndNotification) {
-                        _startAutoSlide();
-                      }
-                      return false;
-                    },
-                    child: PageView.builder(
-                      controller: _pageController,
-                      itemCount: count,
-                      onPageChanged: (idx) {
-                        setState(() {
-                          _currentPage = idx;
-                        });
-                      },
-                      itemBuilder: (context, idx) => _buildBannerAt(idx),
-                    ),
-                  ),
-                  // Bottom right dots indicator
-                  Positioned(
-                    bottom: 12,
-                    right: 14,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: List.generate(count, (i) {
-                        final isActive = i == _currentPage;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                          width: isActive ? 14 : 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                            color: isActive
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.35),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ],
+            : NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification) {
+                    _timer?.cancel();
+                  } else if (notification is ScrollEndNotification) {
+                    _startAutoSlide();
+                  }
+                  return false;
+                },
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: count,
+                  onPageChanged: (idx) {
+                    _currentPage = idx;
+                  },
+                  itemBuilder: (context, idx) => _buildBannerAt(idx),
+                ),
               ),
       ),
     );
@@ -455,9 +420,9 @@ class _CustomBannerCard extends StatelessWidget {
 
         // Bottom Left: Title and Subtitle
         Positioned(
-          bottom: 14,
+          bottom: 22,
           left: 16,
-          right: 64, // Space for page indicator dots if carousel
+          right: 18,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
