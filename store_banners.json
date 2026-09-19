@@ -300,31 +300,6 @@
     "createdAt": "2026-09-19T18:20:08.000Z"
   },
   {
-    "id": "banner_myntra_10",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "Upto",
-        "size": "small"
-      },
-      {
-        "text": "89% Off",
-        "size": "big"
-      },
-      {
-        "text": "on Shampoo",
-        "size": "small"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/7QlWW73",
-    "active": false,
-    "order": 12,
-    "createdAt": "2026-09-19T18:20:09.000Z"
-  },
-  {
     "id": "banner_amazon_1",
     "store": "amazon_1",
     "storeName": "Amazon 1",
@@ -346,8 +321,33 @@
     "imageUrl": "images/banners/amazon-banner-1789825136616.webp",
     "link": "https://link.amazon/B036zv4CE",
     "active": true,
-    "order": 13,
+    "order": 12,
     "createdAt": "2026-09-19T18:20:14.000Z"
+  },
+  {
+    "id": "banner_myntra_10",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "Upto",
+        "size": "small"
+      },
+      {
+        "text": "89% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Shampoo",
+        "size": "small"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/7QlWW73",
+    "active": false,
+    "order": 13,
+    "createdAt": "2026-09-19T18:20:09.000Z"
   },
   {
     "id": "banner_myntra_11",
