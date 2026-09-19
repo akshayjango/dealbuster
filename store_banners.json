@@ -75,27 +75,6 @@
     "createdAt": "2026-09-19T18:20:02.000Z"
   },
   {
-    "id": "banner_myntra_6",
-    "store": "myntra_1",
-    "storeName": "Myntra 1",
-    "badgeText": "",
-    "lines": [
-      {
-        "text": "90% Off",
-        "size": "big"
-      },
-      {
-        "text": "on Women Fashion",
-        "size": "small"
-      }
-    ],
-    "imageUrl": "",
-    "link": "https://myntr.it/uOHaZJA",
-    "active": true,
-    "order": 3,
-    "createdAt": "2026-09-19T18:20:05.000Z"
-  },
-  {
     "id": "banner_flipkart_2",
     "store": "flipkart_1",
     "storeName": "Flipkart 1",
@@ -117,8 +96,29 @@
     "imageUrl": "images/banners/flipkart-banner-1789824600511.webp",
     "link": "https://fktr.in/pR3DwM4",
     "active": true,
-    "order": 4,
+    "order": 3,
     "createdAt": "2026-09-19T18:20:12.000Z"
+  },
+  {
+    "id": "banner_myntra_6",
+    "store": "myntra_1",
+    "storeName": "Myntra 1",
+    "badgeText": "",
+    "lines": [
+      {
+        "text": "90% Off",
+        "size": "big"
+      },
+      {
+        "text": "on Women Fashion",
+        "size": "small"
+      }
+    ],
+    "imageUrl": "",
+    "link": "https://myntr.it/uOHaZJA",
+    "active": true,
+    "order": 4,
+    "createdAt": "2026-09-19T18:20:05.000Z"
   },
   {
     "id": "banner_flipkart_1",
