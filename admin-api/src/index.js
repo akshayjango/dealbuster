@@ -4797,6 +4797,94 @@ export default {
       }
     }
 
+    // ── Public CueLinks Offers endpoint for Mobile App ─────────────────────────
+    if (url0.pathname === '/public/offers' && request.method === 'GET') {
+      const apiKey = (env.CUELINKS_API_KEY || '').trim();
+      if (!apiKey) {
+        return new Response(JSON.stringify({ error: 'CUELINKS_API_KEY not configured', offers: [] }), {
+          status: 500,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+      const q = url0.searchParams.get('q') || '';
+      const campaignId = url0.searchParams.get('campaign_id') || '';
+      const rawPerPage = parseInt(url0.searchParams.get('per_page') || '50', 10) || 50;
+      const perPage = String(Math.min(Math.max(rawPerPage, 1), 50));
+      const page = url0.searchParams.get('page') || '1';
+      const type = (url0.searchParams.get('type') || '').toLowerCase();
+
+      try {
+        const params = new URLSearchParams({ per_page: perPage, page });
+        if (q) params.set('q', q);
+        if (campaignId) params.set('campaign_id', campaignId);
+
+        const res = await fetchWithTimeout(
+          `https://developers.cuelinks.com/pub_api/v3/offers?${params.toString()}`,
+          { headers: { 'Authorization': `Token ${apiKey}` } },
+          10000
+        );
+        const body = await res.json().catch(() => ({}));
+        let rawData = (body && Array.isArray(body.data)) ? body.data : [];
+        const rupeeRegex = /(?:₹|\b(?:rs\s*\.?|rupees?|inr)\b)/i;
+
+        const filtered = rawData.filter(o => {
+          if (!o) return false;
+          const text = [o.title, o.description, o.terms, o.currency].filter(Boolean).join(' ');
+          if (/\$|€|£|\busd\b|\beur\b|\bgbp\b/i.test(text)) return false;
+          if (o.currency && !/^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) {
+            if (/^(?:usd|\$|eur|€|gbp|£|cad|aud)$/i.test(String(o.currency).trim())) return false;
+          }
+          const isCoupon = (o.offer_type && String(o.offer_type).toLowerCase() === 'coupon') || Boolean(o.coupon_code && String(o.coupon_code).trim());
+          if (isCoupon) {
+            return type === 'deal' ? false : true;
+          }
+          if (type === 'coupon') return false;
+          if (rupeeRegex.test(text)) return true;
+          if (o.currency && /^(?:inr|₹|rs\.?)$/i.test(String(o.currency).trim())) return true;
+          return false;
+        });
+
+        const mapped = filtered.map(o => {
+          const isCoupon = (o.offer_type && String(o.offer_type).toLowerCase() === 'coupon') || Boolean(o.coupon_code && String(o.coupon_code).trim());
+          return {
+            id: o.id ? String(o.id) : '',
+            title: o.title || '',
+            description: o.description || '',
+            campaign_name: o.campaign_name || o.campaign?.name || 'Partner Store',
+            campaign_id: o.campaign_id ? String(o.campaign_id) : '',
+            offer_type: isCoupon ? 'coupon' : 'deal',
+            coupon_code: (o.coupon_code || '').trim(),
+            original_price: o.original_price || null,
+            discount_price: o.discount_price || null,
+            percent_off: o.percent_off ? String(o.percent_off) : null,
+            start_date: o.start_date || null,
+            end_date: o.end_date || null,
+            tracking_url: o.tracking_url || o.url || '',
+            image_url: o.image_url || o.campaign_image || '',
+            terms: o.terms || null,
+            status: o.status || 'active',
+          };
+        });
+
+        return new Response(JSON.stringify({
+          success: true,
+          offers: mapped,
+          meta: body.meta || { page: Number(page), total_pages: 1, total_count: mapped.length },
+        }), {
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=180',
+          },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message, offers: [] }), {
+          status: 502,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // ── Telegram webhook (public — Telegram doesn't send admin password) ────────
     if (url0.pathname === '/telegram-webhook' && request.method === 'POST') {
       return handleTelegramWebhook(request, env);
