@@ -9,26 +9,27 @@
       "applyEffect": false,
       "lines": [
         {
-          "text": "Amazon",
+          "text": "Sale Date",
           "size": "big"
         },
         {
-          "text": "Festival Sale",
+          "text": "Revealed !!",
           "size": "big"
         },
         {
-          "text": "Date Revealed",
+          "text": "Starts 8th October",
           "size": "small"
         }
       ],
-      "title": "Amazon",
-      "subtitle": "Festival Sale • Date Revealed",
-      "imageUrl": "images/banners/home-banner-1789885264593.webp",
+      "title": "Sale Date",
+      "subtitle": "Revealed !! • Starts 8th October",
+      "imageUrl": "images/banners/home-banner-1789889483264.webp",
       "link": "https://link.amazon/B0coRNmKB",
       "active": true,
       "order": 2,
       "createdAt": "2026-09-20T06:18:01.733Z",
-      "updatedAt": "2026-09-20T06:21:08.027Z"
+      "updatedAt": "2026-09-20T07:34:29.270Z",
+      "template": "amazon_warm"
     },
     {
       "id": "hbanner_1789883438112",
@@ -80,13 +81,14 @@
       ],
       "title": "Early",
       "subtitle": "Bid Deals • wishlist your favourites",
-      "imageUrl": "images/banners/home-banner-1789850439186.webp",
+      "imageUrl": "images/banners/home-banner-1789888666184.webp",
       "link": "https://fktr.in/1stCo2P",
       "applyEffect": false,
-      "active": false,
+      "active": true,
       "order": 0,
       "createdAt": "2026-09-19T19:14:28.189Z",
-      "updatedAt": "2026-09-20T06:14:52.272Z"
+      "updatedAt": "2026-09-20T07:17:50.471Z",
+      "template": "flipkart_light"
     }
   ]
 }
