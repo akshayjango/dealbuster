@@ -1652,6 +1652,9 @@
               <input type="text" id="homeBannerImageUrl" placeholder="images/banners/... or https://..." oninput="renderHomeBannerPreview()" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:inherit;"/>
               <button type="button" class="btn btn-ghost btn-sm" onclick="clearHomeBannerImage()" title="Remove image">✕</button>
             </div>
+            <div class="img-status" id="homeBannerUploadStatus"></div>
+            <small style="color:var(--muted);font-size:11px;display:block;margin-top:3px;">⚡ Auto-converted to WebP &amp; compressed before uploading to GitHub</small>
+          </div>
           <div class="field" style="margin-top:14px;background:var(--card-bg, #f8fafc);border:1.5px solid var(--border, #e2e8f0);border-radius:10px;padding:10px 14px;">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:0.86rem;margin-bottom:0;color:var(--text, #1e293b);">
               <input type="checkbox" id="homeBannerApplyEffect" onchange="renderHomeBannerPreview()" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"/>
