@@ -270,7 +270,9 @@ class ApiService {
 
   // ── Home Hero Banners ───────────────────────────────────────────────────────
   Future<HomeBannersData> fetchHomeBanners() async {
-    return await fetchHomeBannersFresh() ?? await getCachedHomeBanners();
+    return await fetchHomeBannersFresh() ??
+        await getCachedHomeBanners() ??
+        const HomeBannersData(showDefaultAnimatedBanner: false, banners: []);
   }
 
   Future<HomeBannersData?> fetchHomeBannersFresh() async {
@@ -291,15 +293,15 @@ class ApiService {
     return null;
   }
 
-  Future<HomeBannersData> getCachedHomeBanners() async {
+  Future<HomeBannersData?> getCachedHomeBanners() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cachedData = prefs.getString(_homeBannersCacheKey);
-      if (cachedData != null) {
+      if (cachedData != null && cachedData.isNotEmpty) {
         return _parseHomeBanners(cachedData);
       }
     } catch (_) {}
-    return const HomeBannersData(showDefaultAnimatedBanner: true, banners: []);
+    return null;
   }
 
   HomeBannersData _parseHomeBanners(String jsonBody) {

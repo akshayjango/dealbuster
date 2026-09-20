@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dealbuster_app/models/home_banner_item.dart';
+import 'package:dealbuster_app/screens/home_screen.dart';
 import 'package:dealbuster_app/widgets/hero_banner.dart';
 
 void main() {
@@ -140,5 +141,17 @@ void main() {
     expect(find.text('FESTIVE SALE'), findsOneWidget);
     expect(find.text('Mega Tech Deals'), findsOneWidget);
     expect(find.text('Up to 50% off'), findsOneWidget);
+  });
+
+  testWidgets('HomeHeaderDelegate allocates 192dp height when banner or skeleton is active', (tester) async {
+    final delegate = HomeHeaderDelegate(
+      searchBar: const SizedBox(),
+      heroBanner: const SizedBox(height: 176),
+      categoryTabs: const SizedBox(),
+      hasBanner: true,
+    );
+    expect(delegate.hasBanner, isTrue);
+    expect(delegate.bannerHeight, 192.0);
+    expect(delegate.maxExtent, 62.0 + 192.0 + 48.0);
   });
 }

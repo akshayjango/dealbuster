@@ -52,7 +52,8 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   double _scrollUpStartOffset = 0.0;
 
   List<Product> _all = [];
-  bool _showDefaultAnimatedBanner = true;
+  bool _bannersLoading = true;
+  bool _showDefaultAnimatedBanner = false;
   List<HomeBannerItem> _homeBanners = const [];
   String _category = 'sort';
   String _sortOption = 'new';
@@ -292,6 +293,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await _load();
       return;
     }
+    _loadBanners();
     try {
       final fetched = await _api.fetchProductsFresh();
       if (!mounted || fetched == null || fetched.isEmpty) return;
@@ -307,21 +309,51 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _loadBanners() async {
+    // 1. Immediately read cached banners (if available) so cached state renders in 1-2 ms
+    try {
+      final cached = await _api.getCachedHomeBanners();
+      if (mounted && cached != null) {
+        setState(() {
+          _showDefaultAnimatedBanner = cached.showDefaultAnimatedBanner;
+          _homeBanners = cached.banners;
+          _bannersLoading = false;
+        });
+      }
+    } catch (_) {}
+
+    // 2. Fetch fresh banners from network in parallel
+    try {
+      final fresh = await _api.fetchHomeBannersFresh();
+      if (mounted && fresh != null) {
+        setState(() {
+          _showDefaultAnimatedBanner = fresh.showDefaultAnimatedBanner;
+          _homeBanners = fresh.banners;
+          _bannersLoading = false;
+        });
+      } else if (mounted && _bannersLoading) {
+        setState(() {
+          _bannersLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted && _bannersLoading) {
+        setState(() {
+          _bannersLoading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _load() async {
     if (!mounted) return;
     setState(() {
       _loading = true;
       _failed = false;
+      _bannersLoading = true;
     });
 
-    _api.fetchHomeBanners().then((data) {
-      if (mounted) {
-        setState(() {
-          _showDefaultAnimatedBanner = data.showDefaultAnimatedBanner;
-          _homeBanners = data.banners;
-        });
-      }
-    }).catchError((_) {});
+    _loadBanners();
 
     try {
       var products = await _api.fetchProductsFresh();
@@ -629,7 +661,9 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: HomeHeaderDelegate(
-                      hasBanner: _showDefaultAnimatedBanner || _homeBanners.isNotEmpty,
+                      hasBanner: _bannersLoading ||
+                          _showDefaultAnimatedBanner ||
+                          _homeBanners.isNotEmpty,
                       searchBar: Padding(
                         padding: const EdgeInsets.fromLTRB(
                             AppSpace.md, AppSpace.sm, AppSpace.md, AppSpace.sm),
@@ -641,11 +675,13 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         ),
                       ),
-                      heroBanner: HeroBanner(
-                        liveDealCount: _all.length,
-                        showDefaultAnimatedBanner: _showDefaultAnimatedBanner,
-                        customBanners: _homeBanners,
-                      ),
+                      heroBanner: _bannersLoading
+                          ? const _BannerSkeleton()
+                          : HeroBanner(
+                              liveDealCount: _all.length,
+                              showDefaultAnimatedBanner: _showDefaultAnimatedBanner,
+                              customBanners: _homeBanners,
+                            ),
                       categoryTabs: CategoryTabs(
                         controller: _categoryScrollController,
                         selected: _category,
@@ -1180,6 +1216,139 @@ class _SlidingGradientTransform extends GradientTransform {
   Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
     return Matrix4.translationValues(
         bounds.width * (slidePercent - 0.5) * 2, 0.0, 0.0);
+  }
+}
+
+class _BannerSkeleton extends StatefulWidget {
+  const _BannerSkeleton();
+
+  @override
+  State<_BannerSkeleton> createState() => _BannerSkeletonState();
+}
+
+class _BannerSkeletonState extends State<_BannerSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpace.md,
+        10,
+        AppSpace.md,
+        6,
+      ),
+      height: 176,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.cardStroke, width: 0.6),
+        boxShadow: dealCardShadow(opacity: 0.4),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (bounds) {
+                return LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: const [
+                    AppColors.hairline,
+                    Color(0xFFF9F8FD),
+                    AppColors.hairline,
+                  ],
+                  stops: const [
+                    0.3,
+                    0.5,
+                    0.7,
+                  ],
+                  transform: _SlidingGradientTransform(
+                    slidePercent: _controller.value,
+                  ),
+                ).createShader(bounds);
+              },
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Left side: Text placeholders
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Small pill placeholder (store badge / live counter)
+                          Container(
+                            height: 20,
+                            width: 72,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          // Big headline placeholder
+                          Container(
+                            height: 22,
+                            width: 145,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Subtitle placeholder
+                          Container(
+                            height: 13,
+                            width: 110,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    // Right side: Image cutout placeholder
+                    Container(
+                      width: 95,
+                      height: 95,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 
