@@ -2,6 +2,34 @@
   "showDefaultAnimatedBanner": true,
   "banners": [
     {
+      "id": "hbanner_1789885081733",
+      "store": "amazon",
+      "storeName": "Amazon",
+      "badgeText": "",
+      "applyEffect": false,
+      "lines": [
+        {
+          "text": "Amazon",
+          "size": "big"
+        },
+        {
+          "text": "Festival Sale",
+          "size": "big"
+        },
+        {
+          "text": "Date Revealed",
+          "size": "small"
+        }
+      ],
+      "title": "Amazon",
+      "subtitle": "Festival Sale • Date Revealed",
+      "imageUrl": "",
+      "link": "https://link.amazon/B0coRNmKB",
+      "active": true,
+      "order": 2,
+      "createdAt": "2026-09-20T06:18:01.733Z"
+    },
+    {
       "id": "hbanner_1789883438112",
       "store": "amazon",
       "storeName": "Amazon",
@@ -25,10 +53,10 @@
       "imageUrl": "images/banners/home-banner-1789883402527.webp",
       "link": "https://link.amazon/B0coRNmKB",
       "applyEffect": false,
-      "active": true,
+      "active": false,
       "order": 1,
       "createdAt": "2026-09-20T05:50:38.112Z",
-      "updatedAt": "2026-09-20T05:51:57.750Z"
+      "updatedAt": "2026-09-20T06:15:44.314Z"
     },
     {
       "id": "hbanner_1789845268189",
@@ -54,10 +82,10 @@
       "imageUrl": "images/banners/home-banner-1789850439186.webp",
       "link": "https://fktr.in/1stCo2P",
       "applyEffect": false,
-      "active": true,
+      "active": false,
       "order": 0,
       "createdAt": "2026-09-19T19:14:28.189Z",
-      "updatedAt": "2026-09-19T20:40:43.574Z"
+      "updatedAt": "2026-09-20T06:14:52.272Z"
     }
   ]
 }
