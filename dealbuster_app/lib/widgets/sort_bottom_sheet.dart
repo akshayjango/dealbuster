@@ -36,6 +36,7 @@ Future<void> showSortBottomSheet({
   return showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.82),
     isScrollControlled: true,
     builder: (ctx) => _SortSheet(
       currentSort: currentSort,

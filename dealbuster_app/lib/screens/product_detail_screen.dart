@@ -42,7 +42,7 @@ void showProductDetailSheet(BuildContext context, Product product) {
               child: GestureDetector(
                 onTap: () => Navigator.of(dialogContext).pop(),
                 child: Container(
-                  color: Colors.black.withValues(alpha: 0.54),
+                  color: Colors.black.withValues(alpha: 0.82),
                 ),
               ),
             ),
