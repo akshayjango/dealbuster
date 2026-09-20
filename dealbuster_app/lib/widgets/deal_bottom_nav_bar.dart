@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,71 +20,111 @@ class DealBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSlide(
-      offset: isVisible ? Offset.zero : const Offset(0, 1.05),
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeInOutCubic,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.bg,
-          border: const Border(
-            top: BorderSide(
-              color: AppColors.hairline,
-              width: 0.8,
+    final double bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Sliding & collapsing Tab Bar (Deals, Stores, Offers, Feed)
+        ClipRect(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeInOutCubic,
+            height: isVisible ? barHeight : 0.0,
+            child: OverflowBox(
+              minHeight: barHeight,
+              maxHeight: barHeight,
+              alignment: Alignment.topCenter,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeInOutCubic,
+                offset: isVisible ? Offset.zero : const Offset(0, 1.0),
+                child: Container(
+                  height: barHeight,
+                  decoration: BoxDecoration(
+                    color: AppColors.bg,
+                    border: const Border(
+                      top: BorderSide(
+                        color: AppColors.hairline,
+                        width: 0.8,
+                      ),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF14121F).withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, -3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      _NavBarItem(
+                        index: 0,
+                        label: 'Deals',
+                        selectedIcon: Icons.local_fire_department_rounded,
+                        unselectedIcon: Icons.local_fire_department_outlined,
+                        isSelected: currentIndex == 0,
+                        onTap: () => _handleTap(0),
+                        iconSize: 26.0,
+                      ),
+                      _NavBarItem(
+                        index: 1,
+                        label: 'Stores',
+                        selectedIcon: Icons.storefront_rounded,
+                        unselectedIcon: Icons.storefront_outlined,
+                        isSelected: currentIndex == 1,
+                        onTap: () => _handleTap(1),
+                      ),
+                      _NavBarItem(
+                        index: 2,
+                        label: 'Offers',
+                        selectedIcon: Icons.confirmation_number_rounded,
+                        unselectedIcon: Icons.confirmation_number_outlined,
+                        isSelected: currentIndex == 2,
+                        onTap: () => _handleTap(2),
+                      ),
+                      _NavBarItem(
+                        index: 3,
+                        label: 'Feed',
+                        selectedIcon: Icons.explore_rounded,
+                        unselectedIcon: Icons.explore_outlined,
+                        isSelected: currentIndex == 3,
+                        onTap: () => _handleTap(3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF14121F).withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, -3),
-            ),
-          ],
         ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: barHeight,
-            child: Row(
-              children: [
-                _NavBarItem(
-                  index: 0,
-                  label: 'Deals',
-                  selectedIcon: Icons.local_fire_department_rounded,
-                  unselectedIcon: Icons.local_fire_department_outlined,
-                  isSelected: currentIndex == 0,
-                  onTap: () => _handleTap(0),
-                  iconSize: 26.0,
+
+        // System Navigation Bar Safe Area: Solid white on scroll up, semi-transparent frosted white on scroll down
+        if (bottomPadding > 0)
+          ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: isVisible ? 0.0 : 16.0,
+                sigmaY: isVisible ? 0.0 : 16.0,
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeInOutCubic,
+                height: bottomPadding,
+                decoration: BoxDecoration(
+                  color: isVisible ? AppColors.bg : const Color(0xD9FFFFFF),
+                  border: Border(
+                    top: BorderSide(
+                      color: isVisible ? Colors.transparent : const Color(0x18000000),
+                      width: 0.6,
+                    ),
+                  ),
                 ),
-                _NavBarItem(
-                  index: 1,
-                  label: 'Stores',
-                  selectedIcon: Icons.storefront_rounded,
-                  unselectedIcon: Icons.storefront_outlined,
-                  isSelected: currentIndex == 1,
-                  onTap: () => _handleTap(1),
-                ),
-                _NavBarItem(
-                  index: 2,
-                  label: 'Offers',
-                  selectedIcon: Icons.confirmation_number_rounded,
-                  unselectedIcon: Icons.confirmation_number_outlined,
-                  isSelected: currentIndex == 2,
-                  onTap: () => _handleTap(2),
-                ),
-                _NavBarItem(
-                  index: 3,
-                  label: 'Feed',
-                  selectedIcon: Icons.explore_rounded,
-                  unselectedIcon: Icons.explore_outlined,
-                  isSelected: currentIndex == 3,
-                  onTap: () => _handleTap(3),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+      ],
     );
   }
 
