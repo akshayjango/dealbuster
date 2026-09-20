@@ -11,6 +11,7 @@ class HomeBannerItem {
     required this.subtitle,
     required this.imageUrl,
     required this.link,
+    this.template = 'full_bg',
     this.applyEffect = false,
     this.active = true,
     this.order = 0,
@@ -19,6 +20,7 @@ class HomeBannerItem {
   final String id;
   final String store;
   final String storeName;
+  final String template;
   final String? badgeText;
   final List<BannerLine> lines;
   final String title;
@@ -28,6 +30,8 @@ class HomeBannerItem {
   final bool applyEffect;
   final bool active;
   final int order;
+
+  bool get isTemplate => template.isNotEmpty && template != 'full_bg';
 
   String get fullImageUrl {
     if (imageUrl.isEmpty) return '';
@@ -80,6 +84,7 @@ class HomeBannerItem {
       id: json['id'] as String? ?? '',
       store: (json['store'] as String? ?? 'amazon').toLowerCase(),
       storeName: json['storeName'] as String? ?? 'Amazon',
+      template: json['template'] as String? ?? 'full_bg',
       badgeText: json['badgeText'] as String?,
       lines: parsedLines,
       title: effectiveTitle,
@@ -96,6 +101,7 @@ class HomeBannerItem {
     'id': id,
     'store': store,
     'storeName': storeName,
+    'template': template,
     'badgeText': badgeText,
     'lines': lines.map((l) => l.toJson()).toList(),
     'title': title,

@@ -110,4 +110,35 @@ void main() {
     expect(find.byType(PageView), findsOneWidget);
     expect(find.text('Flipkart Fest'), findsOneWidget);
   });
+
+  testWidgets('HeroBanner renders template-based custom banner with badge and lines', (tester) async {
+    final tplBanner = const HomeBannerItem(
+      id: 'tpl_banner_1',
+      store: 'amazon',
+      storeName: 'Amazon',
+      template: 'amazon_light',
+      badgeText: 'FESTIVE SALE',
+      title: 'Mega Tech Deals',
+      subtitle: 'Up to 50% off',
+      imageUrl: '',
+      link: 'https://amazon.in',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HeroBanner(
+            liveDealCount: 15,
+            showDefaultAnimatedBanner: false,
+            customBanners: [tplBanner],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(HeroBanner), findsOneWidget);
+    expect(find.text('FESTIVE SALE'), findsOneWidget);
+    expect(find.text('Mega Tech Deals'), findsOneWidget);
+    expect(find.text('Up to 50% off'), findsOneWidget);
+  });
 }

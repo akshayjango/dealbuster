@@ -7,10 +7,10 @@ void main() {
   testWidgets('StoreBannerCard renders successfully for all stores with SVG logos', (tester) async {
     final templates = [
       'myntra', 'flipkart', 'ajio', 'amazon',
-      'flipkart_1', 'flipkart_2', 'flipkart_3',
-      'amazon_1', 'amazon_2', 'amazon_3',
-      'myntra_1', 'myntra_2', 'myntra_3',
-      'ajio_1', 'ajio_2', 'ajio_3',
+      'flipkart_1', 'flipkart_2', 'flipkart_3', 'flipkart_light',
+      'amazon_1', 'amazon_2', 'amazon_3', 'amazon_light',
+      'myntra_1', 'myntra_2', 'myntra_3', 'myntra_light',
+      'ajio_1', 'ajio_2', 'ajio_3', 'ajio_light',
     ];
 
     for (final t in templates) {

@@ -328,6 +328,20 @@ class StoreBannerCard extends StatelessWidget {
           badgeBgColor: Color(0xFFFF2E63),
           badgeTextColor: Colors.white,
         );
+      case 'flipkart_light':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFF2563EB), Color(0xFF3B82F6), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.40, 0.90],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFF2563EB),
+          accentColor: Color(0xFF93C5FD),
+          textColor: Color(0xFF1E3A8A),
+          badgeBgColor: Color(0xFF1E40AF),
+          badgeTextColor: Colors.white,
+        );
 
       // Amazon templates - Golden amber and warm, NO dark brown
       case 'amazon':
@@ -366,6 +380,20 @@ class StoreBannerCard extends StatelessWidget {
           ),
           shadowColor: Color(0xFFFFA000),
           accentColor: Color(0xFFFFF59D),
+          textColor: Color(0xFF7C2D12),
+          badgeBgColor: Color(0xFF131921),
+          badgeTextColor: Color(0xFFFF9900),
+        );
+      case 'amazon_light':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFF9900), Color(0xFFFFB74D), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.38, 0.88],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFFFF9900),
+          accentColor: Color(0xFFFFE082),
           textColor: Color(0xFF7C2D12),
           badgeBgColor: Color(0xFF131921),
           badgeTextColor: Color(0xFFFF9900),
@@ -412,6 +440,20 @@ class StoreBannerCard extends StatelessWidget {
           badgeBgColor: Color(0xFF4C0519),
           badgeTextColor: Colors.white,
         );
+      case 'myntra_light':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFF1768), Color(0xFFFB7185), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.38, 0.88],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFFE11D48),
+          accentColor: Colors.white,
+          textColor: Color(0xFF111827),
+          badgeBgColor: Color(0xFF9F1239),
+          badgeTextColor: Colors.white,
+        );
 
       // AJIO templates
       case 'ajio':
@@ -452,6 +494,20 @@ class StoreBannerCard extends StatelessWidget {
           accentColor: Color(0xFF64748B),
           textColor: Color(0xFF0F172A),
           badgeBgColor: Color(0xFF020617),
+          badgeTextColor: Colors.white,
+        );
+      case 'ajio_light':
+        return const _StoreTheme(
+          gradient: LinearGradient(
+            colors: [Color(0xFF334155), Color(0xFF64748B), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.38, 0.88],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: Color(0xFF1E293B),
+          accentColor: Color(0xFF94A3B8),
+          textColor: Color(0xFF1E293B),
+          badgeBgColor: Color(0xFF0F172A),
           badgeTextColor: Colors.white,
         );
 

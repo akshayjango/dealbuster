@@ -749,6 +749,61 @@
       pointer-events: none;
     }
 
+    /* Light Store Templates (Current Color to White Gradient) */
+    .store-banner-card.theme-flipkart_light {
+      background: linear-gradient(120deg, #1D4ED8 0%, #3B82F6 34%, #ffffff 86%);
+    }
+    .store-banner-card.theme-flipkart_light::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 85% 50%, rgba(59,130,246,0.12) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .theme-flipkart_light .banner-badge-pill { background: #FF2E63; color: #fff; }
+
+    .store-banner-card.theme-amazon_light {
+      background: linear-gradient(120deg, #EA580C 0%, #F59E0B 34%, #ffffff 86%);
+    }
+    .store-banner-card.theme-amazon_light::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 85% 50%, rgba(245,158,11,0.12) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .theme-amazon_light .banner-badge-pill { background: #131921; color: #FF9900; }
+
+    .store-banner-card.theme-myntra_light {
+      background: linear-gradient(120deg, #BE123C 0%, #E11D48 34%, #ffffff 86%);
+    }
+    .store-banner-card.theme-myntra_light::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 85% 50%, rgba(225,29,72,0.12) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .theme-myntra_light .banner-badge-pill { background: #9F1239; color: #fff; }
+
+    .store-banner-card.theme-ajio_light {
+      background: linear-gradient(120deg, #1E293B 0%, #475569 36%, #ffffff 86%);
+    }
+    .store-banner-card.theme-ajio_light::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 85% 50%, rgba(71,85,105,0.12) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .theme-ajio_light .banner-badge-pill { background: #0F172A; color: #fff; }
+
+    /* Drag and Drop Card Reordering Styles */
+    .banner-admin-item.is-dragging { opacity: 0.38 !important; transform: scale(0.98); }
+    .banner-admin-item.drag-over { outline: 2.5px dashed var(--primary) !important; outline-offset: 4px; box-shadow: 0 0 16px rgba(99,102,241,0.25); }
+    .drag-handle { cursor: grab; }
+    .drag-handle:active { cursor: grabbing; }
+
     /* Banner Header row (Store Pill + Badge) */
     .banner-top-row {
       display: flex;
@@ -1375,21 +1430,25 @@
                 <option value="flipkart_1" selected>Flipkart 1 (Royal Blue & Soft Glow)</option>
                 <option value="flipkart_2">Flipkart 2 (Electric Azure & Wave Arc)</option>
                 <option value="flipkart_3">Flipkart 3 (Sapphire & Micro-Dot Mesh)</option>
+                <option value="flipkart_light">Flipkart Light (Royal Blue to White Gradient)</option>
               </optgroup>
               <optgroup label="Amazon">
                 <option value="amazon_1">Amazon 1 (Sunburst Amber & Warm Glow)</option>
                 <option value="amazon_2">Amazon 2 (Warm Tangerine & Golden Rings)</option>
                 <option value="amazon_3">Amazon 3 (Honey Marigold & Sunburst)</option>
+                <option value="amazon_light">Amazon Light (Sunburst Amber to White Gradient)</option>
               </optgroup>
               <optgroup label="Myntra">
                 <option value="myntra_1">Myntra 1 (Vivid Magenta & Halftone)</option>
                 <option value="myntra_2">Myntra 2 (Rose Neon & Aura)</option>
                 <option value="myntra_3">Myntra 3 (Sunset Berry & Wave)</option>
+                <option value="myntra_light">Myntra Light (Rose Pink to White Gradient)</option>
               </optgroup>
               <optgroup label="AJIO">
                 <option value="ajio_1">AJIO 1 (Slate Blue & Corner Dots)</option>
                 <option value="ajio_2">AJIO 2 (Steel Aura & Moon Glow)</option>
                 <option value="ajio_3">AJIO 3 (Midnight Indigo & Steel Rings)</option>
+                <option value="ajio_light">AJIO Light (Steel Slate to White Gradient)</option>
               </optgroup>
             </select>
           </div>
@@ -1567,6 +1626,25 @@
             <button type="button" class="btn btn-ghost btn-sm" onclick="closeHomeBannerForm()" title="Close form" style="padding:4px 8px;font-size:13px;line-height:1;">✕</button>
           </div>
           
+          <div class="field" style="margin-bottom:14px;">
+            <label style="font-weight:700;">Banner Format / Layout</label>
+            <select id="homeBannerFormat" onchange="onHomeBannerFormatChange()" style="font-weight:600;">
+              <option value="full_bg" selected>🖼️ Full Background Graphic (1080 × 528 px image)</option>
+              <optgroup label="🎨 Design Templates (Left Text + Right Product Cutout)">
+                <option value="amazon_light">Amazon Light (Sunburst Amber to White)</option>
+                <option value="amazon_warm">Amazon Warm Gold (Radiant Sunburst)</option>
+                <option value="flipkart_light">Flipkart Light (Royal Blue to White)</option>
+                <option value="flipkart_electric">Flipkart Electric Azure (Deep Blue)</option>
+                <option value="myntra_light">Myntra Light (Rose Pink to White)</option>
+                <option value="myntra_vivid">Myntra Vivid Magenta (Sunset Berry)</option>
+                <option value="ajio_light">AJIO Light (Steel Slate to White)</option>
+                <option value="ajio_midnight">AJIO Midnight Indigo</option>
+                <option value="dealbuster_light">DealBuster Royal Light (Purple to White)</option>
+                <option value="festive_emerald_light">Festive Emerald (Green to White)</option>
+              </optgroup>
+            </select>
+          </div>
+
           <div class="two-col">
             <div class="field">
               <label>Store</label>
@@ -1637,14 +1715,20 @@
             </div>
           </div>
 
-          <!-- Full Background Image Uploader -->
+          <!-- Dynamic Image Uploader (Full BG vs Right-side Cutout) -->
           <div class="field" style="margin-top:14px;">
-            <label>Full Background Image (Required)</label>
+            <label id="homeBannerImageLabel">Full Background Image (Required)</label>
             
-            <!-- Resolution Hint Box -->
-            <div style="background:var(--primary-soft);border:1px dashed var(--primary);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:var(--primary-dark);line-height:1.45;">
+            <!-- Resolution Hint Box for Full BG -->
+            <div id="homeBannerFullBgHint" style="background:var(--primary-soft);border:1px dashed var(--primary);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:var(--primary-dark);line-height:1.45;">
               📐 <strong>Recommended Resolution: 1080 × 528 px</strong> (or 1200 × 586 px, aspect ratio ~2.05 : 1)<br>
               <span style="font-size:0.76rem;color:var(--muted);">Image will fill the entire hero banner background with high sharpness.</span>
+            </div>
+
+            <!-- Resolution Hint Box for Product Cutout -->
+            <div id="homeBannerCutoutHint" style="display:none;background:var(--card-bg, #f1f5f9);border:1px dashed var(--primary);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:var(--text);line-height:1.45;">
+              🛍️ <strong>Product Photo / Cutout</strong> (Optional / Recommended transparent PNG/WebP)<br>
+              <span style="font-size:0.76rem;color:var(--muted);">Appears on the right side of the template card. Text lines will be displayed on the left.</span>
             </div>
 
             <div class="img-upload-row">
@@ -1660,9 +1744,10 @@
               <button type="button" class="btn btn-ghost btn-sm" onclick="clearHomeBannerImage()" title="Remove image">✕</button>
             </div>
             <div class="img-status" id="homeBannerUploadStatus"></div>
-            <small style="color:var(--muted);font-size:11px;display:block;margin-top:3px;">⚡ Auto-converted to WebP &amp; compressed before uploading to GitHub</small>
+            <small id="homeBannerUploadHelpText" style="color:var(--muted);font-size:11px;display:block;margin-top:3px;">⚡ Auto-converted to WebP &amp; compressed before uploading to GitHub</small>
           </div>
-          <div class="field" style="margin-top:14px;background:var(--card-bg, #f8fafc);border:1.5px solid var(--border, #e2e8f0);border-radius:10px;padding:10px 14px;">
+
+          <div class="field" id="homeBannerEffectSection" style="margin-top:14px;background:var(--card-bg, #f8fafc);border:1.5px solid var(--border, #e2e8f0);border-radius:10px;padding:10px 14px;">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:0.86rem;margin-bottom:0;color:var(--text, #1e293b);">
               <input type="checkbox" id="homeBannerApplyEffect" onchange="renderHomeBannerPreview()" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"/>
               Apply Vignette &amp; Glow Effect
@@ -4677,6 +4762,28 @@ const STORE_CONFIG = {
       { text: 'Use Coupon Inside', size: 'big' },
       { text: '', size: 'small' }
     ]
+  },
+
+  // Light templates (Color to White Gradient)
+  flipkart_light: {
+    name: 'Flipkart Light',
+    themeClass: 'theme-flipkart_light',
+    iconSvg: SVG_FLIPKART,
+  },
+  amazon_light: {
+    name: 'Amazon Light',
+    themeClass: 'theme-amazon_light',
+    iconSvg: SVG_AMAZON,
+  },
+  myntra_light: {
+    name: 'Myntra Light',
+    themeClass: 'theme-myntra_light',
+    iconSvg: SVG_MYNTRA,
+  },
+  ajio_light: {
+    name: 'AJIO Light',
+    themeClass: 'theme-ajio_light',
+    iconSvg: SVG_AJIO,
   }
 };
 
@@ -4705,12 +4812,12 @@ function renderBannerCardHtml(b, isMini = false) {
   const storeKey = (b.store || 'myntra').toLowerCase();
   const cfg = STORE_CONFIG[storeKey] || STORE_CONFIG[storeKey.split('_')[0]] || STORE_CONFIG.flipkart_1;
   const badgeText = b.badgeText || '';
-  const lines = Array.isArray(b.lines) && b.lines.length ? b.lines : (cfg.defaultLines || []);
+  const lines = Array.isArray(b.lines) ? b.lines : [];
   const imgUrl = b.imageUrl || '';
 
-  const linesHtml = lines.filter(l => l && l.text).map(l => {
+  const linesHtml = lines.filter(l => l && l.text && l.text.trim().length > 0).map(l => {
     const cls = l.size === 'big' ? 'banner-line-big' : 'banner-line-small';
-    return `<div class="${cls}">${escHtml(l.text)}</div>`;
+    return `<div class="${cls}">${escHtml(l.text.trim())}</div>`;
   }).join('');
   const imgHtml = imgUrl ? `
     <div class="banner-img-col">
@@ -4733,7 +4840,7 @@ function renderBannerCardHtml(b, isMini = false) {
       </div>
       <div class="banner-content-row">
         <div class="banner-text-col">
-          ${linesHtml || '<div class="banner-line-big">Special Offer</div>'}
+          ${linesHtml || (isMini ? '' : '<div class="banner-line-small" style="opacity:0.4;">(No text lines)</div>')}
         </div>
         ${imgHtml}
       </div>
@@ -4763,26 +4870,6 @@ function renderBannerPreview() {
 }
 
 function onBannerStoreChange() {
-  const store = document.getElementById('bannerStore').value;
-  const cfg = STORE_CONFIG[store] || STORE_CONFIG[store.split('_')[0]] || STORE_CONFIG.flipkart_1;
-
-  const l1 = document.getElementById('bannerLine1');
-  const l2 = document.getElementById('bannerLine2');
-  const l3 = document.getElementById('bannerLine3');
-  const l4 = document.getElementById('bannerLine4');
-  const badgeInput = document.getElementById('bannerBadge');
-
-  if (!badgeInput.value.trim() && cfg.defaultBadge) {
-    badgeInput.value = cfg.defaultBadge;
-  }
-
-  if (!l1.value && !l2.value && !l3.value && !l4.value) {
-    if (cfg.defaultLines[0]) { l1.value = cfg.defaultLines[0].text; document.getElementById('bannerSize1').value = cfg.defaultLines[0].size; }
-    if (cfg.defaultLines[1]) { l2.value = cfg.defaultLines[1].text; document.getElementById('bannerSize2').value = cfg.defaultLines[1].size; }
-    if (cfg.defaultLines[2]) { l3.value = cfg.defaultLines[2].text; document.getElementById('bannerSize3').value = cfg.defaultLines[2].size; }
-    if (cfg.defaultLines[3]) { l4.value = cfg.defaultLines[3].text; document.getElementById('bannerSize4').value = cfg.defaultLines[3].size; }
-  }
-
   renderBannerPreview();
 }
 
@@ -4900,7 +4987,12 @@ function renderBannersList() {
     const sKey = (b.store || 'flipkart_1').toLowerCase(); const storeCfg = STORE_CONFIG[sKey] || STORE_CONFIG[sKey.split('_')[0]] || STORE_CONFIG.flipkart_1;
     const globalIdx = allBanners.findIndex(x => x.id === b.id);
     return `
-      <div class="banner-admin-item" id="bannerItem_${b.id}">
+      <div class="banner-admin-item" id="bannerItem_${b.id}" draggable="true"
+        ondragstart="handleStoreBannerDragStart(event, '${b.id}')"
+        ondragover="handleStoreBannerDragOver(event)"
+        ondragleave="handleStoreBannerDragLeave(event)"
+        ondrop="handleStoreBannerDrop(event, '${b.id}')"
+        ondragend="handleStoreBannerDragEnd(event)">
         <div class="banner-admin-card-preview">
           ${renderBannerCardHtml(b, true)}
         </div>
@@ -4918,9 +5010,12 @@ function renderBannersList() {
             🔗 ${escHtml(b.link || 'No link set')}
           </div>
           <div class="banner-admin-actions">
-            <div style="display:flex;gap:4px;">
-              <button class="btn btn-ghost btn-sm" onclick="moveBanner('${b.id}', -1)" title="Move up" ${globalIdx === 0 ? 'disabled' : ''}>↑</button>
-              <button class="btn btn-ghost btn-sm" onclick="moveBanner('${b.id}', 1)" title="Move down" ${globalIdx === allBanners.length - 1 ? 'disabled' : ''}>↓</button>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <div class="drag-handle" title="Drag to reorder" style="cursor:grab;display:inline-flex;align-items:center;gap:4px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:0.75rem;font-weight:700;color:var(--muted);user-select:none;">
+                <span style="font-size:1rem;line-height:1;color:var(--text);">⠿</span> Drag
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="moveBanner('${b.id}', -1)" title="Move up" ${globalIdx === 0 ? 'disabled' : ''} style="padding:4px 7px;">↑</button>
+              <button class="btn btn-ghost btn-sm" onclick="moveBanner('${b.id}', 1)" title="Move down" ${globalIdx === allBanners.length - 1 ? 'disabled' : ''} style="padding:4px 7px;">↓</button>
             </div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-outline btn-sm" onclick="editBanner('${b.id}')">Edit</button>
@@ -4930,6 +5025,64 @@ function renderBannersList() {
         </div>
       </div>`;
   }).join('');
+}
+
+let draggedStoreBannerId = null;
+
+function handleStoreBannerDragStart(e, id) {
+  draggedStoreBannerId = id;
+  e.dataTransfer.setData('text/plain', id);
+  e.dataTransfer.effectAllowed = 'move';
+  const el = document.getElementById('bannerItem_' + id);
+  if (el) setTimeout(() => el.classList.add('is-dragging'), 0);
+}
+
+function handleStoreBannerDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const card = e.currentTarget;
+  if (card && !card.classList.contains('drag-over')) {
+    card.classList.add('drag-over');
+  }
+}
+
+function handleStoreBannerDragLeave(e) {
+  const card = e.currentTarget;
+  if (card) card.classList.remove('drag-over');
+}
+
+async function handleStoreBannerDrop(e, targetId) {
+  e.preventDefault();
+  const card = e.currentTarget;
+  if (card) card.classList.remove('drag-over');
+  const sourceId = draggedStoreBannerId || e.dataTransfer.getData('text/plain');
+  draggedStoreBannerId = null;
+
+  if (!sourceId || sourceId === targetId) return;
+
+  const sourceIdx = allBanners.findIndex(b => b.id === sourceId);
+  const targetIdx = allBanners.findIndex(b => b.id === targetId);
+  if (sourceIdx < 0 || targetIdx < 0) return;
+
+  const [moved] = allBanners.splice(sourceIdx, 1);
+  allBanners.splice(targetIdx, 0, moved);
+  allBanners.forEach((b, i) => b.order = i);
+
+  renderBannersList();
+
+  try {
+    await apiFetch('/banners/reorder', { method: 'POST', body: { banners: allBanners } });
+    showToast('Store banners reordered');
+  } catch (err) {
+    console.error('Failed to save banner reorder:', err);
+  }
+}
+
+function handleStoreBannerDragEnd(e) {
+  draggedStoreBannerId = null;
+  document.querySelectorAll('.banner-admin-item').forEach(el => {
+    el.classList.remove('is-dragging', 'drag-over');
+  });
 }
 
 async function saveBannerForm() {
@@ -5047,17 +5200,15 @@ function resetBannerForm() {
   document.getElementById('bannerSaveStatus').textContent = '';
 
   document.getElementById('bannerStore').value = 'flipkart_1';
-  document.getElementById('bannerBadge').value = STORE_CONFIG.flipkart_1.defaultBadge;
+  document.getElementById('bannerBadge').value = '';
   document.getElementById('bannerLink').value = '';
   document.getElementById('bannerImageUrl').value = '';
   document.getElementById('bannerImageFileName').textContent = 'No image chosen';
   document.getElementById('bannerUploadStatus').textContent = '';
 
-  const defaults = STORE_CONFIG.flipkart_1.defaultLines;
   for (let i = 1; i <= 4; i++) {
-    const d = defaults[i - 1];
-    document.getElementById('bannerLine' + i).value = d ? d.text : '';
-    document.getElementById('bannerSize' + i).value = d ? d.size : (i === 2 || i === 3 ? 'big' : 'small');
+    document.getElementById('bannerLine' + i).value = '';
+    document.getElementById('bannerSize' + i).value = (i === 1 ? 'big' : 'small');
   }
 
   renderBannerPreview();
@@ -5179,7 +5330,117 @@ async function toggleDefaultAnimatedBanner() {
   }
 }
 
+const HOME_BANNER_TEMPLATES = {
+  amazon_light: {
+    name: 'Amazon Light (Sunburst Amber to White)',
+    store: 'amazon',
+    background: 'linear-gradient(120deg, #EA580C 0%, #F59E0B 34%, #ffffff 86%)',
+    badgeBg: '#131921',
+    badgeColor: '#FF9900'
+  },
+  amazon_warm: {
+    name: 'Amazon Warm Gold (Radiant Sunburst)',
+    store: 'amazon',
+    background: 'linear-gradient(135deg, #FFB300 0%, #FB8C00 50%, #E65100 100%)',
+    badgeBg: '#131921',
+    badgeColor: '#FF9900'
+  },
+  flipkart_light: {
+    name: 'Flipkart Light (Royal Blue to White)',
+    store: 'flipkart',
+    background: 'linear-gradient(120deg, #1D4ED8 0%, #3B82F6 34%, #ffffff 86%)',
+    badgeBg: '#FF2E63',
+    badgeColor: '#ffffff'
+  },
+  flipkart_electric: {
+    name: 'Flipkart Electric Azure (Deep Blue)',
+    store: 'flipkart',
+    background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 50%, #075985 100%)',
+    badgeBg: '#FF2E63',
+    badgeColor: '#ffffff'
+  },
+  myntra_light: {
+    name: 'Myntra Light (Rose Pink to White)',
+    store: 'myntra',
+    background: 'linear-gradient(120deg, #BE123C 0%, #E11D48 34%, #ffffff 86%)',
+    badgeBg: '#9F1239',
+    badgeColor: '#ffffff'
+  },
+  myntra_vivid: {
+    name: 'Myntra Vivid Magenta (Sunset Berry)',
+    store: 'myntra',
+    background: 'linear-gradient(135deg, #FF1768 0%, #E11D48 50%, #BE123C 100%)',
+    badgeBg: '#881337',
+    badgeColor: '#ffffff'
+  },
+  ajio_light: {
+    name: 'AJIO Light (Steel Slate to White)',
+    store: 'ajio',
+    background: 'linear-gradient(120deg, #1E293B 0%, #475569 36%, #ffffff 86%)',
+    badgeBg: '#0F172A',
+    badgeColor: '#ffffff'
+  },
+  ajio_midnight: {
+    name: 'AJIO Midnight Indigo',
+    store: 'ajio',
+    background: 'linear-gradient(135deg, #334155 0%, #1E293B 50%, #0F172A 100%)',
+    badgeBg: '#020617',
+    badgeColor: '#ffffff'
+  },
+  dealbuster_light: {
+    name: 'DealBuster Royal Light (Purple to White)',
+    store: 'dealbuster',
+    background: 'linear-gradient(120deg, #4F46E5 0%, #7C3AED 34%, #ffffff 86%)',
+    badgeBg: '#312E81',
+    badgeColor: '#F59E0B'
+  },
+  festive_emerald_light: {
+    name: 'Festive Emerald (Green to White)',
+    store: 'amazon',
+    background: 'linear-gradient(120deg, #065F46 0%, #059669 34%, #ffffff 86%)',
+    badgeBg: '#064E3B',
+    badgeColor: '#FDE047'
+  }
+};
+
+function onHomeBannerFormatChange() {
+  const fmt = document.getElementById('homeBannerFormat')?.value || 'full_bg';
+  const isTemplate = fmt !== 'full_bg';
+  const fullBgHint = document.getElementById('homeBannerFullBgHint');
+  const cutoutHint = document.getElementById('homeBannerCutoutHint');
+  const imageLabel = document.getElementById('homeBannerImageLabel');
+  const uploadBtn = document.getElementById('homeBannerUploadBtn');
+  const uploadHelp = document.getElementById('homeBannerUploadHelpText');
+  const effectSec = document.getElementById('homeBannerEffectSection');
+
+  if (isTemplate) {
+    if (fullBgHint) fullBgHint.style.display = 'none';
+    if (cutoutHint) cutoutHint.style.display = 'block';
+    if (imageLabel) imageLabel.textContent = 'Right-Side Product Photo / Cutout';
+    if (uploadBtn) uploadBtn.textContent = '📁 Upload Product Photo';
+    if (uploadHelp) uploadHelp.textContent = '⚡ Preserves transparent background & compressed to WebP';
+    if (effectSec) effectSec.style.display = 'none';
+
+    // Sync matching store logo if default is untouched
+    const tpl = HOME_BANNER_TEMPLATES[fmt];
+    if (tpl && tpl.store) {
+      const storeSelect = document.getElementById('homeBannerStore');
+      if (storeSelect) storeSelect.value = tpl.store;
+    }
+  } else {
+    if (fullBgHint) fullBgHint.style.display = 'block';
+    if (cutoutHint) cutoutHint.style.display = 'none';
+    if (imageLabel) imageLabel.textContent = 'Full Background Image (Required)';
+    if (uploadBtn) uploadBtn.textContent = '📁 Upload Background Image';
+    if (uploadHelp) uploadHelp.textContent = '⚡ Auto-converted to WebP & compressed before uploading to GitHub';
+    if (effectSec) effectSec.style.display = 'block';
+  }
+
+  renderHomeBannerPreview();
+}
+
 function getHomeBannerDataFromForm() {
+  const template = document.getElementById('homeBannerFormat')?.value || 'full_bg';
   const store = document.getElementById('homeBannerStore')?.value || 'amazon';
   const selEl = document.getElementById('homeBannerStore');
   const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text?.replace(/ \(.*\)/, '') : 'Amazon';
@@ -5198,7 +5459,7 @@ function getHomeBannerDataFromForm() {
   const subtitle = lines.filter(l => l.text !== title).map(l => l.text).join(' • ');
   const applyEffect = document.getElementById('homeBannerApplyEffect')?.checked === true;
 
-  return { store, storeName, badgeText, applyEffect, link, lines, title, subtitle, imageUrl };
+  return { template, store, storeName, badgeText, applyEffect, link, lines, title, subtitle, imageUrl };
 }
 
 function getStoreLogoHtml(store, storeName) {
@@ -5218,17 +5479,13 @@ function renderHomeBannerCardHtml(b) {
   const store = (b.store || 'amazon').toLowerCase();
   const storeName = b.storeName || (store.charAt(0).toUpperCase() + store.slice(1));
   const badgeText = b.badgeText || '';
+  const tplKey = b.template && b.template !== 'full_bg' ? b.template : null;
+  const tpl = tplKey ? (HOME_BANNER_TEMPLATES[tplKey] || null) : null;
 
   let lines = Array.isArray(b.lines) && b.lines.length ? b.lines : [];
   if (!lines.length) {
     if (b.title) lines.push({ text: b.title, size: 'big' });
     if (b.subtitle) lines.push({ text: b.subtitle, size: 'small' });
-  }
-  if (!lines.length) {
-    lines = [
-      { text: 'Deals That Don\'t Wait', size: 'big' },
-      { text: 'Fresh price drops tracked around the clock', size: 'small' }
-    ];
   }
 
   let imgUrl = b.imageUrl || '';
@@ -5236,16 +5493,51 @@ function renderHomeBannerCardHtml(b) {
     imgUrl = 'https://dealbuster.in/' + imgUrl.replace(/^\/+/, '');
   }
 
-  const bgStyle = imgUrl 
-    ? `background-image: url('${escHtml(imgUrl)}'); background-size: cover; background-position: center;`
-    : `background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);`;
-
   const logoHtml = getStoreLogoHtml(store, storeName);
 
   const linesHtml = lines.map(l => {
     const cls = l.size === 'big' ? 'banner-line-big' : 'banner-line-small';
     return `<div class="${cls}">${escHtml(l.text)}</div>`;
   }).join('');
+
+  if (tpl) {
+    return `
+      <div style="position:relative; width:100%; height:176px; border-radius:26px; overflow:hidden; background:${tpl.background}; box-shadow:0 8px 24px -6px rgba(0,0,0,0.3); font-family:'Segoe UI', system-ui, sans-serif; display:flex; flex-direction:column; padding:14px 18px; box-sizing:border-box; color:#fff;">
+        <!-- Right side product image -->
+        ${imgUrl ? `
+        <div style="position:absolute; right:12px; top:12px; bottom:12px; width:44%; display:flex; align-items:center; justify-content:flex-end; pointer-events:none; z-index:3;">
+          <img src="${escHtml(imgUrl)}" alt="Product" style="max-height:100%; max-width:100%; object-fit:contain; filter:drop-shadow(0 6px 12px rgba(0,0,0,0.2));" onerror="this.onerror=null; this.src='https://dealbuster.in/images/dealbuster_icon.png';"/>
+        </div>
+        ` : `
+        <div style="position:absolute; right:14px; top:16px; bottom:16px; width:38%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(255,255,255,0.22); border:1.5px dashed rgba(255,255,255,0.45); border-radius:14px; color:rgba(0,0,0,0.5); font-size:11px; font-weight:700;">
+          <span style="font-size:20px;">🛍️</span>
+          <span>Cutout Photo</span>
+        </div>
+        `}
+
+        <!-- Top Row: Store Badge + Deal Badge -->
+        <div style="position:relative; z-index:4; display:flex; align-items:center; gap:8px;">
+          <div class="banner-store-pill">
+            ${logoHtml}
+          </div>
+          ${badgeText ? `
+            <span style="background:${tpl.badgeBg || '#111827'}; color:${tpl.badgeColor || '#fff'}; font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:0.04em; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+              ${escHtml(badgeText)}
+            </span>
+          ` : ''}
+        </div>
+
+        <!-- Left: Vertically Centered Text Lines -->
+        <div style="position:relative; z-index:4; flex:1; display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:54%;">
+          ${linesHtml || '<div class="banner-line-big">Special Offer</div>'}
+        </div>
+      </div>
+    `;
+  }
+
+  const bgStyle = imgUrl 
+    ? `background-image: url('${escHtml(imgUrl)}'); background-size: cover; background-position: center;`
+    : `background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);`;
 
   return `
     <div style="position:relative; width:100%; height:176px; border-radius:26px; overflow:hidden; ${bgStyle} box-shadow:0 8px 24px -6px rgba(0,0,0,0.3); font-family:'Segoe UI', system-ui, sans-serif; display:flex; flex-direction:column; padding:14px 18px; box-sizing:border-box; color:#fff;">
@@ -5268,7 +5560,7 @@ function renderHomeBannerCardHtml(b) {
 
       <!-- Middle: Vertically Centered Text Lines (matching store banners) -->
       <div style="position:relative; z-index:2; flex:1; display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:54%;">
-        ${linesHtml}
+        ${linesHtml || '<div class="banner-line-big">Special Offer</div>'}
       </div>
     </div>
   `;
@@ -5368,8 +5660,14 @@ function renderHomeBannersList() {
   }
 
   container.innerHTML = allHomeBanners.map((b, idx) => {
+    const isTpl = b.template && b.template !== 'full_bg';
     return `
-      <div class="banner-admin-item" id="homeBannerItem_${b.id}">
+      <div class="banner-admin-item" id="homeBannerItem_${b.id}" draggable="true"
+        ondragstart="handleHomeBannerDragStart(event, '${b.id}')"
+        ondragover="handleHomeBannerDragOver(event)"
+        ondragleave="handleHomeBannerDragLeave(event)"
+        ondrop="handleHomeBannerDrop(event, '${b.id}')"
+        ondragend="handleHomeBannerDragEnd(event)">
         <div class="banner-admin-card-preview">
           ${renderHomeBannerCardHtml(b)}
         </div>
@@ -5377,7 +5675,8 @@ function renderHomeBannersList() {
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:0.75rem;font-weight:800;color:var(--text);text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;">
               ${escHtml(b.storeName || b.store || 'Banner')} • <span style="color:var(--muted);font-weight:600;">#${idx + 1}</span>
-              ${b.applyEffect ? '<span style="font-size:0.68rem;font-weight:700;color:var(--primary);background:var(--primary-soft);padding:1px 6px;border-radius:4px;text-transform:none;">✨ Vignette On</span>' : ''}
+              ${isTpl ? '<span style="font-size:0.68rem;font-weight:700;color:#8B5CF6;background:rgba(139,92,246,0.12);padding:1px 6px;border-radius:4px;text-transform:none;">🎨 Template</span>' : ''}
+              ${b.applyEffect ? '<span style="font-size:0.68rem;font-weight:700;color:var(--primary);background:var(--primary-soft);padding:1px 6px;border-radius:4px;text-transform:none;">✨ Vignette</span>' : ''}
             </span>
             <label class="toggle-switch" title="Toggle active/inactive in app">
               <input type="checkbox" ${b.active !== false ? 'checked' : ''} onchange="toggleHomeBannerActive('${b.id}')"/>
@@ -5388,9 +5687,12 @@ function renderHomeBannersList() {
             🔗 ${escHtml(b.link || 'No link set')}
           </div>
           <div class="banner-admin-actions">
-            <div style="display:flex;gap:4px;">
-              <button class="btn btn-ghost btn-sm" onclick="moveHomeBanner('${b.id}', -1)" title="Move up" ${idx === 0 ? 'disabled' : ''}>↑</button>
-              <button class="btn btn-ghost btn-sm" onclick="moveHomeBanner('${b.id}', 1)" title="Move down" ${idx === allHomeBanners.length - 1 ? 'disabled' : ''}>↓</button>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <div class="drag-handle" title="Drag to reorder" style="cursor:grab;display:inline-flex;align-items:center;gap:4px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:0.75rem;font-weight:700;color:var(--muted);user-select:none;">
+                <span style="font-size:1rem;line-height:1;color:var(--text);">⠿</span> Drag
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="moveHomeBanner('${b.id}', -1)" title="Move up" ${idx === 0 ? 'disabled' : ''} style="padding:4px 7px;">↑</button>
+              <button class="btn btn-ghost btn-sm" onclick="moveHomeBanner('${b.id}', 1)" title="Move down" ${idx === allHomeBanners.length - 1 ? 'disabled' : ''} style="padding:4px 7px;">↓</button>
             </div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-outline btn-sm" onclick="editHomeBanner('${b.id}')">Edit</button>
@@ -5402,10 +5704,69 @@ function renderHomeBannersList() {
   }).join('');
 }
 
+let draggedHomeBannerId = null;
+
+function handleHomeBannerDragStart(e, id) {
+  draggedHomeBannerId = id;
+  e.dataTransfer.setData('text/plain', id);
+  e.dataTransfer.effectAllowed = 'move';
+  const el = document.getElementById('homeBannerItem_' + id);
+  if (el) setTimeout(() => el.classList.add('is-dragging'), 0);
+}
+
+function handleHomeBannerDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const card = e.currentTarget;
+  if (card && !card.classList.contains('drag-over')) {
+    card.classList.add('drag-over');
+  }
+}
+
+function handleHomeBannerDragLeave(e) {
+  const card = e.currentTarget;
+  if (card) card.classList.remove('drag-over');
+}
+
+async function handleHomeBannerDrop(e, targetId) {
+  e.preventDefault();
+  const card = e.currentTarget;
+  if (card) card.classList.remove('drag-over');
+  const sourceId = draggedHomeBannerId || e.dataTransfer.getData('text/plain');
+  draggedHomeBannerId = null;
+
+  if (!sourceId || sourceId === targetId) return;
+
+  const sourceIdx = allHomeBanners.findIndex(b => b.id === sourceId);
+  const targetIdx = allHomeBanners.findIndex(b => b.id === targetId);
+  if (sourceIdx < 0 || targetIdx < 0) return;
+
+  const [moved] = allHomeBanners.splice(sourceIdx, 1);
+  allHomeBanners.splice(targetIdx, 0, moved);
+  allHomeBanners.forEach((b, i) => b.order = i);
+
+  renderHomeBannersList();
+
+  try {
+    await apiFetch('/home-banners/reorder', { method: 'POST', body: { banners: allHomeBanners } });
+    showToast('Home banners reordered');
+  } catch (err) {
+    console.error('Failed to save home banner reorder:', err);
+  }
+}
+
+function handleHomeBannerDragEnd(e) {
+  draggedHomeBannerId = null;
+  document.querySelectorAll('#homeBannersListContainer .banner-admin-item').forEach(el => {
+    el.classList.remove('is-dragging', 'drag-over');
+  });
+}
+
 async function saveHomeBannerForm() {
   const saveBtn = document.getElementById('saveHomeBannerBtn');
   const statusEl = document.getElementById('homeBannerSaveStatus');
   const editingId = document.getElementById('editingHomeBannerId').value;
+  const template = document.getElementById('homeBannerFormat')?.value || 'full_bg';
   const store = document.getElementById('homeBannerStore').value;
   const selEl = document.getElementById('homeBannerStore');
   const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text?.replace(/ \(.*\)/, '') : (store.charAt(0).toUpperCase() + store.slice(1));
@@ -5435,6 +5796,7 @@ async function saveHomeBannerForm() {
 
   try {
     const payload = {
+      template,
       store,
       storeName,
       badgeText,
@@ -5496,6 +5858,12 @@ function editHomeBanner(id) {
   document.getElementById('homeBannerFormTitle').textContent = 'Edit Home Banner';
   document.getElementById('saveHomeBannerBtn').textContent = 'Update Banner';
 
+  const fmtEl = document.getElementById('homeBannerFormat');
+  if (fmtEl) {
+    fmtEl.value = b.template || 'full_bg';
+    onHomeBannerFormatChange();
+  }
+
   document.getElementById('homeBannerStore').value = b.store || 'amazon';
   document.getElementById('homeBannerBadge').value = b.badgeText || '';
   const effectEl = document.getElementById('homeBannerApplyEffect');
@@ -5527,6 +5895,12 @@ function resetHomeBannerForm() {
   document.getElementById('homeBannerFormTitle').textContent = 'Create Home Banner';
   document.getElementById('saveHomeBannerBtn').textContent = 'Save Banner';
   document.getElementById('homeBannerSaveStatus').textContent = '';
+
+  const fmtEl = document.getElementById('homeBannerFormat');
+  if (fmtEl) {
+    fmtEl.value = 'full_bg';
+    onHomeBannerFormatChange();
+  }
 
   document.getElementById('homeBannerStore').value = 'amazon';
   document.getElementById('homeBannerBadge').value = '';

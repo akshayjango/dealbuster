@@ -229,6 +229,131 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
   }
 }
 
+class _HomeBannerTemplate {
+  const _HomeBannerTemplate({
+    required this.gradient,
+    required this.badgeBg,
+    required this.badgeTextColor,
+  });
+
+  final LinearGradient gradient;
+  final Color badgeBg;
+  final Color badgeTextColor;
+}
+
+_HomeBannerTemplate? _getHomeBannerTemplate(String template) {
+  switch (template.toLowerCase()) {
+    case 'amazon_light':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFF9900), Color(0xFFFFB74D), Color(0xFFFFFFFF)],
+          stops: [0.0, 0.34, 0.86],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF131921),
+        badgeTextColor: Color(0xFFFF9900),
+      );
+    case 'amazon_warm':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFFB300), Color(0xFFFB8C00), Color(0xFFE65100)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF131921),
+        badgeTextColor: Color(0xFFFF9900),
+      );
+    case 'flipkart_light':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF2563EB), Color(0xFF3B82F6), Color(0xFFFFFFFF)],
+          stops: [0.0, 0.34, 0.86],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF1E40AF),
+        badgeTextColor: Colors.white,
+      );
+    case 'flipkart_electric':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0284C7), Color(0xFF0369A1), Color(0xFF075985)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFF2E63),
+        badgeTextColor: Colors.white,
+      );
+    case 'myntra_light':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFF1768), Color(0xFFFB7185), Color(0xFFFFFFFF)],
+          stops: [0.0, 0.34, 0.86],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF9F1239),
+        badgeTextColor: Colors.white,
+      );
+    case 'myntra_vivid':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFF1768), Color(0xFFE11D48), Color(0xFFBE123C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF9F1239),
+        badgeTextColor: Colors.white,
+      );
+    case 'ajio_light':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF334155), Color(0xFF64748B), Color(0xFFFFFFFF)],
+          stops: [0.0, 0.34, 0.86],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF0F172A),
+        badgeTextColor: Colors.white,
+      );
+    case 'ajio_midnight':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF334155), Color(0xFF1E293B), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF020617),
+        badgeTextColor: Colors.white,
+      );
+    case 'dealbuster_light':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFFFFFFFF)],
+          stops: [0.0, 0.34, 0.86],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF312E81),
+        badgeTextColor: Color(0xFFF59E0B),
+      );
+    case 'festive_emerald_light':
+      return const _HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF065F46), Color(0xFF059669), Color(0xFFFFFFFF)],
+          stops: [0.0, 0.34, 0.86],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF064E3B),
+        badgeTextColor: Color(0xFFFDE047),
+      );
+    default:
+      return null;
+  }
+}
+
 class _CustomBannerCard extends StatelessWidget {
   const _CustomBannerCard({required this.banner});
 
@@ -316,6 +441,174 @@ class _CustomBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tpl = banner.isTemplate ? _getHomeBannerTemplate(banner.template) : null;
+
+    if (tpl != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          // Template Background Gradient
+          Container(
+            decoration: BoxDecoration(
+              gradient: tpl.gradient,
+            ),
+          ),
+
+          // Right-side product cutout image
+          if (banner.fullImageUrl.isNotEmpty)
+            Positioned(
+              right: 12,
+              top: 14,
+              bottom: 14,
+              width: MediaQuery.of(context).size.width * 0.44,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Hero(
+                  tag: 'home_banner_img_${banner.id}',
+                  child: CachedNetworkImage(
+                    imageUrl: banner.fullImageUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const SizedBox.shrink(),
+                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ),
+
+          // Content layer (Top logo pill + vertically centered text lines)
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Row: Store Badge + Deal Badge
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        height: 24,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: _buildStoreLogo(banner.store, banner.storeName),
+                      ),
+                      if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: tpl.badgeBg,
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            banner.badgeText!.trim().toUpperCase(),
+                            style: TextStyle(
+                              color: tpl.badgeTextColor,
+                              fontSize: 9.8,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+
+                  // Text Lines (vertically centered in remaining space)
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.52,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: banner.effectiveLines.map((line) {
+                            if (line.text.trim().isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(
+                                line.text.trim(),
+                                style: line.isBig
+                                    ? GoogleFonts.sora(
+                                        color: Colors.white,
+                                        fontSize: 23,
+                                        fontWeight: FontWeight.w800,
+                                        height: 1.12,
+                                        letterSpacing: -0.3,
+                                        shadows: const [
+                                          Shadow(
+                                            color: Color(0x33000000),
+                                            offset: Offset(0, 1),
+                                            blurRadius: 3,
+                                          ),
+                                        ],
+                                      )
+                                    : GoogleFonts.inter(
+                                        color: Colors.white.withValues(alpha: 0.95),
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.22,
+                                        letterSpacing: -0.1,
+                                        shadows: const [
+                                          Shadow(
+                                            color: Color(0x26000000),
+                                            offset: Offset(0, 1),
+                                            blurRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Click / Tap Handler
+          Positioned.fill(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: banner.link.trim().isNotEmpty ? _launch : null,
+                splashColor: Colors.white.withValues(alpha: 0.15),
+                highlightColor: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Stack(
       fit: StackFit.expand,
       children: [
