@@ -11,6 +11,7 @@ class HomeBannerItem {
     required this.subtitle,
     required this.imageUrl,
     required this.link,
+    this.applyEffect = false,
     this.active = true,
     this.order = 0,
   });
@@ -24,6 +25,7 @@ class HomeBannerItem {
   final String subtitle;
   final String imageUrl;
   final String link;
+  final bool applyEffect;
   final bool active;
   final int order;
 
@@ -84,6 +86,7 @@ class HomeBannerItem {
       subtitle: effectiveSubtitle,
       imageUrl: json['imageUrl'] as String? ?? '',
       link: json['link'] as String? ?? '',
+      applyEffect: json['applyEffect'] as bool? ?? false,
       active: json['active'] as bool? ?? true,
       order: json['order'] as int? ?? 0,
     );
@@ -99,6 +102,7 @@ class HomeBannerItem {
     'subtitle': subtitle,
     'imageUrl': imageUrl,
     'link': link,
+    'applyEffect': applyEffect,
     'active': active,
     'order': order,
   };

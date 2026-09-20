@@ -73,4 +73,41 @@ void main() {
     expect(find.byType(PageView), findsNothing);
     expect(find.text("Deals that\ndon't wait."), findsNothing);
   });
+
+  testWidgets('HeroBanner renders PageView when multiple banners are present', (tester) async {
+    final b1 = const HomeBannerItem(
+      id: 'b1',
+      store: 'flipkart',
+      storeName: 'Flipkart',
+      title: 'Flipkart Fest',
+      subtitle: 'Big Savings',
+      imageUrl: '',
+      link: 'https://flipkart.com',
+    );
+    final b2 = const HomeBannerItem(
+      id: 'b2',
+      store: 'myntra',
+      storeName: 'Myntra',
+      title: 'Fashion carnival',
+      subtitle: 'Up to 80% off',
+      imageUrl: '',
+      link: 'https://myntra.com',
+      applyEffect: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HeroBanner(
+            liveDealCount: 10,
+            showDefaultAnimatedBanner: false,
+            customBanners: [b1, b2],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(PageView), findsOneWidget);
+    expect(find.text('Flipkart Fest'), findsOneWidget);
+  });
 }

@@ -215,7 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'DealBuster Version 1.0.12',
+                  'DealBuster Version 1.0.13',
                   style: TextStyle(
                     color: AppColors.ink400,
                     fontSize: 12,

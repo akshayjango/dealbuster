@@ -81,15 +81,22 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
   late final AnimationController _c;
   late final PageController _pageController;
   Timer? _timer;
-  int _currentPage = 0;
+  int _virtualPage = 0;
 
   int get _totalCount =>
       (widget.showDefaultAnimatedBanner ? 1 : 0) + widget.customBanners.length;
 
+  int _getInitialVirtualPage(int count) {
+    if (count <= 1) return 0;
+    return count * 1000;
+  }
+
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    final count = _totalCount;
+    _virtualPage = _getInitialVirtualPage(count);
+    _pageController = PageController(initialPage: _virtualPage);
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 6000), // 6 seconds loop
@@ -100,13 +107,13 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
   @override
   void didUpdateWidget(covariant HeroBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.showDefaultAnimatedBanner != widget.showDefaultAnimatedBanner ||
-        oldWidget.customBanners.length != widget.customBanners.length) {
-      if (_currentPage >= _totalCount && _totalCount > 0) {
-        _currentPage = 0;
-        if (_pageController.hasClients) {
-          _pageController.jumpToPage(0);
-        }
+    final oldCount = (oldWidget.showDefaultAnimatedBanner ? 1 : 0) +
+        oldWidget.customBanners.length;
+    final newCount = _totalCount;
+    if (oldCount != newCount) {
+      _virtualPage = _getInitialVirtualPage(newCount);
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(_virtualPage);
       }
       _startAutoSlide();
     }
@@ -115,12 +122,11 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
   void _startAutoSlide() {
     _timer?.cancel();
     if (_totalCount <= 1) return;
-    _timer = Timer.periodic(const Duration(milliseconds: 5500), (_) {
+    // Increased duration to 6500ms so users have comfortable time to read each banner
+    _timer = Timer.periodic(const Duration(milliseconds: 6500), (_) {
       if (!mounted || !_pageController.hasClients) return;
-      final next = (_currentPage + 1) % _totalCount;
-      _pageController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 550),
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 650),
         curve: Curves.easeInOutCubic,
       );
     });
@@ -212,11 +218,10 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
                 },
                 child: PageView.builder(
                   controller: _pageController,
-                  itemCount: count,
                   onPageChanged: (idx) {
-                    _currentPage = idx;
+                    _virtualPage = idx;
                   },
-                  itemBuilder: (context, idx) => _buildBannerAt(idx),
+                  itemBuilder: (context, idx) => _buildBannerAt(idx % count),
                 ),
               ),
       ),
@@ -349,21 +354,22 @@ class _CustomBannerCard extends StatelessWidget {
             ),
           ),
 
-        // Readability gradient overlay
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.42),
-                Colors.black.withValues(alpha: 0.05),
-                Colors.black.withValues(alpha: 0.88),
-              ],
-              stops: const [0.0, 0.42, 1.0],
+        // Readability gradient overlay (only when opted in via admin dashboard)
+        if (banner.applyEffect)
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.42),
+                  Colors.black.withValues(alpha: 0.05),
+                  Colors.black.withValues(alpha: 0.88),
+                ],
+                stops: const [0.0, 0.42, 1.0],
+              ),
             ),
           ),
-        ),
 
         // Content layer (Top logo pill + vertically centered text lines, matching Store Banner)
         Positioned.fill(

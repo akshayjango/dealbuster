@@ -1652,8 +1652,12 @@
               <input type="text" id="homeBannerImageUrl" placeholder="images/banners/... or https://..." oninput="renderHomeBannerPreview()" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:inherit;"/>
               <button type="button" class="btn btn-ghost btn-sm" onclick="clearHomeBannerImage()" title="Remove image">✕</button>
             </div>
-            <div class="img-status" id="homeBannerUploadStatus"></div>
-            <small style="color:var(--muted);font-size:11px;display:block;margin-top:3px;">⚡ Auto-converted to WebP & compressed before uploading to GitHub</small>
+          <div class="field" style="margin-top:14px;background:var(--card-bg, #f8fafc);border:1.5px solid var(--border, #e2e8f0);border-radius:10px;padding:10px 14px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:0.86rem;margin-bottom:0;color:var(--text, #1e293b);">
+              <input type="checkbox" id="homeBannerApplyEffect" onchange="renderHomeBannerPreview()" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"/>
+              Apply Vignette &amp; Glow Effect
+            </label>
+            <small style="color:var(--muted);font-size:11px;display:block;margin-top:4px;margin-left:26px;">Adds top/bottom vignette shadowing and center glow for enhanced text contrast on bright backgrounds.</small>
           </div>
 
           <input type="hidden" id="editingHomeBannerId" value=""/>
@@ -5163,8 +5167,9 @@ function getHomeBannerDataFromForm() {
 
   const title = lines.find(l => l.size === 'big')?.text || lines[0]?.text || '';
   const subtitle = lines.filter(l => l.text !== title).map(l => l.text).join(' • ');
+  const applyEffect = document.getElementById('homeBannerApplyEffect')?.checked === true;
 
-  return { store, storeName, badgeText, link, lines, title, subtitle, imageUrl };
+  return { store, storeName, badgeText, applyEffect, link, lines, title, subtitle, imageUrl };
 }
 
 function getStoreLogoHtml(store, storeName) {
@@ -5215,8 +5220,10 @@ function renderHomeBannerCardHtml(b) {
 
   return `
     <div style="position:relative; width:100%; height:176px; border-radius:26px; overflow:hidden; ${bgStyle} box-shadow:0 8px 24px -6px rgba(0,0,0,0.3); font-family:'Segoe UI', system-ui, sans-serif; display:flex; flex-direction:column; padding:14px 18px; box-sizing:border-box; color:#fff;">
-      <!-- Subtle multi-stop readability gradient overlay -->
+      ${b.applyEffect ? `
+      <!-- Multi-stop vignette & glow overlay -->
       <div style="position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.85) 100%); pointer-events:none; border-radius:26px;"></div>
+      ` : ''}
       
       <!-- Top Row: Store Badge + Deal Badge -->
       <div style="position:relative; z-index:2; display:flex; align-items:center; gap:8px;">
@@ -5341,6 +5348,7 @@ function renderHomeBannersList() {
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:0.75rem;font-weight:800;color:var(--text);text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;">
               ${escHtml(b.storeName || b.store || 'Banner')} • <span style="color:var(--muted);font-weight:600;">#${idx + 1}</span>
+              ${b.applyEffect ? '<span style="font-size:0.68rem;font-weight:700;color:var(--primary);background:var(--primary-soft);padding:1px 6px;border-radius:4px;text-transform:none;">✨ Vignette On</span>' : ''}
             </span>
             <label class="toggle-switch" title="Toggle active/inactive in app">
               <input type="checkbox" ${b.active !== false ? 'checked' : ''} onchange="toggleHomeBannerActive('${b.id}')"/>
@@ -5373,6 +5381,7 @@ async function saveHomeBannerForm() {
   const selEl = document.getElementById('homeBannerStore');
   const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text?.replace(/ \(.*\)/, '') : (store.charAt(0).toUpperCase() + store.slice(1));
   const badgeText = document.getElementById('homeBannerBadge').value.trim();
+  const applyEffect = document.getElementById('homeBannerApplyEffect')?.checked === true;
   const link = document.getElementById('homeBannerLink').value.trim();
   const imageUrl = document.getElementById('homeBannerImageUrl').value.trim();
 
@@ -5400,6 +5409,7 @@ async function saveHomeBannerForm() {
       store,
       storeName,
       badgeText,
+      applyEffect,
       lines,
       title,
       subtitle,
@@ -5441,6 +5451,8 @@ function editHomeBanner(id) {
 
   document.getElementById('homeBannerStore').value = b.store || 'amazon';
   document.getElementById('homeBannerBadge').value = b.badgeText || '';
+  const effectEl = document.getElementById('homeBannerApplyEffect');
+  if (effectEl) effectEl.checked = b.applyEffect === true;
   document.getElementById('homeBannerLink').value = b.link || '';
 
   let lines = Array.isArray(b.lines) && b.lines.length ? b.lines : [];
@@ -5471,6 +5483,8 @@ function resetHomeBannerForm() {
 
   document.getElementById('homeBannerStore').value = 'amazon';
   document.getElementById('homeBannerBadge').value = '';
+  const effectEl = document.getElementById('homeBannerApplyEffect');
+  if (effectEl) effectEl.checked = false;
   document.getElementById('homeBannerLink').value = '';
   for (let i = 1; i <= 4; i++) {
     const textEl = document.getElementById(`homeBannerLine${i}`);
