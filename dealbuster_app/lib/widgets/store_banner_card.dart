@@ -39,6 +39,7 @@ class StoreBannerCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      constraints: const BoxConstraints(minHeight: 160),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
@@ -82,23 +83,22 @@ class StoreBannerCard extends StatelessWidget {
                       width: MediaQuery.of(context).size.width * 0.44,
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: Hero(
-                          tag: 'banner_img_${banner.id}',
-                          child: CachedNetworkImage(
-                            imageUrl: banner.fullImageUrl,
-                            fit: BoxFit.contain,
-                            placeholder: (_, __) => const Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white70,
-                                ),
+                        child: CachedNetworkImage(
+                          imageUrl: banner.fullImageUrl,
+                          fit: BoxFit.contain,
+                          fadeInDuration: const Duration(milliseconds: 150),
+                          fadeOutDuration: const Duration(milliseconds: 150),
+                          placeholder: (_, __) => const Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white70,
                               ),
                             ),
-                            errorWidget: (_, __, ___) => const SizedBox.shrink(),
                           ),
+                          errorWidget: (_, __, ___) => const SizedBox.shrink(),
                         ),
                       ),
                     ),

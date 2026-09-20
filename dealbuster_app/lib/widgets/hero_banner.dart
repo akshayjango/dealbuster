@@ -463,14 +463,13 @@ class _CustomBannerCard extends StatelessWidget {
               width: MediaQuery.of(context).size.width * 0.44,
               child: Align(
                 alignment: Alignment.centerRight,
-                child: Hero(
-                  tag: 'home_banner_img_${banner.id}',
-                  child: CachedNetworkImage(
-                    imageUrl: banner.fullImageUrl,
-                    fit: BoxFit.contain,
-                    placeholder: (_, __) => const SizedBox.shrink(),
-                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
-                  ),
+                child: CachedNetworkImage(
+                  imageUrl: banner.fullImageUrl,
+                  fit: BoxFit.contain,
+                  fadeInDuration: const Duration(milliseconds: 150),
+                  fadeOutDuration: const Duration(milliseconds: 150),
+                  placeholder: (_, __) => const SizedBox.shrink(),
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
             ),
