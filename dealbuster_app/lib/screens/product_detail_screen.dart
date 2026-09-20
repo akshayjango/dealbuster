@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -37,14 +39,24 @@ void showProductDetailSheet(BuildContext context, Product product) {
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            child: FadeTransition(
-              opacity: animation,
-              child: GestureDetector(
-                onTap: () => Navigator.of(dialogContext).pop(),
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.82),
-                ),
-              ),
+            child: AnimatedBuilder(
+              animation: animation,
+              builder: (context, child) {
+                final progress = animation.value;
+                if (progress <= 0.001) return const SizedBox.shrink();
+                return GestureDetector(
+                  onTap: () => Navigator.of(dialogContext).pop(),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: progress * 16.0,
+                      sigmaY: progress * 16.0,
+                    ),
+                    child: Container(
+                      color: Colors.black.withValues(alpha: progress * 0.45),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           Positioned.fill(
