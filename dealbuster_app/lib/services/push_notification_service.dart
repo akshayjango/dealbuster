@@ -74,6 +74,11 @@ class PushNotificationService {
     }
   }
 
+  bool? _cachedPermission;
+
+  /// Whether notification permission is cached as granted (synchronous, instant).
+  bool get isPermissionCached => _cachedPermission ?? false;
+
   /// Prompts the Android 13+ native permission dialog for notifications.
   Future<bool> requestPermission() async {
     try {
@@ -89,6 +94,7 @@ class PushNotificationService {
 
       final granted = settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional;
+      _cachedPermission = granted;
 
       if (granted) {
         unawaited(FirebaseMessaging.instance.subscribeToTopic(dealsTopic).catchError((e) {
@@ -102,12 +108,22 @@ class PushNotificationService {
     }
   }
 
-  /// Checks if notification permission is currently granted.
+  /// Checks if notification permission is currently granted, using cache if available.
   Future<bool> hasPermission() async {
+    if (_cachedPermission != null) {
+      return _cachedPermission!;
+    }
+    return refreshPermission();
+  }
+
+  /// Forces a fresh platform check of the notification permission and updates cache.
+  Future<bool> refreshPermission() async {
     try {
       final settings = await FirebaseMessaging.instance.getNotificationSettings();
-      return settings.authorizationStatus == AuthorizationStatus.authorized ||
+      final granted = settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional;
+      _cachedPermission = granted;
+      return granted;
     } catch (_) {
       return false;
     }

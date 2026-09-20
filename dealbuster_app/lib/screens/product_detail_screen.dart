@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -43,9 +41,8 @@ void showProductDetailSheet(BuildContext context, Product product) {
               opacity: animation,
               child: GestureDetector(
                 onTap: () => Navigator.of(dialogContext).pop(),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                  child: Container(color: Colors.black.withValues(alpha: 0.35)),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.54),
                 ),
               ),
             ),
@@ -473,16 +470,13 @@ class _RoundIconButton extends StatelessWidget {
         boxShadow: cardShadow(opacity: 0.5),
       ),
       child: ClipOval(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Material(
-            color: AppColors.ink.withValues(alpha: 0.55),
-            child: InkWell(
-              onTap: onTap,
-              customBorder: const CircleBorder(),
-              child: Center(
-                child: child,
-              ),
+        child: Material(
+          color: AppColors.ink.withValues(alpha: 0.65),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: Center(
+              child: child,
             ),
           ),
         ),

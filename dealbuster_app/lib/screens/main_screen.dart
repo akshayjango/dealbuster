@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/deal_bottom_nav_bar.dart';
 import 'feed_screen.dart';
 import 'home_screen.dart';
 import 'offers_screen.dart';
-import 'placeholder_screens.dart';
 import 'stores_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -22,9 +22,33 @@ class _MainScreenState extends State<MainScreen> {
   final GlobalKey<OffersScreenState> _offersKey = GlobalKey<OffersScreenState>();
 
   @override
+  void initState() {
+    super.initState();
+    _isTabBarVisible.addListener(_updateSystemNavOverlay);
+  }
+
+  @override
   void dispose() {
+    _isTabBarVisible.removeListener(_updateSystemNavOverlay);
     _isTabBarVisible.dispose();
     super.dispose();
+  }
+
+  void _updateSystemNavOverlay() {
+    final isVisible = _isTabBarVisible.value;
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: isVisible
+            ? AppColors.bg
+            : const Color(0xD9FFFFFF),
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+      ),
+    );
   }
 
   void _onTabTapped(int index) {

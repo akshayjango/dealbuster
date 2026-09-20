@@ -2,6 +2,7 @@ import "dart:math" as math;
 import "package:flutter/material.dart";
 import "package:google_fonts/google_fonts.dart";
 
+import "../services/push_notification_service.dart";
 import "../theme/app_theme.dart";
 import "main_screen.dart";
 import "notification_permission_screen.dart";
@@ -28,6 +29,9 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+    // Warm up push notification permission cache early during splash
+    PushNotificationService.instance.hasPermission();
+
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),

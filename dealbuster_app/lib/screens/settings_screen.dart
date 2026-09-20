@@ -25,29 +25,28 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notificationsEnabled = false;
-  bool _loadingNotifState = true;
+  late bool _notificationsEnabled;
+  final bool _loadingNotifState = false;
 
   @override
   void initState() {
     super.initState();
-    _checkNotificationPermission();
+    _notificationsEnabled = PushNotificationService.instance.isPermissionCached;
+    // Quietly verify after route transition completes so animation never stutters
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _verifyNotificationPermission();
+    });
   }
 
-  Future<void> _checkNotificationPermission() async {
+  Future<void> _verifyNotificationPermission() async {
     try {
-      final hasPerm = await PushNotificationService.instance.hasPermission();
-      if (mounted) {
+      final hasPerm = await PushNotificationService.instance.refreshPermission();
+      if (mounted && _notificationsEnabled != hasPerm) {
         setState(() {
           _notificationsEnabled = hasPerm;
-          _loadingNotifState = false;
         });
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _loadingNotifState = false);
-      }
-    }
+    } catch (_) {}
   }
 
   Future<void> _toggleNotification(bool value) async {
@@ -216,7 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'DealBuster Version 1.0.3',
+                  'DealBuster Version 1.0.12',
                   style: TextStyle(
                     color: AppColors.ink400,
                     fontSize: 12,
@@ -295,7 +294,6 @@ class _SettingsGroup extends StatelessWidget {
         border: Border.all(color: AppColors.cardStroke, width: 0.6),
         boxShadow: cardShadow(),
       ),
-      clipBehavior: Clip.antiAlias,
       child: Column(
         children: children,
       ),
