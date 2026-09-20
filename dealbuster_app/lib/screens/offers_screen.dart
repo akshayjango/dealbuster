@@ -54,6 +54,7 @@ class OffersScreenState extends State<OffersScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
+    _searchFocusNode.addListener(_onSearchFocusChanged);
     _loadOffers();
   }
 
@@ -63,6 +64,7 @@ class OffersScreenState extends State<OffersScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
     _searchFocusNode.dispose();
     _showScrollTop.dispose();
     super.dispose();
@@ -183,6 +185,19 @@ class OffersScreenState extends State<OffersScreen> {
     }
   }
 
+  void _resetScrollToSearchResults() {
+    if (_scrollController.hasClients && _scrollController.offset > 44.0) {
+      _scrollController.jumpTo(44.0);
+    }
+    _showScrollTop.value = false;
+  }
+
+  void _onSearchFocusChanged() {
+    if (_searchFocusNode.hasFocus) {
+      _resetScrollToSearchResults();
+    }
+  }
+
   void _onSearchChanged() {
     _searchDebounceTimer?.cancel();
     final query = _searchController.text.trim();
@@ -194,6 +209,7 @@ class OffersScreenState extends State<OffersScreen> {
           _serverSearchResults = null;
           _isSearchingServer = false;
         });
+        _resetScrollToSearchResults();
       }
       return;
     }
@@ -203,6 +219,7 @@ class OffersScreenState extends State<OffersScreen> {
         _searchQuery = query;
         _isSearchingServer = true;
       });
+      _resetScrollToSearchResults();
 
       _searchDebounceTimer = Timer(const Duration(milliseconds: 350), () async {
         try {
@@ -230,6 +247,7 @@ class OffersScreenState extends State<OffersScreen> {
             _serverSearchResults = combinedServer;
             _isSearchingServer = false;
           });
+          _resetScrollToSearchResults();
         } catch (_) {
           if (mounted && _searchController.text.trim() == query) {
             setState(() => _isSearchingServer = false);
@@ -506,6 +524,7 @@ class OffersScreenState extends State<OffersScreen> {
             _serverSearchResults = null;
             _isSearchingServer = false;
           });
+          _resetScrollToSearchResults();
         }
       },
       child: GestureDetector(
@@ -577,6 +596,7 @@ class OffersScreenState extends State<OffersScreen> {
                                   _serverSearchResults = null;
                                   _isSearchingServer = false;
                                 });
+                                _resetScrollToSearchResults();
                               },
                             ),
                           ),
