@@ -16,7 +16,10 @@
     "outOfStock": false,
     "order": 0,
     "addedAt": "2026-09-21T19:35:23.775Z",
-    "originalPrice": "₹344"
+    "originalPrice": "₹344",
+    "lastBadgeCheck": 1790019508968,
+    "rating": 4,
+    "reviewCount": null
   },
   {
     "id": "ds_1790018427303_0",
@@ -7312,10 +7315,11 @@
     "order": 264,
     "addedAt": "2026-09-21T12:35:26.808Z",
     "originalPrice": "₹699",
-    "lastBadgeCheck": 1790013214737,
+    "lastBadgeCheck": 1790019519670,
     "rating": 4.2,
     "reviewCount": null,
-    "lastChecked": 1790011944502
+    "lastChecked": 1790011944502,
+    "lowStock": true
   },
   {
     "id": "ds_1789993839587_0",
@@ -7477,7 +7481,7 @@
     "addedAt": "2026-09-21T12:15:19.899Z",
     "originalPrice": "₹395",
     "lastChecked": 1790019147088,
-    "lastBadgeCheck": 1790013210370,
+    "lastBadgeCheck": 1790019515308,
     "rating": 4.1,
     "reviewCount": null
   },
@@ -7636,7 +7640,7 @@
     "addedAt": "2026-09-21T12:15:19.899Z",
     "originalPrice": "₹1,259",
     "lastChecked": 1790019147890,
-    "lastBadgeCheck": 1790013212561,
+    "lastBadgeCheck": 1790019517410,
     "rating": 4.4,
     "reviewCount": null
   },
@@ -7690,7 +7694,8 @@
     "addedAt": "2026-09-21T12:15:19.899Z",
     "originalPrice": "₹469",
     "lastChecked": 1790019147890,
-    "lastBadgeCheck": 1790013212561
+    "lastBadgeCheck": 1790019517410,
+    "lowStock": true
   },
   {
     "id": "ifs_1789992919899_14",
@@ -8220,7 +8225,7 @@
     "addedAt": "2026-09-21T12:10:41.906Z",
     "originalPrice": "₹2,578",
     "lastChecked": 1790018545220,
-    "lastBadgeCheck": 1790013214737,
+    "lastBadgeCheck": 1790019519670,
     "rating": 3.9,
     "reviewCount": null
   },
@@ -8245,9 +8250,10 @@
     "addedAt": "2026-09-21T12:10:41.906Z",
     "originalPrice": "₹2,789",
     "lastChecked": 1790018545220,
-    "lastBadgeCheck": 1790013214737,
+    "lastBadgeCheck": 1790019519670,
     "rating": 4.2,
-    "reviewCount": null
+    "reviewCount": null,
+    "lowStock": true
   },
   {
     "id": "dotd_1789992641906_3",
@@ -16291,9 +16297,10 @@
     "addedAt": "2026-09-21T05:50:28.781Z",
     "originalPrice": "₹449",
     "lastChecked": 1790010747708,
-    "lastBadgeCheck": 1790012317511,
+    "lastBadgeCheck": 1790019510930,
     "rating": 3.8,
-    "reviewCount": null
+    "reviewCount": null,
+    "lowStock": true
   },
   {
     "id": "ds_1789969828781_1",
@@ -16479,7 +16486,7 @@
     "addedAt": "2026-09-21T05:45:30.658Z",
     "originalPrice": "₹499",
     "lastChecked": 1790010748538,
-    "lastBadgeCheck": 1790012317511,
+    "lastBadgeCheck": 1790019510930,
     "rating": 4.2,
     "reviewCount": null
   },
@@ -16628,7 +16635,7 @@
     "addedAt": "2026-09-21T05:45:30.658Z",
     "originalPrice": "₹147",
     "lastChecked": 1790010748538,
-    "lastBadgeCheck": 1790012320401,
+    "lastBadgeCheck": 1790019513181,
     "rating": 4.5,
     "reviewCount": null,
     "priceHistory": [
@@ -16663,7 +16670,7 @@
     "addedAt": "2026-09-21T05:45:30.658Z",
     "originalPrice": "₹250",
     "lastChecked": 1790010748538,
-    "lastBadgeCheck": 1790012320401,
+    "lastBadgeCheck": 1790019513181,
     "rating": 4.1,
     "reviewCount": null
   },
@@ -18672,7 +18679,7 @@
     "order": 675,
     "addedAt": "2026-09-21T04:05:28.570Z",
     "originalPrice": "₹1,738",
-    "lastBadgeCheck": 1790012322770,
+    "lastBadgeCheck": 1790019513181,
     "lowStock": true,
     "lastChecked": 1790017943963
   },
@@ -18887,7 +18894,7 @@
     "addedAt": "2026-09-21T03:45:47.004Z",
     "originalPrice": "₹289",
     "lastChecked": 1790014947120,
-    "lastBadgeCheck": 1790012315563
+    "lastBadgeCheck": 1790019508968
   },
   {
     "id": "ifs_1789962347004_2",
@@ -19188,7 +19195,7 @@
     "addedAt": "2026-09-21T03:45:47.004Z",
     "originalPrice": "₹974",
     "lastChecked": 1790014948621,
-    "lastBadgeCheck": 1790012315563,
+    "lastBadgeCheck": 1790019508968,
     "rating": 4.4,
     "reviewCount": null
   },
@@ -21758,7 +21765,7 @@
     "order": 787,
     "addedAt": "2026-09-20T19:35:44.267Z",
     "originalPrice": "₹202",
-    "lastBadgeCheck": 1790012322770,
+    "lastBadgeCheck": 1790019513181,
     "lastChecked": 1790016746828
   },
   {
@@ -21862,10 +21869,9 @@
     "addedAt": "2026-09-20T19:25:43.392Z",
     "originalPrice": "₹989",
     "lastChecked": 1790014947536,
-    "lastBadgeCheck": 1790012322770,
+    "lastBadgeCheck": 1790019513181,
     "rating": 5,
-    "reviewCount": null,
-    "lowStock": true
+    "reviewCount": null
   },
   {
     "id": "ds_1789932045184_1",
@@ -23190,7 +23196,7 @@
     "addedAt": "2026-09-20T18:00:47.626Z",
     "originalPrice": "₹990",
     "lastChecked": 1790012543488,
-    "lastBadgeCheck": 1790013219919,
+    "lastBadgeCheck": 1790019524116,
     "rating": 3.8,
     "reviewCount": null
   },
@@ -23212,7 +23218,7 @@
     "order": 841,
     "addedAt": "2026-09-20T17:55:44.630Z",
     "originalPrice": "₹2,829",
-    "lastBadgeCheck": 1790013219919,
+    "lastBadgeCheck": 1790019524116,
     "lastChecked": 1790012543488,
     "rating": 4.6,
     "reviewCount": null
@@ -23490,7 +23496,7 @@
     "order": 851,
     "addedAt": "2026-09-20T17:46:14.587Z",
     "originalPrice": "₹189",
-    "lastBadgeCheck": 1790013212561,
+    "lastBadgeCheck": 1790019517410,
     "rating": 4.4,
     "reviewCount": null
   },
@@ -23625,7 +23631,7 @@
     "order": 856,
     "addedAt": "2026-09-20T17:46:14.587Z",
     "originalPrice": "₹1,049",
-    "lastBadgeCheck": 1790013212561,
+    "lastBadgeCheck": 1790019517410,
     "rating": 3.8,
     "reviewCount": null,
     "lastChecked": 1790011945620,
@@ -24793,7 +24799,7 @@
     "order": 899,
     "addedAt": "2026-09-20T16:00:49.711Z",
     "originalPrice": "₹349",
-    "lastBadgeCheck": 1790012317511,
+    "lastBadgeCheck": 1790019510930,
     "rating": 3.9,
     "reviewCount": null,
     "lastChecked": 1790016746828
@@ -28224,7 +28230,7 @@
     "addedAt": "2026-09-20T12:15:28.255Z",
     "originalPrice": "₹698",
     "lastChecked": 1790014345038,
-    "lastBadgeCheck": 1790013214737,
+    "lastBadgeCheck": 1790019519670,
     "rating": 3.6,
     "reviewCount": null
   },
@@ -29585,7 +29591,7 @@
     "addedAt": "2026-09-20T10:15:33.371Z",
     "originalPrice": "₹545",
     "lastChecked": 1790008348443,
-    "lastBadgeCheck": 1790012322770,
+    "lastBadgeCheck": 1790019515308,
     "rating": 3.8,
     "reviewCount": null
   },
@@ -29668,7 +29674,7 @@
     "addedAt": "2026-09-20T10:15:33.371Z",
     "originalPrice": "₹1,339",
     "lastChecked": 1790008943676,
-    "lastBadgeCheck": 1790013210370,
+    "lastBadgeCheck": 1790019515308,
     "rating": 3.9,
     "reviewCount": null,
     "lowStock": true
@@ -29724,7 +29730,7 @@
     "addedAt": "2026-09-20T10:15:33.371Z",
     "originalPrice": "₹298",
     "lastChecked": 1790008943676,
-    "lastBadgeCheck": 1790013210370,
+    "lastBadgeCheck": 1790019515308,
     "rating": 3.6,
     "reviewCount": null
   },
@@ -29797,12 +29803,12 @@
     "lowestPriceText": null,
     "featured": false,
     "hidden": false,
-    "outOfStock": false,
+    "outOfStock": true,
     "order": 1081,
     "addedAt": "2026-09-20T10:10:44.847Z",
     "originalPrice": "₹367",
     "lastChecked": 1790008944239,
-    "lastBadgeCheck": 1790013210370,
+    "lastBadgeCheck": 1790019515308,
     "rating": 4,
     "reviewCount": null,
     "lowStock": true
@@ -33369,7 +33375,7 @@
     "addedAt": "2026-09-20T06:30:56.430Z",
     "originalPrice": "₹888",
     "lastChecked": 1790008947069,
-    "lastBadgeCheck": 1790013217002,
+    "lastBadgeCheck": 1790019522085,
     "rating": 3.9,
     "reviewCount": null
   },
@@ -33491,7 +33497,7 @@
     "addedAt": "2026-09-20T06:15:27.840Z",
     "originalPrice": "₹599",
     "lastChecked": 1790017345896,
-    "lastBadgeCheck": 1790013212561,
+    "lastBadgeCheck": 1790019519670,
     "rating": 4,
     "reviewCount": null
   },
@@ -33542,7 +33548,7 @@
     "order": 1216,
     "addedAt": "2026-09-20T06:15:27.840Z",
     "originalPrice": "₹159",
-    "lastBadgeCheck": 1790013217002,
+    "lastBadgeCheck": 1790019522085,
     "lowStock": true,
     "rating": 3.7,
     "reviewCount": null
@@ -33711,10 +33717,11 @@
     "order": 1222,
     "addedAt": "2026-09-20T06:15:27.840Z",
     "originalPrice": "₹1,119",
-    "lastBadgeCheck": 1790013217002,
+    "lastBadgeCheck": 1790019522085,
     "rating": 4,
     "reviewCount": null,
-    "lastChecked": 1790017346263
+    "lastChecked": 1790017346263,
+    "lowStock": true
   },
   {
     "id": "ifs_1789884927840_18",
@@ -33793,7 +33800,7 @@
     "order": 1225,
     "addedAt": "2026-09-20T06:15:27.840Z",
     "originalPrice": "₹100",
-    "lastBadgeCheck": 1790013217002
+    "lastBadgeCheck": 1790019522085
   },
   {
     "id": "ifs_1789884927840_22",
@@ -36764,7 +36771,7 @@
     "order": 1332,
     "addedAt": "2026-09-20T04:00:11.719Z",
     "originalPrice": "₹149",
-    "lastBadgeCheck": 1790013219919,
+    "lastBadgeCheck": 1790019524116,
     "rating": 4.3,
     "reviewCount": null,
     "lastChecked": 1790010147889
@@ -36955,7 +36962,7 @@
     "addedAt": "2026-09-20T03:44:26.398Z",
     "originalPrice": "₹89",
     "lastChecked": 1790018543604,
-    "lastBadgeCheck": 1790012315563,
+    "lastBadgeCheck": 1790019508968,
     "rating": 3.7,
     "reviewCount": null
   },
@@ -37148,7 +37155,7 @@
     "addedAt": "2026-09-20T03:40:09.488Z",
     "originalPrice": "₹599",
     "lastChecked": 1790017945694,
-    "lastBadgeCheck": 1790012315563,
+    "lastBadgeCheck": 1790019508968,
     "rating": 4.3,
     "reviewCount": null
   },
@@ -39731,7 +39738,7 @@
     "addedAt": "2026-09-19T19:15:42.492Z",
     "originalPrice": "₹1,647",
     "lastChecked": 1790017344475,
-    "lastBadgeCheck": 1790013219919,
+    "lastBadgeCheck": 1790019524116,
     "rating": 3.6,
     "reviewCount": null
   },
@@ -45176,7 +45183,7 @@
     "order": 1638,
     "addedAt": "2026-09-19T14:55:51.370Z",
     "originalPrice": "₹449",
-    "lastBadgeCheck": 1790013210370,
+    "lastBadgeCheck": 1790019517410,
     "rating": 5,
     "reviewCount": null,
     "lastChecked": 1790013742959
@@ -45617,7 +45624,7 @@
     "addedAt": "2026-09-19T14:46:46.122Z",
     "originalPrice": "₹2,601",
     "lastChecked": 1790011348065,
-    "lastBadgeCheck": 1790012315563,
+    "lastBadgeCheck": 1790019510930,
     "rating": 4.1,
     "reviewCount": null
   },
@@ -45924,7 +45931,7 @@
     "addedAt": "2026-09-19T14:46:46.122Z",
     "originalPrice": "₹899",
     "lastChecked": 1790012543488,
-    "lastBadgeCheck": 1790012317511,
+    "lastBadgeCheck": 1790019510930,
     "rating": 4.2,
     "reviewCount": null
   },
@@ -51159,7 +51166,7 @@
     "addedAt": "2026-09-21T12:30:39.587Z",
     "originalPrice": "₹549",
     "lastChecked": 1789993942618,
-    "lastBadgeCheck": 1790013217002,
+    "lastBadgeCheck": 1790019524116,
     "dead": "2026-09-21T12:38:38.160Z",
     "rating": 3.4,
     "reviewCount": null
@@ -51276,8 +51283,7 @@
     "addedAt": "2026-09-21T12:15:19.899Z",
     "originalPrice": "₹1,049",
     "lastChecked": 1789993349330,
-    "lowStock": true,
-    "lastBadgeCheck": 1790013214737,
+    "lastBadgeCheck": 1790019522085,
     "dead": "2026-09-21T12:23:38.342Z",
     "rating": 1,
     "reviewCount": null
