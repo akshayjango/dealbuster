@@ -2,335 +2,1000 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
   <link rel="icon" type="image/png" href="favicon-tab.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <title>Privacy Policy – Dealbuster</title>
-  <meta name="description" content="Read Dealbuster's privacy policy — how we collect, use, and protect your information." />
+  <meta name="description" content="Read Dealbuster's privacy policy: how we protect your privacy, what minimal data we collect, and our zero-PII mobile app promise." />
   <meta name="robots" content="noindex, follow" />
   <link rel="canonical" href="https://dealbuster.in/privacy.html" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
     :root {
       --primary: #6C47FF;
+      --primary-dark: #5535E0;
+      --primary-hover: #5833EA;
       --primary-soft: #F0EBFF;
+      --primary-tint: #FAF8FF;
       --accent: #FFD000;
       --accent-hover: #FFC200;
-      --bg: #F6F7FB;
-      --text: #1A1D2E;
-      --muted: #6E7385;
-      --line: #E7E8F0;
       --lime: #D1FF00;
-      --footer-bg: #14162A;
-      --footer-text: #a0aec0;
-      --radius: 16px;
-      --border: 1px solid var(--line);
-      --shadow: 0 1px 2px rgba(23,25,43,.05);
-      --shadow-raised: 0 1px 2px rgba(23,25,43,.05), 0 8px 24px -8px rgba(23,25,43,.12);
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text: #0F172A;
+      --text-muted: #475569;
+      --text-sub: #64748B;
+      --line: #E2E8F0;
+      --line-subtle: #F1F5F9;
+      --footer-bg: #0B0F19;
+      --footer-text: #94A3B8;
+      --footer-border: rgba(255, 255, 255, 0.08);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+      --shadow-lg: 0 12px 24px -4px rgba(15, 23, 42, 0.06), 0 4px 8px -2px rgba(15, 23, 42, 0.03);
     }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
     body {
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
       background-color: var(--bg);
       color: var(--text);
-      -webkit-font-smoothing: antialiased;
+      line-height: 1.6;
     }
 
     /* HEADER */
     header {
-      background: #fff; border-bottom: 1px solid var(--line);
-      padding: 14px 24px; display: flex; align-items: center;
-      justify-content: space-between; position: sticky; top: 0; z-index: 100;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
     .logo {
-      font-size: 1.3rem; font-weight: 800; color: var(--text); letter-spacing: -0.3px; text-decoration: none;
-      background: none; border: none; padding: 0; box-shadow: none;
-      transition: none; text-transform: uppercase;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      text-decoration: none;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
     }
-    .logo:hover {
-      transform: none;
-      box-shadow: none;
-    }
+
     .logo span {
       background: var(--lime);
       color: var(--text);
-      padding: 2px 10px;
+      padding: 2px 8px;
       display: inline-block;
       border-radius: 999px;
       margin-left: 2px;
+      font-size: 1.15rem;
     }
-    nav { display: flex; gap: 12px; align-items: center; }
-    nav a:not(.btn-join) {
+
+    .back-btn {
       text-decoration: none;
-      color: var(--text);
-      font-size: .9rem;
-      font-weight: 700;
-      text-transform: none;
-      border: 1px solid transparent;
-      border-radius: 999px;
-      padding: 6px 14px;
-      margin-left: 24px;
-      transition: all .18s ease;
-    }
-    nav a:not(.btn-join):hover {
-      background: var(--primary-soft);
-      border-color: transparent;
-      box-shadow: none;
-      color: var(--primary);
-      transform: none;
-    }
-    .join-label {
-      display: none;
-    }
-    .btn-join {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      font-size: .8rem !important;
-      font-weight: 700;
-      text-transform: none;
-      padding: 7px 14px !important;
-      border: 1px solid var(--line) !important;
-      border-radius: 12px;
-      color: var(--text) !important;
-      text-decoration: none;
-      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #FFFFFF;
+      transition: all 0.2s ease;
     }
-    .btn-join.telegram {
-      background: #63CDFF !important;
-      box-shadow: 0 1px 2px rgba(23,25,43,.05) !important;
+
+    .back-btn:hover {
+      background: var(--primary-soft);
+      border-color: #D8B4FE;
+      color: var(--primary);
     }
-    .btn-join.whatsapp {
-      background: #37EE7B !important;
-      box-shadow: 0 1px 2px rgba(23,25,43,.05) !important;
+
+    nav {
+      display: flex;
+      gap: 10px;
+      align-items: center;
     }
-    .btn-join:hover {
-      transform: translateY(-1px) !important;
-      box-shadow: 0 1px 2px rgba(23,25,43,.05), 0 8px 24px -8px rgba(23,25,43,.12) !important;
-    }
-    .btn-join:active {
-      transform: translateY(0) !important;
-      box-shadow: 0 1px 2px rgba(23,25,43,.05) !important;
-    }
+
     .nav-join-group {
       display: inline-flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
+
+    .join-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .btn-join {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      color: var(--text);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .btn-join.telegram {
+      background: #63CDFF;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-join.whatsapp {
+      background: #37EE7B;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-join.playstore {
+      background: #01875F;
+      color: #FFFFFF !important;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-join:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
     .nav-icon {
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
       display: block;
+      flex-shrink: 0;
     }
 
-    /* HERO */
+    /* HERO SECTION */
     .page-hero {
-      background: var(--primary);
-      color: #fff; text-align: center; padding: 60px 20px;
+      background: radial-gradient(100% 100% at 50% 0%, #EDE9FE 0%, #F8FAFC 75%);
       border-bottom: 1px solid var(--line);
+      padding: 56px 20px 48px;
+      text-align: center;
+      position: relative;
     }
-    .page-hero h1 { font-size: 2.5rem; font-weight: 800; text-transform: none; letter-spacing: -0.3px; }
-    .page-hero p { margin-top: 14px; opacity: .95; font-size: 1.05rem; font-weight: 500; }
 
-    /* CONTENT */
-    .content {
-      max-width: 780px; margin: 40px auto 80px; padding: 40px;
-      background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #FFFFFF;
+      border: 1px solid #DDD6FE;
+      color: var(--primary);
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
     }
-    .content h2 {
-      font-size: 1.3rem; font-weight: 800; margin: 36px 0 16px; color: var(--text);
-      text-transform: none; border-bottom: 1px solid var(--line); padding-bottom: 8px;
-    }
-    .content p { font-size: .96rem; line-height: 1.85; color: var(--text); margin-bottom: 14px; font-weight: 400; }
-    .last-updated { font-size: .78rem; color: var(--muted); margin-bottom: 24px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 
-    .callout {
-      background: var(--primary-soft); border: 1px solid var(--line); border-radius: 12px; box-shadow: none;
-      padding: 16px 20px; margin-bottom: 28px;
-      font-size: .93rem; color: var(--text); line-height: 1.7; font-weight: 500;
+    .page-hero h1 {
+      font-size: clamp(2rem, 4.5vw, 2.75rem);
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      line-height: 1.2;
     }
-    .callout strong { color: var(--primary); text-transform: none; font-weight: 700; }
+
+    .page-hero p {
+      margin-top: 12px;
+      color: var(--text-muted);
+      font-size: clamp(0.95rem, 2vw, 1.1rem);
+      font-weight: 500;
+      max-width: 580px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 20px;
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      font-weight: 600;
+      flex-wrap: wrap;
+    }
+
+    .hero-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* CROSS-POLICY NAVIGATION PILLS */
+    .policy-tabs-wrapper {
+      max-width: 860px;
+      margin: 28px auto 0;
+      padding: 0 16px;
+    }
+
+    .policy-tabs {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 6px;
+      background: #FFFFFF;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      box-shadow: var(--shadow-sm);
+      width: fit-content;
+      margin: 0 auto;
+    }
+
+    .policy-tab {
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      text-decoration: none;
+      color: var(--text-muted);
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .policy-tab:hover {
+      color: var(--text);
+      background: var(--line-subtle);
+    }
+
+    .policy-tab.active {
+      background: var(--primary);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(108, 71, 255, 0.28);
+    }
+
+    /* QUICK JUMP TABLE OF CONTENTS */
+    .quick-jump-container {
+      max-width: 860px;
+      margin: 20px auto 0;
+      padding: 0 16px;
+      position: sticky;
+      top: 65px;
+      z-index: 90;
+    }
+
+    .quick-jump {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 8px 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .quick-jump::-webkit-scrollbar {
+      display: none;
+    }
+
+    .quick-jump-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding-right: 6px;
+      border-right: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    .jump-link {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      background: transparent;
+    }
+
+    .jump-link:hover, .jump-link.active {
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    /* CONTENT WRAPPER */
+    .content-wrapper {
+      max-width: 860px;
+      margin: 24px auto 70px;
+      padding: 0 16px;
+    }
+
+    .content-card {
+      background: #FFFFFF;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      padding: 44px 48px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* TL;DR CALLOUT */
+    .summary-card {
+      background: var(--primary-tint);
+      border: 1px solid #DDD6FE;
+      border-left: 4px solid var(--primary);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      margin-bottom: 36px;
+    }
+
+    .summary-title {
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .summary-card p {
+      font-size: 0.94rem;
+      line-height: 1.7;
+      color: var(--text);
+      font-weight: 500;
+      margin: 0;
+    }
+
+    /* WHAT WE COLLECT VS NEVER COLLECT COMPARISON */
+    .data-comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 28px 0 36px;
+    }
+
+    .comparison-card {
+      border-radius: var(--radius-md);
+      padding: 20px 18px;
+      border: 1px solid var(--line);
+    }
+
+    .comparison-card.positive {
+      background: #F0FDF4;
+      border-color: #BBF7D0;
+    }
+
+    .comparison-card.negative {
+      background: #FEF2F2;
+      border-color: #FECACA;
+    }
+
+    .comparison-header {
+      font-size: 0.92rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .comparison-card.positive .comparison-header {
+      color: #15803D;
+    }
+
+    .comparison-card.negative .comparison-header {
+      color: #B91C1C;
+    }
+
+    .comparison-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 0.86rem;
+      color: var(--text-body);
+      line-height: 1.65;
+    }
+
+    .comparison-list li {
+      margin-bottom: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .comparison-list li:last-child {
+      margin-bottom: 0;
+    }
+
+    /* GUARANTEE BOX FOR APP */
+    .app-guarantee-box {
+      background: #F8FAFC;
+      border: 1px solid #CBD5E1;
+      border-radius: var(--radius-md);
+      padding: 20px 22px;
+      margin: 20px 0;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .app-badge-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: #01875F;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 1.2rem;
+    }
+
+    .app-guarantee-content h4 {
+      font-size: 0.96rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .app-guarantee-content p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    /* SECTIONS */
+    .policy-section {
+      margin-top: 38px;
+      padding-top: 32px;
+      border-top: 1px solid var(--line);
+      scroll-margin-top: 130px;
+    }
+
+    .policy-section:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .section-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .policy-section h2 {
+      font-size: 1.32rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .policy-section p {
+      font-size: 0.96rem;
+      line-height: 1.8;
+      color: var(--text-body);
+      margin-bottom: 16px;
+      font-weight: 420;
+    }
+
+    .policy-section p:last-child {
+      margin-bottom: 0;
+    }
+
+    .policy-section ul {
+      padding-left: 20px;
+      margin-bottom: 16px;
+      color: var(--text-body);
+      font-size: 0.96rem;
+      line-height: 1.8;
+    }
+
+    .policy-section li {
+      margin-bottom: 8px;
+    }
+
+    .policy-section a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      border-bottom: 1px dashed rgba(108, 71, 255, 0.4);
+      transition: border-color 0.15s ease;
+    }
+
+    .policy-section a:hover {
+      border-bottom-color: var(--primary);
+    }
+
+    /* CONTACT / HELP CARD */
+    .help-card {
+      background: linear-gradient(135deg, #F0EBFF 0%, #EDE9FE 100%);
+      border: 1px solid #DDD6FE;
+      border-radius: var(--radius-lg);
+      padding: 28px 30px;
+      margin-top: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .help-card h3 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .help-card p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .btn-email {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary);
+      color: #FFFFFF !important;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-decoration: none !important;
+      border-bottom: none !important;
+      box-shadow: 0 2px 8px rgba(108, 71, 255, 0.3);
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .btn-email:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
 
     /* FOOTER */
     footer {
-      background: var(--footer-bg); color: var(--footer-text); padding: 30px 24px;
-      text-align: center; border-top: 1px solid rgba(255,255,255,.08); font-size: .85rem;
+      background: var(--footer-bg);
+      color: var(--footer-text);
+      padding: 36px 20px;
+      text-align: center;
+      font-size: 0.84rem;
+      border-top: 1px solid var(--footer-border);
     }
-    .footer-links { display: flex; justify-content: center; gap: 16px; margin-top: 14px; font-weight: 700; }
-    .footer-links a { color: var(--footer-text); text-decoration: none; }
-    .footer-links a:hover { color: #fff; }
 
-    @media(max-width: 640px) {
+    .footer-top {
+      color: var(--footer-text);
+      margin-bottom: 12px;
+    }
+
+    .footer-top a {
+      color: #FFFFFF;
+      text-decoration: none;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      margin: 14px 0 20px;
+      font-weight: 600;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--footer-text);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .footer-links a:hover {
+      color: #FFFFFF;
+    }
+
+    .footer-divider {
+      border: 0;
+      border-top: 1px solid var(--footer-border);
+      max-width: 600px;
+      margin: 18px auto;
+    }
+
+    .footer-disclaimer {
+      font-size: 0.76rem;
+      color: #64748B;
+      max-width: 660px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .data-comparison-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .content-card {
+        padding: 28px 20px;
+      }
+      .help-card {
+        padding: 22px 20px;
+      }
+    }
+
+    @media (max-width: 640px) {
       header {
-        padding: 16px 16px !important;
-        display: flex;
-        align-items: center;
+        padding: 12px 16px;
       }
-      .logo { display: none !important; }
-      nav {
-        display: flex !important;
-        align-items: center;
-        width: 100%;
-        justify-content: space-between;
+      .logo {
+        font-size: 1.1rem;
       }
-      .nav-join-group {
-        display: inline-flex !important;
-        align-items: center;
-        gap: 12px !important;
+      .logo span {
+        font-size: 1rem;
       }
-      nav a:not(.btn-join) {
-        font-size: 0 !important;
-        width: 36px;
-        height: 36px;
-        display: inline-flex !important;
-        align-items: center;
-        justify-content: center;
-        padding: 0 !important;
-        margin-left: 0 !important;
-        background: #ffffff !important;
-        border: 1px solid var(--line) !important;
-        box-shadow: 0 1px 2px rgba(23,25,43,.05) !important;
-        border-radius: 12px !important;
-        text-transform: none !important;
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      .back-btn span.back-text {
+        display: none;
       }
-      nav a:not(.btn-join)::before {
-        content: "←";
-        font-size: 1.2rem;
-        font-weight: 700;
-        color: var(--text);
-      }
-      nav a:not(.btn-join):active {
-        transform: none !important;
-        box-shadow: 0 1px 2px rgba(23,25,43,.05) !important;
-      }
-      .join-label {
-        display: inline-block !important;
-        font-size: .8rem;
-        font-weight: 700;
-        color: var(--text);
-        text-transform: uppercase;
-        letter-spacing: .05em;
-        margin-right: 2px;
-        margin-left: 8px;
+      .back-btn {
+        padding: 6px 10px;
       }
       .btn-text {
-        display: none !important;
+        display: none;
+      }
+      .join-label {
+        display: none;
       }
       .btn-join {
-        width: 36px !important;
-        height: 36px !important;
-        padding: 0 !important;
-        display: inline-flex !important;
+        width: 34px;
+        height: 34px;
+        padding: 0;
         justify-content: center;
-        align-items: center;
-        box-shadow: 0 1px 2px rgba(23,25,43,.05) !important;
       }
-      .btn-join:hover,
-      .btn-join:active {
-        transform: none !important;
-        box-shadow: 0 1px 2px rgba(23,25,43,.05) !important;
+      .page-hero {
+        padding: 40px 16px 36px;
       }
-      
-      .page-hero { padding: 40px 16px; }
-      .page-hero h1 { font-size: 1.8rem; }
-      .page-hero p { font-size: .92rem; }
-      
-      .content { padding: 24px 20px; margin: 24px 14px 60px; }
-      .content h2 { font-size: 1.1rem; margin: 28px 0 12px; }
-      .content p { font-size: .92rem; }
-      
-      .callout { padding: 14px 16px; font-size: .88rem; }
-      
-      footer { padding: 24px 16px; }
-      .footer-links { flex-wrap: wrap; gap: 12px; font-size: 0.78rem; }
-
-      /* NEUTRALIZE HOVER & CLICK TRANSFORMS ON MOBILE VIEW */
-      nav a:hover {
-        transform: none !important;
+      .policy-tabs {
+        width: 100%;
+        overflow-x: auto;
+        justify-content: flex-start;
       }
-
-      /* RESET SHADOWS ON MOBILE VIEW TO SLIM 2px */
-      nav a:hover { box-shadow: none !important; border-color: transparent !important; background: none !important; }
-      .content,
-      .callout {
-        box-shadow: none !important;
+      .policy-tab {
+        font-size: 0.78rem;
+        padding: 7px 14px;
+      }
+      .app-guarantee-box {
+        flex-direction: column;
+        gap: 12px;
       }
     }
-
   </style>
 </head>
 <body>
 
 <header>
-  <a class="logo" href="index.html">Deal<span>buster</span></a>
-            <nav>
-    <a href="index.html" class="back-btn" onclick="if(document.referrer.includes('dealbuster.in')||document.referrer.includes('localhost')){event.preventDefault();history.back();}">← All Deals</a>
+  <div class="header-left">
+    <a class="logo" href="index.html">Deal<span>buster</span></a>
+    <a href="index.html" class="back-btn" onclick="if(document.referrer.includes('dealbuster.in')||document.referrer.includes('localhost')){event.preventDefault();history.back();}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      <span class="back-text">All Deals</span>
+    </a>
+  </div>
+
+  <nav>
     <div class="nav-join-group">
       <span class="join-label">JOIN</span>
-      <a href="https://t.me/dealbusterindia" class="btn-join telegram" target="_blank" rel="noopener">
+      <a href="https://t.me/dealbusterindia" class="btn-join telegram" target="_blank" rel="noopener" title="Join Telegram Channel">
         <svg class="nav-icon" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M41.8787 253.309L144.926 288.307L389.571 138.742C393.117 136.573 396.751 141.39 393.692 144.205L208.477 314.686L201.59 410.13C201.065 417.39 209.811 421.432 215.002 416.329L272.029 360.252L376.28 439.171C387.518 447.678 403.789 441.682 406.82 427.918L479.411 98.3182C483.552 79.5154 465.128 63.6492 447.147 70.535L41.3544 225.924C28.6248 230.799 28.9715 248.926 41.8787 253.309Z" fill="currentColor"/></svg>
-        <span class="btn-text">JOIN TELEGRAM</span>
+        <span class="btn-text">Telegram</span>
       </a>
-      <a href="https://whatsapp.com/channel/0029Vb8eJlcA2pLCSwCSi00V" class="btn-join whatsapp" target="_blank" rel="noopener">
+      <a href="https://whatsapp.com/channel/0029Vb8eJlcA2pLCSwCSi00V" class="btn-join whatsapp" target="_blank" rel="noopener" title="Join WhatsApp Channel">
         <svg class="nav-icon" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_3233_32)"><path fill-rule="evenodd" clip-rule="evenodd" d="M317.12 285.93C307.43 289.89 301.24 305.06 294.96 312.81C291.74 316.78 287.9 317.4 282.95 315.41C246.58 300.92 218.7 276.65 198.63 243.18C195.23 237.99 195.84 233.89 199.94 229.07C206 221.93 213.62 213.82 215.26 204.2C218.9 182.92 191.08 116.91 154.34 146.82C48.6197 232.97 330.7 461.46 381.61 337.88C396.01 302.85 333.18 279.35 317.12 285.93ZM256 467.28C218.61 467.28 181.82 457.34 149.61 438.52C144.44 435.49 138.19 434.69 132.41 436.26L62.4197 455.47L86.7998 401.76C90.1198 394.45 89.2698 385.94 84.5798 379.44C58.4998 343.29 44.7097 300.61 44.7097 256C44.7097 139.49 139.49 44.71 256 44.71C372.51 44.71 467.28 139.49 467.28 256C467.28 372.5 372.5 467.28 256 467.28ZM256 0C114.84 0 -0.000253361 114.84 -0.000253361 256C-0.000253361 305.66 14.0997 353.35 40.8897 394.74L1.99975 480.39C-1.59025 488.3 -0.280253 497.56 5.33975 504.15C9.65975 509.2 15.9097 512 22.3597 512C36.7797 512 115.41 487.29 135.42 481.8C172.41 501.59 213.9 512 256 512C397.15 512 512 397.15 512 256C512 114.84 397.15 0 256 0Z" fill="currentColor"/></g><defs><clipPath id="clip0_3233_32"><rect width="512" height="512" fill="white"/></clipPath></defs></svg>
-        <span class="btn-text">JOIN WHATSAPP</span>
+        <span class="btn-text">WhatsApp</span>
+      </a>
+      <a href="https://play.google.com/store/apps/details?id=com.dealbusterindia.app&pcampaignid=web_share" class="btn-join playstore" target="_blank" rel="noopener" title="Get App on Google Play">
+        <svg class="nav-icon" viewBox="0 0 133 133" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.7799 3.05191L91.6369 46.2589L120.456 62.9079C123.16 64.5349 123.182 68.4219 120.498 70.0699L120.371 70.1549L16.8429 129.926L16.7579 129.968C15.7019 130.56 14.5399 130.623 13.5259 130.327C11.8359 129.82 10.5039 128.278 10.5039 126.271V6.72791C10.5039 4.72091 11.8349 3.17891 13.5259 2.67191C14.5609 2.37491 15.7229 2.43891 16.7799 3.05191Z" fill="#47BCFF"/><path d="M16.7813 3.05216L91.6383 46.2592L72.8343 66.5002L13.5273 2.67116C14.5623 2.37516 15.7243 2.43916 16.7813 3.05216Z" fill="#0BDF74"/><path d="M91.636 46.2598L120.455 62.9088C123.159 64.5358 123.181 68.4228 120.497 70.0708L120.37 70.1558L91.636 86.7198L72.832 66.5008L91.636 46.2598Z" fill="#FDBA21"/><path d="M72.8343 66.5L91.6383 86.72L16.8443 129.927L16.7593 129.969C15.7033 130.561 14.5413 130.624 13.5273 130.328L72.8343 66.5Z" fill="#FB434C"/></svg>
+        <span class="btn-text">App</span>
       </a>
     </div>
   </nav>
 </header>
 
 <div class="page-hero">
+  <div class="hero-badge">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    Data & Privacy
+  </div>
   <h1>Privacy Policy</h1>
-  <p>How we collect, use, and protect your information.</p>
+  <p>How we handle data with strict minimalism, user privacy, and zero intrusive tracking.</p>
+  
+  <div class="hero-meta">
+    <span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      Updated 28 March 2026
+    </span>
+    <span>•</span>
+    <span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      3 min read
+    </span>
+    <span>•</span>
+    <span>Official Policy</span>
+  </div>
 </div>
 
-<div class="content">
-  <p class="last-updated">Last updated: 18 August 2026</p>
-
-  <p>Your privacy matters to us. This policy explains what information Dealbuster collects when you use our website and mobile application (App), how we use it, and your rights regarding that information.</p>
-
-  <h2>Information We Collect</h2>
-  <ul>
-    <li><strong>Usage & technical data:</strong> IP region, browser type, device, and pages viewed — collected automatically via analytics tools on the website and app.</li>
-    <li><strong>Communications:</strong> If you contact us, we collect your email address and the contents of your message.</li>
-    <li><strong>Push notifications:</strong> Only collected on the website or mobile app if you explicitly opt in to receive alerts.</li>
-    <li><strong>No Personal Information Collected:</strong> The Dealbuster mobile application does not require any account registration, login, or personal profile, and does not collect or store any personally identifiable information (PII), device identifiers, contact lists, or location data.</li>
-  </ul>
-
-  <h2>Analytics & Tracking</h2>
-  <p>We may use services such as Google Analytics to understand how visitors use our site. These third-party providers have their own privacy policies. You can control tracking via your browser settings or available opt-out tools.</p>
-
-  <h2>Cookies</h2>
-  <p>We use cookies for site functionality (such as theme preferences), analytics, and affiliate link tracking. You can manage or disable cookies through your browser settings at any time.</p>
-
-  <h2>Third-Party Links</h2>
-  <p>Dealbuster contains affiliate links to external retailers. Once you leave our site, their privacy policies apply — we are not responsible for the privacy practices of third-party websites.</p>
-
-  <h2>Data Retention</h2>
-  <p>We retain data only for as long as necessary. Analytics data is retained per the settings of each analytics provider we use.</p>
-
-  <h2>Your Rights</h2>
-  <p>Under India's data protection law, you have the right to request access to, correction of, deletion of, or restriction of processing of your personal data. To exercise these rights, contact us at <a href="mailto:contactdealbuster@gmail.com" style="color:var(--primary);">contactdealbuster@gmail.com</a>.</p>
-
-  <h2>Children</h2>
-  <p>Dealbuster is not directed at children under the age of 13. We do not knowingly collect personal information from minors.</p>
-
-  <h2>Updates to This Policy</h2>
-  <p>We may update this Privacy Policy from time to time. Continued use of the site after changes are posted constitutes your acceptance of the revised policy.</p>
-
-  <h2>Contact</h2>
-  <p>Questions about this policy? Reach us at <a href="mailto:contactdealbuster@gmail.com" style="color:var(--primary);">contactdealbuster@gmail.com</a>.</p>
+<div class="policy-tabs-wrapper">
+  <div class="policy-tabs">
+    <a href="affiliate-disclosure.html" class="policy-tab">Affiliate Disclosure</a>
+    <a href="privacy.html" class="policy-tab active">Privacy Policy</a>
+    <a href="terms.html" class="policy-tab">Terms of Use</a>
+  </div>
 </div>
 
+<div class="quick-jump-container">
+  <div class="quick-jump">
+    <span class="quick-jump-title">Jump to</span>
+    <a href="#overview" class="jump-link">Overview</a>
+    <a href="#collection" class="jump-link">What We Collect</a>
+    <a href="#mobile-app" class="jump-link">Mobile App Privacy</a>
+    <a href="#analytics" class="jump-link">Analytics & Cookies</a>
+    <a href="#third-parties" class="jump-link">Third Parties</a>
+    <a href="#user-rights" class="jump-link">Your Rights</a>
+    <a href="#contact" class="jump-link">Contact</a>
+  </div>
+</div>
+
+<div class="content-wrapper">
+  <div class="content-card">
+    
+    <!-- TL;DR -->
+    <div class="summary-card">
+      <div class="summary-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        Privacy in Brief
+      </div>
+      <p>Dealbuster is built around privacy-by-design. We do not require accounts, logins, or passwords to browse deals. We never sell your personal data, track your exact location, or harvest personal contacts.</p>
+    </div>
+
+    <!-- COMPARISON TABLE -->
+    <div class="data-comparison-grid">
+      <div class="comparison-card positive">
+        <div class="comparison-header">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          What We Collect
+        </div>
+        <ul class="comparison-list">
+          <li>✓ Basic device & browser telemetry (screen size, OS, regional IP) to render deals smoothly.</li>
+          <li>✓ Anonymous pageview counts via standard analytics tools.</li>
+          <li>✓ Push notification tokens (only if you explicitly tap "Allow" for deal alerts).</li>
+          <li>✓ Your email address only if you voluntarily contact our support.</li>
+        </ul>
+      </div>
+
+      <div class="comparison-card negative">
+        <div class="comparison-header">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          What We NEVER Collect
+        </div>
+        <ul class="comparison-list">
+          <li>✕ No account registration, logins, or passwords.</li>
+          <li>✕ No personally identifiable information (PII) like real names or phone numbers.</li>
+          <li>✕ No precise GPS location tracking or Bluetooth scanning.</li>
+          <li>✕ No access to device contacts, photos, or personal files.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- SECTION 1 -->
+    <section id="overview" class="policy-section">
+      <div class="section-header">
+        <span class="section-num">01</span>
+        <h2>Overview & Philosophy</h2>
+      </div>
+      <p>Your privacy matters deeply to us. This Privacy Policy explains what information Dealbuster ("we", "us", or "our") collects across our website (dealbuster.in), mobile applications, and community channels, how that information is handled, and the strict boundaries we enforce to protect you.</p>
+      <p>By using Dealbuster, you acknowledge the minimal data handling described in this policy.</p>
+    </section>
+
+    <!-- SECTION 2 -->
+    <section id="collection" class="policy-section">
+      <div class="section-header">
+        <span class="section-num">02</span>
+        <h2>Information We Collect</h2>
+      </div>
+      <p>We believe in collecting only the bare minimum data required to keep the service fast, secure, and helpful:</p>
+      <ul>
+        <li><strong>Usage & Technical Data:</strong> High-level IP region, browser type, operating system, and pages viewed — collected automatically via privacy-compliant analytics tools to detect service outages and improve performance.</li>
+        <li><strong>Direct Communications:</strong> If you send us an email at <a href="mailto:contactdealbuster@gmail.com">contactdealbuster@gmail.com</a>, we retain your email address and message contents solely to respond to your inquiry.</li>
+        <li><strong>Push Notifications:</strong> Push tokens are collected on the web or mobile app only when you explicitly opt in to deal drop alerts. You can disable notifications anytime in device settings.</li>
+      </ul>
+    </section>
+
+    <!-- SECTION 3 -->
+    <section id="mobile-app" class="policy-section">
+      <div class="section-header">
+        <span class="section-num">03</span>
+        <h2>Dealbuster Mobile Application Privacy Guarantee</h2>
+      </div>
+      <p>Our Android application available on the Google Play Store is engineered to be as lightweight and non-intrusive as possible:</p>
+      
+      <div class="app-guarantee-box">
+        <div class="app-badge-icon">📱</div>
+        <div class="app-guarantee-content">
+          <h4>Zero Registration & Zero PII Architecture</h4>
+          <p>The Dealbuster mobile application does not require any account registration, login, or personal profile, and does not collect or store any personally identifiable information (PII), device identifiers, contact lists, or location data.</p>
+        </div>
+      </div>
+
+      <p>The app does not request permissions to access your camera, microphone, photos, storage, contacts, or background location. It exists purely to stream deals to your screen with zero friction.</p>
+    </section>
+
+    <!-- SECTION 4 -->
+    <section id="analytics" class="policy-section">
+      <div class="section-header">
+        <span class="section-num">04</span>
+        <h2>Analytics & Cookies</h2>
+      </div>
+      <p><strong>Analytics:</strong> We use industry-standard analytics services (such as Google Analytics) to understand aggregate traffic trends — for example, which deal categories are most popular. This data is aggregated and anonymized.</p>
+      <p><strong>Cookies & Storage:</strong> We use lightweight browser cookies or local storage strictly for functional purposes: remembering your display preferences, search cache, and maintaining affiliate link session continuity so qualifying purchases are properly credited. We do not use intrusive cross-site tracking cookies.</p>
+      <p>You can clear or block cookies through your browser settings at any time without affecting your ability to browse deals.</p>
+    </section>
+
+    <!-- SECTION 5 -->
+    <section id="third-parties" class="policy-section">
+      <div class="section-header">
+        <span class="section-num">05</span>
+        <h2>Third-Party Links & Merchants</h2>
+      </div>
+      <p>Dealbuster contains links to external retailers (e.g., Amazon.in, Flipkart, Myntra, Ajio, TataCliq). Once you click an outbound deal link and navigate to a merchant's store, their own privacy policy, terms, and cookie practices govern your visit.</p>
+      <p>We do not share any personal user records with these merchants. We encourage you to review each retailer's privacy policy before completing a checkout.</p>
+    </section>
+
+    <!-- SECTION 6 -->
+    <section id="user-rights" class="policy-section">
+      <div class="section-header">
+        <span class="section-num">06</span>
+        <h2>Data Retention & Your Legal Rights</h2>
+      </div>
+      <p>We retain support emails and aggregate analytics only for as long as necessary to maintain service stability and respond to inquiries.</p>
+      <p>Under India's Digital Personal Data Protection Act (DPDP Act) and applicable international standards, you have the right to:</p>
+      <ul>
+        <li>Request confirmation of whether we hold any personal data about you.</li>
+        <li>Request correction or complete erasure of any correspondence you have sent to us.</li>
+        <li>Withdraw consent for optional communications or push notifications at any time.</li>
+      </ul>
+      <p>To exercise any of these rights, simply email our data controller at <a href="mailto:contactdealbuster@gmail.com">contactdealbuster@gmail.com</a>.</p>
+    </section>
+
+    <!-- SECTION 7 -->
+    <section id="children" class="policy-section">
+      <div class="section-header">
+        <span class="section-num">07</span>
+        <h2>Children's Privacy & Policy Updates</h2>
+      </div>
+      <p>Dealbuster is a general-audience shopping guide and does not knowingly solicit or collect information from children under the age of 13. If you believe a minor has shared personal data with us, please contact us immediately for prompt deletion.</p>
+      <p>We may update this Privacy Policy occasionally to reflect product enhancements or legal updates. Material revisions will be reflected with an updated date at the top of this document.</p>
+    </section>
+
+    <!-- CONTACT / QUESTIONS -->
+    <div id="contact" class="help-card">
+      <div>
+        <h3>Questions about your privacy?</h3>
+        <p>Our team is happy to explain our privacy practices in detail.</p>
+      </div>
+      <a href="mailto:contactdealbuster@gmail.com" class="btn-email">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+        contactdealbuster@gmail.com
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
 <footer>
-  <div>© 2026 Dealbuster. | <a href="mailto:contactdealbuster@gmail.com" style="color:var(--footer-text);">contactdealbuster@gmail.com</a></div>
+  <div class="footer-top">
+    © 2026 Dealbuster. &nbsp;|&nbsp; <a href="mailto:contactdealbuster@gmail.com">contactdealbuster@gmail.com</a>
+  </div>
   <div class="footer-links">
-    <a href="privacy.html">Privacy</a>
+    <a href="https://play.google.com/store/apps/details?id=com.dealbusterindia.app&pcampaignid=web_share" class="no-cuelinks" data-no-cuelink="true" target="_blank" rel="noopener" style="color:#01875F;font-weight:700;">📱 Get App</a>
+    <a href="privacy.html" style="color:#FFFFFF;font-weight:700;">Privacy</a>
     <a href="terms.html">Terms</a>
     <a href="affiliate-disclosure.html">Affiliate Disclosure</a>
     <a href="about.html">About</a>
   </div>
+  <hr class="footer-divider" />
+  <div class="footer-disclaimer">
+    <strong>Disclaimer:</strong> We earn commissions from qualifying Amazon purchases as an Associate. Links may be affiliate links at no extra cost to you. Prices and availability are accurate at posting but subject to change. We do not sell products directly; all transactions and terms are handled by the respective seller.
+  </div>
 </footer>
+
+<script>
+  // Active pill highlight on scroll
+  const sections = document.querySelectorAll('.policy-section');
+  const navLinks = document.querySelectorAll('.jump-link');
+
+  window.addEventListener('scroll', () => {
+    let current = '';
+    const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
+
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop - 160;
+      if (scrollPos >= sectionTop) {
+        current = section.getAttribute('id');
+      }
+    });
+
+    navLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+      }
+    });
+  }, { passive: true });
+</script>
 
 </body>
 </html>
