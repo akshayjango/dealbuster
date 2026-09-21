@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="favicon-tab.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <title>Terms of Use – Dealbuster</title>
-  <meta name="description" content="Read Dealbuster's terms of use: service nature, price disclaimer, affiliate disclosure notice, and terms governing your use of our platform." />
+  <meta name="description" content="Read Dealbuster's terms of use before using the website." />
   <meta name="robots" content="noindex, follow" />
   <link rel="canonical" href="https://dealbuster.in/terms.html" />
 
@@ -17,39 +17,24 @@
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    
+
     :root {
       --primary: #6C47FF;
-      --primary-dark: #5535E0;
       --primary-hover: #5833EA;
-      --primary-soft: #F0EBFF;
-      --primary-tint: #FAF8FF;
-      --accent: #FFD000;
-      --accent-hover: #FFC200;
+      --primary-soft: #F3F0FF;
       --lime: #D1FF00;
       --bg: #F8FAFC;
       --card-bg: #FFFFFF;
       --text: #0F172A;
-      --text-muted: #475569;
-      --text-sub: #64748B;
-      --line: #E2E8F0;
-      --line-subtle: #F1F5F9;
+      --text-body: #334155;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --border-light: #F1F5F9;
       --footer-bg: #0B0F19;
       --footer-text: #94A3B8;
-      --footer-border: rgba(255, 255, 255, 0.08);
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 20px;
+      --radius: 16px;
       --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-      --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
-      --shadow-lg: 0 12px 24px -4px rgba(15, 23, 42, 0.06), 0 4px 8px -2px rgba(15, 23, 42, 0.03);
-    }
-
-    html {
-      scroll-behavior: smooth;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 6px 18px -4px rgba(15, 23, 42, 0.05);
     }
 
     body {
@@ -57,15 +42,16 @@
       background-color: var(--bg);
       color: var(--text);
       line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* HEADER */
+    /* NAVBAR - LOGO ONLY */
     header {
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--line);
-      padding: 14px 20px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -75,7 +61,7 @@
     }
 
     .logo {
-      font-size: 1.28rem;
+      font-size: 1.35rem;
       font-weight: 800;
       color: var(--text);
       letter-spacing: -0.03em;
@@ -88,100 +74,70 @@
     .logo span {
       background: var(--lime);
       color: var(--text);
-      padding: 2px 8px;
+      padding: 2px 9px;
       display: inline-block;
       border-radius: 999px;
-      margin-left: 2px;
-      font-size: 1.15rem;
+      margin-left: 3px;
+      font-size: 1.2rem;
     }
 
-    /* HERO SECTION */
+    /* HERO */
     .page-hero {
-      background: radial-gradient(100% 100% at 50% 0%, #EDE9FE 0%, #F8FAFC 75%);
-      border-bottom: 1px solid var(--line);
-      padding: 56px 20px 48px;
       text-align: center;
-      position: relative;
+      padding: 48px 20px 32px;
+      max-width: 800px;
+      margin: 0 auto;
     }
 
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #FFFFFF;
-      border: 1px solid #DDD6FE;
-      color: var(--primary);
-      padding: 5px 14px;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.02em;
+    .hero-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 800;
       text-transform: uppercase;
-      margin-bottom: 16px;
-      box-shadow: var(--shadow-sm);
+      letter-spacing: 0.08em;
+      color: var(--primary);
+      background: var(--primary-soft);
+      border: 1px solid #E9D5FF;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 14px;
     }
 
     .page-hero h1 {
-      font-size: clamp(2rem, 4.5vw, 2.75rem);
+      font-size: clamp(2.1rem, 4.5vw, 2.75rem);
       font-weight: 800;
-      color: var(--text);
       letter-spacing: -0.03em;
+      color: var(--text);
       line-height: 1.2;
     }
 
     .page-hero p {
-      margin-top: 12px;
+      margin-top: 10px;
+      font-size: clamp(0.98rem, 2vw, 1.1rem);
       color: var(--text-muted);
-      font-size: clamp(0.95rem, 2vw, 1.1rem);
       font-weight: 500;
-      max-width: 580px;
+    }
+
+    /* POLICY SWITCHER TABS */
+    .policy-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 24px;
+      padding: 4px;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      box-shadow: var(--shadow-sm);
+      width: fit-content;
       margin-left: auto;
       margin-right: auto;
     }
 
-    .hero-meta {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      margin-top: 20px;
-      font-size: 0.8rem;
-      color: var(--text-sub);
-      font-weight: 600;
-      flex-wrap: wrap;
-    }
-
-    .hero-meta span {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    /* CROSS-POLICY NAVIGATION PILLS */
-    .policy-tabs-wrapper {
-      max-width: 860px;
-      margin: 28px auto 0;
-      padding: 0 16px;
-    }
-
-    .policy-tabs {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 6px;
-      background: #FFFFFF;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      box-shadow: var(--shadow-sm);
-      width: fit-content;
-      margin: 0 auto;
-    }
-
     .policy-tab {
-      padding: 8px 18px;
+      padding: 7px 18px;
       border-radius: 999px;
-      font-size: 0.84rem;
+      font-size: 0.82rem;
       font-weight: 700;
       text-decoration: none;
       color: var(--text-muted);
@@ -191,178 +147,62 @@
 
     .policy-tab:hover {
       color: var(--text);
-      background: var(--line-subtle);
+      background: var(--border-light);
     }
 
     .policy-tab.active {
       background: var(--primary);
       color: #FFFFFF;
-      box-shadow: 0 2px 8px rgba(108, 71, 255, 0.28);
+      box-shadow: 0 2px 6px rgba(108, 71, 255, 0.25);
     }
 
-    /* CONTENT WRAPPER */
-    .content-wrapper {
-      max-width: 860px;
-      margin: 24px auto 70px;
-      padding: 0 16px;
+    /* CONTENT CARD */
+    .content {
+      max-width: 760px;
+      margin: 28px auto 80px;
+      padding: 44px 44px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-card);
     }
 
-    .content-card {
-      background: #FFFFFF;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-xl);
-      padding: 44px 48px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    /* TL;DR CALLOUT */
-    .summary-card {
-      background: var(--primary-tint);
-      border: 1px solid #DDD6FE;
-      border-left: 4px solid var(--primary);
-      border-radius: var(--radius-md);
-      padding: 20px 24px;
-      margin-bottom: 36px;
-    }
-
-    .summary-title {
-      font-size: 0.88rem;
-      font-weight: 800;
-      color: var(--primary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .summary-card p {
-      font-size: 0.94rem;
-      line-height: 1.7;
-      color: var(--text);
-      font-weight: 500;
-      margin: 0;
-    }
-
-    /* ROLE COMPARISON CARDS */
-    .role-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin: 28px 0 36px;
-    }
-
-    .role-card {
-      background: var(--line-subtle);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-md);
-      padding: 20px 18px;
-    }
-
-    .role-header {
-      font-size: 0.92rem;
-      font-weight: 800;
-      color: var(--text);
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .role-badge {
-      font-size: 0.72rem;
-      font-weight: 800;
-      padding: 3px 8px;
-      border-radius: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .role-badge.dealbuster {
-      background: var(--primary-soft);
-      color: var(--primary);
-    }
-
-    .role-badge.retailer {
-      background: #FEF3C7;
-      color: #B45309;
-    }
-
-    .role-card p {
-      font-size: 0.86rem;
-      color: var(--text-muted);
-      line-height: 1.6;
-      margin: 0;
-    }
-
-    /* SECTIONS */
-    .policy-section {
-      margin-top: 38px;
-      padding-top: 32px;
-      border-top: 1px solid var(--line);
-      scroll-margin-top: 130px;
-    }
-
-    .policy-section:first-of-type {
-      margin-top: 0;
-      padding-top: 0;
-      border-top: none;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .section-num {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      background: var(--primary-soft);
-      color: var(--primary);
+    .last-updated {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      font-size: 0.78rem;
-      font-weight: 800;
-      flex-shrink: 0;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 24px;
+      background: var(--border-light);
+      padding: 4px 12px;
+      border-radius: 6px;
     }
 
-    .policy-section h2 {
-      font-size: 1.32rem;
+    .content h2 {
+      font-size: 1.25rem;
       font-weight: 800;
-      letter-spacing: -0.02em;
+      margin: 36px 0 12px;
       color: var(--text);
+      letter-spacing: -0.02em;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
     }
 
-    .policy-section p {
-      font-size: 0.96rem;
-      line-height: 1.8;
+    .content h2:first-of-type {
+      margin-top: 28px;
+    }
+
+    .content p {
+      font-size: 0.98rem;
+      line-height: 1.85;
       color: var(--text-body);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       font-weight: 420;
     }
 
-    .policy-section p:last-child {
-      margin-bottom: 0;
-    }
-
-    .policy-section ul {
-      padding-left: 20px;
-      margin-bottom: 16px;
-      color: var(--text-body);
-      font-size: 0.96rem;
-      line-height: 1.8;
-    }
-
-    .policy-section li {
-      margin-bottom: 8px;
-    }
-
-    .policy-section a {
+    .content a {
       color: var(--primary);
       text-decoration: none;
       font-weight: 600;
@@ -370,190 +210,80 @@
       transition: border-color 0.15s ease;
     }
 
-    .policy-section a:hover {
+    .content a:hover {
       border-bottom-color: var(--primary);
-    }
-
-    /* NOTICE BOX */
-    .notice-box {
-      background: #FFFBEB;
-      border: 1px solid #FDE68A;
-      border-radius: var(--radius-md);
-      padding: 16px 20px;
-      margin: 18px 0;
-      font-size: 0.92rem;
-      color: #92400E;
-      line-height: 1.65;
-    }
-
-    .notice-box strong {
-      color: #78350F;
-    }
-
-    /* CONTACT / HELP CARD */
-    .help-card {
-      background: linear-gradient(135deg, #F0EBFF 0%, #EDE9FE 100%);
-      border: 1px solid #DDD6FE;
-      border-radius: var(--radius-lg);
-      padding: 24px 28px;
-      margin-top: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      box-sizing: border-box;
-    }
-
-    .help-card h3 {
-      font-size: 1.15rem;
-      font-weight: 800;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-
-    .help-card p {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      margin: 0;
-      line-height: 1.5;
-    }
-
-    .btn-email {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      background: var(--primary);
-      color: #FFFFFF !important;
-      padding: 10px 18px;
-      border-radius: 12px;
-      font-size: 0.84rem;
-      font-weight: 700;
-      text-decoration: none !important;
-      border-bottom: none !important;
-      box-shadow: 0 2px 8px rgba(108, 71, 255, 0.3);
-      transition: all 0.18s ease;
-      box-sizing: border-box;
-      max-width: 100%;
-    }
-
-    .btn-email:hover {
-      background: var(--primary-hover);
-      transform: translateY(-1px);
     }
 
     /* FOOTER */
     footer {
       background: var(--footer-bg);
       color: var(--footer-text);
-      padding: 36px 20px;
+      padding: 36px 24px;
       text-align: center;
-      font-size: 0.84rem;
-      border-top: 1px solid var(--footer-border);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.85rem;
     }
 
-    .footer-top {
+    footer a {
       color: var(--footer-text);
-      margin-bottom: 12px;
+      text-decoration: none;
+      transition: color 0.15s ease;
     }
 
-    .footer-top a {
+    footer a:hover {
       color: #FFFFFF;
-      text-decoration: none;
     }
 
     .footer-links {
       display: flex;
       justify-content: center;
       gap: 18px;
-      margin: 14px 0 20px;
+      margin-top: 14px;
       font-weight: 600;
       flex-wrap: wrap;
     }
 
-    .footer-links a {
-      color: var(--footer-text);
-      text-decoration: none;
-      transition: color 0.15s ease;
-    }
-
-    .footer-links a:hover {
-      color: #FFFFFF;
-    }
-
-    .footer-divider {
-      border: 0;
-      border-top: 1px solid var(--footer-border);
-      max-width: 600px;
-      margin: 18px auto;
-    }
-
-    .footer-disclaimer {
-      font-size: 0.76rem;
-      color: #64748B;
-      max-width: 660px;
-      margin: 0 auto;
-      line-height: 1.6;
-    }
-
-    /* RESPONSIVE */
-    @media (max-width: 768px) {
-      .role-grid {
-        grid-template-columns: 1fr;
-        gap: 12px;
-      }
-      .content-card {
-        padding: 28px 20px;
-      }
-      .help-card {
-        padding: 22px 20px;
-      }
-    }
-
+    /* MOBILE RESPONSIVE */
     @media (max-width: 640px) {
       header {
-        padding: 12px 16px;
+        padding: 14px 16px;
       }
       .logo {
-        font-size: 1.15rem;
+        font-size: 1.2rem;
+      }
+      .logo span {
+        font-size: 1.05rem;
       }
       .page-hero {
-        padding: 40px 16px 36px;
-      }
-      .content-wrapper {
-        padding: 0 12px;
-      }
-      .content-card {
-        padding: 24px 16px;
+        padding: 36px 16px 24px;
       }
       .policy-tabs {
         width: 100%;
+        max-width: 100%;
         overflow-x: auto;
         justify-content: flex-start;
+        border-radius: 12px;
+        scrollbar-width: none;
+      }
+      .policy-tabs::-webkit-scrollbar {
+        display: none;
       }
       .policy-tab {
-        font-size: 0.78rem;
-        padding: 7px 14px;
+        font-size: 0.76rem;
+        padding: 6px 12px;
       }
-      .help-card {
-        flex-direction: column;
-        align-items: stretch;
-        text-align: center;
-        padding: 20px 14px;
-        gap: 14px;
+      .content {
+        padding: 24px 18px;
+        margin: 20px 12px 60px;
+        border-radius: 14px;
       }
-      .help-card div {
-        width: 100%;
+      .content h2 {
+        font-size: 1.15rem;
+        margin: 28px 0 10px;
       }
-      .btn-email {
-        width: 100%;
-        padding: 11px 8px;
-        font-size: clamp(0.72rem, 3.6vw, 0.82rem);
-        letter-spacing: -0.01em;
-      }
-      .btn-email svg {
-        flex-shrink: 0;
+      .content p {
+        font-size: 0.93rem;
+        line-height: 1.75;
       }
     }
   </style>
@@ -565,29 +295,10 @@
 </header>
 
 <div class="page-hero">
-  <div class="hero-badge">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-    Legal & Terms
-  </div>
+  <span class="hero-tag">Legal & Terms</span>
   <h1>Terms of Use</h1>
-  <p>Guidelines and terms governing your use of Dealbuster’s website, apps, and deal alerts.</p>
-  
-  <div class="hero-meta">
-    <span>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-      Updated 22 September 2026
-    </span>
-    <span>•</span>
-    <span>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-      3 min read
-    </span>
-    <span>•</span>
-    <span>Official Terms</span>
-  </div>
-</div>
+  <p>Please read these terms carefully before using Dealbuster.</p>
 
-<div class="policy-tabs-wrapper">
   <div class="policy-tabs">
     <a href="affiliate-disclosure.html" class="policy-tab">Affiliate Disclosure</a>
     <a href="privacy.html" class="policy-tab">Privacy Policy</a>
@@ -595,154 +306,49 @@
   </div>
 </div>
 
-<div class="content-wrapper">
-  <div class="content-card">
-    
-    <!-- TL;DR -->
-    <div class="summary-card">
-      <div class="summary-title">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        Terms in Plain English
-      </div>
-      <p>Dealbuster is a deal aggregator and curation guide. We do not sell products directly or accept payments. All orders are processed directly by third-party retailers (Amazon, Flipkart, etc.). Always double-check price and product details on the retailer's checkout page.</p>
-    </div>
+<div class="content">
+  <p class="last-updated">Last updated: 22 September 2026</p>
 
-    <!-- ROLES COMPARISON -->
-    <div class="role-grid">
-      <div class="role-card">
-        <div class="role-header">
-          <span class="role-badge dealbuster">Dealbuster</span>
-          Deal Aggregator & Discovery
-        </div>
-        <p>We discover, verify, and organize price drops and coupons across the internet. We provide fast direct links to store listings.</p>
-      </div>
-      <div class="role-card">
-        <div class="role-header">
-          <span class="role-badge retailer">Retailer</span>
-          Merchant of Record
-        </div>
-        <p>The retailer processes payments, manages inventory, packs and delivers products, handles returns, and provides warranties.</p>
-      </div>
-    </div>
+  <p>By accessing or using Dealbuster, you agree to be bound by these Terms of Use. If you do not agree, please do not use our site.</p>
 
-    <!-- SECTION 1 -->
-    <section id="acceptance" class="policy-section">
-      <div class="section-header">
-        <span class="section-num">01</span>
-        <h2>Acceptance of Terms</h2>
-      </div>
-      <p>By accessing or using Dealbuster (including dealbuster.in, our Android mobile app, Telegram channels, WhatsApp channels, or associated alert bots), you agree to be bound by these Terms of Use and our <a href="privacy.html">Privacy Policy</a>.</p>
-      <p>If you disagree with any portion of these terms, you should discontinue using our website, apps, and services.</p>
-    </section>
+  <h2>Nature of Service</h2>
+  <p>Dealbuster publishes deal listings, product information, and editorial guides for informational purposes only. No purchases occur on this site — all transactions take place via third-party retailers. We are a deal-discovery platform, not a seller.</p>
 
-    <!-- SECTION 2 -->
-    <section id="service-nature" class="policy-section">
-      <div class="section-header">
-        <span class="section-num">02</span>
-        <h2>Nature of Service</h2>
-      </div>
-      <p>Dealbuster publishes curated deals, discounts, editorial buyer guides, and price drops strictly for informational and discovery purposes.</p>
-      <p><strong>We are not an online retailer, merchant, or marketplace.</strong> No commercial purchase, transaction, payment processing, or order fulfillment occurs on our servers. When you click a deal link, you are redirected to third-party e-commerce platforms.</p>
-    </section>
+  <h2>Price & Availability</h2>
+  <p>We make no guarantees about the accuracy, completeness, or timeliness of any price or availability information. Deals change rapidly. Always confirm price, shipping costs, taxes, and availability on the retailer's website at checkout before making a purchase.</p>
 
-    <!-- SECTION 3 -->
-    <section id="prices" class="policy-section">
-      <div class="section-header">
-        <span class="section-num">03</span>
-        <h2>Price, Stock & Availability Disclaimer</h2>
-      </div>
-      <p>Online pricing in India changes rapidly due to algorithmic repricing, flash sales, lightning deal quotas, and dynamic seller inventory. While our crawlers inspect deals continuously, prices can change between our posting and your click.</p>
-      
-      <div class="notice-box">
-        <strong>Important Checkout Rule:</strong> Always verify the final selling price, shipping charges, seller ratings, and applicable bank discount offers directly on the merchant checkout screen before completing payment. The price displayed on the retailer's website is the only binding transaction price.
-      </div>
+  <h2>Affiliate Links</h2>
+  <p>Some links on Dealbuster are affiliate links. When you click through and make a purchase, we may earn a commission. This does not affect the price you pay. See our <a href="affiliate-disclosure.html" style="color:var(--primary);">Affiliate Disclosure</a> for full details.</p>
 
-      <p>Dealbuster makes no guarantee or warranty that any featured deal will remain in stock or at a particular price by the time you visit the merchant.</p>
-    </section>
+  <h2>Third-Party Sites</h2>
+  <p>Dealbuster links to external websites for your convenience. We are not responsible for the content, policies, security, or practices of any third-party site. Visiting external sites is at your own risk.</p>
 
-    <!-- SECTION 4 -->
-    <section id="affiliate" class="policy-section">
-      <div class="section-header">
-        <span class="section-num">04</span>
-        <h2>Affiliate Links & Commissions</h2>
-      </div>
-      <p>Outbound product links on Dealbuster may be affiliate links. If you click through and complete a qualifying purchase, Dealbuster may receive a small commission from the merchant at no added cost to you.</p>
-      <p>Please review our full <a href="affiliate-disclosure.html">Affiliate Disclosure</a> for comprehensive details regarding our participation in the Amazon Associates Programme and other affiliate networks.</p>
-    </section>
+  <h2>Intellectual Property</h2>
+  <p>The design, branding, and original editorial content on Dealbuster belong to us or our licensors. Retailer names and trademarks are used for identification purposes only. Scraping, reproducing, or redistributing our content without prior written permission is prohibited.</p>
 
-    <!-- SECTION 5 -->
-    <section id="third-party" class="policy-section">
-      <div class="section-header">
-        <span class="section-num">05</span>
-        <h2>Third-Party Websites & Merchants</h2>
-      </div>
-      <p>Dealbuster links to external websites for convenience and deal discovery. We have no ownership or control over third-party platforms, their product quality, delivery schedules, return policies, or privacy standards.</p>
-      <p>Any dispute, claim, return request, refund, or warranty issue regarding a purchased item must be addressed directly with the retailer or merchant from whom you completed the purchase.</p>
-    </section>
+  <h2>Limitation of Liability</h2>
+  <p>Dealbuster and its operators are not liable for any indirect, incidental, special, or consequential damages arising from your use of the site or reliance on any information provided here. This site is provided on an "as is" basis without warranties of any kind.</p>
 
-    <!-- SECTION 6 -->
-    <section id="ip" class="policy-section">
-      <div class="section-header">
-        <span class="section-num">06</span>
-        <h2>Intellectual Property & Fair Use</h2>
-      </div>
-      <p>The Dealbuster logo, brand identity, user interface design, editorial text, database curation, algorithms, and website code are the exclusive intellectual property of Dealbuster.</p>
-      <ul>
-        <li>You may not scrape, copy, mirror, systematically harvest, or redistribute Dealbuster's curated deal feeds or content for commercial syndication without prior express written permission.</li>
-        <li>Merchant logos, trademarks, and brand names (e.g., Amazon, Flipkart, Myntra, etc.) belong strictly to their respective owners and are referenced solely for identification purposes under fair use.</li>
-      </ul>
-    </section>
+  <h2>User Responsibility</h2>
+  <p>You agree to use Dealbuster only for lawful purposes. You agree to indemnify Dealbuster from any claims, damages, or costs arising from your misuse of the site or violation of these terms.</p>
 
-    <!-- SECTION 7 -->
-    <section id="liability" class="policy-section">
-      <div class="section-header">
-        <span class="section-num">07</span>
-        <h2>Limitation of Liability</h2>
-      </div>
-      <p>Dealbuster and its operators provide this platform on an "as is" and "as available" basis without any express or implied warranties of any kind.</p>
-      <p>To the maximum extent permitted by applicable law, Dealbuster shall not be liable for any direct, indirect, incidental, punitive, or consequential damages resulting from your reliance on deal listings, price errors, expired discounts, out-of-stock items, or transaction disputes with third-party sellers.</p>
-    </section>
+  <h2>Updates to These Terms</h2>
+  <p>We may revise these Terms at any time. Continued use of Dealbuster after changes are posted constitutes your acceptance of the revised terms.</p>
 
-    <!-- SECTION 8 -->
-    <section id="conduct" class="policy-section">
-      <div class="section-header">
-        <span class="section-num">08</span>
-        <h2>User Conduct & Governing Law</h2>
-      </div>
-      <p>You agree to use Dealbuster only for lawful personal shopping purposes. You agree not to interfere with the proper functioning of our platform, inject malicious code, overload our infrastructure, or bypass access controls.</p>
-      <p>These terms and any disputes arising from them shall be governed by and construed in accordance with the laws of India, subject to the jurisdiction of courts in India.</p>
-    </section>
+  <h2>Governing Law</h2>
+  <p>These terms are governed by the laws of India, subject to applicable consumer protection regulations in your local jurisdiction.</p>
 
-    <!-- CONTACT / QUESTIONS -->
-    <div id="contact" class="help-card">
-      <div>
-        <h3>Need clarification on these terms?</h3>
-        <p>Our team is available to assist with any legal or operational queries.</p>
-      </div>
-      <a href="mailto:contactdealbuster@gmail.com" class="btn-email">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-        contactdealbuster@gmail.com
-      </a>
-    </div>
-
-  </div>
+  <h2>Contact</h2>
+  <p>Questions about these terms? Email us at <a href="mailto:contactdealbuster@gmail.com" style="color:var(--primary);">contactdealbuster@gmail.com</a>.</p>
 </div>
 
-<!-- FOOTER -->
 <footer>
-  <div class="footer-top">
-    © 2026 Dealbuster. &nbsp;|&nbsp; <a href="mailto:contactdealbuster@gmail.com">contactdealbuster@gmail.com</a>
-  </div>
+  <div>© 2026 Dealbuster. | <a href="mailto:contactdealbuster@gmail.com">contactdealbuster@gmail.com</a></div>
   <div class="footer-links">
-    <a href="https://play.google.com/store/apps/details?id=com.dealbusterindia.app&pcampaignid=web_share" class="no-cuelinks" data-no-cuelink="true" target="_blank" rel="noopener" style="color:#01875F;font-weight:700;">📱 Get App</a>
     <a href="privacy.html">Privacy</a>
-    <a href="terms.html" style="color:#FFFFFF;font-weight:700;">Terms</a>
+    <a href="terms.html">Terms</a>
     <a href="affiliate-disclosure.html">Affiliate Disclosure</a>
     <a href="about.html">About</a>
-  </div>
-  <hr class="footer-divider" />
-  <div class="footer-disclaimer">
-    <strong>Disclaimer:</strong> We earn commissions from qualifying Amazon purchases as an Associate. Links may be affiliate links at no extra cost to you. Prices and availability are accurate at posting but subject to change. We do not sell products directly; all transactions and terms are handled by the respective seller.
   </div>
 </footer>
 
