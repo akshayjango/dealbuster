@@ -65,23 +65,17 @@
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--line);
-      padding: 12px 24px;
+      padding: 14px 20px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       position: sticky;
       top: 0;
       z-index: 100;
     }
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
     .logo {
-      font-size: 1.25rem;
+      font-size: 1.28rem;
       font-weight: 800;
       color: var(--text);
       letter-spacing: -0.03em;
@@ -99,89 +93,6 @@
       border-radius: 999px;
       margin-left: 2px;
       font-size: 1.15rem;
-    }
-
-    .back-btn {
-      text-decoration: none;
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: #FFFFFF;
-      transition: all 0.2s ease;
-    }
-
-    .back-btn:hover {
-      background: var(--primary-soft);
-      border-color: #D8B4FE;
-      color: var(--primary);
-    }
-
-    nav {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .nav-join-group {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .join-label {
-      font-size: 0.72rem;
-      font-weight: 800;
-      color: var(--text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .btn-join {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      padding: 6px 12px;
-      border-radius: 10px;
-      text-decoration: none;
-      transition: transform 0.18s ease, box-shadow 0.18s ease;
-      color: var(--text);
-      border: 1px solid rgba(0, 0, 0, 0.06);
-    }
-
-    .btn-join.telegram {
-      background: #63CDFF;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .btn-join.whatsapp {
-      background: #37EE7B;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .btn-join.playstore {
-      background: #01875F;
-      color: #FFFFFF !important;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .btn-join:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-
-    .nav-icon {
-      width: 15px;
-      height: 15px;
-      display: block;
-      flex-shrink: 0;
     }
 
     /* HERO SECTION */
@@ -516,14 +427,19 @@
     .help-card {
       background: linear-gradient(135deg, #F0EBFF 0%, #EDE9FE 100%);
       border: 1px solid #DDD6FE;
+    /* CONTACT / HELP CARD */
+    .help-card {
+      background: linear-gradient(135deg, #F0EBFF 0%, #EDE9FE 100%);
+      border: 1px solid #DDD6FE;
       border-radius: var(--radius-lg);
-      padding: 28px 30px;
+      padding: 24px 28px;
       margin-top: 48px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 20px;
+      gap: 16px;
       flex-wrap: wrap;
+      box-sizing: border-box;
     }
 
     .help-card h3 {
@@ -543,18 +459,20 @@
     .btn-email {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
       background: var(--primary);
       color: #FFFFFF !important;
-      padding: 10px 20px;
+      padding: 10px 18px;
       border-radius: 12px;
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       font-weight: 700;
       text-decoration: none !important;
       border-bottom: none !important;
       box-shadow: 0 2px 8px rgba(108, 71, 255, 0.3);
       transition: all 0.18s ease;
-      white-space: nowrap;
+      box-sizing: border-box;
+      max-width: 100%;
     }
 
     .btn-email:hover {
@@ -635,31 +553,16 @@
         padding: 12px 16px;
       }
       .logo {
-        font-size: 1.1rem;
-      }
-      .logo span {
-        font-size: 1rem;
-      }
-      .back-btn span.back-text {
-        display: none;
-      }
-      .back-btn {
-        padding: 6px 10px;
-      }
-      .btn-text {
-        display: none;
-      }
-      .join-label {
-        display: none;
-      }
-      .btn-join {
-        width: 34px;
-        height: 34px;
-        padding: 0;
-        justify-content: center;
+        font-size: 1.15rem;
       }
       .page-hero {
         padding: 40px 16px 36px;
+      }
+      .content-wrapper {
+        padding: 0 12px;
+      }
+      .content-card {
+        padding: 24px 16px;
       }
       .policy-tabs {
         width: 100%;
@@ -674,37 +577,32 @@
         flex-direction: column;
         gap: 12px;
       }
+      .help-card {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+        padding: 20px 14px;
+        gap: 14px;
+      }
+      .help-card div {
+        width: 100%;
+      }
+      .btn-email {
+        width: 100%;
+        padding: 11px 8px;
+        font-size: clamp(0.72rem, 3.6vw, 0.82rem);
+        letter-spacing: -0.01em;
+      }
+      .btn-email svg {
+        flex-shrink: 0;
+      }
     }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="header-left">
-    <a class="logo" href="index.html">Deal<span>buster</span></a>
-    <a href="index.html" class="back-btn" onclick="if(document.referrer.includes('dealbuster.in')||document.referrer.includes('localhost')){event.preventDefault();history.back();}">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-      <span class="back-text">All Deals</span>
-    </a>
-  </div>
-
-  <nav>
-    <div class="nav-join-group">
-      <span class="join-label">JOIN</span>
-      <a href="https://t.me/dealbusterindia" class="btn-join telegram" target="_blank" rel="noopener" title="Join Telegram Channel">
-        <svg class="nav-icon" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M41.8787 253.309L144.926 288.307L389.571 138.742C393.117 136.573 396.751 141.39 393.692 144.205L208.477 314.686L201.59 410.13C201.065 417.39 209.811 421.432 215.002 416.329L272.029 360.252L376.28 439.171C387.518 447.678 403.789 441.682 406.82 427.918L479.411 98.3182C483.552 79.5154 465.128 63.6492 447.147 70.535L41.3544 225.924C28.6248 230.799 28.9715 248.926 41.8787 253.309Z" fill="currentColor"/></svg>
-        <span class="btn-text">Telegram</span>
-      </a>
-      <a href="https://whatsapp.com/channel/0029Vb8eJlcA2pLCSwCSi00V" class="btn-join whatsapp" target="_blank" rel="noopener" title="Join WhatsApp Channel">
-        <svg class="nav-icon" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_3233_32)"><path fill-rule="evenodd" clip-rule="evenodd" d="M317.12 285.93C307.43 289.89 301.24 305.06 294.96 312.81C291.74 316.78 287.9 317.4 282.95 315.41C246.58 300.92 218.7 276.65 198.63 243.18C195.23 237.99 195.84 233.89 199.94 229.07C206 221.93 213.62 213.82 215.26 204.2C218.9 182.92 191.08 116.91 154.34 146.82C48.6197 232.97 330.7 461.46 381.61 337.88C396.01 302.85 333.18 279.35 317.12 285.93ZM256 467.28C218.61 467.28 181.82 457.34 149.61 438.52C144.44 435.49 138.19 434.69 132.41 436.26L62.4197 455.47L86.7998 401.76C90.1198 394.45 89.2698 385.94 84.5798 379.44C58.4998 343.29 44.7097 300.61 44.7097 256C44.7097 139.49 139.49 44.71 256 44.71C372.51 44.71 467.28 139.49 467.28 256C467.28 372.5 372.5 467.28 256 467.28ZM256 0C114.84 0 -0.000253361 114.84 -0.000253361 256C-0.000253361 305.66 14.0997 353.35 40.8897 394.74L1.99975 480.39C-1.59025 488.3 -0.280253 497.56 5.33975 504.15C9.65975 509.2 15.9097 512 22.3597 512C36.7797 512 115.41 487.29 135.42 481.8C172.41 501.59 213.9 512 256 512C397.15 512 512 397.15 512 256C512 114.84 397.15 0 256 0Z" fill="currentColor"/></g><defs><clipPath id="clip0_3233_32"><rect width="512" height="512" fill="white"/></clipPath></defs></svg>
-        <span class="btn-text">WhatsApp</span>
-      </a>
-      <a href="https://play.google.com/store/apps/details?id=com.dealbusterindia.app&pcampaignid=web_share" class="btn-join playstore" target="_blank" rel="noopener" title="Get App on Google Play">
-        <svg class="nav-icon" viewBox="0 0 133 133" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.7799 3.05191L91.6369 46.2589L120.456 62.9079C123.16 64.5349 123.182 68.4219 120.498 70.0699L120.371 70.1549L16.8429 129.926L16.7579 129.968C15.7019 130.56 14.5399 130.623 13.5259 130.327C11.8359 129.82 10.5039 128.278 10.5039 126.271V6.72791C10.5039 4.72091 11.8349 3.17891 13.5259 2.67191C14.5609 2.37491 15.7229 2.43891 16.7799 3.05191Z" fill="#47BCFF"/><path d="M16.7813 3.05216L91.6383 46.2592L72.8343 66.5002L13.5273 2.67116C14.5623 2.37516 15.7243 2.43916 16.7813 3.05216Z" fill="#0BDF74"/><path d="M91.636 46.2598L120.455 62.9088C123.159 64.5358 123.181 68.4228 120.497 70.0708L120.37 70.1558L91.636 86.7198L72.832 66.5008L91.636 46.2598Z" fill="#FDBA21"/><path d="M72.8343 66.5L91.6383 86.72L16.8443 129.927L16.7593 129.969C15.7033 130.561 14.5413 130.624 13.5273 130.328L72.8343 66.5Z" fill="#FB434C"/></svg>
-        <span class="btn-text">App</span>
-      </a>
-    </div>
-  </nav>
+  <a class="logo" href="index.html">Deal<span>buster</span></a>
 </header>
 
 <div class="page-hero">
