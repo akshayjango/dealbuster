@@ -5156,23 +5156,25 @@ export default {
             while ((match = regex.exec(html)) !== null) {
               try {
                 const data = JSON.parse(match[1].trim());
-                const dataObj = Array.isArray(data) ? data.find(o => o['@type'] === 'Product' || o['@type']?.includes('Product')) : data;
-                
-                if (dataObj && (dataObj['@type'] === 'Product' || dataObj['@type']?.includes('Product'))) {
-                  dataObjFound = dataObj;
-                  if (dataObj.name) title = dataObj.name.trim();
-                  if (dataObj.image) {
-                    image = Array.isArray(dataObj.image) ? dataObj.image[0] : dataObj.image;
-                    if (typeof image === 'object' && image.url) image = image.url;
-                  }
-                  const offers = dataObj.offers;
-                  if (offers) {
-                    const offersObj = Array.isArray(offers) ? offers[0] : offers;
-                    if (offersObj.price || offersObj.lowPrice) price = offersObj.price || offersObj.lowPrice;
-                    if (offersObj.highPrice || offersObj.priceSpecification?.price) mrp = offersObj.highPrice || offersObj.priceSpecification?.price;
-                  }
-                  if (dataObj.category) {
-                    category = typeof dataObj.category === 'string' ? dataObj.category : dataObj.category.name || '';
+                const items = Array.isArray(data) ? data : (data['@graph'] ? data['@graph'] : [data]);
+                for (const item of items) {
+                  if (item && (item['@type'] === 'Product' || item['@type']?.includes?.('Product'))) {
+                    dataObjFound = item;
+                    if (item.name && !title) title = item.name.trim();
+                    if (item.image && !image) {
+                      image = Array.isArray(item.image) ? item.image[0] : item.image;
+                      if (typeof image === 'object' && image.url) image = image.url;
+                    }
+                    const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
+                    if (offers) {
+                      const p = parsePrice(offers.price || offers.lowPrice);
+                      if (p && p > 0) price = p;
+                      const m = parsePrice(offers.highPrice || offers.priceSpecification?.price);
+                      if (m && m > 0) mrp = m;
+                    }
+                    if (item.category && !category) {
+                      category = typeof item.category === 'string' ? item.category : item.category.name || '';
+                    }
                   }
                 }
               } catch (e) {
@@ -5186,6 +5188,7 @@ export default {
               if (tM) title = tM[1].trim();
             }
             title = title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'").split('|')[0].trim();
+            title = title.replace(/\s*-\s*Buy\s+.*$/i, '').trim();
             if (title.length > 70) title = title.slice(0, 70).replace(/\s+\S*$/, '').trim();
 
             if (!image) {
@@ -5196,61 +5199,94 @@ export default {
 
             // 2. Structured script variables (Flipkart, Myntra, Ajio, Shopsy, Meesho)
             if (!price) {
-              const fpM = html.match(/"(?:finalPrice|specialPrice|discountedPrice|sellingPrice)"\s*:\s*(\d+)/i);
-              if (fpM) price = fpM[1];
-            }
-            if (!mrp) {
-              const mrpM = html.match(/"(?:mrp|originalPrice|crossedPrice|strikePrice|listingPrice)"\s*:\s*(\d+)/i);
-              if (mrpM) mrp = mrpM[1];
+              const pPatterns = [
+                /"(?:finalPrice|specialPrice|fsp|sellingPrice|discountedPrice|discounted_price|selling_price|special_price)"\s*:\s*([1-9]\d*)/i,
+                /"(?:lp|fkfp|fktp|fkap)"\s*:\s*([1-9]\d*(?:\.\d+)?)/i,
+                /"price"\s*:\s*([1-9]\d*(?:\.\d+)?)/i
+              ];
+              for (const pat of pPatterns) {
+                const m = html.match(pat);
+                if (m && parsePrice(m[1]) > 0) {
+                  price = parsePrice(m[1]);
+                  break;
+                }
+              }
             }
 
-            // 3. Flipkart Description Rs. pattern (e.g. "Buy ... for Rs.3199.0 from Flipkart.com")
+            // 3. MRP extraction patterns
             if (!mrp) {
-              const descM = html.match(/for\s+Rs\.?\s*([\d,]+(?:\.\d+)?)\s+from\s+Flipkart/i)
-                || html.match(/Buy [^<]{5,100} for Rs\.?\s*([\d,]+(?:\.\d+)?)/i);
-              if (descM) mrp = descM[1].replace(/,/g, '');
+              const mrpPatterns = [
+                /"(?:mrp|originalPrice|crossedPrice|strikePrice|listingPrice|original_price)"\s*:\s*([1-9]\d*(?:\.\d+)?)/i,
+                /(?:MRP|M\.R\.P\.?)\s*[:₹\s]+([1-9][\d,]*(?:\.\d+)?)/i,
+                /for\s+Rs\.?\s*([1-9][\d,]*(?:\.\d+)?)\s+from\s+Flipkart/i,
+                /Buy [^<]{5,100} for Rs\.?\s*([1-9][\d,]*(?:\.\d+)?)/i,
+                /<(?:s|strike|del)[^>]*>₹?\s*([1-9][\d,]*)<\/(?:s|strike|del)>/i,
+                /style=["'][^"']*line-through[^"']*["'][^>]*>₹?\s*([1-9][\d,]*)/i,
+                /class=["'][^"']*(?:line-through|strike|strike-price|mrp)[^"']*["'][^>]*>₹?\s*([1-9][\d,]*)/i
+              ];
+              for (const pat of mrpPatterns) {
+                const m = html.match(pat);
+                if (m && parsePrice(m[1]) > 0) {
+                  mrp = parsePrice(m[1]);
+                  break;
+                }
+              }
             }
 
-            // 4. HTML strike-through tags for MRP (<del>, <s>, <strike>, style="...line-through...", class="...strike...")
-            if (!mrp) {
-              const strikeM = html.match(/<(?:s|strike|del)[^>]*>₹?\s*([\d,]+)<\/(?:s|strike|del)>/i)
-                || html.match(/style=["'][^"']*line-through[^"']*["'][^>]*>₹?\s*([\d,]+)/i)
-                || html.match(/class=["'][^"']*(?:line-through|strike|strike-price|mrp)[^"']*["'][^>]*>₹?\s*([\d,]+)/i);
-              if (strikeM) mrp = strikeM[1].replace(/,/g, '');
+            // 4. Discount percentage check (e.g. "↓47%" or "47% off")
+            let discountPct = null;
+            const discM = html.match(/(?:↓|save\s+)?(\d{1,2})%\s*(?:off)?/i);
+            if (discM) {
+              const dVal = parseInt(discM[1], 10);
+              if (dVal >= 5 && dVal <= 95) discountPct = dVal;
             }
 
             // 5. OpenGraph or meta tags
             if (!price) {
               const ogPriceM = html.match(/<meta[^>]+(?:property|name)=["'](?:product:price:amount|og:price:amount)["'][^>]+content=["']([^"']+)["']/i);
-              if (ogPriceM) price = ogPriceM[1].trim();
+              if (ogPriceM && parsePrice(ogPriceM[1]) > 0) price = parsePrice(ogPriceM[1]);
             }
 
             // 6. Generic price regex for React Native Web / Flipkart price text elements
             if (!price) {
-              const pMatches = [...html.matchAll(/(?:font=["'][^"']*["']|class=["'][^"']*["'])[^>]*>₹\s*([\d,]+)<\//gi)];
+              const pMatches = [...html.matchAll(/(?:font=["'][^"']*["']|class=["'][^"']*["'])[^>]*>₹\s*([1-9][\d,]*)/gi)];
               for (const pm of pMatches) {
-                const val = pm[1].replace(/,/g, '');
-                if (val !== mrp) {
+                const val = parsePrice(pm[1]);
+                if (val && val !== mrp && val >= 50) {
                   price = val;
                   break;
                 }
               }
             }
 
-            // 7. Fallback: Any first ₹ amount on the page
-            if (!price) {
-              const anyRupee = html.match(/₹\s*([\d,]+)/);
-              if (anyRupee) price = anyRupee[1].replace(/,/g, '');
+            // 7. Fallback DOM Rupee Candidates & Cross-validation
+            const rupeeRegex = /₹\s*([1-9][\d,]*)/g;
+            let rMatch;
+            const rupeeCandidates = [];
+            while ((rMatch = rupeeRegex.exec(html)) !== null) {
+              const val = parsePrice(rMatch[1]);
+              if (val && val >= 50) {
+                rupeeCandidates.push(val);
+              }
             }
 
-            // 8. Legacy class names
-            if (!price) {
-              const fkPriceM = html.match(/class="[^"]*(?:_30jeq3|_16Jk6d|Nx9bqj)[^"]*"[^>]*>₹?\s*([\d,]+)/i);
-              if (fkPriceM) price = fkPriceM[1];
-            }
-            if (!mrp) {
-              const fkMrpM = html.match(/class="[^"]*(?:_3I9_wc|_2p6cR5|yRaY8j)[^"]*"[^>]*>₹?\s*([\d,]+)/i);
-              if (fkMrpM) mrp = fkMrpM[1];
+            // If price is missing OR price equals mrp (which means deal price wasn't found separately)
+            if (!price || (mrp && price >= mrp)) {
+              if (mrp && rupeeCandidates.length > 0) {
+                const lowerCandidates = rupeeCandidates.filter(c => c < mrp);
+                if (lowerCandidates.length > 0) {
+                  if (discountPct) {
+                    const expectedPrice = mrp * (1 - discountPct / 100);
+                    lowerCandidates.sort((a, b) => Math.abs(a - expectedPrice) - Math.abs(b - expectedPrice));
+                  }
+                  price = lowerCandidates[0];
+                }
+              }
+
+              // If still no lower candidate, but discount percentage is known, calculate it
+              if ((!price || (mrp && price >= mrp)) && mrp && discountPct) {
+                price = Math.round(mrp * (1 - discountPct / 100));
+              }
             }
             
             // Extract highlights if available
@@ -5324,11 +5360,17 @@ export default {
 
             let parsedPrice = price ? parsePrice(price.toString()) : null;
             let parsedMrp = mrp ? parsePrice(mrp.toString()) : null;
-            if (parsedPrice && (!parsedMrp || parsedMrp < parsedPrice)) {
-              parsedMrp = parsedPrice;
-            }
-            if (parsedMrp && !parsedPrice) {
+
+            // If price > mrp, swap them
+            if (parsedPrice && parsedMrp && parsedPrice > parsedMrp) {
+              const tmp = parsedPrice;
               parsedPrice = parsedMrp;
+              parsedMrp = tmp;
+            }
+
+            // If price and mrp are equal, and there's a discount, calculate deal price
+            if (parsedPrice && parsedMrp && parsedPrice === parsedMrp && discountPct) {
+              parsedPrice = Math.round(parsedMrp * (1 - discountPct / 100));
             }
 
             // Affiliate link generation via EarnKaro or CueLinks
