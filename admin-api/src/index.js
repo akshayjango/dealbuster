@@ -5067,6 +5067,7 @@ export default {
       if (url.pathname === '/fetchtitle' && request.method === 'GET') {
         let asin = url.searchParams.get('asin');
         const shortUrl = url.searchParams.get('url');
+        const converter = (url.searchParams.get('converter') || '').toLowerCase();
         if (!asin && !shortUrl) return json({ error: 'Missing asin or url' }, 400);
         try {
           let html = '';
@@ -5085,10 +5086,39 @@ export default {
           const isAmazon = finalUrl.includes('amazon.in') || finalUrl.includes('amzn.to') || finalUrl.includes('amazon.com') || (asin && !shortUrl);
 
           if (!isAmazon) {
+            let ekaroLink = null;
+            if (converter === 'earnkaro') {
+              try {
+                ekaroLink = await convertToEarnKaroLink(finalUrl, env);
+              } catch (e) {
+                console.error('EarnKaro link conversion failed in /fetchtitle:', e.message);
+              }
+            }
+
             // Fetch via proxy (since Flipkart/Myntra/Ajio block standard CF fetch requests)
-            const resp = await fetchWithProxy(finalUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 15000, env);
-            if (!resp.ok) {
-              return json({ error: `Proxy fetch failed for external link (HTTP ${resp.status})` }, 502);
+            let resp = null;
+            try {
+              resp = await fetchWithProxy(finalUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 15000, env);
+            } catch (e) {
+              console.error('Proxy fetch exception:', e.message);
+            }
+
+            if (!resp || !resp.ok) {
+              if (converter === 'earnkaro' && ekaroLink) {
+                return json({
+                  title: '',
+                  price: null,
+                  mrp: null,
+                  image: '',
+                  category: '',
+                  highlights: [],
+                  link: ekaroLink,
+                  ekaroLink: ekaroLink,
+                  asin: '',
+                  fetchWarning: `Proxy fetch returned HTTP ${resp ? resp.status : 'timeout/error'}. EarnKaro link converted successfully — please enter product details and upload image manually.`
+                });
+              }
+              return json({ error: `Proxy fetch failed for external link (HTTP ${resp ? resp.status : 'unknown'})` }, 502);
             }
             html = await resp.text();
             
@@ -5097,16 +5127,19 @@ export default {
             let mrp = null;
             let image = '';
             let category = '';
+            let highlights = [];
 
             // Parse structured JSON-LD data
             const regex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
             let match;
+            let dataObjFound = null;
             while ((match = regex.exec(html)) !== null) {
               try {
                 const data = JSON.parse(match[1].trim());
                 const dataObj = Array.isArray(data) ? data.find(o => o['@type'] === 'Product' || o['@type']?.includes('Product')) : data;
                 
                 if (dataObj && (dataObj['@type'] === 'Product' || dataObj['@type']?.includes('Product'))) {
+                  dataObjFound = dataObj;
                   if (dataObj.name) title = dataObj.name.trim();
                   if (dataObj.image) {
                     image = Array.isArray(dataObj.image) ? dataObj.image[0] : dataObj.image;
@@ -5134,7 +5167,46 @@ export default {
             }
             title = title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'").split('|')[0].trim();
             if (title.length > 70) title = title.slice(0, 70).replace(/\s+\S*$/, '').trim();
+
+            if (!image) {
+              const ogImgM = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)["']/i);
+              if (ogImgM) image = ogImgM[1].trim();
+            }
+
+            if (!price) {
+              const ogPriceM = html.match(/<meta[^>]+(?:property|name)=["'](?:product:price:amount|og:price:amount)["'][^>]+content=["']([^"']+)["']/i);
+              if (ogPriceM) price = ogPriceM[1].trim();
+            }
+            if (!price) {
+              const fkPriceM = html.match(/class="[^"]*(?:_30jeq3|_16Jk6d|Nx9bqj)[^"]*"[^>]*>₹?\s*([\d,]+)/i);
+              if (fkPriceM) price = fkPriceM[1];
+            }
+            if (!mrp) {
+              const fkMrpM = html.match(/class="[^"]*(?:_3I9_wc|_2p6cR5|yRaY8j)[^"]*"[^>]*>₹?\s*([\d,]+)/i);
+              if (fkMrpM) mrp = fkMrpM[1];
+            }
             
+            // Extract highlights if available
+            if (dataObjFound?.description && typeof dataObjFound.description === 'string') {
+              const desc = dataObjFound.description.replace(/<[^>]+>/g, '').trim();
+              if (desc.length > 15 && desc.length < 500) {
+                const parts = desc.split(/(?:\r?\n|•|\. )+/).map(p => p.trim()).filter(p => p.length >= 10 && p.length <= 150);
+                if (parts.length > 0) highlights.push(...parts.slice(0, 4));
+                else highlights.push(desc.slice(0, 150));
+              }
+            }
+            if (!highlights.length) {
+              const metaDescM = html.match(/<meta[^>]+(?:name|property)=["'](?:og:description|description)["'][^>]+content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:name|property)=["'](?:og:description|description)["']/i);
+              if (metaDescM && metaDescM[1]) {
+                const cleanDesc = metaDescM[1].replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+                if (cleanDesc.length > 15 && cleanDesc.length < 300) {
+                  highlights.push(cleanDesc);
+                }
+              }
+            }
+
             if (category) {
               const catLower = category.toLowerCase();
               if (/electronic|mobile|phone|laptop|computer|camera|headphone|speaker|tv|tablet|watch|smart/.test(catLower)) category = 'Electronics';
@@ -5187,9 +5259,10 @@ export default {
             const parsedPrice = price ? parsePrice(price.toString()) : null;
             const parsedMrp = mrp ? parsePrice(mrp.toString()) : null;
 
-            // Affiliate link generation via Cuelinks (fallback to 268568 if no publisher ID set)
+            // Affiliate link generation via EarnKaro or CueLinks
             const pubId = env.CUELINKS_PUB_ID || '268568';
-            const affiliateUrl = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(finalUrl)}`;
+            const cueLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(finalUrl)}`;
+            const affiliateUrl = (converter === 'earnkaro' && ekaroLink) ? ekaroLink : cueLink;
 
             return json({
               title,
@@ -5198,9 +5271,11 @@ export default {
               image,
               category,
               link: affiliateUrl,
+              ekaroLink: ekaroLink || null,
               asin: "",
               rating,
-              reviewCount
+              reviewCount,
+              highlights: highlights.length ? highlights : []
             });
           }
 
@@ -5299,6 +5374,29 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+
+      // ── /convert-earnkaro ────────────────────────────────────────────────────
+      if (url.pathname === '/convert-earnkaro' && (request.method === 'POST' || request.method === 'GET')) {
+        let targetUrl = '';
+        if (request.method === 'GET') {
+          targetUrl = url.searchParams.get('url') || '';
+        } else {
+          const b = await request.json().catch(() => ({}));
+          targetUrl = b.url || '';
+        }
+        if (!targetUrl) return json({ error: 'Missing url parameter' }, 400);
+        try {
+          const ekaroLink = await convertToEarnKaroLink(targetUrl, env);
+          if (ekaroLink) {
+            return json({ success: true, link: ekaroLink });
+          }
+        } catch (e) {
+          console.error('convert-earnkaro failed:', e.message);
+        }
+        const pubId = env.CUELINKS_PUB_ID || '268568';
+        const fallbackLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(targetUrl)}`;
+        return json({ success: true, link: fallbackLink, fallback: true });
+      }
 
       // ── /search ──────────────────────────────────────────────────────────────
       if (url.pathname === '/search' && request.method === 'GET') {

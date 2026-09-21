@@ -1005,6 +1005,7 @@
     <nav class="tab-nav">
       <button class="active" onclick="switchTab('dashboard')">Dashboard</button>
       <button onclick="switchTab('addDeal')">Add Deal</button>
+      <button onclick="switchTab('earnkaro')">EarnKaro Converter</button>
       <button onclick="switchTab('offers')">CueLinks Offers</button>
       <button onclick="switchTab('banners')">Store Banners</button>
       <button onclick="switchTab('homeBanners')">Home Banners</button>
@@ -1174,6 +1175,7 @@
           <button class="active" onclick="switchSubtab('url')">Amazon URL</button>
           <button onclick="switchSubtab('search')">Amazon Search API</button>
           <button onclick="switchSubtab('others')">Universal Converter (Flipkart/Myntra/Ajio/etc)</button>
+          <button onclick="switchSubtab('earnkaro')">EarnKaro Converter</button>
         </div>
 
         <!-- URL subtab -->
@@ -1369,6 +1371,103 @@
               <button class="btn" id="publishBtnOthers" onclick="publishFromOthers()">Publish Deal</button>
             </div>
             <div id="publishStatusOthers" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <!-- EarnKaro URL Converter subtab -->
+        <div class="subtab-panel" id="subtabEarnkaro">
+          <div class="add-card">
+            <div class="field">
+              <label>Product URL (Flipkart, Myntra, Ajio, Shopsy, Meesho, Nykaa, TataCliq, etc.)</label>
+              <input type="text" id="earnkaroUrl" placeholder="Paste any non-Amazon product page link here..." oninput="autoConvertEarnkaroUrl(this.value)"/>
+              <div class="fetch-status" id="earnkaroFetchStatus"></div>
+            </div>
+
+            <!-- Converted Link Display -->
+            <div class="field" id="earnkaroConvertedContainer" style="display:none;margin-top:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="margin-bottom:0;">Your Converted EarnKaro Affiliate Link</label>
+                <span id="earnkaroStoreBadge" style="font-size:11px;font-weight:700;color:var(--primary);background:rgba(99,102,241,0.1);padding:2px 8px;border-radius:6px;"></span>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <input type="text" id="earnkaroConvertedLink" readonly style="flex:1;font-size:.85rem;background:#fff;color:var(--text);"/>
+                <button type="button" class="btn-icon" onclick="copyEarnkaroLink()" id="copyEarnkaroLinkBtn" title="Copy Link" style="border:1.5px solid var(--border);padding:8px;display:inline-flex;align-items:center;justify-content:center;background:#fff;border-radius:10px;color:var(--muted);width:38px;height:38px;flex-shrink:0;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Product Details and Publish Card (shown once details fetched or manual entry) -->
+          <div class="add-card" id="earnkaroPublishCard" style="display:none;">
+            <div class="two-col">
+              <div class="field">
+                <label>Deal Price (₹)</label>
+                <input type="text" id="earnkaroPrice" placeholder="e.g. 299" oninput="updateEarnkaroDiscountBadge()"/>
+              </div>
+              <div class="field">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <label style="margin-bottom:0;">MRP (₹)</label>
+                  <span id="earnkaroDiscountBadge" style="display:none;font-size:11px;font-weight:700;color:#16a34a;background:#dcfce7;padding:2px 8px;border-radius:6px;"></span>
+                </div>
+                <input type="text" id="earnkaroMrp" placeholder="e.g. 640" oninput="updateEarnkaroDiscountBadge()"/>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Product Title</label>
+              <input type="text" id="earnkaroTitle" placeholder="Full product title"/>
+            </div>
+
+            <!-- Product Image with WebP Uploader & Live Preview -->
+            <div class="field">
+              <label>Product Image</label>
+              <!-- Live Image Preview Box -->
+              <div id="earnkaroImgPreviewContainer" style="display:none;margin-bottom:12px;padding:12px;border:1px dashed var(--border);border-radius:12px;background:var(--card);align-items:center;gap:14px;">
+                <img id="earnkaroImagePreview" src="" alt="Preview" style="width:72px;height:72px;object-fit:contain;background:#fff;border-radius:8px;border:1px solid var(--border);flex-shrink:0;"/>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:0.85rem;font-weight:700;color:var(--text);margin-bottom:2px;" id="earnkaroImgPreviewStatus">Image Preview</div>
+                  <div style="font-size:0.75rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="earnkaroImgPreviewNote">Ready to publish</div>
+                </div>
+              </div>
+
+              <!-- Upload row with WebP converter -->
+              <div class="img-upload-row">
+                <input type="file" id="earnkaroImageFile" accept="image/*" onchange="uploadEarnkaroImage()" style="display:none"/>
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('earnkaroImageFile').click()" id="earnkaroUploadBtn">Choose Image to Upload</button>
+                <span id="earnkaroImageName" style="font-size:.85rem;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">No file chosen</span>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;margin-top:8px;">
+                <span style="font-size:.8rem;color:var(--muted);white-space:nowrap;">OR image URL / path:</span>
+                <input type="text" id="earnkaroImage" placeholder="images/product.webp or https://..." oninput="updateEarnkaroImagePreview(this.value)" style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:inherit;"/>
+              </div>
+              <div class="img-status" id="earnkaroImageUploadStatus"></div>
+              <small style="color:var(--muted);font-size:11px;display:block;margin-top:3px;">⚡ Auto-converted to WebP & compressed to reduce size without quality loss</small>
+            </div>
+
+            <div class="field">
+              <label>Category</label>
+              <select id="earnkaroCat">
+                <option value="Electronics">Electronics</option>
+                <option value="Fashion">Fashion</option>
+                <option value="Home">Home</option>
+                <option value="Beauty">Beauty</option>
+                <option value="Health">Health</option>
+              </select>
+            </div>
+
+            <p class="section-heading">Highlights</p>
+            <ul class="highlights-list" id="earnkaroHighlights"></ul>
+            <button class="add-hl" onclick="addHighlight('earnkaroHighlights', '')">+ Add highlight</button>
+
+            <div class="publish-actions">
+              <button class="btn btn-outline" onclick="clearEarnkaroForm()">Clear</button>
+              <button class="btn" id="publishBtnEarnkaro" onclick="publishFromEarnkaro()">Publish Deal</button>
+            </div>
+            <div id="publishStatusEarnkaro" style="margin-top:16px;"></div>
           </div>
         </div>
 
@@ -2102,8 +2201,16 @@ function showScreen(id) {
 }
 
 function switchTab(tab, forceReload = false) {
+  if (tab === 'earnkaro') {
+    switchTab('addDeal');
+    switchSubtab('earnkaro');
+    document.querySelectorAll('.tab-nav button').forEach((b, i) => {
+      b.classList.toggle('active', i === 2);
+    });
+    return;
+  }
   document.querySelectorAll('.tab-nav button').forEach((b, i) => {
-    b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1) || (tab === 'offers' && i === 2) || (tab === 'banners' && i === 3) || (tab === 'homeBanners' && i === 4));
+    b.classList.toggle('active', (tab === 'dashboard' && i === 0) || (tab === 'addDeal' && i === 1) || (tab === 'offers' && i === 3) || (tab === 'banners' && i === 4) || (tab === 'homeBanners' && i === 5));
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   const panelId = tab === 'dashboard' ? 'tabDashboard' : tab === 'offers' ? 'tabOffers' : tab === 'banners' ? 'tabBanners' : tab === 'homeBanners' ? 'tabHomeBanners' : 'tabAddDeal';
@@ -2130,12 +2237,13 @@ function switchTab(tab, forceReload = false) {
 
 function switchSubtab(tab) {
   document.querySelectorAll('.subtab-nav button').forEach((b, i) => {
-    b.classList.toggle('active', (tab === 'url' && i === 0) || (tab === 'search' && i === 1) || (tab === 'others' && i === 2));
+    b.classList.toggle('active', (tab === 'url' && i === 0) || (tab === 'search' && i === 1) || (tab === 'others' && i === 2) || (tab === 'earnkaro' && i === 3));
   });
   document.querySelectorAll('.subtab-panel').forEach(p => p.classList.remove('active'));
-  if (tab === 'url') document.getElementById('subtabUrl').classList.add('active');
-  else if (tab === 'search') document.getElementById('subtabSearch').classList.add('active');
-  else if (tab === 'others') document.getElementById('subtabOthers').classList.add('active');
+  if (tab === 'url') document.getElementById('subtabUrl')?.classList.add('active');
+  else if (tab === 'search') document.getElementById('subtabSearch')?.classList.add('active');
+  else if (tab === 'others') document.getElementById('subtabOthers')?.classList.add('active');
+  else if (tab === 'earnkaro') document.getElementById('subtabEarnkaro')?.classList.add('active');
 }
 
 // ── CueLinks Offers (read-only viewer) ─────────────────────────────────────────
@@ -2581,7 +2689,7 @@ function saveUIState() {
   try {
     const activeTabBtn = document.querySelector('.tab-nav button.active');
     const tabIndex = [...document.querySelectorAll('.tab-nav button')].indexOf(activeTabBtn);
-    const tab = tabIndex === 1 ? 'addDeal' : tabIndex === 2 ? 'offers' : tabIndex === 3 ? 'banners' : tabIndex === 4 ? 'homeBanners' : 'dashboard';
+    const tab = tabIndex === 1 ? 'addDeal' : tabIndex === 2 ? 'earnkaro' : tabIndex === 3 ? 'offers' : tabIndex === 4 ? 'banners' : tabIndex === 5 ? 'homeBanners' : 'dashboard';
 
     const state = {
       tab,
@@ -3964,6 +4072,321 @@ async function publishFromOthers() {
   await doPublish(product, category, highlights, 'publishBtnOthers', 'publishStatusOthers');
 }
 
+// ── EarnKaro URL Converter ───────────────────────────────────────────────────
+let earnkaroFetchTimer = null;
+
+function updateEarnkaroImagePreview(url) {
+  const container = document.getElementById('earnkaroImgPreviewContainer');
+  const img = document.getElementById('earnkaroImagePreview');
+  const status = document.getElementById('earnkaroImgPreviewStatus');
+  const note = document.getElementById('earnkaroImgPreviewNote');
+  const val = (url || '').trim();
+  if (!val) {
+    if (container) container.style.display = 'none';
+    return;
+  }
+  if (img) {
+    img.src = val;
+    img.onload = () => {
+      if (container) container.style.display = 'flex';
+      if (status) status.textContent = 'Image loaded successfully';
+      if (note) note.textContent = val;
+    };
+    img.onerror = () => {
+      if (container) container.style.display = 'flex';
+      if (status) status.textContent = 'Image preview unavailable';
+      if (note) note.textContent = 'Could not render URL directly (upload custom image below if needed)';
+    };
+    if (container) container.style.display = 'flex';
+  }
+}
+
+function updateEarnkaroDiscountBadge() {
+  const priceRaw = (document.getElementById('earnkaroPrice')?.value || '').replace(/[^\d]/g, '');
+  const mrpRaw = (document.getElementById('earnkaroMrp')?.value || '').replace(/[^\d]/g, '');
+  const badge = document.getElementById('earnkaroDiscountBadge');
+  if (badge && priceRaw && mrpRaw) {
+    const p = parseInt(priceRaw, 10);
+    const m = parseInt(mrpRaw, 10);
+    if (m > p && m > 0) {
+      const pct = Math.round(((m - p) / m) * 100);
+      badge.textContent = `-${pct}% off`;
+      badge.style.display = 'inline-block';
+      return;
+    }
+  }
+  if (badge) badge.style.display = 'none';
+}
+
+function clearEarnkaroForm() {
+  ['earnkaroUrl','earnkaroTitle','earnkaroPrice','earnkaroMrp','earnkaroImage'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const fileInput = document.getElementById('earnkaroImageFile');
+  if (fileInput) fileInput.value = '';
+  const nameEl = document.getElementById('earnkaroImageName');
+  if (nameEl) nameEl.textContent = 'No file chosen';
+  const uploadStatusEl = document.getElementById('earnkaroImageUploadStatus');
+  if (uploadStatusEl) uploadStatusEl.innerHTML = '';
+  const discBadge = document.getElementById('earnkaroDiscountBadge');
+  if (discBadge) discBadge.style.display = 'none';
+  const previewContainer = document.getElementById('earnkaroImgPreviewContainer');
+  if (previewContainer) previewContainer.style.display = 'none';
+  const imgPreview = document.getElementById('earnkaroImagePreview');
+  if (imgPreview) imgPreview.src = '';
+  const highlightsList = document.getElementById('earnkaroHighlights');
+  if (highlightsList) highlightsList.innerHTML = '';
+  const fetchStatus = document.getElementById('earnkaroFetchStatus');
+  if (fetchStatus) fetchStatus.textContent = '';
+  const convertedContainer = document.getElementById('earnkaroConvertedContainer');
+  if (convertedContainer) convertedContainer.style.display = 'none';
+  const publishCard = document.getElementById('earnkaroPublishCard');
+  if (publishCard) publishCard.style.display = 'none';
+  const publishStatus = document.getElementById('publishStatusEarnkaro');
+  if (publishStatus) publishStatus.innerHTML = '';
+}
+
+async function autoConvertEarnkaroUrl(urlVal) {
+  const statusEl = document.getElementById('earnkaroFetchStatus');
+  const convertedContainer = document.getElementById('earnkaroConvertedContainer');
+  const convertedInput = document.getElementById('earnkaroConvertedLink');
+  const publishCard = document.getElementById('earnkaroPublishCard');
+  const badgeEl = document.getElementById('earnkaroStoreBadge');
+  
+  clearTimeout(earnkaroFetchTimer);
+  const trimmed = urlVal.trim();
+  if (!trimmed) {
+    statusEl.textContent = '';
+    convertedContainer.style.display = 'none';
+    publishCard.style.display = 'none';
+    return;
+  }
+  
+  const isHttp = /^https?:\/\//i.test(trimmed);
+  if (!isHttp) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = 'Please enter a valid HTTP/HTTPS URL';
+    convertedContainer.style.display = 'none';
+    publishCard.style.display = 'none';
+    return;
+  }
+  
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = 'Converting with EarnKaro & fetching product details…';
+  
+  // Detect store name
+  const storeLower = trimmed.toLowerCase();
+  let storeName = 'Retailer';
+  if (storeLower.includes('flipkart') || storeLower.includes('fkrt') || storeLower.includes('fktr')) storeName = 'Flipkart';
+  else if (storeLower.includes('myntra') || storeLower.includes('myntr')) storeName = 'Myntra';
+  else if (storeLower.includes('ajio') || storeLower.includes('ajiio')) storeName = 'Ajio';
+  else if (storeLower.includes('shopsy')) storeName = 'Shopsy';
+  else if (storeLower.includes('meesho')) storeName = 'Meesho';
+  else if (storeLower.includes('nykaa')) storeName = 'Nykaa';
+  else if (storeLower.includes('tatacliq')) storeName = 'TataCliq';
+
+  if (badgeEl) badgeEl.textContent = storeName;
+  
+  earnkaroFetchTimer = setTimeout(async () => {
+    try {
+      const resp = await apiFetch(`/fetchtitle?url=${encodeURIComponent(trimmed)}&converter=earnkaro`);
+      const data = await resp.json();
+      
+      const affiliateLink = data.ekaroLink || data.link || trimmed;
+      convertedInput.value = affiliateLink;
+      convertedContainer.style.display = 'block';
+      publishCard.style.display = 'block';
+
+      if (data.title) {
+        document.getElementById('earnkaroTitle').value = data.title;
+      }
+      if (data.price) {
+        document.getElementById('earnkaroPrice').value = data.price.toString().replace(/[^\d]/g, '');
+      }
+      if (data.mrp) {
+        document.getElementById('earnkaroMrp').value = data.mrp.toString().replace(/[^\d]/g, '');
+      }
+      updateEarnkaroDiscountBadge();
+
+      if (data.image) {
+        document.getElementById('earnkaroImage').value = data.image;
+        updateEarnkaroImagePreview(data.image);
+      } else {
+        const previewContainer = document.getElementById('earnkaroImgPreviewContainer');
+        if (previewContainer) previewContainer.style.display = 'none';
+      }
+
+      if (data.category) {
+        const catEl = document.getElementById('earnkaroCat');
+        const opt = [...catEl.options].find(o => o.value.toLowerCase() === data.category.toLowerCase());
+        if (opt) catEl.value = opt.value;
+      }
+
+      const list = document.getElementById('earnkaroHighlights');
+      list.innerHTML = '';
+      if (data.highlights?.length) {
+        data.highlights.forEach(h => addHighlight('earnkaroHighlights', h));
+      } else {
+        addHighlight('earnkaroHighlights', `Handpicked deal, verified live on ${storeName} at the time of posting.`);
+        addHighlight('earnkaroHighlights', `Discounted price shown is off the listed MRP - check the product page for the exact current price.`);
+      }
+
+      if (data.fetchWarning) {
+        statusEl.style.color = '#d97706';
+        statusEl.textContent = '⚡ EarnKaro link converted! Note: ' + data.fetchWarning;
+      } else if (data.title) {
+        statusEl.style.color = 'var(--green)';
+        statusEl.innerHTML = '✓ Converted via EarnKaro & details fetched successfully!';
+      } else {
+        statusEl.style.color = 'var(--green)';
+        statusEl.textContent = '✓ EarnKaro link converted! Please enter title, price, and upload image.';
+      }
+    } catch (e) {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Error: ' + e.message;
+    }
+  }, 600);
+}
+
+function copyEarnkaroLink() {
+  const linkEl = document.getElementById('earnkaroConvertedLink');
+  if (!linkEl || !linkEl.value) return;
+
+  const btn = document.getElementById('copyEarnkaroLinkBtn');
+  const copyIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>`;
+  const checkIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green, #16a34a)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>`;
+
+  navigator.clipboard.writeText(linkEl.value).then(() => {
+    btn.innerHTML = checkIcon;
+    btn.title = 'Copied!';
+    setTimeout(() => {
+      btn.innerHTML = copyIcon;
+      btn.title = 'Copy Link';
+    }, 2000);
+  }).catch(() => {
+    linkEl.select();
+    document.execCommand('copy');
+  });
+}
+
+// ── EarnKaro Image Upload (Auto-Optimized & WebP Converted) ─────────────────
+async function uploadEarnkaroImage() {
+  const fileInput = document.getElementById('earnkaroImageFile');
+  const statusEl = document.getElementById('earnkaroImageUploadStatus');
+  const nameEl = document.getElementById('earnkaroImageName');
+  const textInput = document.getElementById('earnkaroImage');
+  const uploadBtn = document.getElementById('earnkaroUploadBtn');
+
+  if (!fileInput.files?.length) return;
+  const file = fileInput.files[0];
+  nameEl.textContent = file.name;
+  statusEl.style.color = 'var(--primary)';
+  statusEl.textContent = '⚡ Optimizing & converting to WebP…';
+  uploadBtn.disabled = true;
+
+  try {
+    const opt = await optimizeImageFile(file, 800, 0.85);
+    statusEl.textContent = `Uploading WebP (${formatBytes(opt.optimizedSize)})…`;
+
+    const cleanTitle = (document.getElementById('earnkaroTitle').value || '').trim()
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const ts = Math.floor(Date.now() / 1000);
+    const filename = cleanTitle ? `${cleanTitle}-${ts}.${opt.ext}` : `prod-${ts}.${opt.ext}`;
+
+    const resp = await apiFetch('/upload', { method: 'POST', body: { filename, content: opt.base64 } });
+    const data = await resp.json();
+    if (data.success) {
+      const origStr = formatBytes(opt.originalSize);
+      const optStr = formatBytes(opt.optimizedSize);
+      const savedPct = Math.round((1 - opt.optimizedSize / opt.originalSize) * 100);
+      const statsBadge = opt.originalSize > opt.optimizedSize && savedPct > 0
+        ? `<span style="font-size:11px;opacity:0.85;margin-left:4px;color:var(--text);font-weight:600;">(⚡ ${origStr} ➔ ${optStr}, -${savedPct}%)</span>`
+        : `<span style="font-size:11px;opacity:0.85;margin-left:4px;">(${optStr})</span>`;
+
+      statusEl.style.color = 'var(--green)';
+      statusEl.innerHTML = `✓ Uploaded! ${statsBadge} <button type="button" onclick="deleteEarnkaroUpload('${data.path}', this)" style="margin-left:8px;background:none;border:none;color:var(--red);cursor:pointer;font-size:.82rem;font-weight:600;text-decoration:underline;">✕ Delete</button>`;
+      textInput.value = data.path;
+      updateEarnkaroImagePreview(data.path);
+    } else {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = 'Upload failed: ' + (data.details || data.error || 'Unknown error');
+    }
+  } catch (err) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = 'Error: ' + err.message;
+  } finally {
+    uploadBtn.disabled = false;
+  }
+}
+
+async function deleteEarnkaroUpload(path, btn) {
+  if (!confirm(`Delete ${path}?`)) return;
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  try {
+    const resp = await apiFetch('/delete', { method: 'POST', body: { path } });
+    const data = await resp.json();
+    const statusEl = document.getElementById('earnkaroImageUploadStatus');
+    if (data.success) {
+      statusEl.style.color = 'var(--muted)';
+      statusEl.textContent = 'Image deleted.';
+      document.getElementById('earnkaroImage').value = '';
+      updateEarnkaroImagePreview('');
+    } else {
+      btn.disabled = false;
+      btn.textContent = '✕ Delete';
+      statusEl.textContent += ' (Delete failed: ' + (data.error || 'Unknown') + ')';
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '✕ Delete';
+  }
+}
+
+async function publishFromEarnkaro() {
+  const title = document.getElementById('earnkaroTitle').value.trim();
+  const priceRaw = document.getElementById('earnkaroPrice').value.trim().replace(/[^\d]/g, '');
+  const mrpRaw = document.getElementById('earnkaroMrp').value.trim().replace(/[^\d]/g, '');
+  let imgPath = document.getElementById('earnkaroImage').value.trim();
+  const category = document.getElementById('earnkaroCat').value;
+  const convertedLink = document.getElementById('earnkaroConvertedLink').value.trim();
+
+  if (!title || !priceRaw || !imgPath || !convertedLink) {
+    alert('Please fill in title, price, image, and ensure the EarnKaro link is generated.');
+    return;
+  }
+
+  const price = parseInt(priceRaw, 10);
+  const mrp = mrpRaw ? parseInt(mrpRaw, 10) : price;
+  const discNum = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  const disc = discNum > 0 ? `-${discNum}%` : '0%';
+  if (!imgPath.startsWith('images/') && !imgPath.startsWith('http')) {
+    imgPath = 'images/' + imgPath;
+  }
+
+  const product = {
+    asin: '',
+    title,
+    price: '₹' + price.toLocaleString('en-IN'),
+    mrp: '₹' + mrp.toLocaleString('en-IN'),
+    disc,
+    image: imgPath,
+    link: convertedLink,
+    lowestPriceText: null,
+  };
+
+  const highlights = [...document.querySelectorAll('#earnkaroHighlights input')].map(i => i.value.trim()).filter(Boolean);
+  await doPublish(product, category, highlights, 'publishBtnEarnkaro', 'publishStatusEarnkaro');
+}
+
 // ── Amazon Search ─────────────────────────────────────────────────────────────
 async function doSearch() {
   const q = document.getElementById('searchInput').value.trim();
@@ -4187,6 +4610,7 @@ async function doPublish(product, category, highlights, btnId, statusId) {
       setTimeout(() => { 
         clearManualForm(); 
         clearOthersForm();
+        clearEarnkaroForm();
         document.getElementById('searchPublishCard').style.display = 'none';
         statusEl.innerHTML = ''; 
       }, 2500);
