@@ -5095,10 +5095,30 @@ export default {
               }
             }
 
+            // If it was a short link or redirect, try resolving target canonical web URL
+            let scrapeUrl = finalUrl;
+            if (ekaroLink && (scrapeUrl.includes('fkrt.co') || scrapeUrl.includes('fktr.in') || scrapeUrl.includes('bit.ly') || scrapeUrl.includes('tinyurl') || scrapeUrl.includes('myntr.it') || scrapeUrl.includes('ajiio.in'))) {
+              try {
+                const headRes = await fetchWithTimeout(ekaroLink, { redirect: 'manual' }, 5000);
+                const loc = headRes.headers.get('location') || '';
+                if (loc.includes('dl=')) {
+                  const dlMatch = loc.match(/[?&]dl=([^&]+)/);
+                  if (dlMatch) {
+                    const decoded = decodeURIComponent(dlMatch[1]);
+                    scrapeUrl = decoded.replace('dl.flipkart.com/dl/', 'www.flipkart.com/');
+                  }
+                } else if (loc.startsWith('http')) {
+                  scrapeUrl = loc;
+                }
+              } catch (e) {
+                // Ignore redirect check error, scrapeUrl remains finalUrl
+              }
+            }
+
             // Fetch via proxy (since Flipkart/Myntra/Ajio block standard CF fetch requests)
             let resp = null;
             try {
-              resp = await fetchWithProxy(finalUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 15000, env);
+              resp = await fetchWithProxy(scrapeUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, 15000, env);
             } catch (e) {
               console.error('Proxy fetch exception:', e.message);
             }
@@ -5148,8 +5168,8 @@ export default {
                   const offers = dataObj.offers;
                   if (offers) {
                     const offersObj = Array.isArray(offers) ? offers[0] : offers;
-                    price = offersObj.price || offersObj.lowPrice;
-                    mrp = offersObj.highPrice || offersObj.priceSpecification?.price || price;
+                    if (offersObj.price || offersObj.lowPrice) price = offersObj.price || offersObj.lowPrice;
+                    if (offersObj.highPrice || offersObj.priceSpecification?.price) mrp = offersObj.highPrice || offersObj.priceSpecification?.price;
                   }
                   if (dataObj.category) {
                     category = typeof dataObj.category === 'string' ? dataObj.category : dataObj.category.name || '';
@@ -5174,10 +5194,56 @@ export default {
               if (ogImgM) image = ogImgM[1].trim();
             }
 
+            // 2. Structured script variables (Flipkart, Myntra, Ajio, Shopsy, Meesho)
+            if (!price) {
+              const fpM = html.match(/"(?:finalPrice|specialPrice|discountedPrice|sellingPrice)"\s*:\s*(\d+)/i);
+              if (fpM) price = fpM[1];
+            }
+            if (!mrp) {
+              const mrpM = html.match(/"(?:mrp|originalPrice|crossedPrice|strikePrice|listingPrice)"\s*:\s*(\d+)/i);
+              if (mrpM) mrp = mrpM[1];
+            }
+
+            // 3. Flipkart Description Rs. pattern (e.g. "Buy ... for Rs.3199.0 from Flipkart.com")
+            if (!mrp) {
+              const descM = html.match(/for\s+Rs\.?\s*([\d,]+(?:\.\d+)?)\s+from\s+Flipkart/i)
+                || html.match(/Buy [^<]{5,100} for Rs\.?\s*([\d,]+(?:\.\d+)?)/i);
+              if (descM) mrp = descM[1].replace(/,/g, '');
+            }
+
+            // 4. HTML strike-through tags for MRP (<del>, <s>, <strike>, style="...line-through...", class="...strike...")
+            if (!mrp) {
+              const strikeM = html.match(/<(?:s|strike|del)[^>]*>₹?\s*([\d,]+)<\/(?:s|strike|del)>/i)
+                || html.match(/style=["'][^"']*line-through[^"']*["'][^>]*>₹?\s*([\d,]+)/i)
+                || html.match(/class=["'][^"']*(?:line-through|strike|strike-price|mrp)[^"']*["'][^>]*>₹?\s*([\d,]+)/i);
+              if (strikeM) mrp = strikeM[1].replace(/,/g, '');
+            }
+
+            // 5. OpenGraph or meta tags
             if (!price) {
               const ogPriceM = html.match(/<meta[^>]+(?:property|name)=["'](?:product:price:amount|og:price:amount)["'][^>]+content=["']([^"']+)["']/i);
               if (ogPriceM) price = ogPriceM[1].trim();
             }
+
+            // 6. Generic price regex for React Native Web / Flipkart price text elements
+            if (!price) {
+              const pMatches = [...html.matchAll(/(?:font=["'][^"']*["']|class=["'][^"']*["'])[^>]*>₹\s*([\d,]+)<\//gi)];
+              for (const pm of pMatches) {
+                const val = pm[1].replace(/,/g, '');
+                if (val !== mrp) {
+                  price = val;
+                  break;
+                }
+              }
+            }
+
+            // 7. Fallback: Any first ₹ amount on the page
+            if (!price) {
+              const anyRupee = html.match(/₹\s*([\d,]+)/);
+              if (anyRupee) price = anyRupee[1].replace(/,/g, '');
+            }
+
+            // 8. Legacy class names
             if (!price) {
               const fkPriceM = html.match(/class="[^"]*(?:_30jeq3|_16Jk6d|Nx9bqj)[^"]*"[^>]*>₹?\s*([\d,]+)/i);
               if (fkPriceM) price = fkPriceM[1];
@@ -5256,8 +5322,14 @@ export default {
               return json({ error: `Product rating is too low (${rating} stars, minimum requirement is 3.6 stars)` }, 400);
             }
 
-            const parsedPrice = price ? parsePrice(price.toString()) : null;
-            const parsedMrp = mrp ? parsePrice(mrp.toString()) : null;
+            let parsedPrice = price ? parsePrice(price.toString()) : null;
+            let parsedMrp = mrp ? parsePrice(mrp.toString()) : null;
+            if (parsedPrice && (!parsedMrp || parsedMrp < parsedPrice)) {
+              parsedMrp = parsedPrice;
+            }
+            if (parsedMrp && !parsedPrice) {
+              parsedPrice = parsedMrp;
+            }
 
             // Affiliate link generation via EarnKaro or CueLinks
             const pubId = env.CUELINKS_PUB_ID || '268568';
