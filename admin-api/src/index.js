@@ -1504,9 +1504,78 @@ async function convertToEarnKaro(dealText, env) {
   return null;
 }
 
+async function resolveCanonicalProductUrl(inputUrl) {
+  if (!inputUrl) return inputUrl;
+  let currentUrl = inputUrl.trim();
+
+  // 1. Direct dl= or url= extraction
+  const dlMatch = currentUrl.match(/[?&](?:dl|url)=([^&]+)/i);
+  if (dlMatch) {
+    try {
+      const decoded = decodeURIComponent(dlMatch[1]);
+      if (decoded.startsWith('http') || decoded.includes('flipkart') || decoded.includes('myntra') || decoded.includes('ajio')) {
+        currentUrl = decoded;
+      }
+    } catch(e) {}
+  }
+
+  // 2. Follow short link redirects (up to 4 hops)
+  const isRedirectDomain = /fktr\.in|fkrt\.co|ekaro\.in|bit\.ly|tinyurl\.com|myntr\.it|ajiio\.in|linkredirect\.in|linksredirect\.com/i.test(currentUrl);
+  if (isRedirectDomain) {
+    try {
+      let hops = 0;
+      while (hops < 4) {
+        hops++;
+        const res = await fetchWithTimeout(currentUrl, { redirect: 'manual' }, 5000);
+        const loc = res.headers.get('location');
+        if (loc) {
+          const resolvedLoc = new URL(loc, currentUrl).href;
+          currentUrl = resolvedLoc;
+          const locDl = currentUrl.match(/[?&](?:dl|url)=([^&]+)/i);
+          if (locDl) {
+            try {
+              const decoded = decodeURIComponent(locDl[1]);
+              if (decoded.startsWith('http') || decoded.includes('flipkart') || decoded.includes('myntra') || decoded.includes('ajio')) {
+                currentUrl = decoded;
+                break;
+              }
+            } catch(e) {}
+          }
+        } else {
+          break;
+        }
+      }
+    } catch(e) {}
+  }
+
+  // 3. Second check for dl= or url=
+  const dlMatch2 = currentUrl.match(/[?&](?:dl|url)=([^&]+)/i);
+  if (dlMatch2) {
+    try {
+      const decoded = decodeURIComponent(dlMatch2[1]);
+      if (decoded.startsWith('http') || decoded.includes('flipkart') || decoded.includes('myntra') || decoded.includes('ajio')) {
+        currentUrl = decoded;
+      }
+    } catch(e) {}
+  }
+
+  // 4. Flipkart canonical normalization
+  if (currentUrl.toLowerCase().includes('flipkart.com') || currentUrl.toLowerCase().includes('dl.flipkart.com')) {
+    const pidMatch = currentUrl.match(/[?&]pid=([A-Z0-9]{16})/i);
+    if (pidMatch) {
+      currentUrl = `https://www.flipkart.com/product/p/itme?pid=${pidMatch[1]}`;
+    } else {
+      currentUrl = currentUrl.replace('dl.flipkart.com/dl/', 'www.flipkart.com/');
+    }
+  }
+
+  return currentUrl;
+}
+
 async function convertToEarnKaroLink(url, env) {
   if (!url) return null;
-  const convertedText = await convertToEarnKaro(url, env);
+  const canonical = await resolveCanonicalProductUrl(url);
+  const convertedText = await convertToEarnKaro(canonical, env);
   if (convertedText) {
     const match = convertedText.match(/https?:\/\/[^\s]+/i);
     if (match) return match[0];
@@ -5073,45 +5142,33 @@ export default {
           let html = '';
           let finalUrl = shortUrl || (asin ? `https://www.amazon.in/dp/${asin}` : '');
           if (shortUrl) {
-            try {
-              const redir = await fetchWithTimeout(shortUrl, { redirect: 'follow', headers: AMZ_HEADERS });
-              finalUrl = redir.url;
-              const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-              if (asinM) { asin = asinM[1]; html = await redir.text(); }
-            } catch (e) {
-              // Redirect follow failed, treat the link as is
+            const isNonAmazonShort = /flipkart|myntra|ajio|shopsy|meesho|nykaa|tatacliq|fktr\.in|fkrt\.co|ekaro|myntr|ajiio|linkredirect|linksredirect/i.test(shortUrl);
+            if (isNonAmazonShort) {
+              finalUrl = await resolveCanonicalProductUrl(shortUrl);
+            } else {
+              try {
+                const redir = await fetchWithTimeout(shortUrl, { redirect: 'follow', headers: AMZ_HEADERS });
+                finalUrl = redir.url;
+                const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+                if (asinM) { asin = asinM[1]; html = await redir.text(); }
+              } catch (e) {
+                // Redirect follow failed, treat the link as is
+              }
             }
           }
 
           const isAmazon = finalUrl.includes('amazon.in') || finalUrl.includes('amzn.to') || finalUrl.includes('amazon.com') || (asin && !shortUrl);
 
           if (!isAmazon) {
+            finalUrl = await resolveCanonicalProductUrl(finalUrl || shortUrl);
+            let scrapeUrl = finalUrl;
+
             let ekaroLink = null;
             if (converter === 'earnkaro') {
               try {
                 ekaroLink = await convertToEarnKaroLink(finalUrl, env);
               } catch (e) {
                 console.error('EarnKaro link conversion failed in /fetchtitle:', e.message);
-              }
-            }
-
-            // If it was a short link or redirect, try resolving target canonical web URL
-            let scrapeUrl = finalUrl;
-            if (ekaroLink && (scrapeUrl.includes('fkrt.co') || scrapeUrl.includes('fktr.in') || scrapeUrl.includes('bit.ly') || scrapeUrl.includes('tinyurl') || scrapeUrl.includes('myntr.it') || scrapeUrl.includes('ajiio.in'))) {
-              try {
-                const headRes = await fetchWithTimeout(ekaroLink, { redirect: 'manual' }, 5000);
-                const loc = headRes.headers.get('location') || '';
-                if (loc.includes('dl=')) {
-                  const dlMatch = loc.match(/[?&]dl=([^&]+)/);
-                  if (dlMatch) {
-                    const decoded = decodeURIComponent(dlMatch[1]);
-                    scrapeUrl = decoded.replace('dl.flipkart.com/dl/', 'www.flipkart.com/');
-                  }
-                } else if (loc.startsWith('http')) {
-                  scrapeUrl = loc;
-                }
-              } catch (e) {
-                // Ignore redirect check error, scrapeUrl remains finalUrl
               }
             }
 
@@ -5195,6 +5252,13 @@ export default {
               const ogImgM = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/i)
                 || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)["']/i);
               if (ogImgM) image = ogImgM[1].trim();
+            }
+
+            if (image && (image.includes('ckassets.com') || image.includes('store_logo') || image.includes('ogimage/flipkart-direct'))) {
+              image = '';
+            }
+            if (title && (title.includes('Flipkart Direct') || title.includes('Growth Segment') || title.includes('visitretailer'))) {
+              title = '';
             }
 
             // 2. Structured script variables (Flipkart, Myntra, Ajio, Shopsy, Meesho)
@@ -5508,7 +5572,8 @@ export default {
           console.error('convert-earnkaro failed:', e.message);
         }
         const pubId = env.CUELINKS_PUB_ID || '268568';
-        const fallbackLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(targetUrl)}`;
+        const cleanForCue = await resolveCanonicalProductUrl(targetUrl);
+        const fallbackLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(cleanForCue)}`;
         return json({ success: true, link: fallbackLink, fallback: true });
       }
 
