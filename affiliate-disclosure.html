@@ -289,63 +289,6 @@
       box-shadow: 0 2px 8px rgba(108, 71, 255, 0.28);
     }
 
-    /* QUICK JUMP TABLE OF CONTENTS */
-    .quick-jump-container {
-      max-width: 860px;
-      margin: 20px auto 0;
-      padding: 0 16px;
-      position: sticky;
-      top: 65px;
-      z-index: 90;
-    }
-
-    .quick-jump {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 8px 12px;
-      overflow-x: auto;
-      scrollbar-width: none;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .quick-jump::-webkit-scrollbar {
-      display: none;
-    }
-
-    .quick-jump-title {
-      font-size: 0.72rem;
-      font-weight: 800;
-      color: var(--text-sub);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding-right: 6px;
-      border-right: 1px solid var(--line);
-      white-space: nowrap;
-    }
-
-    .jump-link {
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-decoration: none;
-      padding: 5px 10px;
-      border-radius: 8px;
-      white-space: nowrap;
-      transition: all 0.15s ease;
-      background: transparent;
-    }
-
-    .jump-link:hover, .jump-link.active {
-      color: var(--primary);
-      background: var(--primary-soft);
-    }
-
     /* CONTENT WRAPPER */
     .content-wrapper {
       max-width: 860px;
@@ -781,18 +724,6 @@
   </div>
 </div>
 
-<div class="quick-jump-container">
-  <div class="quick-jump">
-    <span class="quick-jump-title">Jump to</span>
-    <a href="#overview" class="jump-link">Overview</a>
-    <a href="#amazon" class="jump-link">Amazon Associates</a>
-    <a href="#independence" class="jump-link">Editorial Independence</a>
-    <a href="#other-retailers" class="jump-link">Other Retailers</a>
-    <a href="#visibility" class="jump-link">Disclosures</a>
-    <a href="#contact" class="jump-link">Questions</a>
-  </div>
-</div>
-
 <div class="content-wrapper">
   <div class="content-card">
     
@@ -931,31 +862,6 @@
     <strong>Disclaimer:</strong> We earn commissions from qualifying Amazon purchases as an Associate. Links may be affiliate links at no extra cost to you. Prices and availability are accurate at posting but subject to change. We do not sell products directly; all transactions and terms are handled by the respective seller.
   </div>
 </footer>
-
-<script>
-  // Active pill highlight on scroll
-  const sections = document.querySelectorAll('.policy-section');
-  const navLinks = document.querySelectorAll('.jump-link');
-
-  window.addEventListener('scroll', () => {
-    let current = '';
-    const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
-
-    sections.forEach(section => {
-      const sectionTop = section.offsetTop - 160;
-      if (scrollPos >= sectionTop) {
-        current = section.getAttribute('id');
-      }
-    });
-
-    navLinks.forEach(link => {
-      link.classList.remove('active');
-      if (link.getAttribute('href') === '#' + current) {
-        link.classList.add('active');
-      }
-    });
-  }, { passive: true });
-</script>
 
 </body>
 </html>
