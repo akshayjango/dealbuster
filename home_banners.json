@@ -2,6 +2,35 @@
   "showDefaultAnimatedBanner": false,
   "banners": [
     {
+      "id": "hbanner_1790181559235",
+      "store": "myntra",
+      "storeName": "Myntra",
+      "template": "myntra_light",
+      "badgeText": "",
+      "applyEffect": false,
+      "lines": [
+        {
+          "text": "Upto",
+          "size": "big"
+        },
+        {
+          "text": "90% Off",
+          "size": "big"
+        },
+        {
+          "text": "Sale Starts 8th October",
+          "size": "small"
+        }
+      ],
+      "title": "Upto",
+      "subtitle": "90% Off • Sale Starts 8th October",
+      "imageUrl": "images/banners/home-banner-1790181031280.webp",
+      "link": "https://myntr.it/kwZ7ejW",
+      "active": true,
+      "order": 3,
+      "createdAt": "2026-09-23T16:39:19.235Z"
+    },
+    {
       "id": "hbanner_1789885081733",
       "store": "amazon",
       "storeName": "Amazon",
