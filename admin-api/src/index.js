@@ -3273,7 +3273,7 @@ async function tgSend(token, chatId, text, opts = {}) {
   return fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, ...opts }),
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, link_preview_options: { is_disabled: true }, ...opts }),
   });
 }
 
@@ -3871,7 +3871,7 @@ async function promptAdminForUptoDeals(products, env) {
           const r2 = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: adminId, text: promptText, parse_mode: 'HTML', disable_web_page_preview: true }),
+            body: JSON.stringify({ chat_id: adminId, text: promptText, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
           });
           promptMsg = await r2.json().catch(() => null);
         }
@@ -3879,7 +3879,7 @@ async function promptAdminForUptoDeals(products, env) {
         const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: adminId, text: promptText, parse_mode: 'HTML', disable_web_page_preview: true }),
+          body: JSON.stringify({ chat_id: adminId, text: promptText, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
         });
         promptMsg = await r.json().catch(() => null);
       }
@@ -4349,7 +4349,7 @@ async function handleTelegramWebhook(request, env) {
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true }),
+            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
           });
         }
       }
@@ -4401,14 +4401,14 @@ async function handleTelegramWebhook(request, env) {
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_web_page_preview: true }),
+              body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
             });
           }
         } else {
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_web_page_preview: true }),
+            body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
           });
         }
       }
@@ -4642,7 +4642,7 @@ async function handleTelegramWebhook(request, env) {
         const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text: promptMsgText }),
+          body: JSON.stringify({ chat_id: chatId, text: promptMsgText, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
         });
         try { promptMsg = await r.json(); } catch (e) {}
       }
@@ -4685,7 +4685,7 @@ async function handleTelegramWebhook(request, env) {
       const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: promptMsgText }),
+        body: JSON.stringify({ chat_id: chatId, text: promptMsgText, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
       });
       try { promptMsg = await r.json(); } catch (e) {}
     }
@@ -4860,7 +4860,7 @@ async function handleTelegramWebhook(request, env) {
           const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: promptMsgText, parse_mode: 'HTML', disable_web_page_preview: true }),
+            body: JSON.stringify({ chat_id: chatId, text: promptMsgText, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
           });
           promptMsg = await r.json().catch(() => null);
         }
@@ -4908,7 +4908,7 @@ async function handleTelegramWebhook(request, env) {
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true }),
+            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
           });
         }
       }
