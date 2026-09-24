@@ -130,7 +130,7 @@
     .stat-card.live .stat-value { color: var(--green); }
 
     /* ── Scraper Status Cards ── */
-    .scraper-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .scraper-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
     .stat-card.scraper-card { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
     .stat-card.scraper-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-color: #cbd5e1; }
     .scraper-status-badge { display: flex; align-items: center; gap: 8px; font-size: 1.2rem; font-weight: 800; color: var(--text); margin-top: 2px; }
@@ -400,7 +400,7 @@
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .stats-row { grid-template-columns: repeat(2, 1fr); }
-      .scraper-stats-row { grid-template-columns: repeat(3, 1fr); }
+      .scraper-stats-row { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 640px) {
       .app-body { padding: 16px; }
@@ -1096,6 +1096,14 @@
           <div class="scraper-count-val" id="statusDealspyCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
           <div class="scraper-subtext" id="statusDealspySubtext" style="margin-top:6px;">Loading status…</div>
         </div>
+        <div class="stat-card scraper-card" id="cardOffertag" onclick="filterBySource('offertag')" title="Click to filter products by OfferTag">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="stat-label" style="margin-bottom:0;">OfferTag</div>
+            <div class="scraper-status-badge" id="statusOffertagBadge"><span class="status-dot green"></span><span id="statusOffertagText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
+          </div>
+          <div class="scraper-count-val" id="statusOffertagCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
+          <div class="scraper-subtext" id="statusOffertagSubtext" style="margin-top:6px;">Loading status…</div>
+        </div>
       </div>
 
       <!-- Toolbar -->
@@ -1112,6 +1120,7 @@
             <option value="dealsradar">DealsRadar</option>
             <option value="dotd">DealOfTheDayIndia</option>
             <option value="indiafree">IndiaFreeStuff</option>
+            <option value="offertag">OfferTag</option>
           </select>
           <select id="dashStore" onchange="renderList()">
             <option value="">All Stores</option>
@@ -1145,6 +1154,7 @@
             <button class="btn btn-outline btn-sm" onclick="syncDealsSpy()" id="syncDealsSpyBtn">Sync DealsSpy (Amazon)</button>
             <button class="btn btn-outline btn-sm" onclick="syncDotd()" id="syncDotdBtn">Sync DealOfTheDayIndia</button>
             <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIndiaFreeStuffBtn">Sync IndiaFreeStuff</button>
+            <button class="btn btn-outline btn-sm" onclick="syncOffertag()" id="syncOffertagBtn">Sync OfferTag</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
             <button class="btn btn-outline btn-sm" onclick="checkLowestPriceBadges()" id="checkBadgesBtn" style="border-color:#10b981;color:#059669;">🏷 Check Lowest Price Badges</button>
             <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
@@ -2484,7 +2494,8 @@ async function updateScraperStatuses() {
     const sources = [
       { key: 'indiafreestuff', errName: 'IndiaFreeStuff', prefix: 'ifs_', countId: 'statusIfsCount', badgeId: 'statusIfsBadge', subId: 'statusIfsSubtext' },
       { key: 'dealoftheday', errName: 'DealOfTheDayIndia', prefix: 'dotd_', countId: 'statusDotdCount', badgeId: 'statusDotdBadge', subId: 'statusDotdSubtext' },
-      { key: 'dealspy', errName: 'DealsSpyAmazon', prefix: 'ds_', altPrefix: 'dr_', countId: 'statusDealspyCount', badgeId: 'statusDealspyBadge', subId: 'statusDealspySubtext' }
+      { key: 'dealspy', errName: 'DealsSpyAmazon', prefix: 'ds_', altPrefix: 'dr_', countId: 'statusDealspyCount', badgeId: 'statusDealspyBadge', subId: 'statusDealspySubtext' },
+      { key: 'offertag', errName: 'OfferTag', prefix: 'ot_', countId: 'statusOffertagCount', badgeId: 'statusOffertagBadge', subId: 'statusOffertagSubtext' }
     ];
 
     for (const src of sources) {
@@ -2830,10 +2841,11 @@ function renderList(resetScroll = false) {
     }
     const matchCat = !cat || p.category === cat;
     const matchSrc = !src ||
-      (src === 'dealsradar' ? (p.id || '').startsWith('dr_') :
+      (src === 'dealsradar' ? ((p.id || '').startsWith('dr_') || (p.id || '').startsWith('ds_')) :
       src === 'dotd' ? (p.id || '').startsWith('dotd_') :
       src === 'indiafree' ? (p.id || '').startsWith('ifs_') :
-      src === 'manual' ? (!(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('dotd_') && !(p.id || '').startsWith('amzdeal_')) :
+      src === 'offertag' ? (p.id || '').startsWith('ot_') :
+      src === 'manual' ? (!(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ds_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('dotd_') && !(p.id || '').startsWith('ot_') && !(p.id || '').startsWith('amzdeal_')) :
       true);
     const matchStore = !store || getStoreName(p) === store;
     const matchOOS = !oosFilterActive || p.outOfStock;
@@ -4739,6 +4751,25 @@ async function syncIndiaFreeStuff() {
   btn.textContent = 'Syncing…';
   try {
     const resp = await apiFetch('/sync-indiafreestuff');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Sync complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function syncOffertag() {
+  const btn = document.getElementById('syncOffertagBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const resp = await apiFetch('/sync-offertag');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     alert(data.message || 'Sync complete!');

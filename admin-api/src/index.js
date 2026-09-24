@@ -2526,6 +2526,191 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   return { success: true, added: added.length, message: msg, addedProducts: added };
 }
 
+// ── OfferTag Scraper ──────────────────────────────────────────────────────────
+
+function parseOfferTagHtml(html) {
+  const cards = html.split('<div class="featured-item-container').slice(1);
+  const parsedDeals = [];
+  for (const card of cards) {
+    const linkM = card.match(/data-alt-href="([^"]+)"/i);
+    if (!linkM) continue;
+    const link = linkM[1].trim();
+
+    const idM = card.match(/data-id="(\d+)"/i);
+    const id = idM ? idM[1] : '';
+
+    const slugM = card.match(/data-href="([^"]+)"/i);
+    const slug = slugM ? slugM[1].trim() : '';
+
+    const storeM = card.match(/class="[^"]*topDealTag[^"]*"[^>]*>([^<]+)<\/span>/i);
+    const store = storeM ? storeM[1].trim() : '';
+
+    const titleM = card.match(/<a[^>]+class="deal-title"[^>]*>[\s\S]*?<h4>\s*([\s\S]*?)\s*<\/h4>/i);
+    let title = titleM ? decodeHtmlEntities(titleM[1].replace(/\s+/g, ' ').trim()) : '';
+
+    // If card title is truncated with '..', recover full title from slug if possible
+    if (title.endsWith('..') && slug) {
+      const s = slug.replace(/^\/deal\//, '').replace(/-\d+$/, '');
+      if (s && s.length > 10) {
+        const words = s.split('-').map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : '');
+        const slugTitle = words.join(' ').trim();
+        if (slugTitle.length > title.length) {
+          title = slugTitle;
+        }
+      }
+    }
+
+    const imgM = card.match(/<img[^>]+data-src="([^"]+)"[^>]*>/i) || card.match(/<img[^>]+src="([^"]+)"[^>]*>/i);
+    const image = imgM ? imgM[1].trim() : '';
+
+    const newPriceM = card.match(/class="new-price"[\s\S]*?<span>&#8377;([\d,]+)<\/span>/i);
+    const oldPriceM = card.match(/class="old-price"[\s\S]*?<span>&#8377;([\d,]+)<\/span>/i);
+    const price = newPriceM ? parseInt(newPriceM[1].replace(/,/g, '')) : 0;
+    const mrp = oldPriceM ? parseInt(oldPriceM[1].replace(/,/g, '')) : price;
+
+    const catM = card.match(/class="text-right rightDealTag"[^>]*>([^<]+)<\/span>/i);
+    const category = catM ? decodeHtmlEntities(catM[1].trim()) : '';
+
+    parsedDeals.push({ id, store, link, slug, title, image, price, mrp, category });
+  }
+  return parsedDeals;
+}
+
+async function scrapeAndSyncOfferTag(env, limit = 20) {
+  const blockedBrands = await getBlockedBrands(env);
+  const urlsToTry = [
+    'https://www.offertag.in/?_cb=' + Date.now(),
+    'https://www.offertag.in/loot-deals?_cb=' + Date.now(),
+    'https://www.offertag.in/top-deals?_cb=' + Date.now()
+  ];
+
+  const matchesMap = new Map(); // asin -> { title, image, price, mrp, category }
+  let lastError = null;
+
+  for (const fetchUrl of urlsToTry) {
+    try {
+      const r = await fetchWithTimeout(fetchUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 15000);
+      if (!r.ok) continue;
+
+      const pageHtml = await r.text();
+      const parsedDeals = parseOfferTagHtml(pageHtml);
+
+      for (const deal of parsedDeals) {
+        // Amazon deals: extract ASIN
+        const asinM = deal.link.match(/(?:dp|gp\/product|\/d)\/([A-Z0-9]{10})/i);
+        if (!asinM) continue;
+        const asin = asinM[1].toUpperCase();
+        if (matchesMap.has(asin)) continue;
+
+        const title = deal.title;
+        if (!title || title.length < 5) continue;
+        if (isBrandBlocked(title, blockedBrands)) continue;
+
+        const price = deal.price;
+        const mrp = deal.mrp > 0 ? deal.mrp : price;
+        if (!(price > 0)) continue; // ₹0/blank price is unpostable
+
+        const image = deal.image || asinImage(asin);
+        const category = deal.category || detectCategoryFromTitle(title);
+
+        matchesMap.set(asin, { title, image, price, mrp, category });
+      }
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  if (matchesMap.size === 0) {
+    const msg = lastError ? `OfferTag fetch failed: ${lastError.message}` : 'OfferTag: no Amazon deals found (structure may have changed)';
+    await saveSyncError('OfferTag', msg, env);
+    await recordScraperStatus('offertag', 'error', msg, 0, env);
+    return { success: false, count: 0, message: msg };
+  }
+
+  const { products, sha } = await getProductsFile(env);
+  let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
+  const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
+  const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
+
+  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const added = [];
+  const updated = [];
+
+  for (const [asin, { title, image, price, mrp, category: rawCat }] of matchesMap) {
+    if (deletedSet.has(asin)) continue;
+
+    let finalTitle = title;
+    let finalImage = image;
+
+    if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
+      const pageData = await fetchAmazonPageData(asin);
+      if (pageData.title && !isGenericOrLogoTitle(pageData.title)) finalTitle = pageData.title;
+      if (pageData.image && !isGenericOrLogoImage(pageData.image)) finalImage = pageData.image;
+
+      if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
+        console.log(`Skipping OfferTag deal for ${asin}: generic logo title or image could not be resolved.`);
+        continue;
+      }
+    }
+
+    const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
+    const priceStr = '₹' + price.toLocaleString('en-IN');
+    const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
+    const discStr = discNum > 0 ? `-${discNum}%` : '0%';
+    const baseLink = `https://www.amazon.in/dp/${asin}`;
+    const isUpto = hasUptoOffInTitle(finalTitle);
+    const link = isUpto ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
+    const category = detectCategoryFromTitle(finalTitle) || rawCat || 'Other';
+
+    if (existingByAsin.has(asin)) {
+      const existing = existingByAsin.get(asin);
+      if (isDead(existing)) continue;
+      const existingPrice = parsePrice(existing.price);
+      const newPrice = parsePrice(priceStr);
+
+      if (newPrice && existingPrice && newPrice < existingPrice) {
+        const priceHistory = appendPriceHistory(existing, priceStr);
+        const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
+        const origPrice = parsePrice(existing.originalPrice || existing.price);
+        if (origPrice && newPrice && shouldDemote(origPrice, newPrice)) {
+          updatedProduct.priceIncreased = true;
+        } else {
+          delete updatedProduct.priceIncreased;
+        }
+        updated.push(updatedProduct);
+      }
+    } else {
+      if (added.length >= limit) break;
+      added.push({
+        id: `ot_${Date.now()}_${added.length}`,
+        asin, title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
+        image: finalImage, link, category, highlights: ['Great deal on Amazon'],
+        lowestPriceText: null, featured: false,
+        hidden: isUpto ? true : false,
+        isUptoDeal: isUpto ? true : undefined,
+        outOfStock: false,
+        order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
+      });
+    }
+  }
+
+  if (added.length === 0 && updated.length === 0) {
+    await clearSyncError('OfferTag', env);
+    await recordScraperStatus('offertag', 'working', 'No new deals', 0, env);
+    return { success: true, count: 0, message: 'OfferTag: no new Amazon deals.' };
+  }
+
+  const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
+  const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
+
+  const final = await capLiveAndBury([...added, ...base], env);
+  const msg = `OfferTag sync: +${added.length} new, ${updated.length} updated`;
+  await saveProductsFile(final, sha, msg, env);
+  await clearSyncError('OfferTag', env);
+  await recordScraperStatus('offertag', 'working', msg, added.length, env);
+  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
+}
+
 // ── Price check + OOS detection (Creators API) ────────────────────────────────
 
 function parsePrice(str) {
@@ -4721,9 +4906,23 @@ async function handleTelegramWebhook(request, env) {
     return new Response('ok');
   }
 
+  // Admin command: Trigger OfferTag sync immediately
+  if (text.trim() === '/sync_ot' || text.trim() === '/sync_offertag') {
+    await tgSend(token, chatId, escTg('⏳ Running OfferTag sync...'));
+    try {
+      const r = await scrapeAndSyncOfferTag(env, 20);
+      await clearSyncError('OfferTag', env);
+      await tgSend(token, chatId, escTg(`✅ OfferTag sync finished: ${r.message || 'success'}`));
+    } catch (e) {
+      await tgSend(token, chatId, escTg(`❌ OfferTag sync error: ${e.message}`));
+    }
+    return new Response('ok');
+  }
+
   // Admin command: Clear sync errors from KV
   if (text.trim() === '/clear_errors') {
     await clearSyncError('IndiaFreeStuff', env);
+    await clearSyncError('OfferTag', env);
     await tgSend(token, chatId, escTg('✅ Cleared sync errors from KV!'));
     return new Response('ok');
   }
@@ -6059,17 +6258,29 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── /sync-offertag ────────────────────────────────────────────────────────
+      if (url.pathname === '/sync-offertag' && request.method === 'GET') {
+        try {
+          const r = await scrapeAndSyncOfferTag(env, 20);
+          if (r.addedProducts?.length) {
+            await postDealsAndTrack(r.addedProducts.slice(0, 5), env).catch(e => console.error('TG post OfferTag manual:', e.message));
+          }
+          return json(r);
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── /sync-all ────────────────────────────────────────────────────────────
       if (url.pathname === '/sync-all' && request.method === 'GET') {
         const results = await Promise.allSettled([
           scrapeAndSyncDealsSpy(env, 40),
           scrapeAndSyncIndiaFreeStuff(env, 30),
-          scrapeAndSyncDealOfTheDayIndia(env, 10)
+          scrapeAndSyncDealOfTheDayIndia(env, 10),
+          scrapeAndSyncOfferTag(env, 20)
         ]);
         return json({
           success: true,
           results: results.map((r,i) => ({
-            site: ['DealsRadar','IndiaFreeStuff','DealOfTheDayIndia'][i],
+            site: ['DealsRadar','IndiaFreeStuff','DealOfTheDayIndia','OfferTag'][i],
             status: r.status,
             result: r.status==='fulfilled'?r.value:{error:r.reason.message}
           }))
@@ -6618,6 +6829,14 @@ export default {
           } catch (e) {
             console.error('DealOfTheDayIndia sync error:', e.message);
             await saveSyncError('DealOfTheDayIndia', e.message, env);
+          }
+          try {
+            console.log('OfferTag sync start');
+            const r = await scrapeAndSyncOfferTag(env, 20);
+            console.log('OfferTag sync:', r.message);
+          } catch (e) {
+            console.error('OfferTag sync error:', e.message);
+            await saveSyncError('OfferTag', e.message, env);
           }
         })
       );
