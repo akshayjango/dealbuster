@@ -1258,6 +1258,66 @@ async function scrapeIfsNonAmazonDeals(env) {
   });
 }
 
+async function scrapeOfferTagNonAmazonDeals(env) {
+  const otPages = [
+    'https://www.offertag.in/?_cb=' + Date.now(),
+    'https://www.offertag.in/loot-deals?_cb=' + Date.now(),
+    'https://www.offertag.in/top-deals?_cb=' + Date.now(),
+  ];
+
+  const results = await Promise.allSettled(
+    otPages.map(async pageUrl => {
+      try {
+        const r = await fetchWithTimeout(pageUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 15000);
+        if (!r.ok) return [];
+        const html = await r.text();
+        return parseOfferTagHtml(html);
+      } catch (e) {
+        console.error(`OfferTag Non-Amazon page fetch failed (${pageUrl}):`, e.message);
+        return [];
+      }
+    })
+  );
+
+  const seenLinks = new Set();
+  const nonAmzDeals = [];
+
+  for (const res of results) {
+    if (res.status !== 'fulfilled') continue;
+    for (const deal of res.value) {
+      if (!deal.link) continue;
+      const linkLow = deal.link.toLowerCase();
+      if (seenLinks.has(linkLow)) continue;
+      seenLinks.add(linkLow);
+
+      // Skip Amazon deals (handled by dedicated Amazon pipeline)
+      if (linkLow.includes('amazon.in') || linkLow.includes('amazon.com') || linkLow.includes('amzn.to') || linkLow.includes('amazn.lt') || linkLow.includes('link.amazon')) continue;
+
+      // Filter supported Non-Amazon stores
+      const isSupportedStore = linkLow.includes('flipkart') || linkLow.includes('fkrt') ||
+        linkLow.includes('myntra') || linkLow.includes('myntr.it') ||
+        linkLow.includes('ajio') || linkLow.includes('ajiio.in') ||
+        linkLow.includes('meesho') || linkLow.includes('shopsy') ||
+        linkLow.includes('nykaa') || linkLow.includes('tatacliq') ||
+        linkLow.includes('jiomart');
+
+      if (!isSupportedStore) continue;
+
+      nonAmzDeals.push({
+        title: deal.title,
+        link: deal.link,
+        image: deal.image || 'images/dealbuster_icon.png',
+        price: deal.price > 0 ? '₹' + deal.price.toLocaleString('en-IN') : '',
+        mrp: deal.mrp > 0 ? '₹' + deal.mrp.toLocaleString('en-IN') : (deal.price > 0 ? '₹' + deal.price.toLocaleString('en-IN') : ''),
+        store: deal.store || detectStore(deal.link),
+        category: deal.category || detectCategoryFromTitle(deal.title)
+      });
+    }
+  }
+
+  return nonAmzDeals;
+}
+
 async function scrapeAndSyncDealsSpy(env, limit = 30) {
   let html;
   try {
@@ -1520,7 +1580,7 @@ async function resolveCanonicalProductUrl(inputUrl) {
   }
 
   // 2. Follow short link redirects (up to 4 hops)
-  const isRedirectDomain = /fktr\.in|fkrt\.co|ekaro\.in|bit\.ly|tinyurl\.com|myntr\.it|ajiio\.in|linkredirect\.in|linksredirect\.com/i.test(currentUrl);
+  const isRedirectDomain = /fktr\.in|fkrt\.co|fkrt\.cc|ekaro\.in|bit\.ly|tinyurl\.com|myntr\.it|ajiio\.in|linkredirect\.in|linksredirect\.com/i.test(currentUrl);
   if (isRedirectDomain) {
     try {
       let hops = 0;
@@ -1760,8 +1820,8 @@ async function fetchFlipkartWithSession(url, env, timeoutMs) {
 }
 
 function isFlipkartLink(url) {
-  const l = url.toLowerCase();
-  return l.includes('flipkart.com') || l.includes('fkrt.it') || l.includes('fktr.in');
+  const l = (url || '').toLowerCase();
+  return l.includes('flipkart.com') || l.includes('fkrt.it') || l.includes('fktr.in') || l.includes('fkrt.cc') || l.includes('fkrt.co');
 }
 
 async function checkListingAvailability(url, scrapedPrice, env) {
@@ -1906,7 +1966,14 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     console.error('Non-Amazon IFS cron fetch failed:', e.message);
   }
 
-  const scrapedDeals = [...dsDeals, ...ifsDeals];
+  let otDeals = [];
+  try {
+    otDeals = await scrapeOfferTagNonAmazonDeals(env).catch(() => []);
+  } catch (e) {
+    console.error('Non-Amazon OfferTag cron fetch failed:', e.message);
+  }
+
+  const scrapedDeals = [...dsDeals, ...ifsDeals, ...otDeals];
   if (!scrapedDeals.length) return;
 
   const { products, sha } = await getProductsFile(env);
@@ -4424,7 +4491,7 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
 
 function getStoreNameFromTitleOrUrl(title, url) {
   const str = ((title || '') + ' ' + (url || '')).toLowerCase();
-  if (str.includes('flipkart') || str.includes('fkrt.it') || str.includes('fktr.in')) return 'Flipkart';
+  if (str.includes('flipkart') || str.includes('fkrt.it') || str.includes('fktr.in') || str.includes('fkrt.cc') || str.includes('fkrt.co')) return 'Flipkart';
   if (str.includes('myntra')) return 'Myntra';
   if (str.includes('ajio')) return 'Ajio';
   if (str.includes('meesho')) return 'Meesho';
