@@ -1894,7 +1894,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
       if (seenDsLinks.has(key)) continue;
       seenDsLinks.add(key);
       // Skip Amazon deals from DealsSpy — Amazon is handled by its own dedicated pipeline
-      if (deal.link.includes('amazon.in') || deal.link.includes('amazon.com') || deal.link.includes('amzn.to')) continue;
+      if (deal.link.includes('amazon.in') || deal.link.includes('amazon.com') || deal.link.includes('amzn.to') || deal.link.includes('link.amazon')) continue;
       dsDeals.push(deal);
     }
   }
@@ -4468,7 +4468,13 @@ async function handleTelegramWebhook(request, env) {
           r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true }),
+            body: JSON.stringify({
+              chat_id: ch,
+              text: htmlText,
+              parse_mode: 'HTML',
+              disable_web_page_preview: true,
+              link_preview_options: { is_disabled: true },
+            }),
           });
         }
 
@@ -4513,8 +4519,6 @@ async function handleTelegramWebhook(request, env) {
       const discNum = mrp && price ? Math.round((1 - parsePrice(price) / parsePrice(mrp)) * 100) : 0;
       const discStr = discNum > 0 ? `-${discNum}%` : '0%';
 
-      const { products, sha } = await getProductsFile(env);
-
       const newProduct = {
         id: 'fk_' + Date.now(),
         asin: '',
@@ -4535,23 +4539,20 @@ async function handleTelegramWebhook(request, env) {
         originalPrice: price
       };
 
-      const final = await capLiveAndBury([newProduct, ...products], env);
-      await saveProductsFile(final, sha, `Add Non-Amazon deal: ${newProduct.title.slice(0, 60)}`, env);
-
       let sentLinks = [];
       try { sentLinks = JSON.parse(await env.KV.get('fkart_sent_tg_urls') || '[]'); } catch (e) {}
       sentLinks.push(originalLink);
       await env.KV.put('fkart_sent_tg_urls', JSON.stringify(sentLinks.slice(-500)));
 
-      await postDealsAndTrack([newProduct], env).catch(e => console.error('TG post Non-Amazon reply failed:', e.message));
+      await sendToChannels([newProduct], env, { force: true, companionDm: false }).catch(e => console.error('TG post Non-Amazon reply failed:', e.message));
 
-      await tgSend(token, chatId, escTg('✅ Published deal to Telegram channel and added to site!'));
+      await tgSend(token, chatId, escTg('✅ Published deal to Telegram channel!'));
       return new Response('ok');
     }
   }
 
   // ── 2. Check if non-Amazon link(s) sent/forwarded directly to bot ────────────
-  const AMZ_HOST_RE = /^(?:www\.)?(?:amazon\.in|amzn\.in|amzn\.to|amazn\.lt)$/i;
+  const AMZ_HOST_RE = /^(?:www\.)?(?:amazon\.in|amzn\.in|amzn\.to|amazn\.lt|link\.amazon|a\.co)$/i;
   const isAmazonUrl = u => { try { return AMZ_HOST_RE.test(new URL(u).hostname); } catch { return false; } };
 
   const msgEntities = msg.entities || msg.caption_entities || [];
@@ -4585,11 +4586,28 @@ async function handleTelegramWebhook(request, env) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: ch, photo: photoId, caption: ekaroConverted })
           });
+          if (!r.ok) {
+            r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: ch,
+                text: ekaroConverted,
+                disable_web_page_preview: true,
+                link_preview_options: { is_disabled: true },
+              })
+            });
+          }
         } else {
           r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: ekaroConverted })
+            body: JSON.stringify({
+              chat_id: ch,
+              text: ekaroConverted,
+              disable_web_page_preview: true,
+              link_preview_options: { is_disabled: true },
+            })
           });
         }
 
@@ -4601,44 +4619,6 @@ async function handleTelegramWebhook(request, env) {
       }
 
       if (!sendError) {
-        // Also save to products.json for the website
-        try {
-          const rawUrl = uniqueNonAmzLinks[0];
-          const ekaroLinkM = ekaroConverted.match(/https?:\/\/[^\s]+/i);
-          const finalLink = ekaroLinkM ? ekaroLinkM[0] : rawUrl;
-          const storeName = getStoreNameFromTitleOrUrl(text, rawUrl);
-          let title = trimTitle(text.replace(/https?:\/\/[^\s]+/g, '').trim()) || `${storeName} Special Deal`;
-          let price = '';
-          const priceM = text.match(/(?:Deal Price|Price|₹)\s*:\s*₹?\s*([\d,]+)/i) || text.match(/₹\s*([\d,]+)/);
-          if (priceM) price = '₹' + priceM[1].replace(/,/g, '');
-
-          const { products, sha } = await getProductsFile(env);
-          const newProduct = {
-            id: 'fk_' + Date.now(),
-            asin: '',
-            title: title,
-            price: price,
-            mrp: price,
-            disc: '0%',
-            image: 'images/dealbuster_icon.png',
-            link: finalLink,
-            category: detectCategoryFromTitle(title),
-            highlights: [],
-            lowestPriceText: null,
-            featured: false,
-            hidden: false,
-            outOfStock: false,
-            order: 0,
-            addedAt: new Date().toISOString(),
-            originalPrice: price
-          };
-
-          const final = await capLiveAndBury([newProduct, ...products], env);
-          await saveProductsFile(final, sha, `Add Non-Amazon EarnKaro deal: ${newProduct.title.slice(0, 60)}`, env);
-        } catch (e) {
-          console.error('Failed to add EarnKaro deal to site:', e.message);
-        }
-
         await tgSend(token, chatId, escTg('✅ Auto-converted via EarnKaro API & published directly to Telegram channel!'));
         return new Response('ok');
       }
@@ -4765,7 +4745,7 @@ async function handleTelegramWebhook(request, env) {
   }
   // Regex fallback for bare URLs Telegram didn't tag as an entity, skipping
   // any range an entity above already covers.
-  for (const m of text.matchAll(/https?:\/\/(?:(?:www\.)?amazon\.in|amzn\.in|amzn\.to|amazn\.lt)[^\s]*/gi)) {
+  for (const m of text.matchAll(/https?:\/\/(?:(?:www\.)?(?:amazon\.in|amzn\.in|amzn\.to|amazn\.lt|link\.amazon|a\.co))[^\s]*/gi)) {
     const start = m.index, end = start + m[0].length;
     if (!linkSpans.some(s => s.start < end && s.end > start)) linkSpans.push({ start, end, url: m[0] });
   }
@@ -4806,7 +4786,8 @@ async function handleTelegramWebhook(request, env) {
       const r = await fetchWithTimeout(rawUrl, { redirect: 'follow', headers: AMZ_HEADERS });
       const finalUrl = r.url;
       const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
-                 || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+                 || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
+                 || rawUrl.match(/link\.amazon\/([A-Z0-9]{10})/i);
       return { asinM, finalUrl, html: asinM ? await r.text() : null };
     };
 
@@ -4833,7 +4814,7 @@ async function handleTelegramWebhook(request, env) {
           let affiliateLink;
           if (asinM) {
             affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
-          } else if (finalUrl.includes('amazon.') || finalUrl.includes('amzn.')) {
+          } else if (finalUrl.includes('amazon.') || finalUrl.includes('amzn.') || finalUrl.includes('link.amazon') || finalUrl.includes('a.co')) {
             try {
               const u = new URL(finalUrl);
               u.searchParams.set('tag', TAG);
@@ -5149,7 +5130,8 @@ export default {
               try {
                 const redir = await fetchWithTimeout(shortUrl, { redirect: 'follow', headers: AMZ_HEADERS });
                 finalUrl = redir.url;
-                const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+                const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
+                           || (shortUrl && shortUrl.match(/link\.amazon\/([A-Z0-9]{10})/i));
                 if (asinM) { asin = asinM[1]; html = await redir.text(); }
               } catch (e) {
                 // Redirect follow failed, treat the link as is
@@ -5157,7 +5139,7 @@ export default {
             }
           }
 
-          const isAmazon = finalUrl.includes('amazon.in') || finalUrl.includes('amzn.to') || finalUrl.includes('amazon.com') || (asin && !shortUrl);
+          const isAmazon = finalUrl.includes('amazon.in') || finalUrl.includes('amzn.to') || finalUrl.includes('amazon.com') || finalUrl.includes('link.amazon') || (shortUrl && shortUrl.includes('link.amazon')) || (asin && !shortUrl);
 
           if (!isAmazon) {
             finalUrl = await resolveCanonicalProductUrl(finalUrl || shortUrl);

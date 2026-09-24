@@ -3705,7 +3705,7 @@
 
   function isAmazonLink(link) {
     const l = (link || '').toLowerCase();
-    return l.includes('amazon.in') || l.includes('amazon.com') || l.includes('amzn.to');
+    return l.includes('amazon.in') || l.includes('amazon.com') || l.includes('amzn.to') || l.includes('link.amazon');
   }
 
   function buildProductCard(p) {
@@ -4323,6 +4323,7 @@
            h.includes('telegram.org') ||
            h.includes('amazon.in') ||
            h.includes('amzn.to') ||
+           h.includes('link.amazon') ||
            h.includes('amazon.com') ||
            h.includes('flipkart.com') ||
            h.includes('fktr.in') ||

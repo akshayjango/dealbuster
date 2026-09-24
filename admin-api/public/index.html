@@ -1183,7 +1183,7 @@
           <div class="add-card">
             <div class="field">
               <label>Amazon Product URL</label>
-              <input type="text" id="manualUrl" placeholder="https://www.amazon.in/dp/…" oninput="autoFetchTitle(this.value)"/>
+              <input type="text" id="manualUrl" placeholder="https://www.amazon.in/dp/… or https://amzn.to/… or https://link.amazon/…" oninput="autoFetchTitle(this.value)"/>
               <div class="fetch-status" id="titleFetchStatus"></div>
             </div>
             <div class="two-col">
@@ -3625,7 +3625,7 @@ function addHighlight(listId, text) {
 
 // ── Auto fetch title ──────────────────────────────────────────────────────────
 function isShortLink(urlVal) {
-  return /amzn\.to\/|amzn-to\.co\//i.test(urlVal);
+  return /amzn\.to\/|amzn-to\.co\/|link\.amazon\//i.test(urlVal);
 }
 
 async function autoFetchTitle(urlVal) {
@@ -3637,7 +3637,7 @@ async function autoFetchTitle(urlVal) {
   fetchedLowestPriceText = null;
   const trimmed = urlVal.trim();
   const isShort = isShortLink(trimmed);
-  const asinMatch = trimmed.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+  const asinMatch = trimmed.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || trimmed.match(/link\.amazon\/([A-Z0-9]{10})/i);
   const isHttpUrl = /^https?:\/\//i.test(trimmed);
   if (!isShort && !asinMatch && !isHttpUrl) { statusEl.textContent = ''; return; }
   statusEl.style.color = 'var(--muted)';
@@ -3871,11 +3871,13 @@ async function publishFromUrl() {
     return;
   }
 
-  const asinMatch = urlVal.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+  const asinMatch = urlVal.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || urlVal.match(/link\.amazon\/([A-Z0-9]{10})/i);
   const isShort = isShortLink(urlVal);
   if (!asinMatch && !isShort) { alert('Could not extract ASIN from URL.'); return; }
   const asin = asinMatch ? asinMatch[1].toUpperCase() : (fetchedAsin || '');
-  const link = isShort ? urlVal.trim() : `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21`;
+  const link = (urlVal.includes('link.amazon') && asin)
+    ? `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21`
+    : (isShort ? urlVal.trim() : (asin ? `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21` : urlVal.trim()));
 
   const price = parseInt(priceRaw);
   const mrp = parseInt(mrpRaw);
@@ -3945,12 +3947,12 @@ async function autoConvertOthersUrl(urlVal) {
   convertedContainer.style.display = 'none';
   publishCard.style.display = 'none';
 
-  const isAmazon = trimmed.includes('amazon.in') || trimmed.includes('amzn.to') || trimmed.includes('amazon.com') || /\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i.test(trimmed);
+  const isAmazon = trimmed.includes('amazon.in') || trimmed.includes('amzn.to') || trimmed.includes('amazon.com') || trimmed.includes('link.amazon') || /\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i.test(trimmed);
   const isShort = isShortLink(trimmed);
-  const asinMatch = trimmed.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+  const asinMatch = trimmed.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || trimmed.match(/link\.amazon\/([A-Z0-9]{10})/i);
 
   const query = isAmazon 
-    ? (isShort ? `url=${encodeURIComponent(trimmed)}` : `asin=${asinMatch[1]}`)
+    ? (isShort || !asinMatch ? `url=${encodeURIComponent(trimmed)}` : `asin=${asinMatch[1]}`)
     : `url=${encodeURIComponent(trimmed)}`;
   
   othersFetchTimer = setTimeout(async () => {

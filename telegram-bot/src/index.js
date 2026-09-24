@@ -9,12 +9,12 @@ function tg(token, method, body) {
 }
 
 function extractAmazonUrl(text) {
-  const m = text.match(/https?:\/\/(?:[\w.-]*amazon\.in\/[^\s]+|amzn\.to\/[^\s]+)/i);
+  const m = text.match(/https?:\/\/(?:[\w.-]*amazon\.in\/[^\s]+|amzn\.to\/[^\s]+|link\.amazon\/[^\s]+|a\.co\/[^\s]+)/i);
   return m ? m[0].replace(/[.,!?]+$/, '') : null;
 }
 
 function isShortLink(url) {
-  return /amzn\.to\//i.test(url);
+  return /amzn\.to\/|link\.amazon\/|a\.co\//i.test(url);
 }
 
 export default {
@@ -97,7 +97,7 @@ export default {
 
     const url = extractAmazonUrl(text);
     if (!url) {
-      await tg(token, 'sendMessage', { chat_id: chatId, text: '⚠️ Please send an Amazon product link (amazon.in or amzn.to).' });
+      await tg(token, 'sendMessage', { chat_id: chatId, text: '⚠️ Please send an Amazon product link (amazon.in, amzn.to, or link.amazon).' });
       return new Response('ok');
     }
 
@@ -106,7 +106,7 @@ export default {
 
     // Fetch product details from admin API
     const short = isShortLink(url);
-    const asinMatch = url.match(/\/dp\/([A-Z0-9]{10})/i);
+    const asinMatch = url.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || url.match(/link\.amazon\/([A-Z0-9]{10})/i);
     const query = short ? `url=${encodeURIComponent(url)}` : `asin=${asinMatch?.[1]}`;
 
     let data;
@@ -127,7 +127,10 @@ export default {
 
     // Build product object
     const asin = data.asin || asinMatch?.[1] || '';
-    const link = short ? url : `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21`;
+    const isLinkAmazon = /link\.amazon/i.test(url);
+    const link = (isLinkAmazon && asin)
+      ? `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21`
+      : (short ? url : `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21`);
     const price = data.price ? `₹${data.price}` : '';
     const mrp   = data.mrp  ? `₹${data.mrp}`  : '';
     const disc  = data.price && data.mrp && data.mrp > data.price
