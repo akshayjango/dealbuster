@@ -2111,16 +2111,9 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   }
 
   if (newProducts.length > 0) {
-    console.log(`Auto-publishing ${newProducts.length} new non-Amazon deals to site with CueLinks...`);
+    console.log(`Auto-publishing ${newProducts.length} new non-Amazon deals to site with CueLinks/EarnKaro...`);
     const updatedProducts = await capLiveAndBury([...newProducts, ...products], env);
     await saveProductsFile(updatedProducts, sha, `Auto-publish non-Amazon deals to site: ${newProducts.map(p => p.title.slice(0, 30)).join(', ')}`, env);
-    
-    // Send EarnKaro reply prompts to TG admin DM for Telegram channel posting (do NOT auto-post CueLinks to TG channel)
-    for (const p of newProducts) {
-      const origLink = getOriginalUrl(p.link) || p.link;
-      await sendNonAmazonDealPromptToAdmin({ title: p.title, price: p.price, mrp: p.mrp, image: p.image, link: origLink }, env)
-        .catch(e => console.error('TG EarnKaro prompt non-Amazon failed:', e.message));
-    }
   }
 
   if (dealspyAjioDeals.length > 0) {
