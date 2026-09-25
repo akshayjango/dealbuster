@@ -390,20 +390,28 @@ ul.checklist li::before { content: '✅'; position: absolute; left: 0; top: 1px;
 
 /* Numbered tips */
 .tips-list { display: flex; flex-direction: column; gap: 14px; margin: 18px 0 24px; }
-.tip-item { display: flex; gap: 16px; align-items: flex-start; }
+.tip-item { display: flex; gap: 12px; align-items: flex-start; }
 .tip-num {
-  flex-shrink: 0;
-  width: 36px; height: 36px;
-  background: var(--primary);
-  color: #fff;
-  font-size: 1rem; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-  border: none;
-  border-radius: 999px;
+  flex: 0 0 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1.5px solid rgba(108, 71, 255, 0.3);
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50% !important;
+  margin-top: 2px;
+  line-height: 1;
 }
-.tip-item div { flex: 1; }
-.tip-item div strong { display: block; font-size: .97rem; font-weight: 700; margin-bottom: 2px; }
-.tip-item div p { margin: 0; font-size: .9rem; }
+.tip-item > div:not(.tip-num) { flex: 1; }
+.tip-item > div:not(.tip-num) strong { display: block; font-size: .95rem; font-weight: 700; margin-bottom: 2px; }
+.tip-item > div:not(.tip-num) p { margin: 0; font-size: .9rem; color: var(--muted); }
 
 @media(max-width: 640px) {
   .category-grid { grid-template-columns: repeat(2, 1fr); }
