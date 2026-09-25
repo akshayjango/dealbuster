@@ -36,7 +36,7 @@ class StoreBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = _getStoreTheme(banner.template);
+    final theme = _getStoreTheme(banner);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -374,8 +374,40 @@ class StoreBannerCard extends StatelessWidget {
     }
   }
 
-  _StoreTheme _getStoreTheme(String template) {
-    final hTpl = getHomeBannerTemplate(template);
+  _StoreTheme _getStoreTheme(BannerItem banner) {
+    if (banner.colors.length >= 2) {
+      final parsedColors = banner.colors
+          .map((c) => parseHexColor(c))
+          .whereType<Color>()
+          .toList();
+      if (parsedColors.length >= 2) {
+        Color? badgeBg = parseHexColor(banner.badgeBg);
+        Color? badgeTextColor = parseHexColor(banner.badgeTextColor);
+        RadialGradient? radialLight;
+        if (banner.radialColor != null && banner.radialColor!.isNotEmpty) {
+          final rc = parseHexColor(banner.radialColor) ?? Colors.white;
+          radialLight = RadialGradient(
+            colors: [rc.withValues(alpha: 0.5), Colors.transparent],
+            stops: const [0.0, 0.8],
+          );
+        }
+        return _StoreTheme(
+          gradient: LinearGradient(
+            colors: parsedColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shadowColor: parsedColors.first,
+          accentColor: Colors.white,
+          textColor: const Color(0xFF111827),
+          badgeBgColor: badgeBg ?? Colors.white,
+          badgeTextColor: badgeTextColor ?? const Color(0xFF111827),
+          radialLight: radialLight,
+        );
+      }
+    }
+
+    final hTpl = getHomeBannerTemplate(banner.template);
     if (hTpl != null) {
       return _StoreTheme(
         gradient: hTpl.gradient,
@@ -388,7 +420,7 @@ class StoreBannerCard extends StatelessWidget {
       );
     }
 
-    switch (template.toLowerCase()) {
+    switch (banner.template.toLowerCase()) {
       // Flipkart templates
       case 'flipkart':
       case 'flipkart_1':
@@ -614,6 +646,20 @@ class StoreBannerCard extends StatelessWidget {
         );
 
       default:
+        final sKey = banner.storeKey.isNotEmpty
+            ? banner.storeKey
+            : (banner.template.contains('_') ? banner.template.split('_')[0] : banner.template);
+        if (sKey != banner.template && sKey.isNotEmpty) {
+          return _getStoreTheme(BannerItem(
+            id: banner.id,
+            store: sKey,
+            template: '${sKey}_1',
+            storeName: banner.storeName,
+            lines: banner.lines,
+            imageUrl: banner.imageUrl,
+            link: banner.link,
+          ));
+        }
         return const _StoreTheme(
           gradient: LinearGradient(
             colors: [Color(0xFF6366F1), Color(0xFF4F46E5), Color(0xFF3730A3)],

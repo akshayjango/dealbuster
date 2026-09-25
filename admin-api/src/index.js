@@ -5285,7 +5285,13 @@ export default {
     if (url0.pathname === '/public/banners' && request.method === 'GET') {
       try {
         const { banners } = await getBannersFile(env);
-        const activeBanners = banners.filter(b => b.active !== false);
+        const activeBanners = banners.filter(b => b.active !== false).map(b => {
+          if ((!b.colors || !b.colors.length) && b.background) {
+            const hexes = b.background.match(/#[0-9a-fA-F]{3,8}/g);
+            if (hexes && hexes.length) return { ...b, colors: hexes };
+          }
+          return b;
+        });
         return new Response(JSON.stringify({ success: true, banners: activeBanners }), {
           headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
         });
@@ -5301,7 +5307,13 @@ export default {
     if (url0.pathname === '/public/home-banners' && request.method === 'GET') {
       try {
         const { showDefaultAnimatedBanner, banners } = await getHomeBannersFile(env);
-        const activeBanners = banners.filter(b => b.active !== false);
+        const activeBanners = banners.filter(b => b.active !== false).map(b => {
+          if ((!b.colors || !b.colors.length) && b.background) {
+            const hexes = b.background.match(/#[0-9a-fA-F]{3,8}/g);
+            if (hexes && hexes.length) return { ...b, colors: hexes };
+          }
+          return b;
+        });
         return new Response(JSON.stringify({
           success: true,
           showDefaultAnimatedBanner,
@@ -5990,6 +6002,12 @@ export default {
               imageUrl: data.imageUrl || '',
               link: data.link || '',
               active: data.active !== false,
+              background: data.background || null,
+              radialLight: data.radialLight || null,
+              colors: Array.isArray(data.colors) ? data.colors : (data.background ? (data.background.match(/#[0-9a-fA-F]{3,8}/g) || []) : []),
+              radialColor: data.radialColor || null,
+              badgeBg: data.badgeBg || null,
+              badgeTextColor: data.badgeTextColor || null,
               order: banners.length,
               createdAt: new Date().toISOString(),
             };
@@ -6093,6 +6111,12 @@ export default {
                 imageUrl: data.imageUrl !== undefined ? data.imageUrl : oldBanner.imageUrl,
                 link: data.link !== undefined ? data.link : oldBanner.link,
                 active: data.active !== undefined ? data.active : oldBanner.active,
+                background: data.background !== undefined ? data.background : oldBanner.background,
+                radialLight: data.radialLight !== undefined ? data.radialLight : oldBanner.radialLight,
+                colors: Array.isArray(data.colors) ? data.colors : (oldBanner.colors || (data.background ? (data.background.match(/#[0-9a-fA-F]{3,8}/g) || []) : undefined)),
+                radialColor: data.radialColor !== undefined ? data.radialColor : oldBanner.radialColor,
+                badgeBg: data.badgeBg !== undefined ? data.badgeBg : oldBanner.badgeBg,
+                badgeTextColor: data.badgeTextColor !== undefined ? data.badgeTextColor : oldBanner.badgeTextColor,
                 updatedAt: new Date().toISOString(),
               };
               updatedBanners = [...banners];
@@ -6113,6 +6137,12 @@ export default {
               imageUrl: data.imageUrl || '',
               link: data.link || '',
               active: data.active !== false,
+              background: data.background || null,
+              radialLight: data.radialLight || null,
+              colors: Array.isArray(data.colors) ? data.colors : (data.background ? (data.background.match(/#[0-9a-fA-F]{3,8}/g) || []) : []),
+              radialColor: data.radialColor || null,
+              badgeBg: data.badgeBg || null,
+              badgeTextColor: data.badgeTextColor || null,
               order: banners.length,
               createdAt: new Date().toISOString(),
             };

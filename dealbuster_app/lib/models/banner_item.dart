@@ -34,6 +34,12 @@ class BannerItem {
     this.active = true,
     this.order = 0,
     String? template,
+    this.colors = const [],
+    this.radialColor,
+    this.badgeBg,
+    this.badgeTextColor,
+    this.background,
+    this.radialLight,
   }) : _template = template;
 
   final String id;
@@ -46,6 +52,12 @@ class BannerItem {
   final bool active;
   final int order;
   final String? _template;
+  final List<String> colors;
+  final String? radialColor;
+  final String? badgeBg;
+  final String? badgeTextColor;
+  final String? background;
+  final String? radialLight;
 
   String get storeKey {
     final s = store.toLowerCase().trim();
@@ -75,6 +87,11 @@ class BannerItem {
     final rawLines = json['lines'] as List<dynamic>? ?? [];
     final rawStore = (json['store'] as String? ?? 'myntra').toLowerCase();
     final rawTemplate = json['template'] as String? ?? json['theme'] as String?;
+    final rawColors = json['colors'] as List<dynamic>?;
+    final List<String> parsedColors = rawColors != null
+        ? rawColors.map((c) => c.toString()).toList()
+        : const [];
+
     return BannerItem(
       id: json['id'] as String? ?? '',
       store: rawStore,
@@ -88,6 +105,12 @@ class BannerItem {
       link: json['link'] as String? ?? '',
       active: json['active'] as bool? ?? true,
       order: json['order'] as int? ?? 0,
+      colors: parsedColors,
+      radialColor: json['radialColor'] as String?,
+      badgeBg: json['badgeBg'] as String?,
+      badgeTextColor: json['badgeTextColor'] as String?,
+      background: json['background'] as String?,
+      radialLight: json['radialLight'] as String?,
     );
   }
 
@@ -102,5 +125,11 @@ class BannerItem {
     'link': link,
     'active': active,
     'order': order,
+    if (colors.isNotEmpty) 'colors': colors,
+    if (radialColor != null) 'radialColor': radialColor,
+    if (badgeBg != null) 'badgeBg': badgeBg,
+    if (badgeTextColor != null) 'badgeTextColor': badgeTextColor,
+    if (background != null) 'background': background,
+    if (radialLight != null) 'radialLight': radialLight,
   };
 }

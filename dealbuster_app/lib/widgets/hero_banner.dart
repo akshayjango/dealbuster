@@ -11,7 +11,6 @@ import 'store_banner_svgs.dart';
 
 // ---------------------------------------------------------------- timing
 class _Cues {
-  static const intro = 0.0;
   static const bagIn = 0.35;
   static const products = 1.95;
   static const bagOut = 4.35;
@@ -1591,6 +1590,126 @@ HomeBannerTemplate? getHomeBannerTemplate(String template) {
   }
 }
 
+Color? parseHexColor(String? hexString) {
+  if (hexString == null) return null;
+  var hex = hexString.replaceAll('#', '').trim();
+  if (hex.length == 3) {
+    hex = '${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}';
+  }
+  if (hex.length == 6) hex = 'FF$hex';
+  if (hex.length == 8) {
+    final val = int.tryParse(hex, radix: 16);
+    if (val != null) return Color(val);
+  }
+  return null;
+}
+
+HomeBannerTemplate? _parseDynamicTemplate(HomeBannerItem banner) {
+  if (banner.colors.length >= 2) {
+    final parsedColors = banner.colors
+        .map((c) => parseHexColor(c))
+        .whereType<Color>()
+        .toList();
+    if (parsedColors.length >= 2) {
+      Color? badgeBg = parseHexColor(banner.badgeBg);
+      Color? badgeTextColor = parseHexColor(banner.badgeTextColor);
+      RadialGradient? radialLight;
+      if (banner.radialColor != null && banner.radialColor!.isNotEmpty) {
+        final rc = parseHexColor(banner.radialColor) ?? Colors.white;
+        radialLight = RadialGradient(
+          colors: [rc.withValues(alpha: 0.5), Colors.transparent],
+          stops: const [0.0, 0.8],
+        );
+      }
+      return HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: parsedColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: badgeBg ?? const Color(0xFF131921),
+        badgeTextColor: badgeTextColor ?? Colors.white,
+        radialLight: radialLight,
+      );
+    }
+  }
+
+  if (banner.background != null && banner.background!.contains('#')) {
+    final hexMatches = RegExp(r'#[0-9a-fA-F]{3,8}')
+        .allMatches(banner.background!)
+        .map((m) => m.group(0))
+        .whereType<String>()
+        .map((h) => parseHexColor(h))
+        .whereType<Color>()
+        .toList();
+    if (hexMatches.length >= 2) {
+      Color? badgeBg = parseHexColor(banner.badgeBg);
+      Color? badgeTextColor = parseHexColor(banner.badgeTextColor);
+      return HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: hexMatches,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: badgeBg ?? const Color(0xFF131921),
+        badgeTextColor: badgeTextColor ?? Colors.white,
+      );
+    }
+  }
+
+  return null;
+}
+
+const _defaultFallbackTemplate = HomeBannerTemplate(
+  gradient: LinearGradient(
+    colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  ),
+  badgeBg: Color(0xFF38BDF8),
+  badgeTextColor: Color(0xFF0F172A),
+  radialLight: RadialGradient(
+    colors: [Color(0x6038BDF8), Colors.transparent],
+    stops: [0.0, 0.75],
+  ),
+);
+
+HomeBannerTemplate _getStoreFallbackTemplate(String store, String template) {
+  final s = store.toLowerCase().trim();
+  final t = template.toLowerCase().trim();
+  final key = t.contains('_') ? t.split('_')[0] : (s.contains('_') ? s.split('_')[0] : s);
+  switch (key) {
+    case 'myntra':
+      return _getHomeBannerTemplate('myntra_light') ?? _getHomeBannerTemplate('myntra_vivid') ?? _defaultFallbackTemplate;
+    case 'flipkart':
+      return _getHomeBannerTemplate('flipkart_light') ?? _defaultFallbackTemplate;
+    case 'amazon':
+      return _getHomeBannerTemplate('amazon_warm') ?? _getHomeBannerTemplate('amazon_light') ?? _defaultFallbackTemplate;
+    case 'ajio':
+      return _getHomeBannerTemplate('ajio_midnight') ?? _getHomeBannerTemplate('ajio_light') ?? _defaultFallbackTemplate;
+    case 'shopsy':
+      return _getHomeBannerTemplate('shopsy_1') ?? _defaultFallbackTemplate;
+    case 'meesho':
+      return _getHomeBannerTemplate('meesho_1') ?? _defaultFallbackTemplate;
+    case 'tatacliq':
+      return _getHomeBannerTemplate('tatacliq_1') ?? _defaultFallbackTemplate;
+    case 'nykaa':
+      return _getHomeBannerTemplate('nykaa_1') ?? _defaultFallbackTemplate;
+    default:
+      return _getHomeBannerTemplate('dealbuster_light') ?? _defaultFallbackTemplate;
+  }
+}
+
+HomeBannerTemplate _resolveHomeBannerTemplate(HomeBannerItem banner) {
+  final dyn = _parseDynamicTemplate(banner);
+  if (dyn != null) return dyn;
+
+  final direct = _getHomeBannerTemplate(banner.template);
+  if (direct != null) return direct;
+
+  return _getStoreFallbackTemplate(banner.store, banner.template);
+}
+
 // Backwards-compatible private alias
 HomeBannerTemplate? _getHomeBannerTemplate(String template) =>
     getHomeBannerTemplate(template);
@@ -1731,7 +1850,7 @@ class _CustomBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tpl = banner.isTemplate ? _getHomeBannerTemplate(banner.template) : null;
+    final tpl = banner.isTemplate ? _resolveHomeBannerTemplate(banner) : null;
 
     if (tpl != null) {
       return Stack(
@@ -2303,7 +2422,7 @@ class _Frame extends StatelessWidget {
                 child: ClipRect(
                   clipper: _TopInset(math.min(flip * 2.5, 64) / 260 * size),
                   child: Transform(
-                    alignment: Alignment(0, (hinge / box) * 2 - 1),
+                    alignment: const Alignment(0, (hinge / box) * 2 - 1),
                     transform: hingeFlip(),
                     child: SvgPicture.string(_bagHandleBack, fit: BoxFit.contain),
                   ),
@@ -2321,7 +2440,7 @@ class _Frame extends StatelessWidget {
                 child: ClipRect(
                   clipper: _TopInset(math.min(flip / 55, 1) * hinge * s),
                   child: Transform(
-                    alignment: Alignment(0, (hinge / box) * 2 - 1),
+                    alignment: const Alignment(0, (hinge / box) * 2 - 1),
                     transform: hingeFlip(),
                     child: ClipRect(
                       clipper: _BottomInset((1 - math.min(flip / 22, 1)) * 92 / 139 * size),

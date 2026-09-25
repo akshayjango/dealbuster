@@ -15,6 +15,12 @@ class HomeBannerItem {
     this.applyEffect = false,
     this.active = true,
     this.order = 0,
+    this.colors = const [],
+    this.radialColor,
+    this.badgeBg,
+    this.badgeTextColor,
+    this.background,
+    this.radialLight,
   });
 
   final String id;
@@ -30,6 +36,12 @@ class HomeBannerItem {
   final bool applyEffect;
   final bool active;
   final int order;
+  final List<String> colors;
+  final String? radialColor;
+  final String? badgeBg;
+  final String? badgeTextColor;
+  final String? background;
+  final String? radialLight;
 
   bool get isTemplate => template.isNotEmpty && template != 'full_bg';
 
@@ -80,6 +92,11 @@ class HomeBannerItem {
             ? parsedLines.skip(1).map((l) => l.text).join(' ')
             : '');
 
+    final rawColors = json['colors'] as List<dynamic>?;
+    final List<String> parsedColors = rawColors != null
+        ? rawColors.map((c) => c.toString()).toList()
+        : const [];
+
     return HomeBannerItem(
       id: json['id'] as String? ?? '',
       store: (json['store'] as String? ?? 'amazon').toLowerCase(),
@@ -94,6 +111,12 @@ class HomeBannerItem {
       applyEffect: json['applyEffect'] as bool? ?? false,
       active: json['active'] as bool? ?? true,
       order: json['order'] as int? ?? 0,
+      colors: parsedColors,
+      radialColor: json['radialColor'] as String?,
+      badgeBg: json['badgeBg'] as String?,
+      badgeTextColor: json['badgeTextColor'] as String?,
+      background: json['background'] as String?,
+      radialLight: json['radialLight'] as String?,
     );
   }
 
@@ -111,6 +134,12 @@ class HomeBannerItem {
     'applyEffect': applyEffect,
     'active': active,
     'order': order,
+    if (colors.isNotEmpty) 'colors': colors,
+    if (radialColor != null) 'radialColor': radialColor,
+    if (badgeBg != null) 'badgeBg': badgeBg,
+    if (badgeTextColor != null) 'badgeTextColor': badgeTextColor,
+    if (background != null) 'background': background,
+    if (radialLight != null) 'radialLight': radialLight,
   };
 }
 
