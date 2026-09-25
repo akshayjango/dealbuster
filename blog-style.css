@@ -452,6 +452,16 @@ ul.checklist li::before { content: '✅'; position: absolute; left: 0; top: 1px;
   max-width: 580px;
   margin: 0 0 16px 0 !important;
 }
+.playstore-cta-box strong,
+.playstore-cta-box b {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.playstore-cta-box a:not(.playstore-btn) {
+  color: #ffd000 !important;
+  text-decoration: underline;
+}
 .playstore-btn {
   display: inline-flex;
   align-items: center;
