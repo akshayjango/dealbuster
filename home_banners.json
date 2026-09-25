@@ -27,9 +27,9 @@
       "imageUrl": "images/banners/home-banner-1790359759315.webp",
       "link": "https://fktr.in/0eeS4rZ",
       "active": false,
-      "order": 5,
+      "order": 0,
       "createdAt": "2026-09-25T18:11:50.447Z",
-      "updatedAt": "2026-09-25T19:39:06.287Z"
+      "updatedAt": "2026-09-25T18:49:38.867Z"
     },
     {
       "id": "hbanner_1790330744260",
@@ -57,38 +57,9 @@
       "imageUrl": "images/banners/home-banner-1790330737841.webp",
       "link": "https://myntr.it/sEmTly4",
       "active": false,
-      "order": 4,
+      "order": 1,
       "createdAt": "2026-09-25T10:05:44.260Z",
-      "updatedAt": "2026-09-25T19:39:08.224Z"
-    },
-    {
-      "id": "hbanner_1790181559235",
-      "store": "myntra",
-      "storeName": "Myntra",
-      "template": "myntra_light",
-      "badgeText": "",
-      "applyEffect": false,
-      "lines": [
-        {
-          "text": "Upto",
-          "size": "big"
-        },
-        {
-          "text": "90% Off",
-          "size": "big"
-        },
-        {
-          "text": "Sale Starts 8th October",
-          "size": "small"
-        }
-      ],
-      "title": "Upto",
-      "subtitle": "90% Off • Sale Starts 8th October",
-      "imageUrl": "images/banners/home-banner-1790181031280.webp",
-      "link": "https://myntr.it/kwZ7ejW",
-      "active": true,
-      "order": 3,
-      "createdAt": "2026-09-23T16:39:19.235Z"
+      "updatedAt": "2026-09-25T10:06:58.686Z"
     },
     {
       "id": "hbanner_1789885081733",
@@ -145,9 +116,38 @@
       "link": "https://link.amazon/B0coRNmKB",
       "applyEffect": false,
       "active": false,
-      "order": 1,
+      "order": 3,
       "createdAt": "2026-09-20T05:50:38.112Z",
       "updatedAt": "2026-09-20T06:15:44.314Z"
+    },
+    {
+      "id": "hbanner_1790181559235",
+      "store": "myntra",
+      "storeName": "Myntra",
+      "template": "myntra_light",
+      "badgeText": "",
+      "applyEffect": false,
+      "lines": [
+        {
+          "text": "Upto",
+          "size": "big"
+        },
+        {
+          "text": "90% Off",
+          "size": "big"
+        },
+        {
+          "text": "Sale Starts 8th October",
+          "size": "small"
+        }
+      ],
+      "title": "Upto",
+      "subtitle": "90% Off • Sale Starts 8th October",
+      "imageUrl": "images/banners/home-banner-1790181031280.webp",
+      "link": "https://myntr.it/kwZ7ejW",
+      "active": true,
+      "order": 4,
+      "createdAt": "2026-09-23T16:39:19.235Z"
     },
     {
       "id": "hbanner_1789845268189",
@@ -174,7 +174,7 @@
       "link": "https://fktr.in/1stCo2P",
       "applyEffect": false,
       "active": true,
-      "order": 0,
+      "order": 5,
       "createdAt": "2026-09-19T19:14:28.189Z",
       "updatedAt": "2026-09-20T07:17:50.471Z",
       "template": "flipkart_light"
