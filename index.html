@@ -4083,7 +4083,7 @@
   function sortProducts(list) {
     if (!Array.isArray(list)) return [];
     return list
-      .filter(p => !p.hidden && !p.dead && !p.outOfStock && !hasUptoOffInTitle(p.title))
+      .filter(p => !p.hidden && !p.dead && !p.outOfStock && !hasUptoOffInTitle(p.title) && !p.isDealspyAjio)
       .sort((a, b) =>
         (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
         (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
@@ -4260,7 +4260,7 @@
       if (!resp.ok) return;
       const data = await resp.json();
       const products = (Array.isArray(data) ? data : (data.products || []))
-        .filter(p => !p.hidden)
+        .filter(p => !p.hidden && !p.isDealspyAjio)
         .sort((a, b) =>
           (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
           (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||

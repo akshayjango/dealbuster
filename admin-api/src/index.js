@@ -1955,6 +1955,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
       seenDsLinks.add(key);
       // Skip Amazon deals from DealsSpy — Amazon is handled by its own dedicated pipeline
       if (deal.link.includes('amazon.in') || deal.link.includes('amazon.com') || deal.link.includes('amzn.to') || deal.link.includes('link.amazon')) continue;
+      deal.source = 'dealspy';
       dsDeals.push(deal);
     }
   }
@@ -1962,6 +1963,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   let ifsDeals = [];
   try {
     ifsDeals = await scrapeIfsNonAmazonDeals(env).catch(() => []);
+    ifsDeals.forEach(d => { d.source = 'indiafreestuff'; });
   } catch (e) {
     console.error('Non-Amazon IFS cron fetch failed:', e.message);
   }
@@ -1969,6 +1971,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   let otDeals = [];
   try {
     otDeals = await scrapeOfferTagNonAmazonDeals(env).catch(() => []);
+    otDeals.forEach(d => { d.source = 'offertag'; });
   } catch (e) {
     console.error('Non-Amazon OfferTag cron fetch failed:', e.message);
   }
@@ -1994,6 +1997,12 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   } catch (e) {}
   const sentSet = new Set(sentLinks.map(l => getOriginalUrl(l).toLowerCase().replace(/\?.*$/, '').replace(/#.*$/, '').trim()));
 
+  let dsAjioSent = [];
+  try {
+    dsAjioSent = JSON.parse(await env.KV.get('dealspy_ajio_sent_urls') || '[]');
+  } catch (e) {}
+  const dsAjioSentSet = new Set(dsAjioSent.map(l => getOriginalUrl(l).toLowerCase().replace(/\?.*$/, '').replace(/#.*$/, '').trim()));
+
   let deletedUrls = [];
   try {
     deletedUrls = JSON.parse(await env.KV.get('deleted_fkart_urls') || '[]');
@@ -2001,7 +2010,9 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   const deletedSet = new Set(deletedUrls.map(l => getOriginalUrl(l).toLowerCase().replace(/\?.*$/, '').replace(/#.*$/, '').trim()));
 
   const newProducts = [];
+  const dealspyAjioDeals = [];
   const newSentLinks = [...sentLinks];
+  const newDsAjioSent = [...dsAjioSent];
 
   const candidateDeals = [];
   for (const deal of scrapedDeals) {
@@ -2011,6 +2022,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     if (rawOrig && liveOriginalLinks.has(rawOrig)) continue;
     if (titleNorm && liveTitles.has(titleNorm)) continue;
     if (rawOrig && sentSet.has(rawOrig)) continue;
+    if (rawOrig && dsAjioSentSet.has(rawOrig)) continue;
     if (rawOrig && deletedSet.has(rawOrig)) continue;
     candidateDeals.push(deal);
   }
@@ -2022,7 +2034,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   // subrequest limit.
   const verifyChunkSize = 5;
   const flipkartCookieStatuses = [];
-  for (let i = 0; i < candidateDeals.length && newProducts.length < 10; i += verifyChunkSize) {
+  for (let i = 0; i < candidateDeals.length && (newProducts.length < 10 || dealspyAjioDeals.length < 10); i += verifyChunkSize) {
     const chunk = candidateDeals.slice(i, i + verifyChunkSize);
     const checked = await Promise.all(chunk.map(async deal => {
       const availability = await checkListingAvailability(deal.link, parsePrice(deal.price) || 0, env);
@@ -2031,10 +2043,11 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
 
     for (const { deal, availability } of checked) {
       if (availability.cookieHealth) flipkartCookieStatuses.push(availability.cookieHealth);
-      if (newProducts.length >= 10) break;
+      if (newProducts.length >= 10 && dealspyAjioDeals.length >= 10) break;
       if (!availability.available) {
         console.log(`Skipping unavailable non-Amazon deal (${availability.reason}): ${deal.link}`);
         newSentLinks.push(deal.link); // don't re-check the same dead link every 5 min
+        if (deal.source === 'dealspy' && isAjioDeal(deal)) newDsAjioSent.push(deal.link);
         continue;
       }
 
@@ -2044,6 +2057,28 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
         await convertToCueLink(deal.link, deal.title || '', env, deal.title || '');
 
       const finalAffiliateLink = ekaroLink || cueLink;
+
+      // Exclude DealsSpy Ajio deals from site; route to Telegram bot prompt with converted link
+      const isDealspyAjio = deal.source === 'dealspy' && isAjioDeal(deal);
+      if (isDealspyAjio) {
+        if (dealspyAjioDeals.length < 10) {
+          console.log(`DealSpy Ajio deal excluded from site, routing to TG bot: ${deal.title || ''}`);
+          dealspyAjioDeals.push({
+            title: deal.title || cleanedTitle || '',
+            price: deal.price || '',
+            mrp: deal.mrp || '',
+            image: deal.image || 'images/dealbuster_icon.png',
+            link: deal.link,
+            convertedLink: finalAffiliateLink,
+            isDealspyAjio: true
+          });
+        }
+        newSentLinks.push(deal.link);
+        newDsAjioSent.push(deal.link);
+        continue;
+      }
+
+      if (newProducts.length >= 10) continue;
 
       const newProduct = {
         id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -2080,14 +2115,25 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     const updatedProducts = await capLiveAndBury([...newProducts, ...products], env);
     await saveProductsFile(updatedProducts, sha, `Auto-publish non-Amazon deals to site: ${newProducts.map(p => p.title.slice(0, 30)).join(', ')}`, env);
     
-    await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-500)));
-
     // Send EarnKaro reply prompts to TG admin DM for Telegram channel posting (do NOT auto-post CueLinks to TG channel)
     for (const p of newProducts) {
       const origLink = getOriginalUrl(p.link) || p.link;
       await sendNonAmazonDealPromptToAdmin({ title: p.title, price: p.price, mrp: p.mrp, image: p.image, link: origLink }, env)
         .catch(e => console.error('TG EarnKaro prompt non-Amazon failed:', e.message));
     }
+  }
+
+  if (dealspyAjioDeals.length > 0) {
+    console.log(`Routing ${dealspyAjioDeals.length} DealSpy Ajio deals to TG bot...`);
+    for (const d of dealspyAjioDeals) {
+      await sendNonAmazonDealPromptToAdmin(d, env)
+        .catch(e => console.error('TG prompt DealSpy Ajio failed:', e.message));
+    }
+    await env.KV.put('dealspy_ajio_sent_urls', JSON.stringify(newDsAjioSent.slice(-2000)));
+  }
+
+  if (newSentLinks.length !== sentLinks.length) {
+    await env.KV.put('fkart_sent_tg_urls', JSON.stringify(newSentLinks.slice(-2000)));
   }
 
   // Surface FLIPKART_SESSION_COOKIE health on the admin dashboard (same bell/push
@@ -4493,7 +4539,7 @@ function getStoreNameFromTitleOrUrl(title, url) {
   const str = ((title || '') + ' ' + (url || '')).toLowerCase();
   if (str.includes('flipkart') || str.includes('fkrt.it') || str.includes('fktr.in') || str.includes('fkrt.cc') || str.includes('fkrt.co')) return 'Flipkart';
   if (str.includes('myntra')) return 'Myntra';
-  if (str.includes('ajio')) return 'Ajio';
+  if (str.includes('ajio') || str.includes('ajiio')) return 'Ajio';
   if (str.includes('meesho')) return 'Meesho';
   if (str.includes('shopsy')) return 'Shopsy';
   if (str.includes('tatacliq')) return 'TataCliq';
@@ -4502,22 +4548,40 @@ function getStoreNameFromTitleOrUrl(title, url) {
   return 'Non-Amazon';
 }
 
+function isAjioDeal(deal) {
+  if (!deal) return false;
+  const store = getStoreNameFromTitleOrUrl(deal.title, deal.link);
+  if (store === 'Ajio') return true;
+  const link = (deal.link || '').toLowerCase();
+  const title = (deal.title || '').toLowerCase();
+  return link.includes('ajio.com') || link.includes('ajiio.in') || link.includes('ajiio') || title.includes('ajio');
+}
+
 async function sendNonAmazonDealPromptToAdmin(deal, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   const adminId = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
   if (!token || !adminId) return;
 
+  const isDsAjio = !!deal.isDealspyAjio;
   const storeName = getStoreNameFromTitleOrUrl(deal.title, deal.link) || 'Flipkart';
-  const text = `📦 New ${storeName} Deal\n\nTitle: ${deal.title || ''}\nPrice: ${deal.price || ''}${deal.mrp ? ` (MRP: ${deal.mrp})` : ''}\nOriginal Link: ${deal.link || ''}\n${deal.image ? `Image: ${deal.image}\n` : ''}\n👉 Reply to this message with your converted EarnKaro affiliate link to publish it!`;
+
+  let text = '';
+  if (isDsAjio) {
+    const convertedLink = deal.convertedLink || deal.link || '';
+    const origLink = deal.link || '';
+    text = `dealspy ajio\n\n📦 New Ajio Deal\n\nTitle: ${deal.title || ''}\nPrice: ${deal.price || ''}${deal.mrp ? ` (MRP: ${deal.mrp})` : ''}\nConverted Link: ${convertedLink}\nOriginal Link: ${origLink}\n${deal.image ? `Image: ${deal.image}\n` : ''}\n👉 Reply to this message with your affiliate link (or reply "publish" to use the converted link)!`;
+  } else {
+    text = `📦 New ${storeName} Deal\n\nTitle: ${deal.title || ''}\nPrice: ${deal.price || ''}${deal.mrp ? ` (MRP: ${deal.mrp})` : ''}\nOriginal Link: ${deal.link || ''}\n${deal.image ? `Image: ${deal.image}\n` : ''}\n👉 Reply to this message with your converted EarnKaro affiliate link to publish it!`;
+  }
 
   if (deal.image) {
     try {
-      await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: adminId, photo: deal.image, caption: text }),
       });
-      return;
+      if (res.ok) return;
     } catch (e) {}
   }
 
@@ -4748,13 +4812,24 @@ async function handleTelegramWebhook(request, env) {
     }
 
     // Single-Link Non-Amazon EarnKaro Reply Handling
-    if (replyText.includes('Reply to this message with your converted') || replyText.includes('New Flipkart Deal') || replyText.includes('New Non-Amazon Deal')) {
+    if (replyText.includes('Reply to this message with your converted') ||
+        replyText.includes('Reply to this message with your affiliate link') ||
+        replyText.includes('New Flipkart Deal') ||
+        replyText.includes('New Non-Amazon Deal') ||
+        replyText.includes('dealspy ajio') ||
+        replyText.includes('New Ajio Deal')) {
       const userUrls = extractAnyUrls(text, msg);
-      if (!userUrls.length) {
-        await tgSend(token, chatId, escTg('❌ Please reply with a valid affiliate link URL.'));
+      let affiliateLink = userUrls[0];
+      if (!affiliateLink) {
+        const convertedM = replyText.match(/Converted Link:\s*(https?:\/\/[^\s]+)/i);
+        if (convertedM && /^(publish|ok|post|approve|yes|send)$/i.test(text.trim())) {
+          affiliateLink = convertedM[1];
+        }
+      }
+      if (!affiliateLink) {
+        await tgSend(token, chatId, escTg('❌ Please reply with a valid affiliate link URL (or reply "publish" to use the converted link).'));
         return new Response('ok');
       }
-      const affiliateLink = userUrls[0];
 
       const titleM = replyText.match(/Title:\s*(.+)/i);
       const priceM = replyText.match(/Price:\s*(₹[\d,]+)/i);
@@ -4794,7 +4869,7 @@ async function handleTelegramWebhook(request, env) {
       let sentLinks = [];
       try { sentLinks = JSON.parse(await env.KV.get('fkart_sent_tg_urls') || '[]'); } catch (e) {}
       sentLinks.push(originalLink);
-      await env.KV.put('fkart_sent_tg_urls', JSON.stringify(sentLinks.slice(-500)));
+      await env.KV.put('fkart_sent_tg_urls', JSON.stringify(sentLinks.slice(-2000)));
 
       await sendToChannels([newProduct], env, { force: true, companionDm: false }).catch(e => console.error('TG post Non-Amazon reply failed:', e.message));
 
@@ -5204,7 +5279,7 @@ export default {
     if (url0.pathname === '/public/products.json' && request.method === 'GET') {
       try {
         const { products } = await getProductsFile(env);
-        const visible = products.filter(p => !p.hidden && !hasUptoOffInTitle(p.title));
+        const visible = products.filter(p => !p.hidden && !hasUptoOffInTitle(p.title) && !p.isDealspyAjio);
         return new Response(JSON.stringify(visible), {
           headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         });
