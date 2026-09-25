@@ -1535,29 +1535,102 @@
           <div class="field">
             <label>Store Theme</label>
             <select id="bannerStore" onchange="onBannerStoreChange()">
-              <optgroup label="Flipkart">
+              <optgroup label="Flipkart Themes">
                 <option value="flipkart_1" selected>Flipkart 1 (Royal Blue & Soft Glow)</option>
                 <option value="flipkart_2">Flipkart 2 (Electric Azure & Wave Arc)</option>
                 <option value="flipkart_3">Flipkart 3 (Sapphire & Micro-Dot Mesh)</option>
                 <option value="flipkart_light">Flipkart Light (Royal Blue to White Gradient)</option>
               </optgroup>
-              <optgroup label="Amazon">
+              <optgroup label="Amazon Themes">
                 <option value="amazon_1">Amazon 1 (Sunburst Amber & Warm Glow)</option>
                 <option value="amazon_2">Amazon 2 (Warm Tangerine & Golden Rings)</option>
                 <option value="amazon_3">Amazon 3 (Honey Marigold & Sunburst)</option>
                 <option value="amazon_light">Amazon Light (Sunburst Amber to White Gradient)</option>
               </optgroup>
-              <optgroup label="Myntra">
+              <optgroup label="Myntra Themes">
                 <option value="myntra_1">Myntra 1 (Vivid Magenta & Halftone)</option>
                 <option value="myntra_2">Myntra 2 (Rose Neon & Aura)</option>
                 <option value="myntra_3">Myntra 3 (Sunset Berry & Wave)</option>
                 <option value="myntra_light">Myntra Light (Rose Pink to White Gradient)</option>
               </optgroup>
-              <optgroup label="AJIO">
+              <optgroup label="AJIO Themes">
                 <option value="ajio_1">AJIO 1 (Slate Blue & Corner Dots)</option>
                 <option value="ajio_2">AJIO 2 (Steel Aura & Moon Glow)</option>
                 <option value="ajio_3">AJIO 3 (Midnight Indigo & Steel Rings)</option>
                 <option value="ajio_light">AJIO Light (Steel Slate to White Gradient)</option>
+              </optgroup>
+              <optgroup label="🎨 50+ Modern Design Templates (✨ = Radial Light Effect)">
+                <!-- Amazon -->
+                <option value="amazon_light">Amazon Light (Sunburst Amber to White)</option>
+                <option value="amazon_warm">Amazon Warm Gold (Radiant Sunburst) ✨</option>
+                <option value="amazon_prime_dark">Amazon Prime (Dark Midnight & Prime Blue) ✨</option>
+                <option value="amazon_gif_royal">Amazon Great Indian (Royale Gold & Crimson) ✨</option>
+                <option value="amazon_fire_tangerine">Amazon Fire Tangerine (Sunburst to Deep Plum) ✨</option>
+                <option value="amazon_pay_emerald">Amazon Pay & Cashback (Emerald Teal Wave) ✨</option>
+                <option value="amazon_fresh">Amazon Fresh (Leaf Green to Golden Glow) ✨</option>
+                <option value="amazon_lightning">Amazon Lightning Deal (Obsidian & Electric Gold) ✨</option>
+
+                <!-- Flipkart -->
+                <option value="flipkart_light">Flipkart Light (Royal Blue to White)</option>
+                <option value="flipkart_electric">Flipkart Electric Azure (Deep Blue) ✨</option>
+                <option value="flipkart_bbd_carnival">Flipkart Big Billion (Midnight Violet & Gold Burst) ✨</option>
+                <option value="flipkart_supercoin">Flipkart SuperCoin (Royal Blue & Sunburst Gold) ✨</option>
+                <option value="flipkart_neon_cyber">Flipkart Cyber Glow (Navy to Electric Cyan) ✨</option>
+                <option value="flipkart_sunset">Flipkart Sunset Flame (Coral Red to Cobalt) ✨</option>
+                <option value="flipkart_grocery">Flipkart Supermart (Emerald Wave to Sky Blue) ✨</option>
+                <option value="flipkart_festive_ruby">Flipkart Festive Ruby (Wine Velvet to Sapphire) ✨</option>
+
+                <!-- Myntra -->
+                <option value="myntra_light">Myntra Light (Rose Pink to White)</option>
+                <option value="myntra_vivid">Myntra Vivid Magenta (Sunset Berry) ✨</option>
+                <option value="myntra_eors">Myntra EORS Grand (Neon Magenta & Sunset Flame) ✨</option>
+                <option value="myntra_glam_gold">Myntra Glamour Gold (Black Velvet & Champagne) ✨</option>
+                <option value="myntra_barbiecore">Myntra Barbiecore (Bubblegum Pink & Lilac Dream) ✨</option>
+                <option value="myntra_streetwear">Myntra Streetwear (Matte Charcoal & Acid Lime) ✨</option>
+                <option value="myntra_pastel_chic">Myntra Pastel Chic (Blush Coral to Soft Sand) ✨</option>
+                <option value="myntra_runway_purple">Myntra Runway Luxe (Deep Plum & Orchid Glow) ✨</option>
+
+                <!-- AJIO -->
+                <option value="ajio_light">AJIO Light (Steel Slate to White)</option>
+                <option value="ajio_midnight">AJIO Midnight Indigo ✨</option>
+                <option value="ajio_all_stars">AJIO All Stars (Dark Slate, Crimson & Platinum) ✨</option>
+                <option value="ajio_luxe_noir">AJIO Luxe Noir (Obsidian Black & Fine Champagne) ✨</option>
+                <option value="ajio_avant_garde">AJIO Avant-Garde (Deep Forest & Burnt Terracotta) ✨</option>
+                <option value="ajio_denim_drift">AJIO Denim Drift (Washed Indigo & Cloud White) ✨</option>
+                <option value="ajio_crimson_mania">AJIO Mania (Burgundy Velvet & Electric Scarlet) ✨</option>
+
+                <!-- Nykaa -->
+                <option value="nykaa_pink_glam">Nykaa Pink Glam (Hot Fuchsia & Rose Quartz) ✨</option>
+                <option value="nykaa_cherry_velvet">Nykaa Cherry Velvet (Deep Merlot & Berry Shimmer) ✨</option>
+                <option value="nykaa_coral_blush">Nykaa Coral Blush (Sunny Apricot & Pastel Peach) ✨</option>
+                <option value="nykaa_luxe_nude">Nykaa Luxe Nude (Almond Cream & Warm Caramel) ✨</option>
+                <option value="nykaa_lavender_haze">Nykaa Lavender Haze (Soft Lilac to Mystic Indigo) ✨</option>
+
+                <!-- Shopsy & Meesho -->
+                <option value="shopsy_vibrant_orange">Shopsy Super Saver (Tangerine Flame & Sunny Gold) ✨</option>
+                <option value="shopsy_peppy_red">Shopsy Peppy Red (Cherry Crimson to Bubble Pink) ✨</option>
+                <option value="meesho_maha_blockbuster">Meesho Maha Blockbuster (Imperial Purple & Gold Sparkle) ✨</option>
+                <option value="meesho_mint_fresh">Meesho Mint Splash (Aquamarine to Deep Teal) ✨</option>
+                <option value="meesho_saffron_burst">Meesho Saffron Spark (Marigold Amber to Warm Rust) ✨</option>
+
+                <!-- Tata CLiQ -->
+                <option value="tatacliq_luxury_noir">Tata CLiQ Luxury (Midnight Carbon & Rose Gold) ✨</option>
+                <option value="tatacliq_emerald_royale">Tata CLiQ Royale (Deep Imperial Emerald & Antique Gold) ✨</option>
+                <option value="tatacliq_velvet_sapphire">Tata CLiQ Sapphire (Midnight Ocean & Sterling Silver) ✨</option>
+
+                <!-- Tech & Gaming -->
+                <option value="tech_cyberpunk_neon">Cyberpunk Neon (Obsidian Black & Electric Cyan Flare) ✨</option>
+                <option value="tech_titanium_matrix">Titanium Matrix (Dark Graphite & Matrix Acid Green) ✨</option>
+                <option value="tech_plasma_violet">Plasma Storm (Midnight Abyss & High-Voltage Violet) ✨</option>
+                <option value="tech_aurora_stream">Aurora Stream (Deep Space Teal & Northern Lights Aqua) ✨</option>
+
+                <!-- Festive & Specials -->
+                <option value="dealbuster_light">DealBuster Royal Light (Purple to White)</option>
+                <option value="dealbuster_dark_supernova">DealBuster Supernova (Deep Indigo & Solar Amber Flame) ✨</option>
+                <option value="festive_emerald_light">Festive Emerald (Green to White) ✨</option>
+                <option value="festive_diwali_gold">Diwali Royale (Crimson Silk & Radiant Diya Gold) ✨</option>
+                <option value="festive_holi_rainbow">Holi Neon Splash (Electric Violet, Pink & Solar Yellow) ✨</option>
+                <option value="minimal_frosted_slate">Studio Softbox (Neutral Slate & Crisp White Studio Light) ✨</option>
               </optgroup>
             </select>
           </div>
@@ -1739,17 +1812,78 @@
             <label style="font-weight:700;">Banner Format / Layout</label>
             <select id="homeBannerFormat" onchange="onHomeBannerFormatChange()" style="font-weight:600;">
               <option value="full_bg" selected>🖼️ Full Background Graphic (1080 × 528 px image)</option>
-              <optgroup label="🎨 Design Templates (Left Text + Right Product Cutout)">
+              <optgroup label="🎨 Design Templates (50+ Custom Themes • ✨ = Radial Light)">
+                <!-- Amazon -->
                 <option value="amazon_light">Amazon Light (Sunburst Amber to White)</option>
-                <option value="amazon_warm">Amazon Warm Gold (Radiant Sunburst)</option>
+                <option value="amazon_warm">Amazon Warm Gold (Radiant Sunburst) ✨</option>
+                <option value="amazon_prime_dark">Amazon Prime (Dark Midnight & Prime Blue) ✨</option>
+                <option value="amazon_gif_royal">Amazon Great Indian (Royale Gold & Crimson) ✨</option>
+                <option value="amazon_fire_tangerine">Amazon Fire Tangerine (Sunburst to Deep Plum) ✨</option>
+                <option value="amazon_pay_emerald">Amazon Pay & Cashback (Emerald Teal Wave) ✨</option>
+                <option value="amazon_fresh">Amazon Fresh (Leaf Green to Golden Glow) ✨</option>
+                <option value="amazon_lightning">Amazon Lightning Deal (Obsidian & Electric Gold) ✨</option>
+
+                <!-- Flipkart -->
                 <option value="flipkart_light">Flipkart Light (Royal Blue to White)</option>
-                <option value="flipkart_electric">Flipkart Electric Azure (Deep Blue)</option>
+                <option value="flipkart_electric">Flipkart Electric Azure (Deep Blue) ✨</option>
+                <option value="flipkart_bbd_carnival">Flipkart Big Billion (Midnight Violet & Gold Burst) ✨</option>
+                <option value="flipkart_supercoin">Flipkart SuperCoin (Royal Blue & Sunburst Gold) ✨</option>
+                <option value="flipkart_neon_cyber">Flipkart Cyber Glow (Navy to Electric Cyan) ✨</option>
+                <option value="flipkart_sunset">Flipkart Sunset Flame (Coral Red to Cobalt) ✨</option>
+                <option value="flipkart_grocery">Flipkart Supermart (Emerald Wave to Sky Blue) ✨</option>
+                <option value="flipkart_festive_ruby">Flipkart Festive Ruby (Wine Velvet to Sapphire) ✨</option>
+
+                <!-- Myntra -->
                 <option value="myntra_light">Myntra Light (Rose Pink to White)</option>
-                <option value="myntra_vivid">Myntra Vivid Magenta (Sunset Berry)</option>
+                <option value="myntra_vivid">Myntra Vivid Magenta (Sunset Berry) ✨</option>
+                <option value="myntra_eors">Myntra EORS Grand (Neon Magenta & Sunset Flame) ✨</option>
+                <option value="myntra_glam_gold">Myntra Glamour Gold (Black Velvet & Champagne) ✨</option>
+                <option value="myntra_barbiecore">Myntra Barbiecore (Bubblegum Pink & Lilac Dream) ✨</option>
+                <option value="myntra_streetwear">Myntra Streetwear (Matte Charcoal & Acid Lime) ✨</option>
+                <option value="myntra_pastel_chic">Myntra Pastel Chic (Blush Coral to Soft Sand) ✨</option>
+                <option value="myntra_runway_purple">Myntra Runway Luxe (Deep Plum & Orchid Glow) ✨</option>
+
+                <!-- AJIO -->
                 <option value="ajio_light">AJIO Light (Steel Slate to White)</option>
-                <option value="ajio_midnight">AJIO Midnight Indigo</option>
+                <option value="ajio_midnight">AJIO Midnight Indigo ✨</option>
+                <option value="ajio_all_stars">AJIO All Stars (Dark Slate, Crimson & Platinum) ✨</option>
+                <option value="ajio_luxe_noir">AJIO Luxe Noir (Obsidian Black & Fine Champagne) ✨</option>
+                <option value="ajio_avant_garde">AJIO Avant-Garde (Deep Forest & Burnt Terracotta) ✨</option>
+                <option value="ajio_denim_drift">AJIO Denim Drift (Washed Indigo & Cloud White) ✨</option>
+                <option value="ajio_crimson_mania">AJIO Mania (Burgundy Velvet & Electric Scarlet) ✨</option>
+
+                <!-- Nykaa -->
+                <option value="nykaa_pink_glam">Nykaa Pink Glam (Hot Fuchsia & Rose Quartz) ✨</option>
+                <option value="nykaa_cherry_velvet">Nykaa Cherry Velvet (Deep Merlot & Berry Shimmer) ✨</option>
+                <option value="nykaa_coral_blush">Nykaa Coral Blush (Sunny Apricot & Pastel Peach) ✨</option>
+                <option value="nykaa_luxe_nude">Nykaa Luxe Nude (Almond Cream & Warm Caramel) ✨</option>
+                <option value="nykaa_lavender_haze">Nykaa Lavender Haze (Soft Lilac to Mystic Indigo) ✨</option>
+
+                <!-- Shopsy & Meesho -->
+                <option value="shopsy_vibrant_orange">Shopsy Super Saver (Tangerine Flame & Sunny Gold) ✨</option>
+                <option value="shopsy_peppy_red">Shopsy Peppy Red (Cherry Crimson to Bubble Pink) ✨</option>
+                <option value="meesho_maha_blockbuster">Meesho Maha Blockbuster (Imperial Purple & Gold Sparkle) ✨</option>
+                <option value="meesho_mint_fresh">Meesho Mint Splash (Aquamarine to Deep Teal) ✨</option>
+                <option value="meesho_saffron_burst">Meesho Saffron Spark (Marigold Amber to Warm Rust) ✨</option>
+
+                <!-- Tata CLiQ -->
+                <option value="tatacliq_luxury_noir">Tata CLiQ Luxury (Midnight Carbon & Rose Gold) ✨</option>
+                <option value="tatacliq_emerald_royale">Tata CLiQ Royale (Deep Imperial Emerald & Antique Gold) ✨</option>
+                <option value="tatacliq_velvet_sapphire">Tata CLiQ Sapphire (Midnight Ocean & Sterling Silver) ✨</option>
+
+                <!-- Tech & Gaming -->
+                <option value="tech_cyberpunk_neon">Cyberpunk Neon (Obsidian Black & Electric Cyan Flare) ✨</option>
+                <option value="tech_titanium_matrix">Titanium Matrix (Dark Graphite & Matrix Acid Green) ✨</option>
+                <option value="tech_plasma_violet">Plasma Storm (Midnight Abyss & High-Voltage Violet) ✨</option>
+                <option value="tech_aurora_stream">Aurora Stream (Deep Space Teal & Northern Lights Aqua) ✨</option>
+
+                <!-- Festive & Specials -->
                 <option value="dealbuster_light">DealBuster Royal Light (Purple to White)</option>
-                <option value="festive_emerald_light">Festive Emerald (Green to White)</option>
+                <option value="dealbuster_dark_supernova">DealBuster Supernova (Deep Indigo & Solar Amber Flame) ✨</option>
+                <option value="festive_emerald_light">Festive Emerald (Green to White) ✨</option>
+                <option value="festive_diwali_gold">Diwali Royale (Crimson Silk & Radiant Diya Gold) ✨</option>
+                <option value="festive_holi_rainbow">Holi Neon Splash (Electric Violet, Pink & Solar Yellow) ✨</option>
+                <option value="minimal_frosted_slate">Studio Softbox (Neutral Slate & Crisp White Studio Light) ✨</option>
               </optgroup>
             </select>
           </div>
@@ -5267,6 +5401,13 @@ function getBannerDataFromForm() {
 
 function renderBannerCardHtml(b, isMini = false) {
   const storeKey = (b.store || 'myntra').toLowerCase();
+  if (typeof HOME_BANNER_TEMPLATES !== 'undefined' && HOME_BANNER_TEMPLATES[storeKey]) {
+    return renderHomeBannerCardHtml({
+      ...b,
+      template: storeKey,
+      store: HOME_BANNER_TEMPLATES[storeKey].store || storeKey
+    });
+  }
   const cfg = STORE_CONFIG[storeKey] || STORE_CONFIG[storeKey.split('_')[0]] || STORE_CONFIG.flipkart_1;
   const badgeText = b.badgeText || '';
   const lines = Array.isArray(b.lines) ? b.lines : [];
@@ -5441,7 +5582,8 @@ function renderBannersList() {
   }
 
   container.innerHTML = filtered.map((b, idx) => {
-    const sKey = (b.store || 'flipkart_1').toLowerCase(); const storeCfg = STORE_CONFIG[sKey] || STORE_CONFIG[sKey.split('_')[0]] || STORE_CONFIG.flipkart_1;
+    const sKey = (b.store || 'flipkart_1').toLowerCase();
+    const storeCfg = STORE_CONFIG[sKey] || (typeof HOME_BANNER_TEMPLATES !== 'undefined' && HOME_BANNER_TEMPLATES[sKey] ? { name: HOME_BANNER_TEMPLATES[sKey].name } : null) || STORE_CONFIG[sKey.split('_')[0]] || STORE_CONFIG.flipkart_1;
     const globalIdx = allBanners.findIndex(x => x.id === b.id);
     return `
       <div class="banner-admin-item" id="bannerItem_${b.id}" draggable="true"
@@ -5547,7 +5689,7 @@ async function saveBannerForm() {
   const statusEl = document.getElementById('bannerSaveStatus');
   const editingId = document.getElementById('editingBannerId').value;
   const store = document.getElementById('bannerStore').value;
-  const storeName = STORE_CONFIG[store]?.name || (store.charAt(0).toUpperCase() + store.slice(1));
+  const storeName = STORE_CONFIG[store]?.name || (typeof HOME_BANNER_TEMPLATES !== 'undefined' && HOME_BANNER_TEMPLATES[store]?.name) || (store.charAt(0).toUpperCase() + store.slice(1));
   const badgeText = document.getElementById('bannerBadge').value.trim();
   const link = document.getElementById('bannerLink').value.trim();
   const imageUrl = document.getElementById('bannerImageUrl').value.trim();
@@ -5578,6 +5720,11 @@ async function saveBannerForm() {
       link,
       active: true
     };
+    if (typeof HOME_BANNER_TEMPLATES !== 'undefined' && HOME_BANNER_TEMPLATES[store]) {
+      payload.template = store;
+      payload.background = HOME_BANNER_TEMPLATES[store].background;
+      payload.radialLight = HOME_BANNER_TEMPLATES[store].radialLight || null;
+    }
     if (editingId) payload.id = editingId;
 
     const resp = await apiFetch('/banners', { method: 'POST', body: payload });
@@ -5788,6 +5935,7 @@ async function toggleDefaultAnimatedBanner() {
 }
 
 const HOME_BANNER_TEMPLATES = {
+  // Amazon
   amazon_light: {
     name: 'Amazon Light (Sunburst Amber to White)',
     store: 'amazon',
@@ -5800,8 +5948,59 @@ const HOME_BANNER_TEMPLATES = {
     store: 'amazon',
     background: 'linear-gradient(135deg, #FFB300 0%, #FB8C00 50%, #E65100 100%)',
     badgeBg: '#131921',
-    badgeColor: '#FF9900'
+    badgeColor: '#FF9900',
+    radialLight: 'radial-gradient(circle, rgba(255, 238, 88, 0.45) 0%, rgba(251, 140, 0, 0.15) 55%, transparent 75%)'
   },
+  amazon_prime_dark: {
+    name: 'Amazon Prime (Dark Midnight & Prime Blue)',
+    store: 'amazon',
+    background: 'linear-gradient(135deg, #0F172A 0%, #002F6C 50%, #00A8E1 100%)',
+    badgeBg: '#00A8E1',
+    badgeColor: '#0F172A',
+    radialLight: 'radial-gradient(circle, rgba(0, 168, 225, 0.45) 0%, rgba(0, 77, 153, 0.2) 55%, transparent 75%)'
+  },
+  amazon_gif_royal: {
+    name: 'Amazon Great Indian (Royale Gold & Crimson)',
+    store: 'amazon',
+    background: 'linear-gradient(135deg, #7F1D1D 0%, #B91C1C 45%, #F59E0B 100%)',
+    badgeBg: '#FEF08A',
+    badgeColor: '#78350F',
+    radialLight: 'radial-gradient(circle, rgba(254, 240, 138, 0.5) 0%, rgba(245, 158, 11, 0.22) 60%, transparent 80%)'
+  },
+  amazon_fire_tangerine: {
+    name: 'Amazon Fire Tangerine (Sunburst to Deep Plum)',
+    store: 'amazon',
+    background: 'linear-gradient(135deg, #4C0519 0%, #C2410C 50%, #F97316 100%)',
+    badgeBg: '#FFF7ED',
+    badgeColor: '#9A3412',
+    radialLight: 'radial-gradient(circle, rgba(253, 186, 116, 0.45) 0%, rgba(234, 88, 12, 0.2) 55%, transparent 75%)'
+  },
+  amazon_pay_emerald: {
+    name: 'Amazon Pay & Cashback (Emerald Teal Wave)',
+    store: 'amazon',
+    background: 'linear-gradient(135deg, #064E3B 0%, #047857 50%, #10B981 100%)',
+    badgeBg: '#ECFDF5',
+    badgeColor: '#065F46',
+    radialLight: 'radial-gradient(circle, rgba(167, 243, 208, 0.48) 0%, rgba(16, 185, 129, 0.2) 55%, transparent 75%)'
+  },
+  amazon_fresh: {
+    name: 'Amazon Fresh (Leaf Green to Golden Glow)',
+    store: 'amazon',
+    background: 'linear-gradient(135deg, #14532D 0%, #15803D 50%, #84CC16 100%)',
+    badgeBg: '#F7FEE7',
+    badgeColor: '#365314',
+    radialLight: 'radial-gradient(circle, rgba(217, 249, 157, 0.48) 0%, rgba(132, 204, 22, 0.2) 55%, transparent 75%)'
+  },
+  amazon_lightning: {
+    name: 'Amazon Lightning Deal (Obsidian & Electric Gold)',
+    store: 'amazon',
+    background: 'linear-gradient(135deg, #09090B 0%, #18181B 50%, #27272A 100%)',
+    badgeBg: '#FBBF24',
+    badgeColor: '#18181B',
+    radialLight: 'radial-gradient(circle, rgba(251, 191, 36, 0.48) 0%, rgba(245, 158, 11, 0.2) 55%, transparent 75%)'
+  },
+
+  // Flipkart
   flipkart_light: {
     name: 'Flipkart Light (Royal Blue to White)',
     store: 'flipkart',
@@ -5814,8 +6013,59 @@ const HOME_BANNER_TEMPLATES = {
     store: 'flipkart',
     background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 50%, #075985 100%)',
     badgeBg: '#FF2E63',
-    badgeColor: '#ffffff'
+    badgeColor: '#ffffff',
+    radialLight: 'radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(2, 132, 199, 0.2) 55%, transparent 75%)'
   },
+  flipkart_bbd_carnival: {
+    name: 'Flipkart Big Billion (Midnight Violet & Gold Burst)',
+    store: 'flipkart',
+    background: 'linear-gradient(135deg, #2E1065 0%, #4C1D95 45%, #F59E0B 100%)',
+    badgeBg: '#FDE047',
+    badgeColor: '#3B0764',
+    radialLight: 'radial-gradient(circle, rgba(253, 224, 71, 0.5) 0%, rgba(168, 85, 247, 0.25) 55%, transparent 75%)'
+  },
+  flipkart_supercoin: {
+    name: 'Flipkart SuperCoin (Royal Blue & Sunburst Gold)',
+    store: 'flipkart',
+    background: 'linear-gradient(135deg, #1E3A8A 0%, #2563EB 55%, #FBBF24 100%)',
+    badgeBg: '#FEF08A',
+    badgeColor: '#1E3A8A',
+    radialLight: 'radial-gradient(circle, rgba(254, 240, 138, 0.5) 0%, rgba(37, 99, 235, 0.25) 55%, transparent 75%)'
+  },
+  flipkart_neon_cyber: {
+    name: 'Flipkart Cyber Glow (Navy to Electric Cyan)',
+    store: 'flipkart',
+    background: 'linear-gradient(135deg, #030712 0%, #0F172A 50%, #06B6D4 100%)',
+    badgeBg: '#22D3EE',
+    badgeColor: '#0F172A',
+    radialLight: 'radial-gradient(circle, rgba(34, 211, 238, 0.5) 0%, rgba(6, 182, 212, 0.2) 55%, transparent 75%)'
+  },
+  flipkart_sunset: {
+    name: 'Flipkart Sunset Flame (Coral Red to Cobalt)',
+    store: 'flipkart',
+    background: 'linear-gradient(135deg, #1E3A8A 0%, #7C3AED 50%, #F43F5E 100%)',
+    badgeBg: '#FFE4E6',
+    badgeColor: '#9F1239',
+    radialLight: 'radial-gradient(circle, rgba(251, 113, 133, 0.45) 0%, rgba(124, 58, 237, 0.2) 55%, transparent 75%)'
+  },
+  flipkart_grocery: {
+    name: 'Flipkart Supermart (Emerald Wave to Sky Blue)',
+    store: 'flipkart',
+    background: 'linear-gradient(135deg, #065F46 0%, #0284C7 60%, #38BDF8 100%)',
+    badgeBg: '#D1FAE5',
+    badgeColor: '#065F46',
+    radialLight: 'radial-gradient(circle, rgba(110, 231, 183, 0.48) 0%, rgba(2, 132, 199, 0.2) 55%, transparent 75%)'
+  },
+  flipkart_festive_ruby: {
+    name: 'Flipkart Festive Ruby (Wine Velvet to Sapphire)',
+    store: 'flipkart',
+    background: 'linear-gradient(135deg, #4C0519 0%, #1E1B4B 50%, #1D4ED8 100%)',
+    badgeBg: '#FECDD3',
+    badgeColor: '#881337',
+    radialLight: 'radial-gradient(circle, rgba(244, 63, 94, 0.4) 0%, rgba(59, 130, 246, 0.25) 55%, transparent 75%)'
+  },
+
+  // Myntra
   myntra_light: {
     name: 'Myntra Light (Rose Pink to White)',
     store: 'myntra',
@@ -5828,8 +6078,59 @@ const HOME_BANNER_TEMPLATES = {
     store: 'myntra',
     background: 'linear-gradient(135deg, #FF1768 0%, #E11D48 50%, #BE123C 100%)',
     badgeBg: '#881337',
-    badgeColor: '#ffffff'
+    badgeColor: '#ffffff',
+    radialLight: 'radial-gradient(circle, rgba(255, 113, 163, 0.48) 0%, rgba(225, 29, 72, 0.2) 55%, transparent 75%)'
   },
+  myntra_eors: {
+    name: 'Myntra EORS Grand (Neon Magenta & Sunset Flame)',
+    store: 'myntra',
+    background: 'linear-gradient(135deg, #831843 0%, #DB2777 45%, #F97316 100%)',
+    badgeBg: '#FEF08A',
+    badgeColor: '#831843',
+    radialLight: 'radial-gradient(circle, rgba(254, 240, 138, 0.48) 0%, rgba(219, 39, 119, 0.25) 55%, transparent 75%)'
+  },
+  myntra_glam_gold: {
+    name: 'Myntra Glamour Gold (Black Velvet & Champagne)',
+    store: 'myntra',
+    background: 'linear-gradient(135deg, #18181B 0%, #27272A 50%, #713F12 100%)',
+    badgeBg: '#FEF08A',
+    badgeColor: '#451A03',
+    radialLight: 'radial-gradient(circle, rgba(250, 204, 21, 0.45) 0%, rgba(202, 138, 4, 0.2) 55%, transparent 75%)'
+  },
+  myntra_barbiecore: {
+    name: 'Myntra Barbiecore (Bubblegum Pink & Lilac Dream)',
+    store: 'myntra',
+    background: 'linear-gradient(135deg, #EC4899 0%, #F472B6 50%, #C084FC 100%)',
+    badgeBg: '#FFFFFF',
+    badgeColor: '#BE185D',
+    radialLight: 'radial-gradient(circle, rgba(255, 255, 255, 0.55) 0%, rgba(244, 114, 182, 0.25) 55%, transparent 75%)'
+  },
+  myntra_streetwear: {
+    name: 'Myntra Streetwear (Matte Charcoal & Acid Lime)',
+    store: 'myntra',
+    background: 'linear-gradient(135deg, #09090B 0%, #18181B 60%, #84CC16 100%)',
+    badgeBg: '#A3E635',
+    badgeColor: '#18181B',
+    radialLight: 'radial-gradient(circle, rgba(163, 230, 53, 0.48) 0%, rgba(132, 204, 22, 0.2) 55%, transparent 75%)'
+  },
+  myntra_pastel_chic: {
+    name: 'Myntra Pastel Chic (Blush Coral to Soft Sand)',
+    store: 'myntra',
+    background: 'linear-gradient(135deg, #F43F5E 0%, #FB7185 45%, #FED7AA 100%)',
+    badgeBg: '#FFFFFF',
+    badgeColor: '#9F1239',
+    radialLight: 'radial-gradient(circle, rgba(254, 215, 170, 0.52) 0%, rgba(251, 113, 133, 0.2) 55%, transparent 75%)'
+  },
+  myntra_runway_purple: {
+    name: 'Myntra Runway Luxe (Deep Plum & Orchid Glow)',
+    store: 'myntra',
+    background: 'linear-gradient(135deg, #3B0764 0%, #6B21A8 50%, #D946EF 100%)',
+    badgeBg: '#FAE8FF',
+    badgeColor: '#701A75',
+    radialLight: 'radial-gradient(circle, rgba(232, 121, 249, 0.45) 0%, rgba(168, 85, 247, 0.2) 55%, transparent 75%)'
+  },
+
+  // AJIO
   ajio_light: {
     name: 'AJIO Light (Steel Slate to White)',
     store: 'ajio',
@@ -5842,8 +6143,195 @@ const HOME_BANNER_TEMPLATES = {
     store: 'ajio',
     background: 'linear-gradient(135deg, #334155 0%, #1E293B 50%, #0F172A 100%)',
     badgeBg: '#020617',
-    badgeColor: '#ffffff'
+    badgeColor: '#ffffff',
+    radialLight: 'radial-gradient(circle, rgba(148, 163, 184, 0.38) 0%, rgba(51, 65, 85, 0.2) 55%, transparent 75%)'
   },
+  ajio_all_stars: {
+    name: 'AJIO All Stars (Dark Slate, Crimson & Platinum)',
+    store: 'ajio',
+    background: 'linear-gradient(135deg, #0F172A 0%, #881337 55%, #E2E8F0 100%)',
+    badgeBg: '#FFFFFF',
+    badgeColor: '#0F172A',
+    radialLight: 'radial-gradient(circle, rgba(244, 63, 94, 0.42) 0%, rgba(226, 232, 240, 0.2) 55%, transparent 75%)'
+  },
+  ajio_luxe_noir: {
+    name: 'AJIO Luxe Noir (Obsidian Black & Fine Champagne)',
+    store: 'ajio',
+    background: 'linear-gradient(135deg, #0A0A0A 0%, #1C1917 55%, #78350F 100%)',
+    badgeBg: '#FDE68A',
+    badgeColor: '#1C1917',
+    radialLight: 'radial-gradient(circle, rgba(253, 230, 138, 0.38) 0%, rgba(120, 53, 15, 0.2) 55%, transparent 75%)'
+  },
+  ajio_avant_garde: {
+    name: 'AJIO Avant-Garde (Deep Forest & Burnt Terracotta)',
+    store: 'ajio',
+    background: 'linear-gradient(135deg, #064E3B 0%, #14532D 45%, #C2410C 100%)',
+    badgeBg: '#FFEDD5',
+    badgeColor: '#7C2D12',
+    radialLight: 'radial-gradient(circle, rgba(251, 146, 60, 0.45) 0%, rgba(20, 83, 45, 0.2) 55%, transparent 75%)'
+  },
+  ajio_denim_drift: {
+    name: 'AJIO Denim Drift (Washed Indigo & Cloud White)',
+    store: 'ajio',
+    background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 50%, #93C5FD 100%)',
+    badgeBg: '#EFF6FF',
+    badgeColor: '#1E3A8A',
+    radialLight: 'radial-gradient(circle, rgba(219, 234, 254, 0.52) 0%, rgba(59, 130, 246, 0.2) 55%, transparent 75%)'
+  },
+  ajio_crimson_mania: {
+    name: 'AJIO Mania (Burgundy Velvet & Electric Scarlet)',
+    store: 'ajio',
+    background: 'linear-gradient(135deg, #4C0519 0%, #9F1239 50%, #EF4444 100%)',
+    badgeBg: '#FEF2F2',
+    badgeColor: '#991B1B',
+    radialLight: 'radial-gradient(circle, rgba(254, 202, 202, 0.48) 0%, rgba(239, 68, 68, 0.2) 55%, transparent 75%)'
+  },
+
+  // Nykaa
+  nykaa_pink_glam: {
+    name: 'Nykaa Pink Glam (Hot Fuchsia & Rose Quartz)',
+    store: 'nykaa',
+    background: 'linear-gradient(135deg, #831843 0%, #BE185D 50%, #F472B6 100%)',
+    badgeBg: '#FDF2F8',
+    badgeColor: '#9D174D',
+    radialLight: 'radial-gradient(circle, rgba(251, 207, 232, 0.52) 0%, rgba(244, 114, 182, 0.25) 55%, transparent 75%)'
+  },
+  nykaa_cherry_velvet: {
+    name: 'Nykaa Cherry Velvet (Deep Merlot & Berry Shimmer)',
+    store: 'nykaa',
+    background: 'linear-gradient(135deg, #370617 0%, #6A040F 50%, #9D0208 100%)',
+    badgeBg: '#FFE3E0',
+    badgeColor: '#6A040F',
+    radialLight: 'radial-gradient(circle, rgba(255, 186, 180, 0.45) 0%, rgba(157, 2, 8, 0.2) 55%, transparent 75%)'
+  },
+  nykaa_coral_blush: {
+    name: 'Nykaa Coral Blush (Sunny Apricot & Pastel Peach)',
+    store: 'nykaa',
+    background: 'linear-gradient(135deg, #BE123C 0%, #FB7185 50%, #FDBA74 100%)',
+    badgeBg: '#FFF7ED',
+    badgeColor: '#9A3412',
+    radialLight: 'radial-gradient(circle, rgba(254, 215, 170, 0.52) 0%, rgba(251, 113, 133, 0.2) 55%, transparent 75%)'
+  },
+  nykaa_luxe_nude: {
+    name: 'Nykaa Luxe Nude (Almond Cream & Warm Caramel)',
+    store: 'nykaa',
+    background: 'linear-gradient(135deg, #44281D 0%, #78350F 50%, #D97706 100%)',
+    badgeBg: '#FEF3C7',
+    badgeColor: '#78350F',
+    radialLight: 'radial-gradient(circle, rgba(254, 243, 199, 0.48) 0%, rgba(217, 119, 6, 0.2) 55%, transparent 75%)'
+  },
+  nykaa_lavender_haze: {
+    name: 'Nykaa Lavender Haze (Soft Lilac to Mystic Indigo)',
+    store: 'nykaa',
+    background: 'linear-gradient(135deg, #312E81 0%, #6366F1 50%, #C084FC 100%)',
+    badgeBg: '#F3E8FF',
+    badgeColor: '#581C87',
+    radialLight: 'radial-gradient(circle, rgba(233, 213, 255, 0.48) 0%, rgba(192, 132, 252, 0.2) 55%, transparent 75%)'
+  },
+
+  // Shopsy & Meesho
+  shopsy_vibrant_orange: {
+    name: 'Shopsy Super Saver (Tangerine Flame & Sunny Gold)',
+    store: 'shopsy',
+    background: 'linear-gradient(135deg, #C2410C 0%, #EA580C 50%, #FBBF24 100%)',
+    badgeBg: '#FEF08A',
+    badgeColor: '#9A3412',
+    radialLight: 'radial-gradient(circle, rgba(254, 240, 138, 0.52) 0%, rgba(234, 88, 12, 0.2) 55%, transparent 75%)'
+  },
+  shopsy_peppy_red: {
+    name: 'Shopsy Peppy Red (Cherry Crimson to Bubble Pink)',
+    store: 'shopsy',
+    background: 'linear-gradient(135deg, #991B1B 0%, #DC2626 50%, #F43F5E 100%)',
+    badgeBg: '#FFE4E6',
+    badgeColor: '#991B1B',
+    radialLight: 'radial-gradient(circle, rgba(254, 205, 211, 0.48) 0%, rgba(220, 38, 38, 0.2) 55%, transparent 75%)'
+  },
+  meesho_maha_blockbuster: {
+    name: 'Meesho Maha Blockbuster (Imperial Purple & Gold Sparkle)',
+    store: 'meesho',
+    background: 'linear-gradient(135deg, #3B0764 0%, #581C87 50%, #F59E0B 100%)',
+    badgeBg: '#FEF08A',
+    badgeColor: '#3B0764',
+    radialLight: 'radial-gradient(circle, rgba(254, 240, 138, 0.48) 0%, rgba(168, 85, 247, 0.25) 55%, transparent 75%)'
+  },
+  meesho_mint_fresh: {
+    name: 'Meesho Mint Splash (Aquamarine to Deep Teal)',
+    store: 'meesho',
+    background: 'linear-gradient(135deg, #064E3B 0%, #0D9488 50%, #2DD4BF 100%)',
+    badgeBg: '#CCFBF1',
+    badgeColor: '#0F766E',
+    radialLight: 'radial-gradient(circle, rgba(153, 246, 228, 0.52) 0%, rgba(13, 148, 136, 0.2) 55%, transparent 75%)'
+  },
+  meesho_saffron_burst: {
+    name: 'Meesho Saffron Spark (Marigold Amber to Warm Rust)',
+    store: 'meesho',
+    background: 'linear-gradient(135deg, #7C2D12 0%, #B45309 50%, #F59E0B 100%)',
+    badgeBg: '#FEF3C7',
+    badgeColor: '#78350F',
+    radialLight: 'radial-gradient(circle, rgba(254, 243, 199, 0.48) 0%, rgba(245, 158, 11, 0.2) 55%, transparent 75%)'
+  },
+
+  // Tata CLiQ
+  tatacliq_luxury_noir: {
+    name: 'Tata CLiQ Luxury (Midnight Carbon & Rose Gold)',
+    store: 'tatacliq',
+    background: 'linear-gradient(135deg, #09090B 0%, #1C1917 50%, #44403C 100%)',
+    badgeBg: '#F5D0C5',
+    badgeColor: '#44403C',
+    radialLight: 'radial-gradient(circle, rgba(245, 208, 197, 0.38) 0%, rgba(120, 113, 108, 0.15) 55%, transparent 75%)'
+  },
+  tatacliq_emerald_royale: {
+    name: 'Tata CLiQ Royale (Deep Imperial Emerald & Antique Gold)',
+    store: 'tatacliq',
+    background: 'linear-gradient(135deg, #022C22 0%, #064E3B 50%, #B45309 100%)',
+    badgeBg: '#FEF3C7',
+    badgeColor: '#064E3B',
+    radialLight: 'radial-gradient(circle, rgba(254, 243, 199, 0.42) 0%, rgba(6, 78, 59, 0.25) 55%, transparent 75%)'
+  },
+  tatacliq_velvet_sapphire: {
+    name: 'Tata CLiQ Sapphire (Midnight Ocean & Sterling Silver)',
+    store: 'tatacliq',
+    background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 50%, #64748B 100%)',
+    badgeBg: '#F1F5F9',
+    badgeColor: '#0F172A',
+    radialLight: 'radial-gradient(circle, rgba(226, 232, 240, 0.42) 0%, rgba(30, 58, 138, 0.2) 55%, transparent 75%)'
+  },
+
+  // Tech & Gaming
+  tech_cyberpunk_neon: {
+    name: 'Cyberpunk Neon (Obsidian Black & Electric Cyan Flare)',
+    store: 'dealbuster',
+    background: 'linear-gradient(135deg, #09090B 0%, #0F172A 50%, #0891B2 100%)',
+    badgeBg: '#06B6D4',
+    badgeColor: '#09090B',
+    radialLight: 'radial-gradient(circle, rgba(6, 182, 212, 0.52) 0%, rgba(3, 105, 161, 0.2) 55%, transparent 75%)'
+  },
+  tech_titanium_matrix: {
+    name: 'Titanium Matrix (Dark Graphite & Matrix Acid Green)',
+    store: 'dealbuster',
+    background: 'linear-gradient(135deg, #09090B 0%, #18181B 55%, #15803D 100%)',
+    badgeBg: '#22C55E',
+    badgeColor: '#09090B',
+    radialLight: 'radial-gradient(circle, rgba(34, 197, 94, 0.48) 0%, rgba(21, 128, 61, 0.2) 55%, transparent 75%)'
+  },
+  tech_plasma_violet: {
+    name: 'Plasma Storm (Midnight Abyss & High-Voltage Violet)',
+    store: 'dealbuster',
+    background: 'linear-gradient(135deg, #09090B 0%, #3B0764 50%, #8B5CF6 100%)',
+    badgeBg: '#A78BFA',
+    badgeColor: '#09090B',
+    radialLight: 'radial-gradient(circle, rgba(167, 139, 250, 0.48) 0%, rgba(139, 92, 246, 0.2) 55%, transparent 75%)'
+  },
+  tech_aurora_stream: {
+    name: 'Aurora Stream (Deep Space Teal & Northern Lights Aqua)',
+    store: 'dealbuster',
+    background: 'linear-gradient(135deg, #042F2E 0%, #0F766E 50%, #10B981 100%)',
+    badgeBg: '#6EE7B7',
+    badgeColor: '#042F2E',
+    radialLight: 'radial-gradient(circle, rgba(110, 231, 183, 0.48) 0%, rgba(16, 185, 129, 0.2) 55%, transparent 75%)'
+  },
+
+  // Festive & Specials
   dealbuster_light: {
     name: 'DealBuster Royal Light (Purple to White)',
     store: 'dealbuster',
@@ -5851,12 +6339,45 @@ const HOME_BANNER_TEMPLATES = {
     badgeBg: '#312E81',
     badgeColor: '#F59E0B'
   },
+  dealbuster_dark_supernova: {
+    name: 'DealBuster Supernova (Deep Indigo & Solar Amber Flame)',
+    store: 'dealbuster',
+    background: 'linear-gradient(135deg, #1E1B4B 0%, #4338CA 50%, #F59E0B 100%)',
+    badgeBg: '#FEF08A',
+    badgeColor: '#1E1B4B',
+    radialLight: 'radial-gradient(circle, rgba(254, 240, 138, 0.52) 0%, rgba(245, 158, 11, 0.25) 55%, transparent 75%)'
+  },
   festive_emerald_light: {
     name: 'Festive Emerald (Green to White)',
     store: 'amazon',
     background: 'linear-gradient(120deg, #065F46 0%, #059669 34%, #ffffff 86%)',
     badgeBg: '#064E3B',
-    badgeColor: '#FDE047'
+    badgeColor: '#FDE047',
+    radialLight: 'radial-gradient(circle, rgba(253, 224, 71, 0.42) 0%, rgba(5, 150, 105, 0.15) 55%, transparent 75%)'
+  },
+  festive_diwali_gold: {
+    name: 'Diwali Royale (Crimson Silk & Radiant Diya Gold)',
+    store: 'amazon',
+    background: 'linear-gradient(135deg, #881337 0%, #B91C1C 45%, #F59E0B 100%)',
+    badgeBg: '#FEF3C7',
+    badgeColor: '#78350F',
+    radialLight: 'radial-gradient(circle, rgba(254, 243, 199, 0.52) 0%, rgba(245, 158, 11, 0.25) 55%, transparent 75%)'
+  },
+  festive_holi_rainbow: {
+    name: 'Holi Neon Splash (Electric Violet, Pink & Solar Yellow)',
+    store: 'flipkart',
+    background: 'linear-gradient(135deg, #7C3AED 0%, #EC4899 50%, #FBBF24 100%)',
+    badgeBg: '#FFFFFF',
+    badgeColor: '#7C3AED',
+    radialLight: 'radial-gradient(circle, rgba(255, 255, 255, 0.58) 0%, rgba(236, 72, 153, 0.25) 55%, transparent 75%)'
+  },
+  minimal_frosted_slate: {
+    name: 'Studio Softbox (Neutral Slate & Crisp White Studio Light)',
+    store: 'dealbuster',
+    background: 'linear-gradient(135deg, #1E293B 0%, #334155 50%, #475569 100%)',
+    badgeBg: '#F8FAFC',
+    badgeColor: '#0F172A',
+    radialLight: 'radial-gradient(circle, rgba(255, 255, 255, 0.48) 0%, rgba(148, 163, 184, 0.2) 55%, transparent 75%)'
   }
 };
 
@@ -5926,6 +6447,18 @@ function getStoreLogoHtml(store, storeName) {
   if (key === 'flipkart') return SVG_FLIPKART;
   if (key === 'ajio') return SVG_AJIO;
   if (key === 'amazon') return SVG_AMAZON;
+  if (key === 'nykaa') {
+    return `<span style="font-weight:900; font-size:11px; color:#BE185D; letter-spacing:0.04em;">NYKAA</span>`;
+  }
+  if (key === 'shopsy') {
+    return `<span style="font-weight:900; font-size:11px; color:#EA580C; letter-spacing:0.02em;">shopsy</span>`;
+  }
+  if (key === 'meesho') {
+    return `<span style="font-weight:900; font-size:11px; color:#6B21A8; letter-spacing:0.02em;">meesho</span>`;
+  }
+  if (key === 'tatacliq') {
+    return `<span style="font-weight:900; font-size:10.5px; color:#1C1917; letter-spacing:0.04em;">TATA <span style="color:#C2410C;">CLiQ</span></span>`;
+  }
   if (key === 'dealbuster') {
     return `<span style="display:inline-flex; align-items:center; gap:4px; font-weight:800; font-size:11px; color:#1E293B;"><img src="https://dealbuster.in/images/dealbuster_icon.png" style="height:14px; width:auto; vertical-align:middle;"/>DealBuster</span>`;
   }
@@ -5960,13 +6493,18 @@ function renderHomeBannerCardHtml(b) {
   if (tpl) {
     return `
       <div style="position:relative; width:100%; height:176px; border-radius:26px; overflow:hidden; background:${tpl.background}; box-shadow:0 8px 24px -6px rgba(0,0,0,0.3); font-family:'Segoe UI', system-ui, sans-serif; display:flex; flex-direction:column; padding:14px 18px; box-sizing:border-box; color:#fff;">
+        <!-- Radial light glow behind image area -->
+        ${tpl.radialLight ? `
+        <div style="position:absolute; right:4%; top:50%; transform:translateY(-50%); width:170px; height:170px; border-radius:50%; background:${tpl.radialLight}; pointer-events:none; z-index:2; filter:blur(6px); opacity:0.95;"></div>
+        ` : ''}
+
         <!-- Right side product image -->
         ${imgUrl ? `
         <div style="position:absolute; right:12px; top:12px; bottom:12px; width:44%; display:flex; align-items:center; justify-content:flex-end; pointer-events:none; z-index:3;">
-          <img src="${escHtml(imgUrl)}" alt="Product" style="max-height:100%; max-width:100%; object-fit:contain; filter:drop-shadow(0 6px 12px rgba(0,0,0,0.2));" onerror="this.onerror=null; this.src='https://dealbuster.in/images/dealbuster_icon.png';"/>
+          <img src="${escHtml(imgUrl)}" alt="Product" style="max-height:100%; max-width:100%; object-fit:contain; filter:drop-shadow(0 8px 16px rgba(0,0,0,0.32));" onerror="this.onerror=null; this.src='https://dealbuster.in/images/dealbuster_icon.png';"/>
         </div>
         ` : `
-        <div style="position:absolute; right:14px; top:16px; bottom:16px; width:38%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(255,255,255,0.22); border:1.5px dashed rgba(255,255,255,0.45); border-radius:14px; color:rgba(0,0,0,0.5); font-size:11px; font-weight:700;">
+        <div style="position:absolute; right:14px; top:16px; bottom:16px; width:38%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(255,255,255,0.22); border:1.5px dashed rgba(255,255,255,0.45); border-radius:14px; color:rgba(0,0,0,0.5); font-size:11px; font-weight:700; z-index:3;">
           <span style="font-size:20px;">🛍️</span>
           <span>Cutout Photo</span>
         </div>
@@ -6265,6 +6803,10 @@ async function saveHomeBannerForm() {
       link,
       active: true
     };
+    if (typeof HOME_BANNER_TEMPLATES !== 'undefined' && HOME_BANNER_TEMPLATES[template]) {
+      payload.background = HOME_BANNER_TEMPLATES[template].background;
+      payload.radialLight = HOME_BANNER_TEMPLATES[template].radialLight || null;
+    }
     if (editingId) payload.id = editingId;
 
     const resp = await apiFetch('/home-banners', { method: 'POST', body: payload });

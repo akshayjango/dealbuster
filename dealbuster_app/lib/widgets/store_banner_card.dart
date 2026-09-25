@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/banner_item.dart';
+import 'hero_banner.dart';
 import 'store_banner_svgs.dart';
 
 class StoreBannerCard extends StatelessWidget {
@@ -73,6 +74,25 @@ class StoreBannerCard extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                  // Radial light effect behind product image
+                  if (theme.radialLight != null)
+                    Positioned(
+                      right: 6,
+                      bottom: 12,
+                      top: 22,
+                      width: MediaQuery.of(context).size.width * 0.44,
+                      child: Center(
+                        child: Container(
+                          width: 140,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: theme.radialLight,
+                          ),
+                        ),
+                      ),
+                    ),
 
                   // Right-side product image (lifted up from bottom)
                   if (banner.fullImageUrl.isNotEmpty)
@@ -262,6 +282,75 @@ class StoreBannerCard extends StatelessWidget {
           height: 13,
           fit: BoxFit.contain,
         );
+      case 'nykaa':
+        return Text(
+          'NYKAA',
+          style: GoogleFonts.sora(
+            color: const Color(0xFFBE185D),
+            fontWeight: FontWeight.w900,
+            fontSize: 11,
+            letterSpacing: 0.5,
+          ),
+        );
+      case 'shopsy':
+        return Text(
+          'shopsy',
+          style: GoogleFonts.sora(
+            color: const Color(0xFFEA580C),
+            fontWeight: FontWeight.w900,
+            fontSize: 11,
+          ),
+        );
+      case 'meesho':
+        return Text(
+          'meesho',
+          style: GoogleFonts.sora(
+            color: const Color(0xFF6B21A8),
+            fontWeight: FontWeight.w900,
+            fontSize: 11,
+          ),
+        );
+      case 'tatacliq':
+        return RichText(
+          text: TextSpan(
+            text: 'TATA ',
+            style: GoogleFonts.sora(
+              color: const Color(0xFF1C1917),
+              fontWeight: FontWeight.w900,
+              fontSize: 10.5,
+            ),
+            children: [
+              TextSpan(
+                text: 'CLiQ',
+                style: GoogleFonts.sora(
+                  color: const Color(0xFFC2410C),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      case 'dealbuster':
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              'assets/icons/dealbuster_logo.svg',
+              height: 14,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'DealBuster',
+              style: GoogleFonts.sora(
+                color: const Color(0xFF1E293B),
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        );
       default:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -286,6 +375,19 @@ class StoreBannerCard extends StatelessWidget {
   }
 
   _StoreTheme _getStoreTheme(String template) {
+    final hTpl = getHomeBannerTemplate(template);
+    if (hTpl != null) {
+      return _StoreTheme(
+        gradient: hTpl.gradient,
+        shadowColor: hTpl.gradient.colors.first,
+        accentColor: Colors.white,
+        textColor: const Color(0xFF111827),
+        badgeBgColor: hTpl.badgeBg,
+        badgeTextColor: hTpl.badgeTextColor,
+        radialLight: hTpl.radialLight,
+      );
+    }
+
     switch (template.toLowerCase()) {
       // Flipkart templates
       case 'flipkart':
@@ -536,6 +638,7 @@ class _StoreTheme {
     required this.textColor,
     required this.badgeBgColor,
     required this.badgeTextColor,
+    this.radialLight,
   });
 
   final LinearGradient gradient;
@@ -544,6 +647,7 @@ class _StoreTheme {
   final Color textColor;
   final Color badgeBgColor;
   final Color badgeTextColor;
+  final RadialGradient? radialLight;
 }
 
 class _BannerBackgroundPainter extends CustomPainter {

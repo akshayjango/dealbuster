@@ -229,24 +229,27 @@ class _HeroBannerState extends State<HeroBanner> with SingleTickerProviderStateM
   }
 }
 
-class _HomeBannerTemplate {
-  const _HomeBannerTemplate({
+class HomeBannerTemplate {
+  const HomeBannerTemplate({
     required this.gradient,
     required this.badgeBg,
     required this.badgeTextColor,
+    this.radialLight,
   });
 
   final LinearGradient gradient;
   final Color badgeBg;
   final Color badgeTextColor;
+  final RadialGradient? radialLight;
 }
 
-_HomeBannerTemplate? _getHomeBannerTemplate(String template) {
+HomeBannerTemplate? getHomeBannerTemplate(String template) {
   switch (template.toLowerCase()) {
+    // Amazon
     case 'amazon_light':
-      return const _HomeBannerTemplate(
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
-          colors: [Color(0xFFFF9900), Color(0xFFFFB74D), Color(0xFFFFFFFF)],
+          colors: [Color(0xFFEA580C), Color(0xFFF59E0B), Color(0xFFFFFFFF)],
           stops: [0.0, 0.34, 0.86],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -255,7 +258,7 @@ _HomeBannerTemplate? _getHomeBannerTemplate(String template) {
         badgeTextColor: Color(0xFFFF9900),
       );
     case 'amazon_warm':
-      return const _HomeBannerTemplate(
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
           colors: [Color(0xFFFFB300), Color(0xFFFB8C00), Color(0xFFE65100)],
           begin: Alignment.topLeft,
@@ -263,20 +266,111 @@ _HomeBannerTemplate? _getHomeBannerTemplate(String template) {
         ),
         badgeBg: Color(0xFF131921),
         badgeTextColor: Color(0xFFFF9900),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FFEE58), Color(0x28FB8C00), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
       );
-    case 'flipkart_light':
-      return const _HomeBannerTemplate(
+    case 'amazon_prime_dark':
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
-          colors: [Color(0xFF2563EB), Color(0xFF3B82F6), Color(0xFFFFFFFF)],
+          colors: [Color(0xFF0F172A), Color(0xFF002F6C), Color(0xFF00A8E1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF00A8E1),
+        badgeTextColor: Color(0xFF0F172A),
+        radialLight: RadialGradient(
+          colors: [Color(0x7500A8E1), Color(0x30004D99), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'amazon_gif_royal':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF7F1D1D), Color(0xFFB91C1C), Color(0xFFF59E0B)],
+          stops: [0.0, 0.45, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF78350F),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FEF08A), Color(0x35F59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'amazon_fire_tangerine':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4C0519), Color(0xFFC2410C), Color(0xFFF97316)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFF7ED),
+        badgeTextColor: Color(0xFF9A3412),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FDBA74), Color(0x30EA580C), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'amazon_pay_emerald':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF064E3B), Color(0xFF047857), Color(0xFF10B981)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFECFDF5),
+        badgeTextColor: Color(0xFF065F46),
+        radialLight: RadialGradient(
+          colors: [Color(0x78A7F3D0), Color(0x3010B981), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'amazon_fresh':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF14532D), Color(0xFF15803D), Color(0xFF84CC16)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFF7FEE7),
+        badgeTextColor: Color(0xFF365314),
+        radialLight: RadialGradient(
+          colors: [Color(0x78D9F99D), Color(0x3084CC16), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'amazon_lightning':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF09090B), Color(0xFF18181B), Color(0xFF27272A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFBBF24),
+        badgeTextColor: Color(0xFF18181B),
+        radialLight: RadialGradient(
+          colors: [Color(0x78FBBF24), Color(0x30F59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+
+    // Flipkart
+    case 'flipkart_light':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6), Color(0xFFFFFFFF)],
           stops: [0.0, 0.34, 0.86],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        badgeBg: Color(0xFF1E40AF),
+        badgeBg: Color(0xFFFF2E63),
         badgeTextColor: Colors.white,
       );
     case 'flipkart_electric':
-      return const _HomeBannerTemplate(
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
           colors: [Color(0xFF0284C7), Color(0xFF0369A1), Color(0xFF075985)],
           begin: Alignment.topLeft,
@@ -284,11 +378,104 @@ _HomeBannerTemplate? _getHomeBannerTemplate(String template) {
         ),
         badgeBg: Color(0xFFFF2E63),
         badgeTextColor: Colors.white,
+        radialLight: RadialGradient(
+          colors: [Color(0x7538BDF8), Color(0x300284C7), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
       );
-    case 'myntra_light':
-      return const _HomeBannerTemplate(
+    case 'flipkart_bbd_carnival':
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
-          colors: [Color(0xFFFF1768), Color(0xFFFB7185), Color(0xFFFFFFFF)],
+          colors: [Color(0xFF2E1065), Color(0xFF4C1D95), Color(0xFFF59E0B)],
+          stops: [0.0, 0.45, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFDE047),
+        badgeTextColor: Color(0xFF3B0764),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FDE047), Color(0x38A855F7), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flipkart_supercoin':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFFFBBF24)],
+          stops: [0.0, 0.55, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF1E3A8A),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FEF08A), Color(0x382563EB), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flipkart_neon_cyber':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF030712), Color(0xFF0F172A), Color(0xFF06B6D4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF22D3EE),
+        badgeTextColor: Color(0xFF0F172A),
+        radialLight: RadialGradient(
+          colors: [Color(0x8022D3EE), Color(0x3006B6D4), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flipkart_sunset':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF7C3AED), Color(0xFFF43F5E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFE4E6),
+        badgeTextColor: Color(0xFF9F1239),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FB7185), Color(0x307C3AED), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flipkart_grocery':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF065F46), Color(0xFF0284C7), Color(0xFF38BDF8)],
+          stops: [0.0, 0.6, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFD1FAE5),
+        badgeTextColor: Color(0xFF065F46),
+        radialLight: RadialGradient(
+          colors: [Color(0x786EE7B7), Color(0x300284C7), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flipkart_festive_ruby':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4C0519), Color(0xFF1E1B4B), Color(0xFF1D4ED8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFECDD3),
+        badgeTextColor: Color(0xFF881337),
+        radialLight: RadialGradient(
+          colors: [Color(0x65F43F5E), Color(0x353B82F6), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+
+    // Myntra
+    case 'myntra_light':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFBE123C), Color(0xFFE11D48), Color(0xFFFFFFFF)],
           stops: [0.0, 0.34, 0.86],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -297,20 +484,113 @@ _HomeBannerTemplate? _getHomeBannerTemplate(String template) {
         badgeTextColor: Colors.white,
       );
     case 'myntra_vivid':
-      return const _HomeBannerTemplate(
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
           colors: [Color(0xFFFF1768), Color(0xFFE11D48), Color(0xFFBE123C)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        badgeBg: Color(0xFF9F1239),
+        badgeBg: Color(0xFF881337),
         badgeTextColor: Colors.white,
+        radialLight: RadialGradient(
+          colors: [Color(0x78FF71A3), Color(0x30E11D48), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
       );
-    case 'ajio_light':
-      return const _HomeBannerTemplate(
+    case 'myntra_eors':
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
-          colors: [Color(0xFF334155), Color(0xFF64748B), Color(0xFFFFFFFF)],
-          stops: [0.0, 0.34, 0.86],
+          colors: [Color(0xFF831843), Color(0xFFDB2777), Color(0xFFF97316)],
+          stops: [0.0, 0.45, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF831843),
+        radialLight: RadialGradient(
+          colors: [Color(0x78FEF08A), Color(0x3ADB2777), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'myntra_glam_gold':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF18181B), Color(0xFF27272A), Color(0xFF713F12)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF451A03),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FACC15), Color(0x30CA8A04), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'myntra_barbiecore':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFEC4899), Color(0xFFF472B6), Color(0xFFC084FC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Colors.white,
+        badgeTextColor: Color(0xFFBE185D),
+        radialLight: RadialGradient(
+          colors: [Color(0x90FFFFFF), Color(0x3CF472B6), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'myntra_streetwear':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF09090B), Color(0xFF18181B), Color(0xFF84CC16)],
+          stops: [0.0, 0.6, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFA3E635),
+        badgeTextColor: Color(0xFF18181B),
+        radialLight: RadialGradient(
+          colors: [Color(0x78A3E635), Color(0x3084CC16), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'myntra_pastel_chic':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFF43F5E), Color(0xFFFB7185), Color(0xFFFED7AA)],
+          stops: [0.0, 0.45, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Colors.white,
+        badgeTextColor: Color(0xFF9F1239),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FED7AA), Color(0x30FB7185), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'myntra_runway_purple':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF3B0764), Color(0xFF6B21A8), Color(0xFFD946EF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFAE8FF),
+        badgeTextColor: Color(0xFF701A75),
+        radialLight: RadialGradient(
+          colors: [Color(0x75E879F9), Color(0x30A855F7), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+
+    // AJIO
+    case 'ajio_light':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF475569), Color(0xFFFFFFFF)],
+          stops: [0.0, 0.36, 0.86],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -318,7 +598,7 @@ _HomeBannerTemplate? _getHomeBannerTemplate(String template) {
         badgeTextColor: Colors.white,
       );
     case 'ajio_midnight':
-      return const _HomeBannerTemplate(
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
           colors: [Color(0xFF334155), Color(0xFF1E293B), Color(0xFF0F172A)],
           begin: Alignment.topLeft,
@@ -326,9 +606,335 @@ _HomeBannerTemplate? _getHomeBannerTemplate(String template) {
         ),
         badgeBg: Color(0xFF020617),
         badgeTextColor: Colors.white,
+        radialLight: RadialGradient(
+          colors: [Color(0x6094A3B8), Color(0x30334155), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
       );
+    case 'ajio_all_stars':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF881337), Color(0xFFE2E8F0)],
+          stops: [0.0, 0.55, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Colors.white,
+        badgeTextColor: Color(0xFF0F172A),
+        radialLight: RadialGradient(
+          colors: [Color(0x70F43F5E), Color(0x30E2E8F0), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'ajio_luxe_noir':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0A0A0A), Color(0xFF1C1917), Color(0xFF78350F)],
+          stops: [0.0, 0.55, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFDE68A),
+        badgeTextColor: Color(0xFF1C1917),
+        radialLight: RadialGradient(
+          colors: [Color(0x65FDE68A), Color(0x3078350F), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'ajio_avant_garde':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF064E3B), Color(0xFF14532D), Color(0xFFC2410C)],
+          stops: [0.0, 0.45, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFEDD5),
+        badgeTextColor: Color(0xFF7C2D12),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FB923C), Color(0x3014532D), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'ajio_denim_drift':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6), Color(0xFF93C5FD)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFEFF6FF),
+        badgeTextColor: Color(0xFF1E3A8A),
+        radialLight: RadialGradient(
+          colors: [Color(0x80DBEAFE), Color(0x303B82F6), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'ajio_crimson_mania':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4C0519), Color(0xFF9F1239), Color(0xFFEF4444)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF2F2),
+        badgeTextColor: Color(0xFF991B1B),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FECACA), Color(0x30EF4444), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+
+    // Nykaa
+    case 'nykaa_pink_glam':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF831843), Color(0xFFBE185D), Color(0xFFF472B6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFDF2F8),
+        badgeTextColor: Color(0xFF9D174D),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FBCFE8), Color(0x3CF472B6), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'nykaa_cherry_velvet':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF370617), Color(0xFF6A040F), Color(0xFF9D0208)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFE3E0),
+        badgeTextColor: Color(0xFF6A040F),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FFBAB4), Color(0x309D0208), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'nykaa_coral_blush':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFBE123C), Color(0xFFFB7185), Color(0xFFFDBA74)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFF7ED),
+        badgeTextColor: Color(0xFF9A3412),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FED7AA), Color(0x30FB7185), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'nykaa_luxe_nude':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF44281D), Color(0xFF78350F), Color(0xFFD97706)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF3C7),
+        badgeTextColor: Color(0xFF78350F),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FEF3C7), Color(0x30D97706), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'nykaa_lavender_haze':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF312E81), Color(0xFF6366F1), Color(0xFFC084FC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFF3E8FF),
+        badgeTextColor: Color(0xFF581C87),
+        radialLight: RadialGradient(
+          colors: [Color(0x75E9D5FF), Color(0x30C084FC), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+
+    // Shopsy & Meesho
+    case 'shopsy_vibrant_orange':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFC2410C), Color(0xFFEA580C), Color(0xFFFBBF24)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF9A3412),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FEF08A), Color(0x30EA580C), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'shopsy_peppy_red':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF991B1B), Color(0xFFDC2626), Color(0xFFF43F5E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFE4E6),
+        badgeTextColor: Color(0xFF991B1B),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FECDD3), Color(0x30DC2626), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'meesho_maha_blockbuster':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF3B0764), Color(0xFF581C87), Color(0xFFF59E0B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF3B0764),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FEF08A), Color(0x38A855F7), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'meesho_mint_fresh':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF064E3B), Color(0xFF0D9488), Color(0xFF2DD4BF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFCCFBF1),
+        badgeTextColor: Color(0xFF0F766E),
+        radialLight: RadialGradient(
+          colors: [Color(0x8099F6E4), Color(0x300D9488), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'meesho_saffron_burst':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF7C2D12), Color(0xFFB45309), Color(0xFFF59E0B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF3C7),
+        badgeTextColor: Color(0xFF78350F),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FEF3C7), Color(0x30F59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+
+    // Tata CLiQ
+    case 'tatacliq_luxury_noir':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF09090B), Color(0xFF1C1917), Color(0xFF44403C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFF5D0C5),
+        badgeTextColor: Color(0xFF44403C),
+        radialLight: RadialGradient(
+          colors: [Color(0x60F5D0C5), Color(0x2878716C), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'tatacliq_emerald_royale':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF022C22), Color(0xFF064E3B), Color(0xFFB45309)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF3C7),
+        badgeTextColor: Color(0xFF064E3B),
+        radialLight: RadialGradient(
+          colors: [Color(0x65FEF3C7), Color(0x38064E3B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'tatacliq_velvet_sapphire':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E3A8A), Color(0xFF64748B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFF1F5F9),
+        badgeTextColor: Color(0xFF0F172A),
+        radialLight: RadialGradient(
+          colors: [Color(0x65E2E8F0), Color(0x301E3A8A), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+
+    // Tech & Gaming
+    case 'tech_cyberpunk_neon':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF09090B), Color(0xFF0F172A), Color(0xFF0891B2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF06B6D4),
+        badgeTextColor: Color(0xFF09090B),
+        radialLight: RadialGradient(
+          colors: [Color(0x8006B6D4), Color(0x300369A1), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'tech_titanium_matrix':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF09090B), Color(0xFF18181B), Color(0xFF15803D)],
+          stops: [0.0, 0.55, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF22C55E),
+        badgeTextColor: Color(0xFF09090B),
+        radialLight: RadialGradient(
+          colors: [Color(0x7522C55E), Color(0x3015803D), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'tech_plasma_violet':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF09090B), Color(0xFF3B0764), Color(0xFF8B5CF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFA78BFA),
+        badgeTextColor: Color(0xFF09090B),
+        radialLight: RadialGradient(
+          colors: [Color(0x75A78BFA), Color(0x308B5CF6), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'tech_aurora_stream':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF042F2E), Color(0xFF0F766E), Color(0xFF10B981)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF6EE7B7),
+        badgeTextColor: Color(0xFF042F2E),
+        radialLight: RadialGradient(
+          colors: [Color(0x756EE7B7), Color(0x3010B981), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+
+    // Festive & Specials
     case 'dealbuster_light':
-      return const _HomeBannerTemplate(
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
           colors: [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFFFFFFFF)],
           stops: [0.0, 0.34, 0.86],
@@ -338,8 +944,22 @@ _HomeBannerTemplate? _getHomeBannerTemplate(String template) {
         badgeBg: Color(0xFF312E81),
         badgeTextColor: Color(0xFFF59E0B),
       );
+    case 'dealbuster_dark_supernova':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E1B4B), Color(0xFF4338CA), Color(0xFFF59E0B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF1E1B4B),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FEF08A), Color(0x3CF59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
     case 'festive_emerald_light':
-      return const _HomeBannerTemplate(
+      return const HomeBannerTemplate(
         gradient: LinearGradient(
           colors: [Color(0xFF065F46), Color(0xFF059669), Color(0xFFFFFFFF)],
           stops: [0.0, 0.34, 0.86],
@@ -348,11 +968,62 @@ _HomeBannerTemplate? _getHomeBannerTemplate(String template) {
         ),
         badgeBg: Color(0xFF064E3B),
         badgeTextColor: Color(0xFFFDE047),
+        radialLight: RadialGradient(
+          colors: [Color(0x65FDE047), Color(0x25059669), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'festive_diwali_gold':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF881337), Color(0xFFB91C1C), Color(0xFFF59E0B)],
+          stops: [0.0, 0.45, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF3C7),
+        badgeTextColor: Color(0xFF78350F),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FEF3C7), Color(0x3CF59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'festive_holi_rainbow':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF7C3AED), Color(0xFFEC4899), Color(0xFFFBBF24)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Colors.white,
+        badgeTextColor: Color(0xFF7C3AED),
+        radialLight: RadialGradient(
+          colors: [Color(0x90FFFFFF), Color(0x3CEC4899), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'minimal_frosted_slate':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF334155), Color(0xFF475569)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFF8FAFC),
+        badgeTextColor: Color(0xFF0F172A),
+        radialLight: RadialGradient(
+          colors: [Color(0x75FFFFFF), Color(0x3094A3B8), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
       );
     default:
       return null;
   }
 }
+
+// Backwards-compatible private alias
+HomeBannerTemplate? _getHomeBannerTemplate(String template) =>
+    getHomeBannerTemplate(template);
 
 class _CustomBannerCard extends StatelessWidget {
   const _CustomBannerCard({required this.banner});
@@ -395,6 +1066,55 @@ class _CustomBannerCard extends StatelessWidget {
           StoreBannerSvgs.amazon,
           height: 13,
           fit: BoxFit.contain,
+        );
+      case 'nykaa':
+        return Text(
+          'NYKAA',
+          style: GoogleFonts.sora(
+            color: const Color(0xFFBE185D),
+            fontWeight: FontWeight.w900,
+            fontSize: 11,
+            letterSpacing: 0.5,
+          ),
+        );
+      case 'shopsy':
+        return Text(
+          'shopsy',
+          style: GoogleFonts.sora(
+            color: const Color(0xFFEA580C),
+            fontWeight: FontWeight.w900,
+            fontSize: 11,
+          ),
+        );
+      case 'meesho':
+        return Text(
+          'meesho',
+          style: GoogleFonts.sora(
+            color: const Color(0xFF6B21A8),
+            fontWeight: FontWeight.w900,
+            fontSize: 11,
+          ),
+        );
+      case 'tatacliq':
+        return RichText(
+          text: TextSpan(
+            text: 'TATA ',
+            style: GoogleFonts.sora(
+              color: const Color(0xFF1C1917),
+              fontWeight: FontWeight.w900,
+              fontSize: 10.5,
+            ),
+            children: [
+              TextSpan(
+                text: 'CLiQ',
+                style: GoogleFonts.sora(
+                  color: const Color(0xFFC2410C),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10.5,
+                ),
+              ),
+            ],
+          ),
         );
       case 'dealbuster':
         return Row(
@@ -453,6 +1173,25 @@ class _CustomBannerCard extends StatelessWidget {
               gradient: tpl.gradient,
             ),
           ),
+
+          // Radial light effect behind cutout image
+          if (tpl.radialLight != null)
+            Positioned(
+              right: 10,
+              top: 10,
+              bottom: 10,
+              width: MediaQuery.of(context).size.width * 0.44,
+              child: Center(
+                child: Container(
+                  width: 145,
+                  height: 145,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: tpl.radialLight,
+                  ),
+                ),
+              ),
+            ),
 
           // Right-side product cutout image
           if (banner.fullImageUrl.isNotEmpty)
