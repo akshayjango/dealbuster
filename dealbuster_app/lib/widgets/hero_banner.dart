@@ -1016,6 +1016,576 @@ HomeBannerTemplate? getHomeBannerTemplate(String template) {
           stops: [0.0, 0.55, 0.85],
         ),
       );
+    // Flash & Midnight Sales
+    case 'flash_midnight_madness':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF090014), Color(0xFF1C0038), Color(0xFF450A0A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFF0055),
+        badgeTextColor: Color(0xFFFFFFFF),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFF0055), Color(0x331C0038), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flash_rush_hour':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF111827), Color(0xFF1F2937), Color(0xFF854D0E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFACC15),
+        badgeTextColor: Color(0xFF000000),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FACC15), Color(0x33854D0E), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flash_drop_alert':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF050505), Color(0xFF141F0A), Color(0xFF2E4A07)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFCCFF00),
+        badgeTextColor: Color(0xFF000000),
+        radialLight: RadialGradient(
+          colors: [Color(0x73CCFF00), Color(0x332E4A07), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flash_price_crash':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF500724), Color(0xFF831843), Color(0xFFEA580C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFF1F2),
+        badgeTextColor: Color(0xFF9F1239),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFB923C), Color(0x38831843), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'flash_countdown_red':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF18181B), Color(0xFF7F1D1D), Color(0xFFDC2626)],
+          stops: [0.0, 0.55, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFEF4444),
+        badgeTextColor: Color(0xFFFFFFFF),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AEF4444), Color(0x337F1D1D), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    // Electronics & Audio
+    case 'gadget_cyber_hologram':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF030712), Color(0xFF1E1B4B), Color(0xFF4338CA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF818CF8),
+        badgeTextColor: Color(0xFF0F172A),
+        radialLight: RadialGradient(
+          colors: [Color(0x7A818CF8), Color(0x334338CA), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'gadget_acoustic_bass':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1C1917), Color(0xFF292524), Color(0xFF78350F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFED7AA),
+        badgeTextColor: Color(0xFF451A03),
+        radialLight: RadialGradient(
+          colors: [Color(0x73FDBA74), Color(0x3378350F), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'gadget_oled_infinite':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF020617), Color(0xFF0F172A), Color(0xFF581C87)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFC084FC),
+        badgeTextColor: Color(0xFF3B0764),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AC084FC), Color(0x38581C87), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'gadget_smart_wear':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF082F49), Color(0xFF0C4A6E), Color(0xFF0284C7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF38BDF8),
+        badgeTextColor: Color(0xFF082F49),
+        radialLight: RadialGradient(
+          colors: [Color(0x8038BDF8), Color(0x330284C7), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'gadget_pure_titanium':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E293B), Color(0xFF334155), Color(0xFF64748B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFF1F5F9),
+        badgeTextColor: Color(0xFF0F172A),
+        radialLight: RadialGradient(
+          colors: [Color(0x8CFFFFFF), Color(0x3864748B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    // Sneakers & Streetwear
+    case 'sneaker_grail_vault':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF18181B), Color(0xFF27272A), Color(0xFF991B1B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFF2E63),
+        badgeTextColor: Color(0xFFFFFFFF),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFF2E63), Color(0x33991B1B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'sneaker_retro_dunk':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF1E40AF), Color(0xFFD97706)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFDE68A),
+        badgeTextColor: Color(0xFF1E3A8A),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FDE68A), Color(0x38D97706), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'sneaker_cloud_foam':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF818CF8), Color(0xFFC7D2FE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFFFFF),
+        badgeTextColor: Color(0xFF4338CA),
+        radialLight: RadialGradient(
+          colors: [Color(0x99FFFFFF), Color(0x4DC7D2FE), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'sneaker_urban_graffiti':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF142013), Color(0xFF283618), Color(0xFF606C38)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFF6F00),
+        badgeTextColor: Color(0xFFFFFFFF),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFF6F00), Color(0x33606C38), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    // Luxury & High Fashion
+    case 'luxe_monaco_gold':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0C0A09), Color(0xFF1C1917), Color(0xFF451A03)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFDE047),
+        badgeTextColor: Color(0xFF000000),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFDE047), Color(0x40451A03), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'luxe_rose_champagne':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4C0519), Color(0xFF831843), Color(0xFFBE185D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFE4E6),
+        badgeTextColor: Color(0xFF881337),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FECDD3), Color(0x38BE185D), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'luxe_versailles_emerald':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF022C22), Color(0xFF064E3B), Color(0xFF0F766E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF022C22),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFEF08A), Color(0x380F766E), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'luxe_ivory_pearl':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF78716C), Color(0xFFA8A29E), Color(0xFFE7E5E4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF1C1917),
+        badgeTextColor: Color(0xFFF5F5F4),
+        radialLight: RadialGradient(
+          colors: [Color(0x94FFFFFF), Color(0x4DE7E5E4), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    // Beauty, Skincare & Fragrance
+    case 'beauty_rosewater_dew':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF9D174D), Color(0xFFBE185D), Color(0xFFF472B6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFDF2F8),
+        badgeTextColor: Color(0xFF831843),
+        radialLight: RadialGradient(
+          colors: [Color(0x94FFFFFF), Color(0x47F472B6), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'beauty_vitamin_c_glow':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF9A3412), Color(0xFFC2410C), Color(0xFFF97316)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFEDD5),
+        badgeTextColor: Color(0xFF7C2D12),
+        radialLight: RadialGradient(
+          colors: [Color(0x85FED7AA), Color(0x38F97316), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'beauty_matcha_detox':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF14532D), Color(0xFF166534), Color(0xFF4ADE80)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFDCFCE7),
+        badgeTextColor: Color(0xFF14532D),
+        radialLight: RadialGradient(
+          colors: [Color(0x85BBF7D0), Color(0x404ADE80), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'beauty_midnight_serum':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E3A8A), Color(0xFF38BDF8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFE0F2FE),
+        badgeTextColor: Color(0xFF0369A1),
+        radialLight: RadialGradient(
+          colors: [Color(0x807DD3FC), Color(0x3838BDF8), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    // Super Saver & Budget Bazaar
+    case 'budget_99_store':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF7C2D12), Color(0xFFC2410C), Color(0xFFFACC15)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF7C2D12),
+        radialLight: RadialGradient(
+          colors: [Color(0x8CFACC15), Color(0x38C2410C), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'budget_dhamaal_deals':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4C1D95), Color(0xFF6D28D9), Color(0xFFF43F5E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFE4E6),
+        badgeTextColor: Color(0xFF881337),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FB7185), Color(0x38F43F5E), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'budget_super_combo':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF042F2E), Color(0xFF115E59), Color(0xFF84CC16)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFECFCCB),
+        badgeTextColor: Color(0xFF14532D),
+        radialLight: RadialGradient(
+          colors: [Color(0x85D9F99D), Color(0x4084CC16), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'budget_paisa_vasool':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF881337), Color(0xFF9F1239), Color(0xFFF59E0B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF881337),
+        radialLight: RadialGradient(
+          colors: [Color(0x85FEF08A), Color(0x40F59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    // Home, Kitchen & Appliances
+    case 'home_scandinavian_warm':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF57534E), Color(0xFF78716C), Color(0xFFD97706)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF3C7),
+        badgeTextColor: Color(0xFF451A03),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FEF3C7), Color(0x33D97706), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'home_chef_copper':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1C1917), Color(0xFF44403C), Color(0xFFC2410C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFEDD5),
+        badgeTextColor: Color(0xFF7C2D12),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFB923C), Color(0x38C2410C), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'home_smart_breeze':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0369A1), Color(0xFF0284C7), Color(0xFFE0F2FE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFF0C4A6E),
+        badgeTextColor: Color(0xFFFFFFFF),
+        radialLight: RadialGradient(
+          colors: [Color(0x94FFFFFF), Color(0x4DE0F2FE), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'home_cozy_botanical':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF064E3B), Color(0xFF047857), Color(0xFFFDE047)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF064E3B),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFDE047), Color(0x33047857), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    // Grocery, Fresh & Nutrition
+    case 'fresh_farm_orchard':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF15803D), Color(0xFF16A34A), Color(0xFFF97316)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFF7ED),
+        badgeTextColor: Color(0xFF15803D),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FDBA74), Color(0x38F97316), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'fresh_berry_crunch':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF3B0764), Color(0xFF701A75), Color(0xFFE11D48)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFE4E6),
+        badgeTextColor: Color(0xFF701A75),
+        radialLight: RadialGradient(
+          colors: [Color(0x7AFB7185), Color(0x33E11D48), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'fresh_whey_power':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF09090B), Color(0xFF1C1917), Color(0xFFEAB308)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFACC15),
+        badgeTextColor: Color(0xFF000000),
+        radialLight: RadialGradient(
+          colors: [Color(0x85FACC15), Color(0x38EAB308), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'fresh_golden_spice':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF7C2D12), Color(0xFFB45309), Color(0xFFF59E0B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF3C7),
+        badgeTextColor: Color(0xFF7C2D12),
+        radialLight: RadialGradient(
+          colors: [Color(0x85FEF3C7), Color(0x40F59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    // Festive, Seasons & Celebrations
+    case 'festive_rakhi_celebration':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0C4A6E), Color(0xFF0369A1), Color(0xFFF59E0B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF0C4A6E),
+        radialLight: RadialGradient(
+          colors: [Color(0x80FEF08A), Color(0x38F59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'festive_monsoon_splash':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF0E7490), Color(0xFF06B6D4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFCFFAFE),
+        badgeTextColor: Color(0xFF0E7490),
+        radialLight: RadialGradient(
+          colors: [Color(0x8067E8F9), Color(0x3806B6D4), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'festive_durgapuja_sindoor':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF450A0A), Color(0xFF991B1B), Color(0xFFF59E0B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFEF08A),
+        badgeTextColor: Color(0xFF7F1D1D),
+        radialLight: RadialGradient(
+          colors: [Color(0x85FEF08A), Color(0x40F59E0B), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'festive_eid_crescent':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF022C22), Color(0xFF064E3B), Color(0xFF94A3B8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFF1F5F9),
+        badgeTextColor: Color(0xFF064E3B),
+        radialLight: RadialGradient(
+          colors: [Color(0x80F1F5F9), Color(0x3894A3B8), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'festive_new_year_glitz':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFF09090B), Color(0xFF1E1B4B), Color(0xFFE0E7FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFFFFF),
+        badgeTextColor: Color(0xFF1E1B4B),
+        radialLight: RadialGradient(
+          colors: [Color(0x9EFFFFFF), Color(0x4DE0E7FF), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
+    case 'baby_candyland_fun':
+      return const HomeBannerTemplate(
+        gradient: LinearGradient(
+          colors: [Color(0xFFF472B6), Color(0xFF38BDF8), Color(0xFFA7F3D0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        badgeBg: Color(0xFFFFFFFF),
+        badgeTextColor: Color(0xFFDB2777),
+        radialLight: RadialGradient(
+          colors: [Color(0x9EFFFFFF), Color(0x4DF472B6), Colors.transparent],
+          stops: [0.0, 0.55, 0.85],
+        ),
+      );
     default:
       return null;
   }
