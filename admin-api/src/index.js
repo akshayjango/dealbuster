@@ -3771,21 +3771,108 @@ async function capLiveAndBury(all, env, cap = 1800) {
   return [...keptLive, ...tombs].map((p, i) => ({ ...p, order: i }));
 }
 
-// ── Autopost toggle + manual-approval queue ───────────────────────────────────
-// When autopost is OFF, deals that would normally hit the channels are instead
-// DM'd to the admin with Approve/Reject buttons. Approving sends that one deal
-// through sendToChannels() directly — same DO, same choke point, just a manual
-// trigger instead of the cron's automatic one.
+// ── Autopost mode + manual-approval queue ───────────────────────────────────
+// Modes:
+//  - 'enhanced': Auto-Post+ (rated >= 4.0, or lowest price/coupon with rated >= 3.8, or non-Amazon; 1 deal/3 min, 2-day dedup)
+//  - 'all': Standard Auto-Post (all valid deals auto-posted directly to channels)
+//  - 'manual': Manual approval (deals DM'd to admin with Approve/Reject buttons)
+
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000; // 48h cooldown for TG reposts
+const TG_MIN_INTERVAL_MS = 3 * 60 * 1000; // 3 min pacing between channel posts
+
+async function getAutopostMode(env) {
+  if (!env.KV) return 'enhanced';
+  const mode = await env.KV.get('autopost_mode');
+  if (mode === 'enhanced' || mode === 'all' || mode === 'manual') return mode;
+  // Fallback to legacy autopost_enabled if mode not set yet
+  const legacy = await env.KV.get('autopost_enabled');
+  if (legacy === 'false') return 'manual';
+  return 'enhanced'; // default mode
+}
 
 async function isAutopostEnabled(env) {
-  if (!env.KV) return true;
-  const v = await env.KV.get('autopost_enabled');
-  return v !== 'false'; // unset (fresh KV) === ON
+  const mode = await getAutopostMode(env);
+  return mode !== 'manual';
+}
+
+async function setAutopostMode(mode, env) {
+  if (!env.KV) throw new Error('KV not configured');
+  const validMode = (mode === 'enhanced' || mode === 'all' || mode === 'manual') ? mode : 'enhanced';
+  await env.KV.put('autopost_mode', validMode);
+  await env.KV.put('autopost_enabled', validMode !== 'manual' ? 'true' : 'false');
 }
 
 async function setAutopostEnabled(enabled, env) {
-  if (!env.KV) throw new Error('KV not configured');
-  await env.KV.put('autopost_enabled', enabled ? 'true' : 'false');
+  await setAutopostMode(enabled ? 'all' : 'manual', env);
+}
+
+// ── Deal qualification for Auto-Post Plus ────────────────────────────────────
+function hasLowestPrice(p) {
+  if (p.lowestPriceText && String(p.lowestPriceText).trim().length > 0) return true;
+  if (p.lowestPrice) return true;
+  const title = (p.title || '').toLowerCase();
+  if (title.includes('lowest price')) return true;
+  if (Array.isArray(p.highlights) && p.highlights.some(h => String(h).toLowerCase().includes('lowest price'))) return true;
+  return false;
+}
+
+function hasCoupon(p) {
+  if (p.coupon || p.coupon_code || p.couponText) return true;
+  if (p.offer_type && String(p.offer_type).toLowerCase() === 'coupon') return true;
+  const title = (p.title || '').toLowerCase();
+  if (title.includes('coupon')) return true;
+  if (Array.isArray(p.highlights) && p.highlights.some(h => String(h).toLowerCase().includes('coupon'))) return true;
+  return false;
+}
+
+function getProductRating(p) {
+  if (p.rating !== undefined && p.rating !== null && p.rating !== '') {
+    const num = parseFloat(p.rating);
+    if (!isNaN(num)) return num;
+  }
+  const str = (p.title || '') + ' ' + (Array.isArray(p.highlights) ? p.highlights.join(' ') : '');
+  const m = str.match(/(\d(?:\.\d)?)\s*(?:stars?|\/5|★)/i);
+  if (m) {
+    const num = parseFloat(m[1]);
+    if (!isNaN(num)) return num;
+  }
+  return null;
+}
+
+function isNonAmazonDeal(p) {
+  if (p.asin && p.asin.length === 10) return false;
+  const link = (p.link || '').toLowerCase();
+  const title = (p.title || '').toLowerCase();
+  if (link.includes('amazon.in') || link.includes('amzn.to') || link.includes('link.amazon') || link.includes('amazon.com')) return false;
+  if ((p.id || '').startsWith('fk_')) return true;
+  if (link.includes('flipkart') || link.includes('myntra') || link.includes('ajio') || link.includes('shopsy') || link.includes('meesho') || link.includes('nykaa') || link.includes('tatacliq')) return true;
+  if (title.includes('flipkart') || title.includes('myntra') || title.includes('ajio') || title.includes('meesho')) return true;
+  if (!p.asin && (link.includes('linksredirect.com') || link.includes('ekaro') || link.includes('earnkaro'))) return true;
+  return false;
+}
+
+function meetsAutoPostPlusCriteria(p) {
+  // Condition 3: all non-Amazon deals posted to site correctly
+  if (isNonAmazonDeal(p)) return true;
+
+  const rating = getProductRating(p);
+
+  // Condition 1: rated 4.0 or greater (>= 4.0)
+  if (rating !== null && rating >= 4.0) return true;
+
+  // Condition 2: lowest price or coupon (rated 3.8+)
+  const hasSpecial = hasLowestPrice(p) || hasCoupon(p);
+  if (hasSpecial && rating !== null && rating >= 3.8) return true;
+
+  return false;
+}
+
+function isRecentlyPosted(val, now = Date.now(), cooldownMs = TWO_DAYS_MS) {
+  if (!val) return false;
+  if (val === 1 || val === true) return false; // Legacy mark from before timestamps — considered expired (> 2 days)
+  const timestamp = typeof val === 'number' ? val : parseInt(val, 10);
+  if (isNaN(timestamp)) return false;
+  return (now - timestamp) < cooldownMs;
 }
 
 const APPROVAL_TTL_MS = 4 * 60 * 60 * 1000; // 4h
@@ -3845,6 +3932,14 @@ async function clearTgPostedMarks(products, env) {
   } catch (e) {
     console.error('TG ledger clear (KV mirror) failed:', e.message);
   }
+  try {
+    const timesMap = JSON.parse(await env.KV.get('tg_posted_times') || '{}');
+    let changedTimes = false;
+    for (const k of keys) {
+      if (timesMap[k]) { delete timesMap[k]; changedTimes = true; }
+    }
+    if (changedTimes) await env.KV.put('tg_posted_times', JSON.stringify(timesMap));
+  } catch {}
 }
 
 async function queueForApproval(products, env) {
@@ -4110,11 +4205,21 @@ async function postDealsAndTrack(products, env) {
   }
 
   if (normalDeals.length > 0) {
-    if (!(await isAutopostEnabled(env))) {
+    const mode = await getAutopostMode(env);
+    if (mode === 'manual') {
       await queueForApproval(normalDeals, env);
       return;
     }
-    await sendToChannels(normalDeals, env);
+    if (mode === 'enhanced') {
+      const qualifying = normalDeals.filter(meetsAutoPostPlusCriteria);
+      if (!qualifying.length) {
+        console.log('Auto-Post Plus: no deals in batch met rating/coupon/store criteria');
+        return;
+      }
+      await sendToChannels(qualifying, env, { mode: 'enhanced' });
+      return;
+    }
+    await sendToChannels(normalDeals, env, { mode: 'all' });
   }
 }
 
@@ -4196,7 +4301,7 @@ async function promptAdminForUptoDeals(products, env) {
 // Returns how many actually went out (the DO skips already-posted ones unless
 // force is set — force still claims before sending, it only bypasses the
 // "seen before" check for deliberate manual re-posts).
-async function sendToChannels(products, env, { force = false, companionDm = true } = {}) {
+async function sendToChannels(products, env, { force = false, companionDm = true, mode = 'all' } = {}) {
   const list = (products || []).filter(Boolean);
   if (!list.length) return 0;
 
@@ -4205,11 +4310,11 @@ async function sendToChannels(products, env, { force = false, companionDm = true
     const r = await stub.fetch('https://tg-poster/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ products: list, force, companionDm }),
+      body: JSON.stringify({ products: list, force, companionDm, mode }),
     });
     if (!r.ok) { console.error('TgPoster DO failed:', r.status, await r.text().catch(() => '')); return 0; }
     const { posted } = await r.json().catch(() => ({ posted: 0 }));
-    console.log(`TgPoster: sent ${posted} of ${list.length} requested (rest already posted)`);
+    console.log(`TgPoster: sent ${posted} of ${list.length} requested (mode: ${mode}, rest already posted or throttled)`);
     return posted;
   }
 
@@ -4259,7 +4364,7 @@ export class TgPoster {
 
   async dispatch(path, body) {
     switch (path) {
-      case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force, body.companionDm !== false) };
+      case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force, body.companionDm !== false, body.mode || 'all') };
       case '/posted/claim': return this.postedClaim(body.items || []);
       case '/posted/check': return this.postedCheck(body.keys || []);
       case '/posted/clear': return this.postedClear(body.keys || []);
@@ -4267,18 +4372,25 @@ export class TgPoster {
       case '/pending/take': return this.pendingTake(body.productId);
       case '/pending/sweep': return this.pendingSweep(body);
       case '/pending/count': return this.pendingCount();
+      case '/last-post-time': return { ok: true, time: await this.getLastPostTime() };
       default: throw new Error(`unknown path: ${path}`);
     }
   }
 
+  async getLastPostTime() {
+    const t = await this.ctx.storage.get('last_channel_post_time');
+    return typeof t === 'number' ? t : 0;
+  }
+
   // Atomically claim items for the approval queue: returns the ids that were
-  // NOT already in the posted ledger and marks them, all inside the DO's
+  // NOT already posted in the last 2 days and marks them, all inside the DO's
   // serialized chain. This is the authoritative dedup for admin DMs — the KV
   // mirror alone raced (two 5-min schedulers doing read-modify-write on one
   // JSON value across colos lost claims, and any ledger clear resurrected
   // everything), which is how the same dead deal DM'd the admin 30+ times.
   async postedClaim(items) {
     await this.migrateFromKV();
+    const now = Date.now();
     const fresh = [];
     const claim = {};
     for (const it of items) {
@@ -4286,23 +4398,29 @@ export class TgPoster {
       const keys = [`posted:${it.id}`];
       if (it.asin) keys.push(`posted:${it.asin.toUpperCase()}`);
       const found = await this.ctx.storage.get(keys);
-      if ([...found.values()].some(Boolean)) continue;
+      const isRecent = [...found.values()].some(val => isRecentlyPosted(val, now, TWO_DAYS_MS));
+      if (isRecent) continue;
       fresh.push(it.id);
-      for (const k of keys) claim[k] = 1;
+      for (const k of keys) claim[k] = now;
     }
     if (Object.keys(claim).length) await this.ctx.storage.put(claim);
     return { ok: true, fresh };
   }
 
-  // Which of these ids/asins are in the posted-to-channel ledger. Batched
+  // Which of these ids/asins are in the posted-to-channel ledger within 2 days. Batched
   // storage.get (128 keys/call), so ~1500 keys is a dozen cheap lookups.
   async postedCheck(keys) {
     await this.migrateFromKV();
+    const now = Date.now();
     const posted = [];
     for (let i = 0; i < keys.length; i += 128) {
       const chunk = keys.slice(i, i + 128);
       const found = await this.ctx.storage.get(chunk.map(k => `posted:${k}`));
-      for (const [k, v] of found) if (v) posted.push(k.slice('posted:'.length));
+      for (const [k, v] of found) {
+        if (isRecentlyPosted(v, now, TWO_DAYS_MS)) {
+          posted.push(k.slice('posted:'.length));
+        }
+      }
     }
     return { ok: true, posted };
   }
@@ -4394,68 +4512,116 @@ export class TgPoster {
 
   // force skips the already-posted check (deliberate manual re-post from the
   // dashboard) but still claims before sending, like every other post.
-  async postBatch(list, force = false, companionDm = true) {
+  async postBatch(list, force = false, companionDm = true, mode = 'all') {
     await this.migrateFromKV();
+
+    const now = Date.now();
+
+    // In enhanced mode, enforce 3-min pacing if not force-posted
+    if (mode === 'enhanced' && !force) {
+      const lastPost = await this.getLastPostTime();
+      if (now - lastPost < TG_MIN_INTERVAL_MS) {
+        console.log(`TgPoster: 3m throttle active (${Math.round((TG_MIN_INTERVAL_MS - (now - lastPost)) / 1000)}s left)`);
+        return 0;
+      }
+    }
 
     const toSend = [];
     for (const p of list) {
       if (force) { toSend.push(p); continue; }
       const found = await this.ctx.storage.get(this.keysFor(p));
-      if (![...found.values()].some(Boolean)) toSend.push(p);
+      const isRecent = [...found.values()].some(val => isRecentlyPosted(val, now, TWO_DAYS_MS));
+      if (!isRecent) toSend.push(p);
     }
     if (!toSend.length) return 0;
 
-    // Claim in DO storage before sending — any request that arrives during the
-    // send sees the claim (strong consistency + serialized chain).
+    // In enhanced mode, post only 1 deal at a time (unless force)
+    const batchToSend = (mode === 'enhanced' && !force) ? toSend.slice(0, 1) : toSend;
+
+    // Claim in DO storage before sending — record timestamp for 2-day cooldown
     const claim = {};
-    for (const p of toSend) for (const k of this.keysFor(p)) claim[k] = 1;
+    for (const p of batchToSend) for (const k of this.keysFor(p)) claim[k] = now;
+    claim['last_channel_post_time'] = now;
     await this.ctx.storage.put(claim);
 
-    for (const p of toSend) {
+    for (const p of batchToSend) {
       await postDealToChannels(p, this.env, { companionDm }).catch(e => console.error('TG post failed:', e.message));
     }
 
     // Mirror into KV — only the cron's cheap "anything new?" pre-check reads
     // this (getUnpostedTgFresh). Advisory only; the DO ledger is authoritative.
     try {
+      await this.env.KV.put('tg_last_posted_at', String(now));
+      let timesMap = {};
+      try { timesMap = JSON.parse(await this.env.KV.get('tg_posted_times') || '{}'); } catch {}
+      for (const p of batchToSend) {
+        if (p.id) timesMap[p.id] = now;
+        if (p.asin) timesMap[p.asin.toUpperCase()] = now;
+      }
+      const cutoff = now - TWO_DAYS_MS;
+      for (const k in timesMap) {
+        if (timesMap[k] < cutoff) delete timesMap[k];
+      }
+      await this.env.KV.put('tg_posted_times', JSON.stringify(timesMap));
+
       const ids = new Set(JSON.parse(await this.env.KV.get('tg_posted_ids') || '[]'));
-      toSend.forEach(p => markPosted(p, ids));
+      batchToSend.forEach(p => markPosted(p, ids));
       await this.env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
     } catch (e) {
       console.error('KV mirror failed:', e.message);
     }
 
-    return toSend.length;
+    return batchToSend.length;
   }
 }
 
-async function getUnpostedTgFresh(env) {
+async function getUnpostedTgFresh(env, mode) {
+  if (!mode) mode = await getAutopostMode(env);
+  const now = Date.now();
+
+  let postedTimes = {};
+  try {
+    postedTimes = JSON.parse(await env.KV.get('tg_posted_times') || '{}');
+  } catch {}
   const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+
+  const isRecentPost = (p) => {
+    const idTime = postedTimes[p.id];
+    if (idTime && (now - idTime) < TWO_DAYS_MS) return true;
+    if (p.asin && postedTimes[p.asin.toUpperCase()] && (now - postedTimes[p.asin.toUpperCase()]) < TWO_DAYS_MS) return true;
+    return false;
+  };
+
   const { products } = await getProductsFile(env);
   // One-time fresh-start cutoff (KV `tg_fresh_start_cutoff`, ISO string): when
   // set, silently skips the entire existing backlog instead of working
-  // through it — only products added AFTER the cutoff are eligible. This
-  // doesn't need per-item ledger writes; everything already in products.json
-  // at reset time was necessarily added before "now", and everything from any
-  // future sync is added after — a plain addedAt comparison is exact for that
-  // one purpose, unaffected by the ordering fuzziness noted below. Leave the
-  // KV key in place permanently — once set, it's a no-op forever after (every
-  // future addedAt is already past it), so there's no need to ever clear it.
+  // through it — only products added AFTER the cutoff are eligible.
   const cutoff = await env.KV.get('tg_fresh_start_cutoff');
   const cutoffMs = cutoff ? Date.parse(cutoff) : null;
-  // products[] is already newest-first — that IS the site's recency ranking.
-  // addedAt is not reliable for ordering: sync jobs stamp it while looping over
-  // a batch (in source-feed order) and then prepend the whole batch, so within a
-  // single batch addedAt increases while true recency decreases. Array position
-  // is the only trustworthy signal.
-  // Zero-price deals must be excluded HERE, before the batch slice — not just in
-  // postDealsAndTrack. They are unpostable but never claimed (a later price sync
-  // may fill the price), so if they merely got filtered after slicing they'd
-  // permanently occupy the oldest-unposted batch slots and starve the queue:
-  // slice(-5) kept returning the same ₹0 zombies while real new deals waited
-  // at the top of the array (this shipped once — batches shrank to 2, then 0).
-  const MAX_TG_POST_AGE_MS = 12 * 60 * 60 * 1000; // Only post deals added in the last 12 hours
-  const now = Date.now();
+
+  if (mode === 'enhanced') {
+    // Admin dashboard top deals (live, non-hidden, in-stock, valid price)
+    // products[] is already newest-first — top of dashboard is index 0.
+    const topCandidates = products.filter(p => {
+      const isUpto = hasUptoOffInTitle(p.title);
+      if ((p.hidden && !isUpto) || p.outOfStock || isZeroPrice(p) || p.priceIncreased) return false;
+      if (cutoffMs !== null && Date.parse(p.addedAt) < cutoffMs) return false;
+      return true;
+    }).slice(0, 100);
+
+    const fresh = [];
+    for (const p of topCandidates) {
+      if (isRecentPost(p)) continue;
+      if (!meetsAutoPostPlusCriteria(p)) continue;
+      fresh.push(p);
+      break; // Pick the topmost qualifying deal (1 deal every 3 min)
+    }
+
+    return { postedIds, fresh };
+  }
+
+  // Standard 'all' mode: post up to 5 oldest unposted from last 12 hours
+  const MAX_TG_POST_AGE_MS = 12 * 60 * 60 * 1000;
   const unposted = products.filter(p => {
     const isUpto = hasUptoOffInTitle(p.title);
     if ((p.hidden && !isUpto) || p.outOfStock || isZeroPrice(p) || isAlreadyPosted(p, postedIds)) return false;
@@ -4465,8 +4631,7 @@ async function getUnpostedTgFresh(env) {
     return true;
   });
   // Oldest unposted deals sit at the end of the array — send oldest-of-batch
-  // first, newest last. Whatever doesn't fit in this batch of 5 carries over to
-  // the next cron run, still oldest-first.
+  // first, newest last.
   const fresh = unposted.slice(-5).reverse();
   return { postedIds, fresh };
 }
@@ -4475,11 +4640,26 @@ async function postNewDealsToTelegram(env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
 
-  const { fresh } = await getUnpostedTgFresh(env);
+  const mode = await getAutopostMode(env);
+  if (mode === 'manual') {
+    console.log('TG cron: mode is manual, auto-posting skipped');
+    return;
+  }
+
+  if (mode === 'enhanced' && env.KV) {
+    const lastPostedAt = parseInt(await env.KV.get('tg_last_posted_at') || '0', 10);
+    if (Date.now() - lastPostedAt < TG_MIN_INTERVAL_MS) {
+      console.log('TG cron: 3-min cooldown active, skipping this run');
+      return;
+    }
+  }
+
+  const { fresh } = await getUnpostedTgFresh(env, mode);
   if (!fresh.length) { console.log('TG cron: no new deals to post'); return; }
 
-  await postDealsAndTrack(fresh, env);
-  console.log(`TG cron: posted ${fresh.length} deals`);
+  const toPost = (mode === 'enhanced') ? fresh.slice(0, 1) : fresh;
+  await postDealsAndTrack(toPost, env);
+  console.log(`TG cron: posted ${toPost.length} deal(s) (mode: ${mode})`);
 }
 
 // The actual send+track locking lives in postDealsAndTrack now. This wrapper is
@@ -4487,7 +4667,18 @@ async function postNewDealsToTelegram(env) {
 // cron doesn't touch GitHub/lock at all when there's nothing to post.
 async function postNewDealsToTelegramLocked(env) {
   await sweepExpiredApprovals(env).catch(e => console.error('Approval sweep failed:', e.message));
-  const { fresh } = await getUnpostedTgFresh(env);
+  const mode = await getAutopostMode(env);
+  if (mode === 'manual') return;
+
+  if (mode === 'enhanced' && env.KV) {
+    const lastPostedAt = parseInt(await env.KV.get('tg_last_posted_at') || '0', 10);
+    if (Date.now() - lastPostedAt < TG_MIN_INTERVAL_MS) {
+      console.log('TG cron: 3-min cooldown active, skipping pre-check');
+      return;
+    }
+  }
+
+  const { fresh } = await getUnpostedTgFresh(env, mode);
   if (!fresh.length) { console.log('TG cron: nothing to post, skipping'); return; }
   await postNewDealsToTelegram(env);
 }
@@ -6554,15 +6745,17 @@ export default {
 
       // ── GET /autopost ─────────────────────────────────────────────────────────
       if (url.pathname === '/autopost' && request.method === 'GET') {
+        const mode = await getAutopostMode(env);
         const pendingCount = await pendingApprovalsDO(env, '/pending/count').then(r => r.count).catch(() => 0);
-        return json({ enabled: await isAutopostEnabled(env), pending: pendingCount });
+        return json({ mode, enabled: mode !== 'manual', pending: pendingCount });
       }
 
       // ── POST /autopost ────────────────────────────────────────────────────────
       if (url.pathname === '/autopost' && request.method === 'POST') {
-        const { enabled } = await request.json();
-        await setAutopostEnabled(!!enabled, env);
-        return json({ success: true, enabled: !!enabled });
+        const body = await request.json();
+        const mode = body.mode || (body.enabled === false ? 'manual' : 'all');
+        await setAutopostMode(mode, env);
+        return json({ success: true, mode, enabled: mode !== 'manual' });
       }
 
       // ── GET /blocked-brands ───────────────────────────────────────────────────

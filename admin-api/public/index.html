@@ -164,8 +164,7 @@
       transition: border-color .15s ease, opacity .15s ease, box-shadow .15s ease;
       cursor: default;
     }
-    /* already posted to the TG channel — featured-row below wins if both apply */
-    .product-row.tg-posted-row { border-color: #BFD9F5; background: #EFF6FD; }
+    /* already posted to the TG channel — visual blue highlight removed per request */
     .product-row.featured-row { border-color: #EFDA8C; background: #FFFBEA; }
     .product-row.hidden-row { opacity: .5; }
     .product-row.drag-over { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(108,71,255,.15); }
@@ -1161,10 +1160,21 @@
             <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
             <button class="btn btn-outline btn-sm" onclick="reregisterWebhook()" title="Re-register Telegram webhook (needed once after bot update)" style="border-color:#6b7280;color:#6b7280;">🔗 Re-register Webhook</button>
             <button class="btn btn-outline btn-sm" onclick="openBlockedBrandsModal()" id="blockedBrandsBtn" style="border-color:#7c3aed;color:#7c3aed;">🚫 Blocked Brands</button>
-            <label style="display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;color:var(--muted);margin:0 4px;white-space:nowrap;">
-              <span class="toggle-switch"><input type="checkbox" id="autopostToggle" checked onchange="toggleAutopost()"/><span class="toggle-slider"></span></span>
-              Auto-Post
-            </label>
+            <div class="autopost-mode-selector" style="display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600;color:var(--text);margin:0 4px;padding:3px 8px;border-radius:6px;border:1px solid var(--border,#e5e7eb);background:var(--card,#fff);white-space:nowrap;">
+              <span style="color:var(--muted);font-size:.74rem;text-transform:uppercase;letter-spacing:.5px;">TG Mode:</span>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin:0;" title="Auto-Post Plus: 4.0+ rated, lowest price/coupons (3.8+), and non-Amazon deals. 1 deal / 3 min, 2-day dedup.">
+                <input type="radio" name="autopostMode" id="autopostModeEnhanced" value="enhanced" onchange="onAutopostModeChange('enhanced')"/>
+                <span style="color:#0284c7;font-weight:700;">Auto-Post+</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin:0;" title="Auto-Post: Post all valid deals directly to Telegram channel">
+                <input type="radio" name="autopostMode" id="autopostModeAll" value="all" onchange="onAutopostModeChange('all')"/>
+                <span>Auto-Post</span>
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin:0;" title="Manual: Send deals to Telegram bot for admin approval">
+                <input type="radio" name="autopostMode" id="autopostModeManual" value="manual" onchange="onAutopostModeChange('manual')"/>
+                <span>Manual</span>
+              </label>
+            </div>
             <span id="pendingApprovalBadge" style="font-size:.78rem;color:#d97706;display:none;"></span>
           </div>
         </details>
@@ -3226,7 +3236,7 @@ function setupInfiniteScroll() {
 
 function buildProductRow(p, visualIndex) {
   const row = document.createElement('div');
-  row.className = 'product-row' + (p.featured ? ' featured-row' : '') + (p.hidden ? ' hidden-row' : '') + (isTgPosted(p) ? ' tg-posted-row' : '');
+  row.className = 'product-row' + (p.featured ? ' featured-row' : '') + (p.hidden ? ' hidden-row' : '');
   row.dataset.id = p.id;
 
   const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -3751,37 +3761,46 @@ async function submitDealPush() {
   }
 }
 
-// ── Autopost toggle ───────────────────────────────────────────────────────────
+// ── Autopost mode selector (Auto-Post+, Auto-Post, Manual) ─────────────────
 async function loadAutopostState() {
   try {
     const resp = await apiFetch('/autopost');
     const data = await resp.json();
-    document.getElementById('autopostToggle').checked = !!data.enabled;
+    const mode = data.mode || (data.enabled ? 'all' : 'manual');
+    const radio = document.querySelector(`input[name="autopostMode"][value="${mode}"]`);
+    if (radio) radio.checked = true;
     const badge = document.getElementById('pendingApprovalBadge');
-    if (data.pending > 0) {
-      badge.textContent = `⏳ ${data.pending} awaiting approval in bot`;
-      badge.style.display = '';
-    } else {
-      badge.style.display = 'none';
+    if (badge) {
+      if (data.pending > 0) {
+        badge.textContent = `⏳ ${data.pending} awaiting approval in bot`;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
     }
   } catch (e) { console.error('Failed to load autopost state:', e.message); }
 }
 
-async function toggleAutopost() {
-  const checkbox = document.getElementById('autopostToggle');
-  const enabled = checkbox.checked;
-  checkbox.disabled = true;
+async function onAutopostModeChange(newMode) {
+  const radios = document.querySelectorAll('input[name="autopostMode"]');
+  radios.forEach(r => r.disabled = true);
   try {
-    const resp = await apiFetch('/autopost', { method: 'POST', body: { enabled } });
+    const resp = await apiFetch('/autopost', { method: 'POST', body: { mode: newMode, enabled: newMode !== 'manual' } });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     await loadAutopostState();
   } catch (e) {
-    checkbox.checked = !enabled;
-    alert('Failed to update auto-post: ' + e.message);
+    alert('Failed to update Telegram post mode: ' + e.message);
+    await loadAutopostState();
   } finally {
-    checkbox.disabled = false;
+    radios.forEach(r => r.disabled = false);
   }
+}
+
+// Backwards compatibility helper
+async function toggleAutopost() {
+  const cur = document.querySelector('input[name="autopostMode"]:checked')?.value || 'enhanced';
+  await onAutopostModeChange(cur === 'manual' ? 'enhanced' : 'manual');
 }
 
 // ── Blocked Brands ────────────────────────────────────────────────────────────
