@@ -3842,13 +3842,10 @@ function getProductRating(p) {
 function isNonAmazonDeal(p) {
   if (p.asin && p.asin.length === 10) return false;
   const link = (p.link || '').toLowerCase();
-  const title = (p.title || '').toLowerCase();
   if (link.includes('amazon.in') || link.includes('amzn.to') || link.includes('link.amazon') || link.includes('amazon.com')) return false;
-  if ((p.id || '').startsWith('fk_')) return true;
-  if (link.includes('flipkart') || link.includes('myntra') || link.includes('ajio') || link.includes('shopsy') || link.includes('meesho') || link.includes('nykaa') || link.includes('tatacliq')) return true;
-  if (title.includes('flipkart') || title.includes('myntra') || title.includes('ajio') || title.includes('meesho')) return true;
-  if (!p.asin && (link.includes('linksredirect.com') || link.includes('ekaro') || link.includes('earnkaro'))) return true;
-  return false;
+  // Per user request: no CueLinks allowed, only EarnKaro
+  if (link.includes('linksredirect.com') || link.includes('cuelinks.com')) return false;
+  return link.includes('ekaro') || link.includes('earnkaro');
 }
 
 function meetsAutoPostPlusCriteria(p) {
