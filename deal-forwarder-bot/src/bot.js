@@ -39,6 +39,20 @@ if (pingUrl) {
   }, 10 * 60 * 1000); // ping every 10 minutes
 }
 
+// Helper to load deleted_asins.json
+function loadDeletedAsins() {
+  try {
+    const localFile = path.join(rootDir, 'deleted_asins.json');
+    const parentFile = path.join(rootDir, '../deleted_asins.json');
+    const target = fs.existsSync(localFile) ? localFile : (fs.existsSync(parentFile) ? parentFile : null);
+    if (target) {
+      const arr = JSON.parse(fs.readFileSync(target, 'utf8'));
+      return Array.isArray(arr) ? arr.map(a => a.toUpperCase()) : [];
+    }
+  } catch {}
+  return [];
+}
+
 const configPath = path.join(rootDir, 'config.json');
 const dedupPath = path.join(rootDir, 'dedup_cache.json');
 
@@ -181,6 +195,17 @@ async function main() {
         return;
       }
 
+      // Check blocked brands from admin dashboard
+      const matchedBrand = (config.blocked_brands || []).find(b => {
+        const bl = b.toLowerCase();
+        const regex = new RegExp(`(?:^|[^a-zA-Z0-9])${bl}(?:[^a-zA-Z0-9]|$)`, 'i');
+        return regex.test(lower);
+      });
+      if (matchedBrand) {
+        console.log(`⏩ Skipped: Matched blocked brand "${matchedBrand}"`);
+        return;
+      }
+
       // 2. Process text and convert links
       const conversionOptions = {
         amazonTag: config.amazon_tag || 'dealbuster002-21',
@@ -206,6 +231,18 @@ async function main() {
       if (hasAmazonDeal && isAmazonUptoDeal(rawText)) {
         console.log('⏩ Skipped: Amazon deal contains "upto / up to" discount text.');
         return;
+      }
+
+      // Check deleted/blocked ASINs
+      const deletedAsins = loadDeletedAsins();
+      for (const deal of validDeals) {
+        if (deal.store === 'amazon' && deal.id) {
+          const asin = deal.id.replace('amazon_', '').toUpperCase();
+          if (deletedAsins.includes(asin)) {
+            console.log(`⏩ Skipped: Amazon ASIN "${asin}" is in deleted_asins blocklist.`);
+            return;
+          }
+        }
       }
 
       // 3. Deduplication check
