@@ -1,0 +1,25 @@
+{
+  "name": "dealbuster-forwarder-bot",
+  "version": "1.0.0",
+  "description": "Private Telegram channel forwarder & deal link converter bot for DealBuster",
+  "main": "src/bot.js",
+  "type": "module",
+  "scripts": {
+    "login": "node src/login.js",
+    "start": "node src/bot.js",
+    "test-converter": "node src/test-converter.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "telegram": "^2.26.22"
+  },
+  "keywords": [
+    "telegram",
+    "mtproto",
+    "forwarder",
+    "affiliate",
+    "dealbuster"
+  ],
+  "author": "DealBuster",
+  "license": "ISC"
+}

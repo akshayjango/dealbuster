@@ -1,0 +1,22 @@
+{
+  "source_channels": [
+    "@DealPing",
+    "@lootping",
+    "@realearnkaro"
+  ],
+  "target_channel": "@dealbusterindia",
+  "amazon_tag": "dealbuster002-21",
+  "earnkaro_api_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o",
+  "custom_footer": "\n\n⚡ Join @dealbusterindia for verified deals!",
+  "remove_competitor_mentions": true,
+  "blacklist_keywords": [
+    "loot over",
+    "expired",
+    "giveaway",
+    "free recharge",
+    "hack",
+    "mod apk"
+  ],
+  "dedup_ttl_hours": 24,
+  "delay_seconds": 2
+}
