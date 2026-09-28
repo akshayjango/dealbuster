@@ -278,7 +278,7 @@ export async function processMessageText(text, options = {}) {
 
   const {
     myChannel = '@dealbusterindia',
-    footer = '\n\n⚡ *Join* [@dealbusterindia](https://t.me/dealbusterindia) *for more verified deals!*',
+    footer = '',
     removeCompetitorMentions = true
   } = options;
 
