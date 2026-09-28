@@ -268,10 +268,73 @@ export async function convertDealUrl(rawUrl, options = {}) {
 }
 
 /**
+ * Formats a DealsPing post into DealBuster's standard channel style:
+ *
+ * Title
+ * ✅Deal Price: ₹...
+ * ❌MRP: ₹...
+ * Discount: ...% OFF
+ * 🏷️ Coupon: ...
+ * 🏦 Bank Offer: ...
+ *
+ * 👉 https://...
+ */
+export function formatDealsPingPost(text, affLink) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let title = '';
+  let dealPrice = '';
+  let mrp = '';
+  let discount = '';
+  let coupon = '';
+  let bankOffer = '';
+
+  for (const line of lines) {
+    if (line.includes('⚡')) {
+      title = line.replace(/^[⚡\s]+/, '').trim();
+    } else if (line.startsWith('💰') || line.includes('🔻')) {
+      const priceMatch = line.match(/₹[\d,]+/g);
+      if (priceMatch && priceMatch.length >= 2) {
+        dealPrice = priceMatch[0];
+        mrp = priceMatch[1];
+      } else if (priceMatch && priceMatch.length === 1) {
+        dealPrice = priceMatch[0];
+      }
+      const discMatch = line.match(/(?:\d+%\s*OFF|\d+%\s*off)/i);
+      if (discMatch) discount = discMatch[0].toUpperCase();
+    } else if (line.toLowerCase().includes('coupon:')) {
+      coupon = line.replace(/^[🏷️\s]+/, '').trim();
+    } else if (line.toLowerCase().includes('bank offer:')) {
+      bankOffer = line.replace(/^[🏦\s]+/, '').trim();
+    }
+  }
+
+  if (!title) {
+    const candidate = lines.find(l => !l.startsWith('🏷️') && !l.startsWith('💰') && !l.startsWith('🛒') && !l.startsWith('http'));
+    if (candidate) title = candidate.replace(/^[⚡\s]+/, '').trim();
+  }
+
+  // Only use if we extracted title and dealPrice
+  if (title && dealPrice) {
+    const out = [];
+    out.push(title);
+    out.push(`✅Deal Price: ${dealPrice}`);
+    if (mrp) out.push(`❌MRP: ${mrp}`);
+    if (discount) out.push(`Discount: ${discount}`);
+    if (coupon) out.push(`🏷️ ${coupon}`);
+    if (bankOffer) out.push(`🏦 ${bankOffer}`);
+    out.push('');
+    out.push(`👉 ${affLink}`);
+    return out.join('\n');
+  }
+
+  return null;
+}
+
+/**
  * Clean and rebrand message text:
  * - Replace all original URLs with converted affiliate URLs
  * - Strip competitor usernames and channel joins
- * - Append custom channel footer
+ * - Format into DealBuster channel style
  */
 export async function processMessageText(text, options = {}) {
   if (!text) return { text: '', convertedLinks: [] };
@@ -292,6 +355,15 @@ export async function processMessageText(text, options = {}) {
     convertedLinks.push(result);
     // Replace URL in text
     processed = processed.split(rawUrl).join(result.convertedUrl);
+  }
+
+  // Check if this post is from DealsPing (or matches ⚡ and 💰 price structure)
+  const isDealsPingFormat = (text.includes('dealsping.in') || (text.includes('⚡') && text.includes('💰')));
+  if (isDealsPingFormat && convertedLinks.length > 0) {
+    const formatted = formatDealsPingPost(text, convertedLinks[0].convertedUrl);
+    if (formatted) {
+      processed = formatted;
+    }
   }
 
   if (removeCompetitorMentions) {
@@ -329,9 +401,9 @@ export async function processMessageText(text, options = {}) {
     processed = cleanedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   }
 
-  // Trim trailing whitespace and append our custom footer
+  // Trim trailing whitespace and append our custom footer if provided
   processed = processed.trim();
-  if (footer) {
+  if (footer && footer.trim()) {
     processed += `\n\n${footer.trim()}`;
   }
 
