@@ -327,6 +327,17 @@ async function main() {
         return;
       }
 
+      // Channel-specific store rule:
+      // Online Shopping Offerzone: ONLY non-Amazon deals (Flipkart, Myntra, Ajio, Shopsy). Skip all Amazon deals from this channel!
+      const isOfferzoneChannel = (chatUsername === 'offerzone_dealdost_dealschamp') ||
+                                 (chat?.title && /offerzone/i.test(chat.title)) ||
+                                 chatIdStr === '1146824230' ||
+                                 msgChatIdStr === '-1001146824230';
+      if (isOfferzoneChannel && validDeals.some(l => l.store === 'amazon')) {
+        console.log('⏩ Skipped: Amazon deal from Online Shopping Offerzone (configured for non-Amazon deals only).');
+        return;
+      }
+
       // Check Amazon "upto" condition:
       // If there are Amazon deals and the message contains "upto" or variable discount, skip it!
       const hasAmazonDeal = validDeals.some(l => l.store === 'amazon');
