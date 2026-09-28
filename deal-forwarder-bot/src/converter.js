@@ -246,7 +246,26 @@ export async function convertDealUrl(rawUrl, options = {}) {
     earnkaroToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o',
   } = options;
 
-  // 1. Dedicated resolution for DealsPing links
+  // 1. If it's already an EarnKaro shortlink, convert directly with EarnKaro without unrolling!
+  if (/fktr\.in|fkrt\.co|ekaro\.in|myntr\.it|ajiio\.in/i.test(rawUrl)) {
+    const directEkaro = await convertToEarnKaro(rawUrl, earnkaroToken);
+    if (directEkaro) {
+      let store = 'other';
+      if (/fktr\.in|fkrt\.co/i.test(directEkaro) || /fktr\.in|fkrt\.co/i.test(rawUrl)) store = 'flipkart';
+      else if (/myntr\.it/i.test(directEkaro) || /myntr\.it/i.test(rawUrl)) store = 'myntra';
+      else if (/ajiio\.in/i.test(directEkaro) || /ajiio\.in/i.test(rawUrl)) store = 'ajio';
+
+      return {
+        originalUrl: rawUrl,
+        resolvedUrl: rawUrl,
+        convertedUrl: directEkaro,
+        store,
+        id: `${store}_${directEkaro}`
+      };
+    }
+  }
+
+  // 2. Dedicated resolution for DealsPing links
   if (rawUrl.includes('dealsping.in')) {
     const dp = await resolveDealsPingUrl(rawUrl);
     if (dp?.asin) {
