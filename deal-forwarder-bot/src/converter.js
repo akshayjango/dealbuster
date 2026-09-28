@@ -338,7 +338,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
   let cleanUrl = resolved;
   try {
     const u = new URL(resolved);
-    ['affid', 'affExtParam', 'affExtParam1', 'affExtParam2', 'utm_source', 'utm_medium', 'utm_campaign'].forEach(p => u.searchParams.delete(p));
+    ['affid', 'affExtParam', 'affExtParam1', 'affExtParam2', 'utm_source', 'utm_medium', 'utm_campaign', 'af_siteid', 'af_sub_siteid', 'c', 'tag'].forEach(p => u.searchParams.delete(p));
     cleanUrl = u.href;
   } catch {}
 
