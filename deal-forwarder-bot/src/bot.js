@@ -181,7 +181,11 @@ async function main() {
 
     if (entity) {
       sourceEntities.push(entity);
-      sourceIds.add(entity.id.toString());
+      const eId = entity.id.toString();
+      sourceIds.add(eId);
+      sourceIds.add(`-100${eId}`);
+      sourceIds.add(`-${eId}`);
+      if (entity.username) sourceIds.add(entity.username.toLowerCase());
       console.log(`📡 Listening to source channel: ${entity.title || ch} (ID: ${entity.id})`);
     } else {
       console.warn(`⚠️ Could not resolve source channel "${ch}". Make sure your Telegram account has joined this channel.`);
@@ -193,6 +197,61 @@ async function main() {
     console.log('Edit "config.json" to add channels you want to monitor, then restart.');
   }
 
+  // ── Deal Forwarding Queue & Anti-Spam Pacing ─────────────────────────────────
+  const dealQueue = [];
+  let isQueueProcessing = false;
+
+  async function processQueue(client, targetPeer, config) {
+    if (isQueueProcessing) return;
+    isQueueProcessing = true;
+
+    while (dealQueue.length > 0) {
+      const item = dealQueue.shift();
+      try {
+        console.log(`\n📤 [Queue] Forwarding deal to ${config.target_channel} (${dealQueue.length} remaining in queue)...`);
+        if (item.convertedLinks?.length > 0) {
+          item.convertedLinks.forEach(l => console.log(`   🔗 [${l.store}] ${l.convertedUrl}`));
+        }
+
+        const sendOptions = {
+          message: item.text,
+          file: item.media || undefined,
+          linkPreview: false,
+        };
+
+        try {
+          await client.sendMessage(targetPeer, {
+            ...sendOptions,
+            parseMode: 'md',
+          });
+        } catch (err) {
+          console.log(`   ℹ️ Note: Send failed (${err.message}), retrying as plain text without media...`);
+          try {
+            await client.sendMessage(targetPeer, {
+              message: item.text,
+              linkPreview: false,
+            });
+          } catch (err2) {
+            console.error('❌ Error sending queued deal as plain text:', err2.message);
+          }
+        }
+
+        console.log(`✅ Deal posted successfully to ${config.target_channel}!`);
+      } catch (err) {
+        console.error('❌ Error sending queued deal:', err.message);
+      }
+
+      // Pacing interval: wait before posting the next deal in queue
+      if (dealQueue.length > 0) {
+        const intervalSec = config.pacing_interval_seconds || 60;
+        console.log(`⏳ Anti-Spam Pacing: Waiting ${intervalSec}s before sending next deal in queue...`);
+        await sleep(intervalSec * 1000);
+      }
+    }
+
+    isQueueProcessing = false;
+  }
+
   console.log('\n🚀 Auto-Forwarder is running! Waiting for new deals...\n');
 
   // Handle new incoming messages
@@ -201,18 +260,21 @@ async function main() {
       const msg = event.message;
       if (!msg) return;
 
-      const chat = await msg.getChat();
-      if (!chat) return;
-
-      const chatIdStr = chat.id ? chat.id.toString() : '';
+      const chat = await msg.getChat().catch(() => null);
+      const chatIdStr = chat?.id ? chat.id.toString() : '';
+      const msgChatIdStr = msg.chatId ? msg.chatId.toString() : '';
+      const chatUsername = chat?.username ? chat.username.toLowerCase() : '';
 
       // Check if message is from an authorized source channel
-      if (!sourceIds.has(chatIdStr)) {
+      const isAuthorized = sourceIds.has(chatIdStr) ||
+                           sourceIds.has(msgChatIdStr) ||
+                           (chatUsername && sourceIds.has(chatUsername));
+      if (!isAuthorized) {
         return;
       }
 
       const rawText = msg.message || '';
-      console.log(`\n📥 [${new Date().toLocaleTimeString()}] New message from: ${chat.title || chatIdStr}`);
+      console.log(`\n📥 [${new Date().toLocaleTimeString()}] New message from: ${chat?.title || chatIdStr}`);
 
       // 1. Blacklist check
       const lower = rawText.toLowerCase();
@@ -281,54 +343,6 @@ async function main() {
         }
       }
 
-// ── Deal Forwarding Queue & Anti-Spam Pacing ─────────────────────────────────
-const dealQueue = [];
-let isQueueProcessing = false;
-
-async function processQueue(client, targetPeer, config) {
-  if (isQueueProcessing) return;
-  isQueueProcessing = true;
-
-  while (dealQueue.length > 0) {
-    const item = dealQueue.shift();
-    try {
-      console.log(`\n📤 [Queue] Forwarding deal to ${config.target_channel} (${dealQueue.length} remaining in queue)...`);
-      if (item.convertedLinks?.length > 0) {
-        item.convertedLinks.forEach(l => console.log(`   🔗 [${l.store}] ${l.convertedUrl}`));
-      }
-
-      const sendOptions = {
-        message: item.text,
-        file: item.media || undefined,
-        linkPreview: false,
-      };
-
-      try {
-        await client.sendMessage(targetPeer, {
-          ...sendOptions,
-          parseMode: 'md',
-        });
-      } catch (err) {
-        console.log(`   ℹ️ Note: Markdown parse failed, sending plain text: ${err.message}`);
-        await client.sendMessage(targetPeer, sendOptions);
-      }
-
-      console.log(`✅ Deal posted successfully to ${config.target_channel}!`);
-    } catch (err) {
-      console.error('❌ Error sending queued deal:', err.message);
-    }
-
-    // Pacing interval: wait before posting the next deal in queue
-    if (dealQueue.length > 0) {
-      const intervalSec = config.pacing_interval_seconds || 60;
-      console.log(`⏳ Anti-Spam Pacing: Waiting ${intervalSec}s before sending next deal in queue...`);
-      await sleep(intervalSec * 1000);
-    }
-  }
-
-  isQueueProcessing = false;
-}
-
       // Record in dedup cache
       for (const link of validDeals) {
         if (link.id) {
@@ -343,7 +357,7 @@ async function processQueue(client, targetPeer, config) {
         text: result.text,
         media: msg.media || null,
         convertedLinks: validDeals,
-        title: chat.title,
+        title: chat?.title || '',
       });
 
       // Start processing queue (non-blocking)

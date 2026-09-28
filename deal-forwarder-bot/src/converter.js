@@ -110,7 +110,8 @@ export async function resolveUrl(url, maxHops = 4) {
  * Check if a URL is an Amazon link
  */
 export function isAmazonUrl(url) {
-  return /amazon\.(in|com)|amzn\.to|link\.amazon|a\.co|dealsping\.in\/(?:amz|deals\/.*-B0)/i.test(url);
+  if (!url) return false;
+  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.to|link\.amazon|a\.co)(?:[/?#]|$)|dealsping\.in\/(?:amz|deals\/.*-B0)/i.test(url);
 }
 
 /**
@@ -148,7 +149,7 @@ export async function convertToEarnKaro(dealUrlOrText, token) {
       const data = await res.json();
       if (data?.success === 1 && data?.data) {
         const match = data.data.match(/https?:\/\/[^\s]+/i);
-        return match ? match[0] : data.data;
+        if (match) return match[0];
       }
     }
   } catch (err) {
