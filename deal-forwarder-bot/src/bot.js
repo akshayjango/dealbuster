@@ -254,6 +254,54 @@ async function main() {
         }
       }
 
+// ── Deal Forwarding Queue & Anti-Spam Pacing ─────────────────────────────────
+const dealQueue = [];
+let isQueueProcessing = false;
+
+async function processQueue(client, targetPeer, config) {
+  if (isQueueProcessing) return;
+  isQueueProcessing = true;
+
+  while (dealQueue.length > 0) {
+    const item = dealQueue.shift();
+    try {
+      console.log(`\n📤 [Queue] Forwarding deal to ${config.target_channel} (${dealQueue.length} remaining in queue)...`);
+      if (item.convertedLinks?.length > 0) {
+        item.convertedLinks.forEach(l => console.log(`   🔗 [${l.store}] ${l.convertedUrl}`));
+      }
+
+      const sendOptions = {
+        message: item.text,
+        file: item.media || undefined,
+        linkPreview: false,
+      };
+
+      try {
+        await client.sendMessage(targetPeer, {
+          ...sendOptions,
+          parseMode: 'md',
+        });
+      } catch (err) {
+        console.log(`   ℹ️ Note: Markdown parse failed, sending plain text: ${err.message}`);
+        await client.sendMessage(targetPeer, sendOptions);
+      }
+
+      console.log(`✅ Deal posted successfully to ${config.target_channel}!`);
+    } catch (err) {
+      console.error('❌ Error sending queued deal:', err.message);
+    }
+
+    // Pacing interval: wait before posting the next deal in queue
+    if (dealQueue.length > 0) {
+      const intervalSec = config.pacing_interval_seconds || 60;
+      console.log(`⏳ Anti-Spam Pacing: Waiting ${intervalSec}s before sending next deal in queue...`);
+      await sleep(intervalSec * 1000);
+    }
+  }
+
+  isQueueProcessing = false;
+}
+
       // Record in dedup cache
       for (const link of validDeals) {
         if (link.id) {
@@ -262,37 +310,17 @@ async function main() {
       }
       saveDedupCache(dedupCache);
 
-      // 4. Rate-limit delay
-      if (config.delay_seconds) {
-        await sleep(config.delay_seconds * 1000);
-      }
+      // Add to pacing queue and trigger queue processor
+      console.log(`📥 Added to queue (Queue length: ${dealQueue.length + 1})`);
+      dealQueue.push({
+        text: result.text,
+        media: msg.media || null,
+        convertedLinks: validDeals,
+        title: chat.title,
+      });
 
-      // 5. Send to destination channel
-      console.log(`📤 Forwarding to ${config.target_channel}...`);
-      if (result.convertedLinks.length > 0) {
-        console.log(`   🔗 Converted ${result.convertedLinks.length} link(s):`);
-        result.convertedLinks.forEach(l => console.log(`      [${l.store}] ${l.convertedUrl}`));
-      }
-
-      const sendOptions = {
-        message: result.text,
-        file: msg.media || undefined,
-        linkPreview: false,
-      };
-
-      try {
-        // Try with Markdown formatting
-        await client.sendMessage(targetPeer, {
-          ...sendOptions,
-          parseMode: 'md',
-        });
-      } catch (err) {
-        // Fallback to plain text if markdown formatting failed
-        console.log(`   ℹ️ Note: Markdown parse failed (${err.message}), falling back to plain formatting`);
-        await client.sendMessage(targetPeer, sendOptions);
-      }
-
-      console.log(`✅ Deal posted successfully to ${config.target_channel}!`);
+      // Start processing queue (non-blocking)
+      processQueue(client, targetPeer, config).catch(e => console.error('Queue error:', e));
     } catch (err) {
       console.error('❌ Error processing message:', err);
     }
