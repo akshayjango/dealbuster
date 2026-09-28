@@ -230,6 +230,14 @@ export function isAmazonUptoDeal(text) {
 export const ALLOWED_STORES = ['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy'];
 
 /**
+ * Build CueLinks Affiliate URL (DealBuster pub_id 312552)
+ */
+export function buildCueLinksUrl(url, pubId = '312552') {
+  if (!url) return null;
+  return `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(url)}`;
+}
+
+/**
  * Converts a raw URL to our affiliate link
  */
 export async function convertDealUrl(rawUrl, options = {}) {
@@ -358,10 +366,14 @@ export async function convertDealUrl(rawUrl, options = {}) {
   // Convert via EarnKaro API
   const ekaroLink = await convertToEarnKaro(cleanUrl, earnkaroToken);
 
+  // If EarnKaro cannot convert (e.g. app deep links like dl.flipkart.com), wrap with CueLinks
+  const cuelinksPubId = options.cuelinksPubId || '312552';
+  const finalAffiliateUrl = ekaroLink || buildCueLinksUrl(cleanUrl, cuelinksPubId);
+
   return {
     originalUrl: rawUrl,
     resolvedUrl: resolved,
-    convertedUrl: ekaroLink || cleanUrl,
+    convertedUrl: finalAffiliateUrl,
     store,
     id: canonicalId
   };

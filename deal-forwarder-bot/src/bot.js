@@ -307,15 +307,23 @@ async function main() {
       const result = await processMessageText(rawText, conversionOptions);
 
       // Filter only allowed stores: amazon, flipkart, myntra, ajio, shopsy
-      // Strictly guarantee that NO competitor URL (dealsping, t.me, etc.) ever passes through
+      // Strictly guarantee that:
+      // 1. NO competitor URL (dealsping, t.me, etc.) ever passes through
+      // 2. The link MUST be converted into an authorized affiliate URL
       const validDeals = result.convertedLinks.filter(l => {
         if (!['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store)) return false;
         if (!l.convertedUrl || /dealsping\.in|t\.me|telegram\.me/i.test(l.convertedUrl)) return false;
-        return true;
+
+        // Verify Amazon has our affiliate tag
+        if (l.store === 'amazon') {
+          return l.convertedUrl.includes('tag=dealbuster');
+        }
+        // Verify non-Amazon has an affiliate domain (EarnKaro or CueLinks)
+        return /(?:ekaro\.in|fktr\.in|myntr\.it|ajiio\.in|linksredirect\.com|linkredirect\.in|clnk\.in)/i.test(l.convertedUrl);
       });
 
       if (validDeals.length === 0) {
-        console.log('⏩ Skipped: No allowed stores found (only Amazon, Flipkart, Myntra, Ajio, Shopsy are allowed).');
+        console.log('⏩ Skipped: No valid converted affiliate deals found.');
         return;
       }
 
