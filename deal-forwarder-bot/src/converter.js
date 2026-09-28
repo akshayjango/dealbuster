@@ -111,7 +111,58 @@ export async function resolveUrl(url, maxHops = 4) {
  */
 export function isAmazonUrl(url) {
   if (!url) return false;
-  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.to|link\.amazon|a\.co)(?:[/?#]|$)|dealsping\.in\/(?:amz|deals\/.*-B0)/i.test(url);
+  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.to|link\.amazon|a\.co)(?:[/?#]|$)/i.test(url);
+}
+
+/**
+ * Resolves a DealsPing redirect link to find the underlying Amazon ASIN or destination store URL
+ */
+export async function resolveDealsPingUrl(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      },
+      signal: AbortSignal.timeout(7000),
+    });
+
+    const finalUrl = res.url || '';
+    const asin = extractAmazonAsin(finalUrl);
+    if (asin) {
+      return { resolvedUrl: finalUrl, asin, store: 'amazon' };
+    }
+
+    // If finalUrl is a dealsping deal page, inspect HTML for destination link / ASIN
+    if (finalUrl.includes('dealsping.in/deals/')) {
+      const html = await res.text().catch(() => '');
+      const asinMatch = html.match(/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) ||
+                        html.match(/-(B0[A-Z0-9]{8,9})/i);
+      if (asinMatch) {
+        return {
+          resolvedUrl: `https://www.amazon.in/dp/${asinMatch[1].toUpperCase()}`,
+          asin: asinMatch[1].toUpperCase(),
+          store: 'amazon'
+        };
+      }
+      const affMatch = html.match(/"affiliateLink"\s*:\s*"([^"]+)"/i) ||
+                       html.match(/href="([^"]*(?:amazon\.in|flipkart\.com|myntra\.com|ajio\.com|shopsy\.in)[^"]*)"/i);
+      if (affMatch) {
+        const dest = affMatch[1].replace(/\\u0026/g, '&');
+        const a = extractAmazonAsin(dest);
+        return {
+          resolvedUrl: dest,
+          asin: a,
+          store: a ? 'amazon' : 'other'
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Error resolving DealsPing link:', err.message);
+  }
+  return null;
 }
 
 /**
@@ -187,9 +238,56 @@ export async function convertDealUrl(rawUrl, options = {}) {
     earnkaroToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o',
   } = options;
 
+  // 1. Dedicated resolution for DealsPing links
+  if (rawUrl.includes('dealsping.in')) {
+    const dp = await resolveDealsPingUrl(rawUrl);
+    if (dp?.asin) {
+      return {
+        originalUrl: rawUrl,
+        resolvedUrl: dp.resolvedUrl,
+        convertedUrl: buildAmazonUrl(dp.asin, amazonTag),
+        store: 'amazon',
+        id: `amazon_${dp.asin}`
+      };
+    } else if (dp?.resolvedUrl && !dp.resolvedUrl.includes('dealsping.in')) {
+      return convertDealUrl(dp.resolvedUrl, options);
+    }
+    // If DealsPing could NOT be resolved to a clean store/Amazon, REJECT IT so competitor links never leak!
+    return {
+      originalUrl: rawUrl,
+      resolvedUrl: rawUrl,
+      convertedUrl: null,
+      store: 'other',
+      id: null
+    };
+  }
+
   const resolved = await resolveUrl(rawUrl);
 
-  // 1. Amazon Deal
+  // If resolved URL ended up on dealsping, resolve via DealsPing helper
+  if (resolved.includes('dealsping.in')) {
+    const dp = await resolveDealsPingUrl(resolved);
+    if (dp?.asin) {
+      return {
+        originalUrl: rawUrl,
+        resolvedUrl: dp.resolvedUrl,
+        convertedUrl: buildAmazonUrl(dp.asin, amazonTag),
+        store: 'amazon',
+        id: `amazon_${dp.asin}`
+      };
+    } else if (dp?.resolvedUrl && !dp.resolvedUrl.includes('dealsping.in')) {
+      return convertDealUrl(dp.resolvedUrl, options);
+    }
+    return {
+      originalUrl: rawUrl,
+      resolvedUrl: resolved,
+      convertedUrl: null,
+      store: 'other',
+      id: null
+    };
+  }
+
+  // 2. Amazon Deal
   if (isAmazonUrl(resolved) || isAmazonUrl(rawUrl)) {
     const asin = extractAmazonAsin(resolved) || extractAmazonAsin(rawUrl);
     if (asin) {
@@ -201,20 +299,21 @@ export async function convertDealUrl(rawUrl, options = {}) {
         id: `amazon_${asin}`
       };
     }
-    // Amazon fallback if ASIN couldn't be parsed: replace tag query param
+    // Fallback ONLY on genuine Amazon domains
     try {
       const u = new URL(resolved);
-      u.searchParams.set('tag', amazonTag);
-      return {
-        originalUrl: rawUrl,
-        resolvedUrl: resolved,
-        convertedUrl: u.href,
-        store: 'amazon',
-        id: null
-      };
-    } catch {
-      return { originalUrl: rawUrl, resolvedUrl: resolved, convertedUrl: resolved, store: 'amazon', id: null };
-    }
+      if (/amazon\.(?:in|com)/i.test(u.hostname)) {
+        u.searchParams.set('tag', amazonTag);
+        return {
+          originalUrl: rawUrl,
+          resolvedUrl: resolved,
+          convertedUrl: u.href,
+          store: 'amazon',
+          id: null
+        };
+      }
+    } catch {}
+    return { originalUrl: rawUrl, resolvedUrl: resolved, convertedUrl: null, store: 'other', id: null };
   }
 
   // 2. Non-Amazon store (Only Flipkart, Myntra, Ajio, Shopsy are allowed)

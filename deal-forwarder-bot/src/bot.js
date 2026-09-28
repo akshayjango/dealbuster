@@ -307,7 +307,12 @@ async function main() {
       const result = await processMessageText(rawText, conversionOptions);
 
       // Filter only allowed stores: amazon, flipkart, myntra, ajio, shopsy
-      const validDeals = result.convertedLinks.filter(l => ['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store));
+      // Strictly guarantee that NO competitor URL (dealsping, t.me, etc.) ever passes through
+      const validDeals = result.convertedLinks.filter(l => {
+        if (!['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store)) return false;
+        if (!l.convertedUrl || /dealsping\.in|t\.me|telegram\.me/i.test(l.convertedUrl)) return false;
+        return true;
+      });
 
       if (validDeals.length === 0) {
         console.log('⏩ Skipped: No allowed stores found (only Amazon, Flipkart, Myntra, Ajio, Shopsy are allowed).');
