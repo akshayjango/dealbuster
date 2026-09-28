@@ -14,16 +14,38 @@ const rootDir = path.resolve(__dirname, '..');
 
 dotenv.config({ path: path.join(rootDir, '.env') });
 
+// ── Live Bot State & Diagnostics ─────────────────────────────────────────────
+const botState = {
+  status: 'ok',
+  service: 'DealBuster Telegram Forwarder',
+  connected: false,
+  user: null,
+  targetChannel: null,
+  monitoredChannels: [],
+  queueLength: 0,
+  isQueueProcessing: false,
+  recentEvents: [],
+};
+
+function logEvent(action, channel, text) {
+  botState.recentEvents.unshift({
+    time: new Date().toLocaleTimeString(),
+    action,
+    channel: channel || 'Unknown',
+    snippet: (text || '').replace(/\s+/g, ' ').slice(0, 90)
+  });
+  if (botState.recentEvents.length > 30) botState.recentEvents.pop();
+}
+
 // ── Render / Cloud Web Service Health Check Server ───────────────────────────
 const PORT = process.env.PORT || 8080;
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
-    status: 'ok',
-    service: 'DealBuster Telegram Forwarder',
+    ...botState,
     uptime_seconds: Math.round(process.uptime()),
     time: new Date().toISOString()
-  }));
+  }, null, 2));
 });
 
 server.listen(PORT, () => {
@@ -195,7 +217,10 @@ async function main() {
   if (sourceEntities.length === 0) {
     console.warn('\n⚠️ Warning: No active source channels configured!');
     console.log('Edit "config.json" to add channels you want to monitor, then restart.');
-  }
+  botState.connected = true;
+  botState.user = `${me.firstName || ''} ${me.lastName || ''} (@${me.username || me.id})`.trim();
+  botState.targetChannel = targetPeer?.title || config.target_channel;
+  botState.monitoredChannels = sourceEntities.map(e => `${e.title || e.username} (ID: ${e.id})`);
 
   // ── Deal Forwarding Queue & Anti-Spam Pacing ─────────────────────────────────
   const dealQueue = [];
@@ -204,53 +229,76 @@ async function main() {
   async function processQueue(client, targetPeer, config) {
     if (isQueueProcessing) return;
     isQueueProcessing = true;
+    botState.isQueueProcessing = true;
 
-    while (dealQueue.length > 0) {
-      const item = dealQueue.shift();
-      try {
-        console.log(`\n📤 [Queue] Forwarding deal to ${config.target_channel} (${dealQueue.length} remaining in queue)...`);
-        if (item.convertedLinks?.length > 0) {
-          item.convertedLinks.forEach(l => console.log(`   🔗 [${l.store}] ${l.convertedUrl}`));
-        }
-
-        const sendOptions = {
-          message: item.text,
-          file: item.media || undefined,
-          linkPreview: false,
-        };
+    try {
+      while (dealQueue.length > 0) {
+        botState.queueLength = dealQueue.length;
+        const item = dealQueue.shift();
+        botState.queueLength = dealQueue.length;
 
         try {
-          await client.sendMessage(targetPeer, {
-            ...sendOptions,
-            parseMode: 'md',
-          });
-        } catch (err) {
-          console.log(`   ℹ️ Note: Send failed (${err.message}), retrying as plain text without media...`);
+          console.log(`\n📤 [Queue] Forwarding deal to ${config.target_channel} (${dealQueue.length} remaining in queue)...`);
+          if (item.convertedLinks?.length > 0) {
+            item.convertedLinks.forEach(l => console.log(`   🔗 [${l.store}] ${l.convertedUrl}`));
+          }
+
+          const sendOptions = {
+            message: item.text,
+            file: item.media || undefined,
+            linkPreview: false,
+          };
+
           try {
             await client.sendMessage(targetPeer, {
-              message: item.text,
-              linkPreview: false,
+              ...sendOptions,
+              parseMode: 'md',
             });
-          } catch (err2) {
-            console.error('❌ Error sending queued deal as plain text:', err2.message);
+          } catch (err) {
+            console.log(`   ℹ️ Note: Send failed (${err.message}), retrying as plain text without media...`);
+            try {
+              await client.sendMessage(targetPeer, {
+                message: item.text,
+                linkPreview: false,
+              });
+            } catch (err2) {
+              console.error('❌ Error sending queued deal as plain text:', err2.message);
+            }
           }
+
+          logEvent('Forwarded deal to channel', item.title, item.text);
+          console.log(`✅ Deal posted successfully to ${config.target_channel}!`);
+        } catch (err) {
+          console.error('❌ Error sending queued deal:', err.message);
+          logEvent('Error sending deal: ' + err.message, item.title, item.text);
         }
 
-        console.log(`✅ Deal posted successfully to ${config.target_channel}!`);
-      } catch (err) {
-        console.error('❌ Error sending queued deal:', err.message);
+        // Pacing interval: wait before posting the next deal in queue
+        if (dealQueue.length > 0) {
+          const intervalSec = config.pacing_interval_seconds || 60;
+          console.log(`⏳ Anti-Spam Pacing: Waiting ${intervalSec}s before sending next deal in queue...`);
+          await sleep(intervalSec * 1000);
+        }
       }
-
-      // Pacing interval: wait before posting the next deal in queue
-      if (dealQueue.length > 0) {
-        const intervalSec = config.pacing_interval_seconds || 60;
-        console.log(`⏳ Anti-Spam Pacing: Waiting ${intervalSec}s before sending next deal in queue...`);
-        await sleep(intervalSec * 1000);
-      }
+    } finally {
+      isQueueProcessing = false;
+      botState.isQueueProcessing = false;
+      botState.queueLength = dealQueue.length;
     }
-
-    isQueueProcessing = false;
   }
+
+  // Telegram connection keepalive heartbeat
+  setInterval(async () => {
+    try {
+      if (client && !client.connected) {
+        console.log('🔄 Reconnecting to Telegram...');
+        await client.connect();
+      }
+      botState.connected = client ? client.connected : false;
+    } catch (e) {
+      console.warn('⚠️ Telegram keepalive error:', e.message);
+    }
+  }, 25 * 1000);
 
   console.log('\n🚀 Auto-Forwarder is running! Waiting for new deals...\n');
 
@@ -260,27 +308,32 @@ async function main() {
       const msg = event.message;
       if (!msg) return;
 
+      const rawChatId = msg.chatId ? msg.chatId.toString() : '';
+      const rawPeerId = msg.peerId?.channelId ? msg.peerId.channelId.toString() : '';
       const chat = await msg.getChat().catch(() => null);
       const chatIdStr = chat?.id ? chat.id.toString() : '';
-      const msgChatIdStr = msg.chatId ? msg.chatId.toString() : '';
       const chatUsername = chat?.username ? chat.username.toLowerCase() : '';
+      const channelTitle = chat?.title || chatUsername || rawChatId;
 
       // Check if message is from an authorized source channel
-      const isAuthorized = sourceIds.has(chatIdStr) ||
-                           sourceIds.has(msgChatIdStr) ||
+      const isAuthorized = sourceIds.has(rawChatId) ||
+                           sourceIds.has(rawPeerId) ||
+                           sourceIds.has(`-100${rawPeerId}`) ||
+                           sourceIds.has(chatIdStr) ||
                            (chatUsername && sourceIds.has(chatUsername));
       if (!isAuthorized) {
         return;
       }
 
       const rawText = msg.message || '';
-      console.log(`\n📥 [${new Date().toLocaleTimeString()}] New message from: ${chat?.title || chatIdStr}`);
+      console.log(`\n📥 [${new Date().toLocaleTimeString()}] New message from: ${channelTitle}`);
 
       // 1. Blacklist check
       const lower = rawText.toLowerCase();
       const matchedKeyword = (config.blacklist_keywords || []).find(k => lower.includes(k.toLowerCase()));
       if (matchedKeyword) {
         console.log(`⏩ Skipped: Matched blacklist keyword "${matchedKeyword}"`);
+        logEvent(`Skipped: Blacklist keyword "${matchedKeyword}"`, channelTitle, rawText);
         return;
       }
 
@@ -292,6 +345,7 @@ async function main() {
       });
       if (matchedBrand) {
         console.log(`⏩ Skipped: Matched blocked brand "${matchedBrand}"`);
+        logEvent(`Skipped: Blocked brand "${matchedBrand}"`, channelTitle, rawText);
         return;
       }
 
@@ -324,17 +378,20 @@ async function main() {
 
       if (validDeals.length === 0) {
         console.log('⏩ Skipped: No valid converted affiliate deals found.');
+        logEvent('Skipped: No valid converted affiliate deals', channelTitle, rawText);
         return;
       }
 
       // Channel-specific store rule:
       // Online Shopping Offerzone: ONLY non-Amazon deals (Flipkart, Myntra, Ajio, Shopsy). Skip all Amazon deals from this channel!
       const isOfferzoneChannel = (chatUsername === 'offerzone_dealdost_dealschamp') ||
-                                 (chat?.title && /offerzone/i.test(chat.title)) ||
+                                 (channelTitle && /offerzone/i.test(channelTitle)) ||
                                  chatIdStr === '1146824230' ||
-                                 msgChatIdStr === '-1001146824230';
+                                 rawChatId === '-1001146824230' ||
+                                 rawPeerId === '1146824230';
       if (isOfferzoneChannel && validDeals.some(l => l.store === 'amazon')) {
         console.log('⏩ Skipped: Amazon deal from Online Shopping Offerzone (configured for non-Amazon deals only).');
+        logEvent('Skipped: Amazon deal from Offerzone', channelTitle, rawText);
         return;
       }
 
@@ -343,6 +400,7 @@ async function main() {
       const hasAmazonDeal = validDeals.some(l => l.store === 'amazon');
       if (hasAmazonDeal && isAmazonUptoDeal(rawText)) {
         console.log('⏩ Skipped: Amazon deal contains "upto / up to" discount text.');
+        logEvent('Skipped: Amazon deal contains "upto" text', channelTitle, rawText);
         return;
       }
 
@@ -353,6 +411,7 @@ async function main() {
           const asin = deal.id.replace('amazon_', '').toUpperCase();
           if (deletedAsins.includes(asin)) {
             console.log(`⏩ Skipped: Amazon ASIN "${asin}" is in deleted_asins blocklist.`);
+            logEvent(`Skipped: Deleted ASIN "${asin}"`, channelTitle, rawText);
             return;
           }
         }
@@ -363,6 +422,7 @@ async function main() {
         if (link.id && dedupCache[link.id]) {
           const hoursAgo = ((Date.now() - dedupCache[link.id]) / (1000 * 60 * 60)).toFixed(1);
           console.log(`⏩ Skipped: Duplicate product "${link.id}" posted ${hoursAgo}h ago.`);
+          logEvent(`Skipped: Duplicate product (${hoursAgo}h ago)`, channelTitle, rawText);
           return;
         }
       }
@@ -377,11 +437,12 @@ async function main() {
 
       // Add to pacing queue and trigger queue processor
       console.log(`📥 Added to queue (Queue length: ${dealQueue.length + 1})`);
+      logEvent(`Queued deal (${validDeals.map(d => d.store).join(', ')})`, channelTitle, result.text);
       dealQueue.push({
         text: result.text,
         media: msg.media || null,
         convertedLinks: validDeals,
-        title: chat?.title || '',
+        title: channelTitle,
       });
 
       // Start processing queue (non-blocking)
