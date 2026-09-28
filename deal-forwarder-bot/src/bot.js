@@ -217,6 +217,8 @@ async function main() {
   if (sourceEntities.length === 0) {
     console.warn('\n⚠️ Warning: No active source channels configured!');
     console.log('Edit "config.json" to add channels you want to monitor, then restart.');
+  }
+
   botState.connected = true;
   botState.user = `${me.firstName || ''} ${me.lastName || ''} (@${me.username || me.id})`.trim();
   botState.targetChannel = targetPeer?.title || config.target_channel;
