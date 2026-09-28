@@ -134,15 +134,25 @@ async function main() {
   const me = await client.getMe();
   console.log(`✅ Logged in as: ${me.firstName || ''} ${me.lastName || ''} (@${me.username || me.id})`);
 
+  // Load all joined channels and chats into GramJS memory
+  console.log('🔄 Loading joined channels and chats into memory...');
+  const dialogs = await client.getDialogs({ limit: 100 });
+
   // Resolve target channel
   let targetPeer;
   try {
     targetPeer = await client.getEntity(config.target_channel);
     console.log(`🎯 Destination channel set to: ${targetPeer.title || config.target_channel}`);
   } catch (err) {
-    console.error(`❌ Could not find target channel "${config.target_channel}":`, err.message);
-    console.log('Make sure your Telegram account has joined or is an admin of this channel.');
-    process.exit(1);
+    const clean = config.target_channel.toString().replace(/^@/, '').toLowerCase();
+    targetPeer = dialogs.find(d => d.entity?.username?.toLowerCase() === clean || (d.entity?.title && d.entity.title.toLowerCase().includes(clean)))?.entity;
+    if (targetPeer) {
+      console.log(`🎯 Destination channel set to: ${targetPeer.title || config.target_channel}`);
+    } else {
+      console.error(`❌ Could not find target channel "${config.target_channel}":`, err.message);
+      console.log('Make sure your Telegram account has joined or is an admin of this channel.');
+      process.exit(1);
+    }
   }
 
   // Resolve source channels
@@ -151,13 +161,30 @@ async function main() {
 
   for (const ch of config.source_channels) {
     if (!ch || ch.startsWith('@example')) continue;
+    let entity = null;
     try {
-      const entity = await client.getEntity(ch);
+      entity = await client.getEntity(ch);
+    } catch {
+      // Fallback: match in loaded dialogs by username, ID, or title
+      const clean = ch.toString().replace(/^@/, '').toLowerCase();
+      const match = dialogs.find(d => {
+        const e = d.entity;
+        if (!e) return false;
+        const eId = e.id?.toString() || '';
+        return e.username?.toLowerCase() === clean ||
+               eId === clean ||
+               `-100${eId}` === clean ||
+               (e.title && e.title.toLowerCase().includes(clean));
+      });
+      if (match) entity = match.entity;
+    }
+
+    if (entity) {
       sourceEntities.push(entity);
       sourceIds.add(entity.id.toString());
       console.log(`📡 Listening to source channel: ${entity.title || ch} (ID: ${entity.id})`);
-    } catch (err) {
-      console.warn(`⚠️ Could not resolve source channel "${ch}": ${err.message}`);
+    } else {
+      console.warn(`⚠️ Could not resolve source channel "${ch}". Make sure your Telegram account has joined this channel.`);
     }
   }
 
