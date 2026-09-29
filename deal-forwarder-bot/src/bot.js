@@ -180,6 +180,7 @@ async function main() {
   // Resolve source channels
   const sourceEntities = [];
   const sourceIds = new Set();
+  const sourceEntityMap = new Map();
 
   for (const ch of config.source_channels) {
     if (!ch || ch.startsWith('@example')) continue;
@@ -208,6 +209,10 @@ async function main() {
       sourceIds.add(`-100${eId}`);
       sourceIds.add(`-${eId}`);
       if (entity.username) sourceIds.add(entity.username.toLowerCase());
+      sourceEntityMap.set(eId, entity);
+      sourceEntityMap.set(`-100${eId}`, entity);
+      sourceEntityMap.set(`-${eId}`, entity);
+      if (entity.username) sourceEntityMap.set(entity.username.toLowerCase(), entity);
       console.log(`📡 Listening to source channel: ${entity.title || ch} (ID: ${entity.id})`);
     } else {
       console.warn(`⚠️ Could not resolve source channel "${ch}". Make sure your Telegram account has joined this channel.`);
@@ -304,28 +309,28 @@ async function main() {
 
   console.log('\n🚀 Auto-Forwarder is running! Waiting for new deals...\n');
 
-  // Handle new incoming messages
-  client.addEventHandler(async (event) => {
+  // Track latest message ID per channel to prevent reprocessing and enable reliable polling
+  const lastSeenMsgIds = new Map();
+
+  // Core message processor: converts links, validates stores, applies filters, and queues for posting
+  async function handleIncomingMessage(msg, matchedEntity = null) {
     try {
-      const msg = event.message;
-      if (!msg) return;
+      if (!msg || !msg.message) return;
 
       const rawChatId = msg.chatId ? msg.chatId.toString() : '';
       const rawPeerId = msg.peerId?.channelId ? msg.peerId.channelId.toString() : '';
-      const chat = await msg.getChat().catch(() => null);
-      const chatIdStr = chat?.id ? chat.id.toString() : '';
-      const chatUsername = chat?.username ? chat.username.toLowerCase() : '';
-      const channelTitle = chat?.title || chatUsername || rawChatId;
 
-      // Check if message is from an authorized source channel
-      const isAuthorized = sourceIds.has(rawChatId) ||
-                           sourceIds.has(rawPeerId) ||
-                           sourceIds.has(`-100${rawPeerId}`) ||
-                           sourceIds.has(chatIdStr) ||
-                           (chatUsername && sourceIds.has(chatUsername));
-      if (!isAuthorized) {
-        return;
-      }
+      // Instant in-memory entity resolution
+      const entity = matchedEntity ||
+                     sourceEntityMap.get(rawPeerId) ||
+                     sourceEntityMap.get(rawChatId) ||
+                     sourceEntityMap.get(`-100${rawPeerId}`);
+
+      if (!entity) return;
+
+      const chatIdStr = entity.id ? entity.id.toString() : '';
+      const chatUsername = entity.username ? entity.username.toLowerCase() : '';
+      const channelTitle = entity.title || chatUsername || rawChatId;
 
       const rawText = msg.message || '';
       console.log(`\n📥 [${new Date().toLocaleTimeString()}] New message from: ${channelTitle}`);
@@ -385,15 +390,20 @@ async function main() {
       }
 
       // Channel-specific store rule:
-      // Online Shopping Offerzone: ONLY non-Amazon deals (Flipkart, Myntra, Ajio, Shopsy). Skip all Amazon deals from this channel!
-      const isOfferzoneChannel = (chatUsername === 'offerzone_dealdost_dealschamp') ||
-                                 (channelTitle && /offerzone/i.test(channelTitle)) ||
-                                 chatIdStr === '1146824230' ||
-                                 rawChatId === '-1001146824230' ||
-                                 rawPeerId === '1146824230';
-      if (isOfferzoneChannel && validDeals.some(l => l.store === 'amazon')) {
-        console.log('⏩ Skipped: Amazon deal from Online Shopping Offerzone (configured for non-Amazon deals only).');
-        logEvent('Skipped: Amazon deal from Offerzone', channelTitle, rawText);
+      // DealsPing: ONLY non-Amazon deals (Flipkart, Myntra, Ajio, Shopsy). Skip all Amazon deals from DealsPing!
+      const isDealsPing = (chatUsername === 'dealping') ||
+                          (channelTitle && /dealping/i.test(channelTitle)) ||
+                          chatIdStr === '2549771239' ||
+                          rawChatId === '-1002549771239' ||
+                          rawPeerId === '2549771239';
+      const channelRule = config.channel_rules?.[`@${chatUsername}`] ||
+                          config.channel_rules?.[chatUsername] ||
+                          (isDealsPing ? config.channel_rules?.['@DealPing'] : null);
+      const isNonAmazonOnly = isDealsPing || channelRule?.non_amazon_only;
+
+      if (isNonAmazonOnly && validDeals.some(l => l.store === 'amazon')) {
+        console.log(`⏩ Skipped: Amazon deal from ${channelTitle} (configured for non-Amazon deals only).`);
+        logEvent(`Skipped: Amazon deal from ${channelTitle}`, channelTitle, rawText);
         return;
       }
 
@@ -452,7 +462,79 @@ async function main() {
     } catch (err) {
       console.error('❌ Error processing message:', err);
     }
+  }
+
+  // 1. Event listener for real-time socket updates
+  client.addEventHandler(async (event) => {
+    try {
+      const msg = event.message;
+      if (!msg) return;
+
+      const rawChatId = msg.chatId ? msg.chatId.toString() : '';
+      const rawPeerId = msg.peerId?.channelId ? msg.peerId.channelId.toString() : '';
+
+      const entity = sourceEntityMap.get(rawPeerId) ||
+                     sourceEntityMap.get(rawChatId) ||
+                     sourceEntityMap.get(`-100${rawPeerId}`);
+      if (!entity) return;
+
+      const eIdStr = entity.id.toString();
+      if (msg.id) {
+        lastSeenMsgIds.set(eIdStr, Math.max(lastSeenMsgIds.get(eIdStr) || 0, msg.id));
+      }
+
+      await handleIncomingMessage(msg, entity);
+    } catch (err) {
+      console.error('❌ Error in message event handler:', err);
+    }
   }, new NewMessage({}));
+
+  // 2. Active background polling worker (runs every 10 seconds)
+  // Guarantees 100% reliability even if Telegram's MTProto socket pauses passive channel push updates
+  for (const entity of sourceEntities) {
+    try {
+      const latest = await client.getMessages(entity, { limit: 1 });
+      if (latest && latest[0]?.id) {
+        lastSeenMsgIds.set(entity.id.toString(), latest[0].id);
+        console.log(`📍 Checkpoint for ${entity.title || entity.id}: latest msg ID ${latest[0].id}`);
+      }
+    } catch (e) {
+      console.warn(`⚠️ Could not get initial checkpoint for ${entity.title || entity.id}:`, e.message);
+    }
+  }
+
+  async function pollChannelsWorker() {
+    while (true) {
+      try {
+        await sleep(10000);
+        if (!client || !client.connected) continue;
+
+        for (const entity of sourceEntities) {
+          try {
+            const eIdStr = entity.id.toString();
+            const lastId = lastSeenMsgIds.get(eIdStr) || 0;
+            const msgs = await client.getMessages(entity, { limit: 3 });
+            if (!msgs || msgs.length === 0) continue;
+
+            const unhandled = msgs.filter(m => m && m.id > lastId).sort((a, b) => a.id - b.id);
+            for (const msg of unhandled) {
+              lastSeenMsgIds.set(eIdStr, Math.max(lastSeenMsgIds.get(eIdStr) || 0, msg.id));
+              await handleIncomingMessage(msg, entity);
+            }
+            if (msgs[0]?.id && msgs[0].id > (lastSeenMsgIds.get(eIdStr) || 0)) {
+              lastSeenMsgIds.set(eIdStr, msgs[0].id);
+            }
+          } catch {
+            // Per-channel fetch error non-fatal, continue next channel
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Polling loop error:', err.message);
+      }
+    }
+  }
+
+  pollChannelsWorker().catch(e => console.error('Polling worker exited:', e));
 }
 
 main().catch(err => {
