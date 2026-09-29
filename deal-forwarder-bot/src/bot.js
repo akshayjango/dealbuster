@@ -313,12 +313,6 @@ async function main() {
         const item = dealQueue.shift();
         botState.queueLength = dealQueue.length;
 
-        // Final duplicate check right before sending
-        if (item.fingerprint && dedupCache[item.fingerprint] && (dedupCache[item.fingerprint] < item.queuedAt)) {
-          console.log(`⏩ Dropped from queue before send: already posted (${item.fingerprint}).`);
-          continue;
-        }
-
         try {
           console.log(`\n📤 [Queue] Forwarding deal to ${config.target_channel} (${dealQueue.length} remaining in queue)...`);
           if (item.convertedLinks?.length > 0) {
