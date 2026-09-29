@@ -430,6 +430,7 @@ async function main() {
       }
 
       // 3. Deduplication check
+      // A. Check link id (ASIN or URL)
       for (const link of validDeals) {
         if (link.id && dedupCache[link.id]) {
           const hoursAgo = ((Date.now() - dedupCache[link.id]) / (1000 * 60 * 60)).toFixed(1);
@@ -439,11 +440,23 @@ async function main() {
         }
       }
 
+      // B. Check text fingerprint (strips URLs, dedups cross-channel duplicates of same deal)
+      const textFingerprint = 'text_' + rawText.toLowerCase().replace(/https?:\/\/[^\s]+/g, '').replace(/[^a-z0-9]/g, '').slice(0, 45);
+      if (textFingerprint.length > 18 && dedupCache[textFingerprint]) {
+        const hoursAgo = ((Date.now() - dedupCache[textFingerprint]) / (1000 * 60 * 60)).toFixed(1);
+        console.log(`⏩ Skipped: Duplicate deal content across channels posted ${hoursAgo}h ago.`);
+        logEvent(`Skipped: Cross-channel duplicate (${hoursAgo}h ago)`, channelTitle, rawText);
+        return;
+      }
+
       // Record in dedup cache
       for (const link of validDeals) {
         if (link.id) {
           dedupCache[link.id] = Date.now();
         }
+      }
+      if (textFingerprint.length > 18) {
+        dedupCache[textFingerprint] = Date.now();
       }
       saveDedupCache(dedupCache);
 
