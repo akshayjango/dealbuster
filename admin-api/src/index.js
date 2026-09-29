@@ -5636,6 +5636,44 @@ export default {
       }
     }
 
+    // Allow deal-forwarder-bot to check and claim posted marks without admin password
+    if (url0.pathname === '/tg-posted/claim' && request.method === 'POST') {
+      const body = await request.json().catch(() => ({}));
+      const items = body.items || [];
+      if (!Array.isArray(items) || !items.length) return json({ error: 'items array required' }, 400);
+
+      let r = { fresh: [] };
+      try {
+        r = await pendingApprovalsDO(env, '/posted/claim', { items, force: true });
+      } catch (e) {
+        console.error('DO /posted/claim failed:', e.message);
+      }
+
+      try {
+        const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+        const times = JSON.parse(await env.KV.get('tg_posted_times') || '{}');
+        const now = Date.now();
+        for (const item of items) {
+          if (item.id) { ids.add(item.id); times[item.id] = now; }
+          if (item.asin) { ids.add(item.asin.toUpperCase()); times[item.asin.toUpperCase()] = now; }
+        }
+        await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
+        await env.KV.put('tg_posted_times', JSON.stringify(times));
+        await env.KV.put('tg_last_posted_at', now.toString());
+      } catch (e) {
+        console.error('KV mirror update failed:', e.message);
+      }
+
+      return json({ success: true, claimed: r.fresh });
+    }
+
+    if (url0.pathname === '/tg-posted/check' && request.method === 'POST') {
+      const { keys } = await request.json().catch(() => ({}));
+      if (!Array.isArray(keys)) return json({ error: 'keys must be an array' }, 400);
+      const r = await pendingApprovalsDO(env, '/posted/check', { keys: keys.slice(0, 4000) });
+      return json({ posted: r.posted });
+    }
+
     const password = request.headers.get('X-Admin-Password');
     if (password !== env.ADMIN_PASSWORD) return json({ error: 'Unauthorized' }, 401);
 
