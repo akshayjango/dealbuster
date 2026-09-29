@@ -4663,6 +4663,13 @@ async function postNewDealsToTelegram(env) {
 // just a cheap pre-check (KV.get + a GitHub fetch, no KV write) so the 5-min
 // cron doesn't touch GitHub/lock at all when there's nothing to post.
 async function postNewDealsToTelegramLocked(env) {
+  // Respect sleep hours (2:00 AM - 7:00 AM IST)
+  const istHour = new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours();
+  if (istHour >= 2 && istHour < 7) {
+    console.log('TG cron: sleep hours (2am-7am IST), skipping Telegram posting');
+    return;
+  }
+
   await sweepExpiredApprovals(env).catch(e => console.error('Approval sweep failed:', e.message));
   const mode = await getAutopostMode(env);
   if (mode === 'manual') return;
@@ -5614,6 +5621,10 @@ export default {
     if (url0.pathname === '/cron-post-deals' && request.method === 'GET') {
       if (!env.CRON_SECRET) return json({ error: 'Unauthorized', reason: 'secret_not_set' }, 401);
       if (url0.searchParams.get('key') !== env.CRON_SECRET) return json({ error: 'Unauthorized', reason: 'key_mismatch' }, 401);
+      const istHour = new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours();
+      if (istHour >= 2 && istHour < 7) {
+        return json({ ok: true, skipped: 'sleep_hours_2am_7am_ist' });
+      }
       try {
         await Promise.all([
           postNewDealsToTelegramLocked(env),
