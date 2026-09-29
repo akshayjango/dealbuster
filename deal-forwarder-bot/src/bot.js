@@ -232,6 +232,7 @@ async function main() {
   // ── Deal Forwarding Queue & Anti-Spam Pacing ─────────────────────────────────
   const dealQueue = [];
   let isQueueProcessing = false;
+  let lastDealPostedTime = 0;
 
   async function processQueue(client, targetPeer, config) {
     if (isQueueProcessing) return;
@@ -240,9 +241,24 @@ async function main() {
 
     try {
       while (dealQueue.length > 0) {
+        // Enforce strict pacing interval between any two Telegram channel posts
+        const intervalSec = config.pacing_interval_seconds || 60;
+        const timeSinceLast = (Date.now() - lastDealPostedTime) / 1000;
+        if (timeSinceLast < intervalSec && lastDealPostedTime > 0) {
+          const waitTimeMs = Math.ceil((intervalSec - timeSinceLast) * 1000);
+          console.log(`⏳ Anti-Spam Pacing: Waiting ${(waitTimeMs / 1000).toFixed(1)}s before sending next deal in queue...`);
+          await sleep(waitTimeMs);
+        }
+
         botState.queueLength = dealQueue.length;
         const item = dealQueue.shift();
         botState.queueLength = dealQueue.length;
+
+        // Final duplicate check right before sending
+        if (item.fingerprint && dedupCache[item.fingerprint] && (dedupCache[item.fingerprint] < item.queuedAt)) {
+          console.log(`⏩ Dropped from queue before send: already posted (${item.fingerprint}).`);
+          continue;
+        }
 
         try {
           console.log(`\n📤 [Queue] Forwarding deal to ${config.target_channel} (${dealQueue.length} remaining in queue)...`);
@@ -273,18 +289,17 @@ async function main() {
             }
           }
 
+          lastDealPostedTime = Date.now();
+          if (item.fingerprint) {
+            dedupCache[item.fingerprint] = Date.now();
+            saveDedupCache(dedupCache);
+          }
+
           logEvent('Forwarded deal to channel', item.title, item.text);
           console.log(`✅ Deal posted successfully to ${config.target_channel}!`);
         } catch (err) {
           console.error('❌ Error sending queued deal:', err.message);
           logEvent('Error sending deal: ' + err.message, item.title, item.text);
-        }
-
-        // Pacing interval: wait before posting the next deal in queue
-        if (dealQueue.length > 0) {
-          const intervalSec = config.pacing_interval_seconds || 60;
-          console.log(`⏳ Anti-Spam Pacing: Waiting ${intervalSec}s before sending next deal in queue...`);
-          await sleep(intervalSec * 1000);
         }
       }
     } finally {
@@ -311,9 +326,21 @@ async function main() {
 
   // Track latest message ID per channel to prevent reprocessing and enable reliable polling
   const lastSeenMsgIds = new Map();
+  // In-flight claims set to synchronously serialize and drop concurrent duplicates across channels
+  const inFlightClaims = new Set();
+
+  function getDealFingerprint(text) {
+    if (!text) return '';
+    return 'fp_' + text
+      .toLowerCase()
+      .replace(/https?:\/\/[^\s]+/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 50);
+  }
 
   // Core message processor: converts links, validates stores, applies filters, and queues for posting
   async function handleIncomingMessage(msg, matchedEntity = null) {
+    let claimedFingerprint = null;
     try {
       if (!msg || !msg.message) return;
 
@@ -333,9 +360,30 @@ async function main() {
       const channelTitle = entity.title || chatUsername || rawChatId;
 
       const rawText = msg.message || '';
+      if (!rawText.trim()) return;
+
+      // 1. FAST PRE-CHECK & SYNCHRONOUS IN-FLIGHT CLAIM:
+      // If the deal was already posted or is being processed concurrently by another channel, DROP IT in 0ms!
+      const fingerprint = getDealFingerprint(rawText);
+      if (fingerprint.length >= 8) {
+        if (inFlightClaims.has(fingerprint)) {
+          console.log(`⏩ Skipped: Duplicate deal already in-flight from another channel.`);
+          logEvent('Skipped: Concurrent cross-channel duplicate (in-flight)', channelTitle, rawText);
+          return;
+        }
+        if (dedupCache[fingerprint]) {
+          const hoursAgo = ((Date.now() - dedupCache[fingerprint]) / (1000 * 60 * 60)).toFixed(1);
+          console.log(`⏩ Skipped: Duplicate deal content across channels posted ${hoursAgo}h ago.`);
+          logEvent(`Skipped: Cross-channel duplicate (${hoursAgo}h ago)`, channelTitle, rawText);
+          return;
+        }
+        inFlightClaims.add(fingerprint);
+        claimedFingerprint = fingerprint;
+      }
+
       console.log(`\n📥 [${new Date().toLocaleTimeString()}] New message from: ${channelTitle}`);
 
-      // 1. Blacklist check
+      // 2. Blacklist check
       const lower = rawText.toLowerCase();
       const matchedKeyword = (config.blacklist_keywords || []).find(k => lower.includes(k.toLowerCase()));
       if (matchedKeyword) {
@@ -356,7 +404,7 @@ async function main() {
         return;
       }
 
-      // 2. Process text and convert links
+      // 3. Process text and convert links
       const conversionOptions = {
         amazonTag: config.amazon_tag || 'dealbuster002-21',
         earnkaroToken: config.earnkaro_api_token,
@@ -368,9 +416,6 @@ async function main() {
       const result = await processMessageText(rawText, conversionOptions);
 
       // Filter only allowed stores: amazon, flipkart, myntra, ajio, shopsy
-      // Strictly guarantee that:
-      // 1. NO competitor URL (dealsping, t.me, etc.) ever passes through
-      // 2. The link MUST be converted into an authorized affiliate URL
       const validDeals = result.convertedLinks.filter(l => {
         if (!['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store)) return false;
         if (!l.convertedUrl || /dealsping\.in|t\.me|telegram\.me/i.test(l.convertedUrl)) return false;
@@ -389,17 +434,23 @@ async function main() {
         return;
       }
 
-      // Channel-specific store rule:
-      // DealsPing: ONLY non-Amazon deals (Flipkart, Myntra, Ajio, Shopsy). Skip all Amazon deals from DealsPing!
+      // 4. Channel-specific store rule:
+      // DealsPing & LootPing: ONLY non-Amazon deals (Flipkart, Myntra, Ajio, Shopsy). Skip all Amazon deals!
       const isDealsPing = (chatUsername === 'dealping') ||
                           (channelTitle && /dealping/i.test(channelTitle)) ||
                           chatIdStr === '2549771239' ||
                           rawChatId === '-1002549771239' ||
                           rawPeerId === '2549771239';
+      const isLootPing = (chatUsername === 'lootping') ||
+                         (channelTitle && /lootping/i.test(channelTitle)) ||
+                         chatIdStr === '1175095956' ||
+                         rawChatId === '-1001175095956' ||
+                         rawPeerId === '1175095956';
       const channelRule = config.channel_rules?.[`@${chatUsername}`] ||
                           config.channel_rules?.[chatUsername] ||
-                          (isDealsPing ? config.channel_rules?.['@DealPing'] : null);
-      const isNonAmazonOnly = isDealsPing || channelRule?.non_amazon_only;
+                          (isDealsPing ? config.channel_rules?.['@DealPing'] : null) ||
+                          (isLootPing ? config.channel_rules?.['@lootping'] : null);
+      const isNonAmazonOnly = isDealsPing || isLootPing || channelRule?.non_amazon_only;
 
       if (isNonAmazonOnly && validDeals.some(l => l.store === 'amazon')) {
         console.log(`⏩ Skipped: Amazon deal from ${channelTitle} (configured for non-Amazon deals only).`);
@@ -407,8 +458,7 @@ async function main() {
         return;
       }
 
-      // Check Amazon "upto" condition:
-      // If there are Amazon deals and the message contains "upto" or variable discount, skip it!
+      // 5. Check Amazon "upto" condition:
       const hasAmazonDeal = validDeals.some(l => l.store === 'amazon');
       if (hasAmazonDeal && isAmazonUptoDeal(rawText)) {
         console.log('⏩ Skipped: Amazon deal contains "upto / up to" discount text.');
@@ -416,7 +466,7 @@ async function main() {
         return;
       }
 
-      // Check deleted/blocked ASINs
+      // 6. Check deleted/blocked ASINs
       const deletedAsins = loadDeletedAsins();
       for (const deal of validDeals) {
         if (deal.store === 'amazon' && deal.id) {
@@ -429,8 +479,7 @@ async function main() {
         }
       }
 
-      // 3. Deduplication check
-      // A. Check link id (ASIN or URL)
+      // 7. Deduplication check by product ID
       for (const link of validDeals) {
         if (link.id && dedupCache[link.id]) {
           const hoursAgo = ((Date.now() - dedupCache[link.id]) / (1000 * 60 * 60)).toFixed(1);
@@ -440,23 +489,14 @@ async function main() {
         }
       }
 
-      // B. Check text fingerprint (strips URLs, dedups cross-channel duplicates of same deal)
-      const textFingerprint = 'text_' + rawText.toLowerCase().replace(/https?:\/\/[^\s]+/g, '').replace(/[^a-z0-9]/g, '').slice(0, 45);
-      if (textFingerprint.length > 18 && dedupCache[textFingerprint]) {
-        const hoursAgo = ((Date.now() - dedupCache[textFingerprint]) / (1000 * 60 * 60)).toFixed(1);
-        console.log(`⏩ Skipped: Duplicate deal content across channels posted ${hoursAgo}h ago.`);
-        logEvent(`Skipped: Cross-channel duplicate (${hoursAgo}h ago)`, channelTitle, rawText);
-        return;
-      }
-
       // Record in dedup cache
       for (const link of validDeals) {
         if (link.id) {
           dedupCache[link.id] = Date.now();
         }
       }
-      if (textFingerprint.length > 18) {
-        dedupCache[textFingerprint] = Date.now();
+      if (claimedFingerprint) {
+        dedupCache[claimedFingerprint] = Date.now();
       }
       saveDedupCache(dedupCache);
 
@@ -468,12 +508,18 @@ async function main() {
         media: msg.media || null,
         convertedLinks: validDeals,
         title: channelTitle,
+        fingerprint: claimedFingerprint,
+        queuedAt: Date.now(),
       });
 
       // Start processing queue (non-blocking)
       processQueue(client, targetPeer, config).catch(e => console.error('Queue error:', e));
     } catch (err) {
       console.error('❌ Error processing message:', err);
+    } finally {
+      if (claimedFingerprint) {
+        inFlightClaims.delete(claimedFingerprint);
+      }
     }
   }
 
