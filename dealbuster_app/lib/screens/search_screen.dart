@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/product.dart';
 import '../services/api_service.dart';
@@ -24,6 +25,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _api = ApiService();
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
 
   late List<Product> _all;
   bool _loading = false;
@@ -57,6 +59,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void dispose() {
     _controller.removeListener(_onQueryChanged);
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -77,7 +80,10 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _openProduct(Product product) {
+    _focusNode.unfocus();
     FocusScope.of(context).unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
     showProductDetailSheet(context, product);
   }
 
@@ -104,6 +110,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       editable: true,
                       autofocus: true,
                       controller: _controller,
+                      focusNode: _focusNode,
                       onChanged: (_) => _onQueryChanged(),
                       onBack: () => Navigator.of(context).pop(),
                     ),
@@ -130,6 +137,8 @@ class _SearchScreenState extends State<SearchScreen> {
                                 _controller.selection = TextSelection.fromPosition(
                                   TextPosition(offset: s.length),
                                 );
+                                _focusNode.unfocus();
+                                SystemChannels.textInput.invokeMethod('TextInput.hide');
                                 setState(() {});
                               },
                               child: Padding(

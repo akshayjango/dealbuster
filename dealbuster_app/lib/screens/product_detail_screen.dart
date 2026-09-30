@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
@@ -23,6 +24,8 @@ const _kSheetHeightFactor = 0.83;
 /// slide-animated content as the sheet and visibly slid down with it on
 /// dismiss instead of just disappearing.
 void showProductDetailSheet(BuildContext context, Product product) {
+  FocusManager.instance.primaryFocus?.unfocus();
+  SystemChannels.textInput.invokeMethod('TextInput.hide');
   showGeneralDialog(
     context: context,
     barrierDismissible: false,
