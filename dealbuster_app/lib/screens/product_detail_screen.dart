@@ -33,63 +33,68 @@ void showProductDetailSheet(BuildContext context, Product product) {
     // transition here or it'd fade the whole thing a second time.
     transitionBuilder: (context, animation, secondaryAnimation, child) => child,
     pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      final sheetHeight =
-          MediaQuery.of(dialogContext).size.height * _kSheetHeightFactor;
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: animation,
-              builder: (context, child) {
-                final progress = animation.value;
-                if (progress <= 0.001) return const SizedBox.shrink();
-                return GestureDetector(
-                  onTap: () => Navigator.of(dialogContext).pop(),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: progress * 16.0,
-                      sigmaY: progress * 16.0,
-                    ),
-                    child: Container(
-                      color: Colors.black.withValues(alpha: progress * 0.45),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Positioned.fill(
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 1),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: sheetHeight,
-                    child: ProductDetailScreen(product: product),
-                  ),
-                  Positioned(
-                    bottom: sheetHeight + 16,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: _SheetCloseButton(
-                        onTap: () => Navigator.of(dialogContext).pop(),
+      final mq = MediaQuery.of(dialogContext);
+      final stableHeight = mq.size.height + mq.viewInsets.bottom;
+      final sheetHeight = stableHeight * _kSheetHeightFactor;
+      return MediaQuery.removeViewInsets(
+        removeBottom: true,
+        context: dialogContext,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: animation,
+                builder: (context, child) {
+                  final progress = animation.value;
+                  if (progress <= 0.001) return const SizedBox.shrink();
+                  return GestureDetector(
+                    onTap: () => Navigator.of(dialogContext).pop(),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: progress * 16.0,
+                        sigmaY: progress * 16.0,
+                      ),
+                      child: Container(
+                        color: Colors.black.withValues(alpha: progress * 0.45),
                       ),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
-          ),
-        ],
+            Positioned.fill(
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: sheetHeight,
+                      child: ProductDetailScreen(product: product),
+                    ),
+                    Positioned(
+                      bottom: sheetHeight + 16,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _SheetCloseButton(
+                          onTap: () => Navigator.of(dialogContext).pop(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     },
   );
@@ -173,9 +178,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: DefaultTextStyle.merge(
         style: GoogleFonts.inter(),
         child: Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(

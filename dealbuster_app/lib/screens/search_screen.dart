@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/product.dart';
 import '../services/api_service.dart';
+import '../services/search_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/product_card.dart';
 import '../widgets/search_bar.dart';
@@ -27,10 +28,15 @@ class _SearchScreenState extends State<SearchScreen> {
   late List<Product> _all;
   bool _loading = false;
 
+  String _lastQuery = '';
+  List<Product> _cachedResults = [];
+  List<String> _cachedSuggestions = [];
+
   @override
   void initState() {
     super.initState();
     _all = widget.initialProducts;
+    _controller.addListener(_onQueryChanged);
     if (_all.isEmpty) {
       _loading = true;
       _api.fetchProducts().then((products) {
@@ -38,21 +44,36 @@ class _SearchScreenState extends State<SearchScreen> {
         setState(() {
           _all = products;
           _loading = false;
+          _lastQuery = '';
+          _onQueryChanged();
         });
       });
+    } else {
+      _onQueryChanged();
     }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onQueryChanged);
     _controller.dispose();
     super.dispose();
   }
 
-  List<Product> get _results {
-    final query = _controller.text.trim().toLowerCase();
-    if (query.isEmpty) return [];
-    return _all.where((p) => p.title.toLowerCase().contains(query)).toList();
+  void _onQueryChanged() {
+    final query = _controller.text.trim();
+    if (query == _lastQuery) return;
+    _lastQuery = query;
+    if (query.isEmpty) {
+      _cachedResults = [];
+      _cachedSuggestions = [];
+    } else {
+      _cachedResults = SearchService.search(_all, query);
+      _cachedSuggestions = query.length >= 2
+          ? SearchService.getSuggestions(_all, query, limit: 6)
+          : [];
+    }
+    if (mounted) setState(() {});
   }
 
   void _openProduct(Product product) {
@@ -63,22 +84,85 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final query = _controller.text.trim();
-    final results = _results;
+    final results = _cachedResults;
+    final suggestions = _cachedSuggestions;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppSpace.md, AppSpace.sm, AppSpace.md, AppSpace.sm),
-              child: DealSearchBar(
-                editable: true,
-                autofocus: true,
-                controller: _controller,
-                onChanged: (_) => setState(() {}),
-                onBack: () => Navigator.of(context).pop(),
+            Container(
+              color: AppColors.bg,
+              padding: const EdgeInsets.only(top: 10, bottom: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+                    child: DealSearchBar(
+                      editable: true,
+                      autofocus: true,
+                      controller: _controller,
+                      onChanged: (_) => _onQueryChanged(),
+                      onBack: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  if (suggestions.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 36,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: suggestions.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, i) {
+                          final s = suggestions[i];
+                          return Material(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(10),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () {
+                                _controller.text = s;
+                                _controller.selection = TextSelection.fromPosition(
+                                  TextPosition(offset: s.length),
+                                );
+                                setState(() {});
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 11),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.search_rounded,
+                                      size: 16,
+                                      color: Color(0xFF555B62),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      s,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF2D3135),
+                                        letterSpacing: -0.1,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Expanded(
@@ -93,9 +177,11 @@ class _SearchScreenState extends State<SearchScreen> {
                       : results.isEmpty
                           ? _NoResults(query: query)
                           : GridView.builder(
+                              keyboardDismissBehavior:
+                                  ScrollViewKeyboardDismissBehavior.onDrag,
                               padding: const EdgeInsets.fromLTRB(
                                 AppSpace.md,
-                                0,
+                                10,
                                 AppSpace.md,
                                 AppSpace.xl,
                               ),
