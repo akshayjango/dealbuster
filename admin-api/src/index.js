@@ -1377,7 +1377,7 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
     const mrpStr = '₹' + mrp.toLocaleString('en-IN');
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
     const baseLink = `https://www.amazon.in/dp/${asin}`;
-    const link = hasUptoOffInTitle(deal.title) ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
+    const link = `${baseLink}?tag=${TAG}`;
 
     const category = detectCategoryFromTitle(deal.title);
     const highlights = [];
@@ -2282,7 +2282,8 @@ function extractAsin(str) {
     if (isValidAsin(cand)) return cand;
   }
 
-  if (/(?:amazon|amzn)/i.test(str)) {
+  // Only check generic matches if str is a short URL string (not raw HTML body)
+  if (str.length < 500 && /(?:amazon|amzn)/i.test(str)) {
     const genericMatches = str.matchAll(/\/([A-Z0-9]{10})(?:\/|\?|#|$)/gi);
     for (const m of genericMatches) {
       const cand = (m[1] || '').toUpperCase();
@@ -2291,6 +2292,21 @@ function extractAsin(str) {
   }
 
   return null;
+}
+
+function tagAmazonUrl(rawUrl, tag = 'dealbuster002-21') {
+  if (!rawUrl || typeof rawUrl !== 'string') return rawUrl;
+  try {
+    const u = new URL(rawUrl);
+    u.searchParams.set('tag', tag);
+    return u.toString();
+  } catch (e) {
+    if (/[?&]tag=[^&]*/i.test(rawUrl)) {
+      return rawUrl.replace(/([?&]tag=)[^&]*/i, `$1${tag}`);
+    }
+    const sep = rawUrl.includes('?') ? '&' : '?';
+    return `${rawUrl}${sep}tag=${tag}`;
+  }
 }
 
 async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
@@ -2407,12 +2423,9 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         }, 15000, env);
         
         const loc = redManual ? (redManual.headers.get('location') || '') : '';
-        const bodyTextManual = redManual ? await redManual.text().catch(() => '') : '';
-
-        // 2. Extract ASIN or target URL from location header or body text
-        const searchStr = loc + ' ' + bodyTextManual;
-        asin = extractAsin(searchStr) || '';
         targetUrl = loc;
+        // Extract ASIN strictly from the URL location (never from HTML body, which causes bogus ASIN tokens)
+        asin = extractAsin(loc) || '';
 
         if (!asin && (!targetUrl || targetUrl.includes('indiafreestuff.in'))) {
           // 3. Follow redirect to final target URL
@@ -2420,9 +2433,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
             headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
           }, 15000, env);
           const finalUrl = redFollow ? (redFollow.url || '') : '';
-          const finalBody = redFollow ? await redFollow.text().catch(() => '') : '';
-          const finalSearch = finalUrl + ' ' + finalBody.slice(0, 10000);
-          asin = extractAsin(finalSearch) || '';
+          asin = extractAsin(finalUrl) || '';
           targetUrl = finalUrl;
         }
         if (dbg.length < 8) dbg.push(asin ? `amz:${asin}` : (targetUrl ? 'non-amz' : `miss:${redManual ? redManual.status : 'err'}`));
@@ -2435,7 +2446,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   }
 
   for (const item of resolved) {
-    const { asin, title, image, price, mrp } = item;
+    const { asin, targetUrl, title, image, price, mrp } = item;
 
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
     const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
@@ -2443,16 +2454,23 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
     const category = detectCategoryFromTitle(title);
 
-    if (asin) {
-      // Amazon deal only
-      if (deletedSet.has(asin) || existingByAsin.has(asin)) continue;
-      const baseLink = `https://www.amazon.in/dp/${asin}`;
+    const isAmazon = (targetUrl && /(?:amazon\.[a-z.]+|amzn\.[a-z.]+)/i.test(targetUrl)) || !!asin;
+    if (isAmazon) {
+      if (asin && (deletedSet.has(asin) || existingByAsin.has(asin))) continue;
+
       const isUpto = hasUptoOffInTitle(title);
-      const link = isUpto ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
+      const isPromoLanding = targetUrl && (targetUrl.includes('/amazonprime') || targetUrl.includes('/promotion/') || targetUrl.includes('/b?') || targetUrl.includes('/s?') || targetUrl.includes('/gp/goldbox'));
+
+      // If it's a specific product ASIN and not a promo/landing page, use standard dp link:
+      // Otherwise preserve the target promotional/category URL and tag with our partner tag:
+      const link = (asin && !isUpto && !isPromoLanding)
+        ? `https://www.amazon.in/dp/${asin}?tag=${TAG}`
+        : tagAmazonUrl(targetUrl || `https://www.amazon.in/dp/${asin}`, TAG);
 
       added.push({
         id: `ifs_${Date.now()}_${added.length}`,
-        asin, title, price: priceStr, mrp: mrpStr, disc: discStr,
+        asin: isPromoLanding ? '' : (asin || ''),
+        title, price: priceStr, mrp: mrpStr, disc: discStr,
         image, link, category, highlights: ['Great deal on Amazon'],
         lowestPriceText: null, featured: false,
         hidden: isUpto ? true : false,
@@ -2603,7 +2621,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
     const baseLink = `https://www.amazon.in/dp/${asin}`;
     const isUpto = hasUptoOffInTitle(finalTitle);
-    const link = isUpto ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
+    const link = `${baseLink}?tag=${TAG}`;
     const category = detectCategoryFromTitle(finalTitle);
 
     added.push({
@@ -2765,7 +2783,7 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
     const baseLink = `https://www.amazon.in/dp/${asin}`;
     const isUpto = hasUptoOffInTitle(finalTitle);
-    const link = isUpto ? buildManualCueLink(baseLink, env) : `${baseLink}?tag=${TAG}`;
+    const link = `${baseLink}?tag=${TAG}`;
     const category = detectCategoryFromTitle(finalTitle) || rawCat || 'Other';
 
     if (existingByAsin.has(asin)) {
@@ -3270,7 +3288,7 @@ async function checkAmazonDeals(env) {
       newAlerts.push({
         id: `amzdeal_${asin}_${Date.now()}`,
         asin, title, price, image, badge,
-        link: hasUptoOffInTitle(title) ? buildManualCueLink(`https://www.amazon.in/dp/${asin}`, env) : `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
+        link: `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
         detectedAt: new Date().toISOString(),
       });
     } catch (e) {
@@ -3422,7 +3440,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
         price: '₹' + price.toLocaleString('en-IN'),
         mrp: '₹' + mrp.toLocaleString('en-IN'),
         disc: discNum > 0 ? `-${discNum}%` : '0%',
-        image, link: isUpto ? buildManualCueLink(`https://www.amazon.in/dp/${asin}`, env) : `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
+        image, link: `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
         category, highlights: highlights.length ? highlights : ['Great deal on Amazon'],
         lowestPriceText: null, featured: false,
         hidden: isUpto ? true : false,
