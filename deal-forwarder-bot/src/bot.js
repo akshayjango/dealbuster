@@ -328,13 +328,16 @@ async function main() {
           try {
             await client.sendMessage(targetPeer, {
               ...sendOptions,
-              parseMode: 'md',
+              parseMode: 'html',
             });
           } catch (err) {
-            console.log(`   ℹ️ Note: Send failed (${err.message}), retrying as plain text without media...`);
+            console.log(`   ℹ️ Note: HTML send failed (${err.message}), retrying as plain text without media...`);
             try {
+              const plainText = item.text
+                .replace(/<a\s+href="([^"]+)">👉\s*Check Now<\/a>/gi, '$1')
+                .replace(/<[^>]+>/g, '');
               await client.sendMessage(targetPeer, {
-                message: item.text,
+                message: plainText,
                 linkPreview: false,
               });
             } catch (err2) {

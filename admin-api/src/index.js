@@ -3636,7 +3636,8 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
   const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-  return detailsBlock ? `${title}\n${detailsBlock}\n\n👉 ${link}` : `${title}\n\n👉 ${link}`;
+  const linkHtml = link.length > 75 ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
+  return detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
 }
 
 // Plain-text caption for pasting into the Facebook deals group. No HTML/markdown
@@ -4908,7 +4909,8 @@ async function handleTelegramWebhook(request, env) {
       const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
       const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
       const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-      const channelMsg = detailsBlock ? `${title}\n${detailsBlock}\n\n👉 ${userLink}` : `${title}\n\n👉 ${userLink}`;
+      const linkHtml = userLink.length > 75 ? `<a href="${escHtml(userLink)}">👉 Check Now</a>` : `👉 ${userLink}`;
+      const channelMsg = detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
 
       const photo = product.image || (msg.reply_to_message.photo ? msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id : null);
 
@@ -5301,7 +5303,7 @@ async function handleTelegramWebhook(request, env) {
   // hyperlink. Absorb an immediately-adjacent pointer/bag emoji into the span
   // so it gets removed along with the anchor text, instead of doubling up next
   // to our own "👉 Check Now" button.
-  const DECOR_BEFORE = ['👉', '👆', '☝️'];
+  const DECOR_BEFORE = ['👉', '👆', '☝️', '🔗', '👇'];
   const DECOR_AFTER = ['🛍️', '🛒', '🛍'];
   linkSpans = linkSpans.map(span => {
     if (!span.isTextLink) return span;

@@ -398,6 +398,14 @@ export async function convertDealUrl(rawUrl, options = {}) {
   };
 }
 
+export function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 /**
  * Formats a DealsPing post into DealBuster's standard channel style:
  *
@@ -408,7 +416,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
  * 🏷️ Coupon: ...
  * 🏦 Bank Offer: ...
  *
- * 👉 https://...
+ * 👉 Check Now (or 👉 https://...)
  */
 export function formatDealsPingPost(text, affLink) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -447,14 +455,17 @@ export function formatDealsPingPost(text, affLink) {
   // Only use if we extracted title and dealPrice
   if (title && dealPrice) {
     const out = [];
-    out.push(title);
-    out.push(`✅Deal Price: ${dealPrice}`);
-    if (mrp) out.push(`❌MRP: ${mrp}`);
-    if (discount) out.push(`Discount: ${discount}`);
-    if (coupon) out.push(`🏷️ ${coupon}`);
-    if (bankOffer) out.push(`🏦 ${bankOffer}`);
+    out.push(escHtml(title));
+    out.push(`✅Deal Price: ${escHtml(dealPrice)}`);
+    if (mrp) out.push(`❌MRP: ${escHtml(mrp)}`);
+    if (discount) out.push(`Discount: ${escHtml(discount)}`);
+    if (coupon) out.push(`🏷️ ${escHtml(coupon)}`);
+    if (bankOffer) out.push(`🏦 ${escHtml(bankOffer)}`);
     out.push('');
-    out.push(`👉 ${affLink}`);
+    const linkBtn = (affLink && affLink.length > 75)
+      ? `<a href="${escHtml(affLink)}">👉 Check Now</a>`
+      : `👉 ${escHtml(affLink)}`;
+    out.push(linkBtn);
     return out.join('\n');
   }
 
@@ -465,6 +476,7 @@ export function formatDealsPingPost(text, affLink) {
  * Clean and rebrand message text:
  * - Replace all original URLs with converted affiliate URLs
  * - Strip competitor usernames and channel joins
+ * - Embed links that take >4 lines into "👉 Check Now" buttons
  * - Format into DealBuster channel style
  */
 export async function processMessageText(text, options = {}) {
@@ -484,8 +496,6 @@ export async function processMessageText(text, options = {}) {
   for (const rawUrl of urls) {
     const result = await convertDealUrl(rawUrl, options);
     convertedLinks.push(result);
-    // Replace URL in text
-    processed = processed.split(rawUrl).join(result.convertedUrl);
   }
 
   // Check if this post is from DealsPing (or matches ⚡ and 💰 price structure)
@@ -495,47 +505,84 @@ export async function processMessageText(text, options = {}) {
     if (formatted) {
       processed = formatted;
     }
-  }
+  } else {
+    // Standard forwarded deal post
+    // Replace raw URLs with converted affiliate URLs, embedding links that wrap > 4 lines (length > 75) into "👉 Check Now" buttons
+    const placeholders = [];
+    convertedLinks.forEach((l, idx) => {
+      const rawUrl = l.originalUrl;
+      const affUrl = l.convertedUrl;
+      const isLongLink = Boolean(affUrl && affUrl.length > 75);
+      const placeholder = `%%DBLINK${idx}%%`;
 
-  if (removeCompetitorMentions) {
-    const safeChannelName = myChannel.replace(/^@/, '');
-    const channelRegex = new RegExp(`https?:\\/\\/(?:t\\.me|telegram\\.me)\\/(?!${safeChannelName}\\b)[a-zA-Z0-9_+/]+`, 'gi');
-    const mentionRegex = new RegExp(`(^|\\s)@(?!${safeChannelName}\\b)[a-zA-Z0-9_]+`, 'gi');
-
-    // 1. Remove competitor Telegram channel links
-    processed = processed.replace(channelRegex, '');
-
-    // 2. Remove competitor mentions
-    processed = processed.replace(mentionRegex, '$1');
-
-    // 3. Remove hashtags (e.g. #Beauty, #Amazon, #Home)
-    processed = processed.replace(/(^|\s)#[a-zA-Z0-9_]+/g, '');
-
-    // 4. Remove promotional lines & channel signoffs
-    const lines = processed.split('\n');
-    const cleanedLines = lines.filter(line => {
-      const l = line.toLowerCase().trim();
-      if (!l) return true; // keep spacing
-      if (/(?:join|subscribe|follow).*?(?:channel|group|telegram|loot|whatsapp|deals?|more|fast)/i.test(l)) {
-        return false;
+      // If the link is long and preceded by a decorative hand/link emoji (e.g. 🔗, 👉, 👇, 🛍️),
+      // absorb that emoji into the placeholder so we don't end up with "🔗 👉 Check Now"
+      const urlIndex = processed.indexOf(rawUrl);
+      if (isLongLink && urlIndex > 0) {
+        const prefix = processed.slice(Math.max(0, urlIndex - 6), urlIndex);
+        const decorMatch = prefix.match(/(?:🔗|👉|👇|☝️|👆|🛍️|🛒)\s*$/);
+        if (decorMatch) {
+          processed = processed.slice(0, urlIndex - decorMatch[0].length) + placeholder + processed.slice(urlIndex + rawUrl.length);
+          placeholders.push({ placeholder, affUrl, isLongLink });
+          return;
+        }
       }
-      if (/shared via|posted by|credit:|credits:|forwarded from/i.test(l)) {
-        return false;
-      }
-      // Remove lines that are now empty or just whitespace/punctuation
-      if (/^[\s.,!?:;*~_-]+$/.test(l)) {
-        return false;
-      }
-      return true;
+
+      processed = processed.split(rawUrl).join(placeholder);
+      placeholders.push({ placeholder, affUrl, isLongLink });
     });
 
-    processed = cleanedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (removeCompetitorMentions) {
+      const safeChannelName = myChannel.replace(/^@/, '');
+      const channelRegex = new RegExp(`https?:\\/\\/(?:t\\.me|telegram\\.me)\\/(?!${safeChannelName}\\b)[a-zA-Z0-9_+/]+`, 'gi');
+      const mentionRegex = new RegExp(`(^|\\s)@(?!${safeChannelName}\\b)[a-zA-Z0-9_]+`, 'gi');
+
+      // 1. Remove competitor Telegram channel links
+      processed = processed.replace(channelRegex, '');
+
+      // 2. Remove competitor mentions
+      processed = processed.replace(mentionRegex, '$1');
+
+      // 3. Remove hashtags (e.g. #Beauty, #Amazon, #Home)
+      processed = processed.replace(/(^|\s)#[a-zA-Z0-9_]+/g, '');
+
+      // 4. Remove promotional lines & channel signoffs
+      const lines = processed.split('\n');
+      const cleanedLines = lines.filter(line => {
+        const l = line.toLowerCase().trim();
+        if (!l) return true; // keep spacing
+        if (/(?:join|subscribe|follow).*?(?:channel|group|telegram|loot|whatsapp|deals?|more|fast)/i.test(l)) {
+          return false;
+        }
+        if (/shared via|posted by|credit:|credits:|forwarded from/i.test(l)) {
+          return false;
+        }
+        // Remove lines that are now empty or just whitespace/punctuation
+        if (/^[\s.,!?:;*~_-]+$/.test(l)) {
+          return false;
+        }
+        return true;
+      });
+
+      processed = cleanedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    // Escape HTML in the surrounding message text so special chars don't break Telegram HTML parser
+    processed = escHtml(processed);
+
+    // Replace placeholders with clean HTML
+    placeholders.forEach(({ placeholder, affUrl, isLongLink }) => {
+      const rendered = isLongLink
+        ? `<a href="${escHtml(affUrl)}">👉 Check Now</a>`
+        : escHtml(affUrl);
+      processed = processed.split(placeholder).join(rendered);
+    });
   }
 
   // Trim trailing whitespace and append our custom footer if provided
   processed = processed.trim();
   if (footer && footer.trim()) {
-    processed += `\n\n${footer.trim()}`;
+    processed += `\n\n${escHtml(footer.trim())}`;
   }
 
   return {

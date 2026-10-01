@@ -32,6 +32,14 @@ async function runTests() {
       name: 'Case 7: DealsPing Puma shoes Amazon deal (MUST CONVERT DIRECTLY TO AMAZON WITH TAG, NEVER DEALSPING)',
       text: '⚡PUMA | Reeping XT 2 Mens Training Shoes | Peacoat-Faded Denim | 8UK\n💰₹1,085 (75% OFF) 🔻MRP ₹4,299\n\n🛒https://dealsping.in/amz/2609281611',
     },
+    {
+      name: 'Case 8: Borosil Dinner Set with direct link + long Master search link (Master link must become 👉 Check Now)',
+      text: 'BOROSIL Dinner Set, 44 Pcs @ 2,897.\n\nhttps://www.amazon.in/dp/B07W8Y848L\n\nMaster https://www.amazon.in/s?rh=n%3A26953504031%2Cp_6%3AAXOGFIT0PZZ7G%2Cp_4%3Alarah%2Bby%2BBOROSIL%2Cp_n_pct-off-with-tax%3A45-&s=price-asc-rank&btn_type=ss&btn_ref=srctok-38582af3e9e789c2',
+    },
+    {
+      name: 'Case 9: Wonderchef Kitchen Items with 🔗 and long search link (Must replace 🔗 and link with 👉 Check Now)',
+      text: '💥70-78% Off On Wonderchef Kitchen Items.\n\n🔗https://www.amazon.in/s?k=Wonderchef&i=kitchen&rh=n%3A976442031%2Cp_123%3A313455%2Cp_6%3AAKWZD4S0TGH74%2Cp_n_pct-off-with-tax%3A27060457031&btn_ref=srctok-63fdd1b335d0b6b4&btn_type=ss&linkId=b4ca7daaf4d105bd6231158fc6cc5ef&ref_=as_li_ss_tl',
+    },
   ];
 
   for (const tc of testCases) {
