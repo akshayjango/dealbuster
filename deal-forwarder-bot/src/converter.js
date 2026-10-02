@@ -330,23 +330,11 @@ export async function convertDealUrl(rawUrl, options = {}) {
     try {
       const u = new URL(resolved);
       if (/amazon\.(?:in|com)/i.test(u.hostname)) {
-        // Strip competitor affiliate and tracking parameters
-        [
-          'linkId', 'ascsubtag', 'ref_', 'btn_ref', 'btn_type',
-          'language', 'camp', 'creative', 'creativeASIN'
-        ].forEach(p => u.searchParams.delete(p));
-        const refVal = u.searchParams.get('ref');
-        if (refVal && /as_li_/i.test(refVal)) {
-          u.searchParams.delete('ref');
-        }
         u.searchParams.set('tag', amazonTag);
-
-        // Replace + with %20 in query parameters for RFC-3986 encoding
-        const finalUrl = u.toString().replace(/\+/g, '%20');
         return {
           originalUrl: rawUrl,
           resolvedUrl: resolved,
-          convertedUrl: finalUrl,
+          convertedUrl: u.href,
           store: 'amazon',
           id: null
         };
@@ -474,10 +462,9 @@ export function formatDealsPingPost(text, affLink) {
     if (coupon) out.push(`🏷️ ${escHtml(coupon)}`);
     if (bankOffer) out.push(`🏦 ${escHtml(bankOffer)}`);
     out.push('');
-    const safeAffLink = (affLink || '').replace(/\+/g, '%20');
-    const linkBtn = (safeAffLink && (safeAffLink.length > 60 || /\/s\?|\/b\?|\/gp\/browse/i.test(safeAffLink)))
-      ? `<a href="${escHtml(safeAffLink)}">👉 Check Now</a>`
-      : `👉 ${escHtml(safeAffLink)}`;
+    const linkBtn = (affLink && (affLink.length > 60 || /\/s\?|\/b\?|\/gp\/browse/i.test(affLink)))
+      ? `<a href="${escHtml(affLink)}">👉 Check Now</a>`
+      : `👉 ${escHtml(affLink)}`;
     out.push(linkBtn);
     return out.join('\n');
   }
@@ -585,10 +572,9 @@ export async function processMessageText(text, options = {}) {
 
     // Replace placeholders with clean HTML
     placeholders.forEach(({ placeholder, affUrl, isLongLink }) => {
-      const safeAffUrl = (affUrl || '').replace(/\+/g, '%20');
       const rendered = isLongLink
-        ? `<a href="${escHtml(safeAffUrl)}">👉 Check Now</a>`
-        : escHtml(safeAffUrl);
+        ? `<a href="${escHtml(affUrl)}">👉 Check Now</a>`
+        : escHtml(affUrl);
       processed = processed.split(placeholder).join(rendered);
     });
   }
