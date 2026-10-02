@@ -462,7 +462,8 @@ export function formatDealsPingPost(text, affLink) {
     if (coupon) out.push(`🏷️ ${escHtml(coupon)}`);
     if (bankOffer) out.push(`🏦 ${escHtml(bankOffer)}`);
     out.push('');
-    const linkBtn = (affLink && (affLink.length > 60 || /\/s\?|\/b\?|\/gp\/browse/i.test(affLink)))
+    const isAmazon = isAmazonUrl(affLink);
+    const linkBtn = (isAmazon && affLink && (affLink.length > 60 || /\/s\?|\/b\?|\/gp\/browse/i.test(affLink)))
       ? `<a href="${escHtml(affLink)}">👉 Check Now</a>`
       : `👉 ${escHtml(affLink)}`;
     out.push(linkBtn);
@@ -512,7 +513,8 @@ export async function processMessageText(text, options = {}) {
     convertedLinks.forEach((l, idx) => {
       const rawUrl = l.originalUrl;
       const affUrl = l.convertedUrl;
-      const isLongLink = Boolean(affUrl && (affUrl.length > 60 || convertedLinks.length > 1 || /\/s\?|\/b\?|\/gp\/browse/i.test(affUrl)));
+      const isAmazon = (l.store === 'amazon') || isAmazonUrl(affUrl) || isAmazonUrl(rawUrl);
+      const isLongLink = isAmazon && Boolean(affUrl && (affUrl.length > 60 || convertedLinks.length > 1 || /\/s\?|\/b\?|\/gp\/browse/i.test(affUrl)));
       const placeholder = `%%DBLINK${idx}%%`;
 
       // If the link is long and preceded by a decorative hand/link emoji (e.g. 🔗, 👉, 👇, 🛍️),

@@ -3635,8 +3635,8 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const priceRow = price ? `✅Deal Price: <b>${escHtml(price)}</b>` : '';
   const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
-  const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-  const linkHtml = link.length > 75 ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
+  const isAmazon = product?.store === 'amazon' || /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(link);
+  const linkHtml = (isAmazon && link.length > 75) ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
   return detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
 }
 
@@ -4847,7 +4847,8 @@ async function handleTelegramWebhook(request, env) {
       if (links.length > 0) {
         links.forEach((l, idx) => {
           const affUrl = userUrls[idx] || userUrls[userUrls.length - 1];
-          const useButton = links.length > 1 || affUrl.length > 60;
+          const isAmazon = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(affUrl);
+          const useButton = isAmazon && (links.length > 1 || affUrl.length > 60);
           const rendered = useButton ? `<a href="${escHtml(affUrl)}">👉 Check Now</a>` : escHtml(affUrl);
           htmlText = htmlText.split(l.placeholder).join(rendered);
           if (l.originalUrl) {
@@ -4857,7 +4858,8 @@ async function handleTelegramWebhook(request, env) {
         });
       } else {
         const fallbackUrl = userUrls[0];
-        const btnHtml = `<a href="${escHtml(fallbackUrl)}">👉 Check Now</a>`;
+        const isAmazon = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(fallbackUrl);
+        const btnHtml = isAmazon ? `<a href="${escHtml(fallbackUrl)}">👉 Check Now</a>` : `👉 ${escHtml(fallbackUrl)}`;
         htmlText += `\n\n${btnHtml}`;
       }
 
@@ -4908,8 +4910,8 @@ async function handleTelegramWebhook(request, env) {
       const priceRow = price ? `✅Deal Price: <b>${escHtml(price)}</b>` : '';
       const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
       const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
-      const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-      const linkHtml = userLink.length > 75 ? `<a href="${escHtml(userLink)}">👉 Check Now</a>` : `👉 ${userLink}`;
+      const isAmazon = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(userLink);
+      const linkHtml = (isAmazon && userLink.length > 75) ? `<a href="${escHtml(userLink)}">👉 Check Now</a>` : `👉 ${userLink}`;
       const channelMsg = detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
 
       const photo = product.image || (msg.reply_to_message.photo ? msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id : null);
@@ -5433,7 +5435,8 @@ async function handleTelegramWebhook(request, env) {
       // button once it's long enough to wrap past ~3 lines on a phone screen;
       // short single links stay as plain text (Telegram auto-links them anyway).
       links.forEach(({ placeholder, affiliateLink }) => {
-        const useButton = resolved > 1 || affiliateLink.length > 60;
+        const isAmazon = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(affiliateLink);
+        const useButton = isAmazon && (resolved > 1 || affiliateLink.length > 60);
         const rendered = useButton
           ? `<a href="${escHtml(affiliateLink)}">👉 Check Now</a>`
           : escHtml(affiliateLink);
