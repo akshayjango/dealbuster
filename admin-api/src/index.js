@@ -3639,6 +3639,7 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const priceRow = price ? `✅Deal Price: <b>${escHtml(price)}</b>` : '';
   const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
+  const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
   const isAmazon = product?.store === 'amazon' || /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(link);
   const linkHtml = (isAmazon && link.length > 75) ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
   return detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
@@ -4914,6 +4915,7 @@ async function handleTelegramWebhook(request, env) {
       const priceRow = price ? `✅Deal Price: <b>${escHtml(price)}</b>` : '';
       const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
       const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
+      const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
       const isAmazon = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(userLink);
       const linkHtml = (isAmazon && userLink.length > 75) ? `<a href="${escHtml(userLink)}">👉 Check Now</a>` : `👉 ${userLink}`;
       const channelMsg = detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
@@ -5696,6 +5698,32 @@ export default {
       if (!Array.isArray(keys)) return json({ error: 'keys must be an array' }, 400);
       const r = await pendingApprovalsDO(env, '/posted/check', { keys: keys.slice(0, 4000) });
       return json({ posted: r.posted });
+    }
+
+    if (url0.pathname === '/tg-posted/unclaim' && request.method === 'POST') {
+      const { keys } = await request.json().catch(() => ({}));
+      if (!Array.isArray(keys) || !keys.length) return json({ error: 'keys must be a non-empty array' }, 400);
+      try {
+        await pendingApprovalsDO(env, '/posted/clear', { keys });
+      } catch (e) {
+        console.error('DO /posted/clear failed:', e.message);
+      }
+      try {
+        const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
+        let timesMap = {};
+        try { timesMap = JSON.parse(await env.KV.get('tg_posted_times') || '{}'); } catch {}
+        let changedIds = false;
+        let changedTimes = false;
+        for (const k of keys) {
+          if (ids.delete(k)) changedIds = true;
+          if (timesMap[k]) { delete timesMap[k]; changedTimes = true; }
+        }
+        if (changedIds) await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids)));
+        if (changedTimes) await env.KV.put('tg_posted_times', JSON.stringify(timesMap));
+      } catch (e) {
+        console.error('KV mirror unclaim failed:', e.message);
+      }
+      return json({ ok: true, cleared: keys.length });
     }
 
     const password = request.headers.get('X-Admin-Password');
