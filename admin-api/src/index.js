@@ -2298,8 +2298,13 @@ function tagAmazonUrl(rawUrl, tag = 'dealbuster002-21') {
   if (!rawUrl || typeof rawUrl !== 'string') return rawUrl;
   try {
     const u = new URL(rawUrl);
+    ['linkId', 'ascsubtag', 'ref_', 'btn_ref', 'btn_type', 'language', 'camp', 'creative', 'creativeASIN'].forEach(p => u.searchParams.delete(p));
+    const refVal = u.searchParams.get('ref');
+    if (refVal && /as_li_/i.test(refVal)) {
+      u.searchParams.delete('ref');
+    }
     u.searchParams.set('tag', tag);
-    return u.toString();
+    return u.toString().replace(/\+/g, '%20');
   } catch (e) {
     if (/[?&]tag=[^&]*/i.test(rawUrl)) {
       return rawUrl.replace(/([?&]tag=)[^&]*/i, `$1${tag}`);
@@ -5364,13 +5369,7 @@ async function handleTelegramWebhook(request, env) {
           if (asinM) {
             affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
           } else if (finalUrl.includes('amazon.') || finalUrl.includes('amzn.') || finalUrl.includes('link.amazon') || finalUrl.includes('a.co')) {
-            try {
-              const u = new URL(finalUrl);
-              u.searchParams.set('tag', TAG);
-              affiliateLink = u.toString();
-            } catch (e) {
-              affiliateLink = buildManualCueLink(finalUrl, env);
-            }
+            affiliateLink = tagAmazonUrl(finalUrl, TAG);
           } else {
             affiliateLink = buildManualCueLink(finalUrl, env);
           }

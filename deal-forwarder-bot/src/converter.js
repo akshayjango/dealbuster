@@ -111,7 +111,7 @@ export async function resolveUrl(url, maxHops = 4) {
  */
 export function isAmazonUrl(url) {
   if (!url) return false;
-  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.to|link\.amazon|a\.co)(?:[/?#]|$)/i.test(url);
+  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co)(?:[/?#]|$)/i.test(url);
 }
 
 /**
@@ -330,11 +330,23 @@ export async function convertDealUrl(rawUrl, options = {}) {
     try {
       const u = new URL(resolved);
       if (/amazon\.(?:in|com)/i.test(u.hostname)) {
+        // Strip competitor affiliate and tracking parameters
+        [
+          'linkId', 'ascsubtag', 'ref_', 'btn_ref', 'btn_type',
+          'language', 'camp', 'creative', 'creativeASIN'
+        ].forEach(p => u.searchParams.delete(p));
+        const refVal = u.searchParams.get('ref');
+        if (refVal && /as_li_/i.test(refVal)) {
+          u.searchParams.delete('ref');
+        }
         u.searchParams.set('tag', amazonTag);
+
+        // Replace + with %20 in query parameters for RFC-3986 encoding
+        const finalUrl = u.toString().replace(/\+/g, '%20');
         return {
           originalUrl: rawUrl,
           resolvedUrl: resolved,
-          convertedUrl: u.href,
+          convertedUrl: finalUrl,
           store: 'amazon',
           id: null
         };
@@ -462,9 +474,10 @@ export function formatDealsPingPost(text, affLink) {
     if (coupon) out.push(`🏷️ ${escHtml(coupon)}`);
     if (bankOffer) out.push(`🏦 ${escHtml(bankOffer)}`);
     out.push('');
-    const linkBtn = (affLink && affLink.length > 75)
-      ? `<a href="${escHtml(affLink)}">👉 Check Now</a>`
-      : `👉 ${escHtml(affLink)}`;
+    const safeAffLink = (affLink || '').replace(/\+/g, '%20');
+    const linkBtn = (safeAffLink && (safeAffLink.length > 60 || /\/s\?|\/b\?|\/gp\/browse/i.test(safeAffLink)))
+      ? `<a href="${escHtml(safeAffLink)}">👉 Check Now</a>`
+      : `👉 ${escHtml(safeAffLink)}`;
     out.push(linkBtn);
     return out.join('\n');
   }
@@ -512,7 +525,7 @@ export async function processMessageText(text, options = {}) {
     convertedLinks.forEach((l, idx) => {
       const rawUrl = l.originalUrl;
       const affUrl = l.convertedUrl;
-      const isLongLink = Boolean(affUrl && affUrl.length > 75);
+      const isLongLink = Boolean(affUrl && (affUrl.length > 60 || convertedLinks.length > 1 || /\/s\?|\/b\?|\/gp\/browse/i.test(affUrl)));
       const placeholder = `%%DBLINK${idx}%%`;
 
       // If the link is long and preceded by a decorative hand/link emoji (e.g. 🔗, 👉, 👇, 🛍️),
@@ -572,9 +585,10 @@ export async function processMessageText(text, options = {}) {
 
     // Replace placeholders with clean HTML
     placeholders.forEach(({ placeholder, affUrl, isLongLink }) => {
+      const safeAffUrl = (affUrl || '').replace(/\+/g, '%20');
       const rendered = isLongLink
-        ? `<a href="${escHtml(affUrl)}">👉 Check Now</a>`
-        : escHtml(affUrl);
+        ? `<a href="${escHtml(safeAffUrl)}">👉 Check Now</a>`
+        : escHtml(safeAffUrl);
       processed = processed.split(placeholder).join(rendered);
     });
   }

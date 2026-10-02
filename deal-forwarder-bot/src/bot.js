@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import { NewMessage } from 'telegram/events/index.js';
+import { HTMLParser } from 'telegram/extensions/html.js';
 import dotenv from 'dotenv';
 import { processMessageText, isAmazonUptoDeal, extractAmazonAsin, extractUrls } from './converter.js';
 
@@ -319,19 +320,27 @@ async function main() {
             item.convertedLinks.forEach(l => console.log(`   🔗 [${l.store}] ${l.convertedUrl}`));
           }
 
+          let messageToSend = item.text;
+          let entitiesToSend = undefined;
+          try {
+            const [parsedText, parsedEntities] = HTMLParser.parse(item.text);
+            messageToSend = parsedText;
+            entitiesToSend = parsedEntities;
+          } catch (pErr) {
+            console.warn('⚠️ HTML parsing fallback:', pErr.message);
+          }
+
           const sendOptions = {
-            message: item.text,
+            message: messageToSend,
+            formattingEntities: entitiesToSend,
             file: item.media || undefined,
             linkPreview: false,
           };
 
           try {
-            await client.sendMessage(targetPeer, {
-              ...sendOptions,
-              parseMode: 'html',
-            });
+            await client.sendMessage(targetPeer, sendOptions);
           } catch (err) {
-            console.log(`   ℹ️ Note: HTML send failed (${err.message}), retrying as plain text without media...`);
+            console.log(`   ℹ️ Note: Formatted send failed (${err.message}), retrying as plain text without media...`);
             try {
               const plainText = item.text
                 .replace(/<a\s+href="([^"]+)">👉\s*Check Now<\/a>/gi, '$1')
