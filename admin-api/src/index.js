@@ -3579,18 +3579,22 @@ const TG_CHANNELS = ['@dealbusterindia'];
 const TG_ADMIN_ID = 715667303;
 
 async function tgSend(token, chatId, text, opts = {}) {
+  const isChannel = typeof chatId === 'string' && (chatId.startsWith('@') || chatId.startsWith('-100'));
+  const disableNotif = isChannel ? { disable_notification: true } : {};
   return fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, link_preview_options: { is_disabled: true }, ...opts }),
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, link_preview_options: { is_disabled: true }, ...disableNotif, ...opts }),
   });
 }
 
 async function tgSendPhoto(token, chatId, photo, caption, opts = {}) {
+  const isChannel = typeof chatId === 'string' && (chatId.startsWith('@') || chatId.startsWith('-100'));
+  const disableNotif = isChannel ? { disable_notification: true } : {};
   return fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, photo, caption, ...opts }),
+    body: JSON.stringify({ chat_id: chatId, photo, caption, ...disableNotif, ...opts }),
   });
 }
 
@@ -4868,13 +4872,13 @@ async function handleTelegramWebhook(request, env) {
           await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML' }),
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML', disable_notification: true }),
           });
         } else {
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
+            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_notification: true, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
           });
         }
       }
@@ -4921,20 +4925,20 @@ async function handleTelegramWebhook(request, env) {
           const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photo, caption: channelMsg, parse_mode: 'HTML' }),
+            body: JSON.stringify({ chat_id: ch, photo: photo, caption: channelMsg, parse_mode: 'HTML', disable_notification: true }),
           });
           if (!r.ok) {
             await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
+              body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_notification: true, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
             });
           }
         } else {
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
+            body: JSON.stringify({ chat_id: ch, text: channelMsg, parse_mode: 'HTML', disable_notification: true, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
           });
         }
       }
@@ -4988,7 +4992,7 @@ async function handleTelegramWebhook(request, env) {
           r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML' }),
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML', disable_notification: true }),
           });
         } else {
           r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -4998,6 +5002,7 @@ async function handleTelegramWebhook(request, env) {
               chat_id: ch,
               text: htmlText,
               parse_mode: 'HTML',
+              disable_notification: true,
               disable_web_page_preview: true,
               link_preview_options: { is_disabled: true },
             }),
@@ -5121,7 +5126,7 @@ async function handleTelegramWebhook(request, env) {
           r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: ekaroConverted })
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: ekaroConverted, disable_notification: true })
           });
           if (!r.ok) {
             r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -5130,6 +5135,7 @@ async function handleTelegramWebhook(request, env) {
               body: JSON.stringify({
                 chat_id: ch,
                 text: ekaroConverted,
+                disable_notification: true,
                 disable_web_page_preview: true,
                 link_preview_options: { is_disabled: true },
               })
@@ -5142,6 +5148,7 @@ async function handleTelegramWebhook(request, env) {
             body: JSON.stringify({
               chat_id: ch,
               text: ekaroConverted,
+              disable_notification: true,
               disable_web_page_preview: true,
               link_preview_options: { is_disabled: true },
             })
@@ -5448,13 +5455,13 @@ async function handleTelegramWebhook(request, env) {
           await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML' }),
+            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML', disable_notification: true }),
           });
         } else {
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
+            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_notification: true, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
           });
         }
       }

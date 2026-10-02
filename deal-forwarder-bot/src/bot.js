@@ -335,6 +335,7 @@ async function main() {
             formattingEntities: entitiesToSend,
             file: item.media || undefined,
             linkPreview: false,
+            silent: true,
           };
 
           try {
@@ -348,6 +349,7 @@ async function main() {
               await client.sendMessage(targetPeer, {
                 message: plainText,
                 linkPreview: false,
+                silent: true,
               });
             } catch (err2) {
               console.error('❌ Error sending queued deal as plain text:', err2.message);
