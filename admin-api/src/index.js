@@ -4654,13 +4654,16 @@ async function getUnpostedTgFresh(env, mode) {
   const cutoffMs = cutoff ? Date.parse(cutoff) : null;
 
   if (mode === 'enhanced') {
-    // 1) Find any new upto deals in the top candidates to prompt admin (never blocks normal deals)
+    // 1) Prompt admin for any new upto deals (never blocks normal channel deals)
     const uptoCandidates = products.filter(p => {
       if (!hasUptoOffInTitle(p.title) || p.outOfStock || isZeroPrice(p) || p.priceIncreased) return false;
       if (cutoffMs !== null && Date.parse(p.addedAt) < cutoffMs) return false;
       if (isRecentPost(p)) return false;
       return true;
     }).slice(0, 3);
+    if (uptoCandidates.length > 0) {
+      await promptAdminForUptoDeals(uptoCandidates, env).catch(e => console.error('Upto deal prompt failed:', e.message));
+    }
 
     // 2) Find the topmost qualifying normal deal for the channel
     const topCandidates = products.filter(p => {
@@ -4670,7 +4673,7 @@ async function getUnpostedTgFresh(env, mode) {
       return true;
     }).slice(0, 100);
 
-    const fresh = [...uptoCandidates];
+    const fresh = [];
     for (const p of topCandidates) {
       if (isRecentPost(p)) continue;
       if (!meetsAutoPostPlusCriteria(p)) continue;
