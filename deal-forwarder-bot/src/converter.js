@@ -9,7 +9,7 @@ const REDIRECT_DOMAINS = [
   'fktr.in', 'fkrt.co', 'fkrt.cc', 'ekaro.in', 'myntr.it',
   'ajiio.in', 'linkredirect.in', 'linksredirect.com', 'clnk.in',
   'mdeal.in', 'deals.dr', 'opnr.app', 'openinapp.co', 'openinapp.link',
-  'dealsping.in'
+  'dealsping.in', 'wishlink.com'
 ];
 
 /**
@@ -52,7 +52,7 @@ export async function resolveUrl(url, maxHops = 4) {
       if (dlMatch) {
         try {
           const decoded = decodeURIComponent(dlMatch[1]);
-          if (decoded.startsWith('http') || decoded.includes('amazon') || decoded.includes('flipkart') || decoded.includes('myntra') || decoded.includes('ajio')) {
+          if (decoded.startsWith('http') || decoded.includes('amazon') || decoded.includes('flipkart') || decoded.includes('myntra') || decoded.includes('ajio') || decoded.includes('shopsy') || decoded.includes('meesho')) {
             currentUrl = decoded;
             continue;
           }
@@ -227,7 +227,7 @@ export function isAmazonUptoDeal(text) {
          /\b\d+%\s*off\s*(?:from|onwards|starting)\b/i.test(text);
 }
 
-export const ALLOWED_STORES = ['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy'];
+export const ALLOWED_STORES = ['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy', 'meesho'];
 
 /**
  * Build CueLinks Affiliate URL (DealBuster pub_id 312552)
@@ -343,12 +343,13 @@ export async function convertDealUrl(rawUrl, options = {}) {
     return { originalUrl: rawUrl, resolvedUrl: resolved, convertedUrl: null, store: 'other', id: null };
   }
 
-  // 2. Non-Amazon store (Only Flipkart, Myntra, Ajio, Shopsy are allowed)
+  // 2. Non-Amazon store (Flipkart, Myntra, Ajio, Shopsy, Meesho are allowed)
   let store = 'other';
   if (/flipkart\.com|fktr\.in|fkrt\.co|fkrt\.cc/i.test(resolved)) store = 'flipkart';
   else if (/myntra\.com|myntr\.it/i.test(resolved)) store = 'myntra';
   else if (/ajio\.com|ajiio\.in/i.test(resolved)) store = 'ajio';
   else if (/shopsy\.in/i.test(resolved)) store = 'shopsy';
+  else if (/meesho\.com/i.test(resolved)) store = 'meesho';
 
   // If not one of our allowed stores, do not convert
   if (store === 'other') {
@@ -380,6 +381,9 @@ export async function convertDealUrl(rawUrl, options = {}) {
   } else if (store === 'ajio') {
     const ajioMatch = cleanUrl.match(/\/p\/([a-zA-Z0-9_]+)/i) || cleanUrl.match(/\/([0-9]{8,12})/i);
     if (ajioMatch) canonicalId = `ajio_${ajioMatch[1]}`;
+  } else if (store === 'meesho') {
+    const meeshoMatch = cleanUrl.match(/\/p\/([a-zA-Z0-9]+)/i);
+    if (meeshoMatch) canonicalId = `meesho_${meeshoMatch[1]}`;
   }
 
   // Convert via EarnKaro API

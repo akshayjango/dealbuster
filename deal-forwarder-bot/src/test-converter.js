@@ -40,6 +40,10 @@ async function runTests() {
       name: 'Case 9: Wonderchef Kitchen Items with 🔗 and long search link (Must replace 🔗 and link with 👉 Check Now)',
       text: '💥70-78% Off On Wonderchef Kitchen Items.\n\n🔗https://www.amazon.in/s?k=Wonderchef&i=kitchen&rh=n%3A976442031%2Cp_123%3A313455%2Cp_6%3AAKWZD4S0TGH74%2Cp_n_pct-off-with-tax%3A27060457031&btn_ref=srctok-63fdd1b335d0b6b4&btn_type=ss&linkId=b4ca7daaf4d105bd6231158fc6cc5ef&ref_=as_li_ss_tl',
     },
+    {
+      name: 'Case 10: Meesho Loot Deal (MUST BE FORWARDED)',
+      text: '💥 Meesho Kurti Loot at ₹149\nhttps://www.meesho.com/stylish-kurti/p/1op63p',
+    },
   ];
 
   for (const tc of testCases) {
@@ -52,10 +56,10 @@ async function runTests() {
       footer: '\n\n⚡ Join @dealbusterindia',
     });
 
-    const validDeals = result.convertedLinks.filter(l => ['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store));
+    const validDeals = result.convertedLinks.filter(l => ['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy', 'meesho'].includes(l.store));
 
     if (validDeals.length === 0) {
-      console.log('⏩ SKIPPED: No allowed stores found (only Amazon, Flipkart, Myntra, Ajio, Shopsy are allowed).');
+      console.log('⏩ SKIPPED: No allowed stores found (only Amazon, Flipkart, Myntra, Ajio, Shopsy, Meesho are allowed).');
       continue;
     }
 

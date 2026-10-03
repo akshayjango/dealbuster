@@ -509,9 +509,9 @@ async function main() {
 
       const result = await processMessageText(rawText, conversionOptions);
 
-      // Filter only allowed stores: amazon, flipkart, myntra, ajio, shopsy
+      // Filter only allowed stores: amazon, flipkart, myntra, ajio, shopsy, meesho
       const validDeals = result.convertedLinks.filter(l => {
-        if (!['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store)) return false;
+        if (!['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy', 'meesho'].includes(l.store)) return false;
         if (!l.convertedUrl || /dealsping\.in|t\.me|telegram\.me/i.test(l.convertedUrl)) return false;
 
         // Verify Amazon has our affiliate tag
