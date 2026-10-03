@@ -4001,8 +4001,14 @@ async function queueForApproval(products, env) {
   // sitting in products.json the whole time).
   try {
     const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
-    products.forEach(p => markPosted(p, ids));
+    const times = JSON.parse(await env.KV.get('tg_posted_times') || '{}');
+    products.forEach(p => {
+      markPosted(p, ids);
+      if (p.id) times[p.id] = now;
+      if (p.asin) times[p.asin.toUpperCase()] = now;
+    });
     await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
+    await env.KV.put('tg_posted_times', JSON.stringify(times));
   } catch (e) {
     console.error('KV mirror failed (advisory only):', e.message);
   }
@@ -4261,8 +4267,15 @@ async function promptAdminForUptoDeals(products, env) {
 
   try {
     const ids = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
-    products.forEach(p => markPosted(p, ids));
+    const times = JSON.parse(await env.KV.get('tg_posted_times') || '{}');
+    const now = Date.now();
+    products.forEach(p => {
+      markPosted(p, ids);
+      if (p.id) times[p.id] = now;
+      if (p.asin) times[p.asin.toUpperCase()] = now;
+    });
     await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
+    await env.KV.put('tg_posted_times', JSON.stringify(times));
   } catch (e) {
     console.error('KV mirror failed (advisory only):', e.message);
   }
@@ -4548,13 +4561,32 @@ export class TgPoster {
     }
 
     const toSend = [];
+    const alreadyPostedItems = [];
     for (const p of list) {
       if (force) { toSend.push(p); continue; }
       const found = await this.ctx.storage.get(this.keysFor(p));
       const isRecent = [...found.values()].some(val => isRecentlyPosted(val, now, TWO_DAYS_MS));
       if (!isRecent) toSend.push(p);
+      else alreadyPostedItems.push(p);
     }
-    if (!toSend.length) return 0;
+    if (!toSend.length) {
+      if (alreadyPostedItems.length) {
+        try {
+          const ids = new Set(JSON.parse(await this.env.KV.get('tg_posted_ids') || '[]'));
+          let timesMap = {};
+          try { timesMap = JSON.parse(await this.env.KV.get('tg_posted_times') || '{}'); } catch {}
+          let changed = false;
+          alreadyPostedItems.forEach(p => {
+            markPosted(p, ids);
+            if (p.id && !timesMap[p.id]) { timesMap[p.id] = now; changed = true; }
+            if (p.asin && !timesMap[p.asin.toUpperCase()]) { timesMap[p.asin.toUpperCase()] = now; changed = true; }
+          });
+          await this.env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
+          if (changed) await this.env.KV.put('tg_posted_times', JSON.stringify(timesMap));
+        } catch (e) {}
+      }
+      return 0;
+    }
 
     // In enhanced mode, post only 1 deal at a time (unless force)
     const batchToSend = (mode === 'enhanced' && !force) ? toSend.slice(0, 1) : toSend;
@@ -4607,6 +4639,7 @@ async function getUnpostedTgFresh(env, mode) {
   const postedIds = new Set(JSON.parse(await env.KV.get('tg_posted_ids') || '[]'));
 
   const isRecentPost = (p) => {
+    if (isAlreadyPosted(p, postedIds)) return true;
     const idTime = postedTimes[p.id];
     if (idTime && (now - idTime) < TWO_DAYS_MS) return true;
     if (p.asin && postedTimes[p.asin.toUpperCase()] && (now - postedTimes[p.asin.toUpperCase()]) < TWO_DAYS_MS) return true;
@@ -4621,16 +4654,23 @@ async function getUnpostedTgFresh(env, mode) {
   const cutoffMs = cutoff ? Date.parse(cutoff) : null;
 
   if (mode === 'enhanced') {
-    // Admin dashboard top deals (live, non-hidden, in-stock, valid price)
-    // products[] is already newest-first — top of dashboard is index 0.
+    // 1) Find any new upto deals in the top candidates to prompt admin (never blocks normal deals)
+    const uptoCandidates = products.filter(p => {
+      if (!hasUptoOffInTitle(p.title) || p.outOfStock || isZeroPrice(p) || p.priceIncreased) return false;
+      if (cutoffMs !== null && Date.parse(p.addedAt) < cutoffMs) return false;
+      if (isRecentPost(p)) return false;
+      return true;
+    }).slice(0, 3);
+
+    // 2) Find the topmost qualifying normal deal for the channel
     const topCandidates = products.filter(p => {
-      const isUpto = hasUptoOffInTitle(p.title);
-      if ((p.hidden && !isUpto) || p.outOfStock || isZeroPrice(p) || p.priceIncreased) return false;
+      if (p.hidden || p.outOfStock || isZeroPrice(p) || p.priceIncreased) return false;
+      if (hasUptoOffInTitle(p.title)) return false;
       if (cutoffMs !== null && Date.parse(p.addedAt) < cutoffMs) return false;
       return true;
     }).slice(0, 100);
 
-    const fresh = [];
+    const fresh = [...uptoCandidates];
     for (const p of topCandidates) {
       if (isRecentPost(p)) continue;
       if (!meetsAutoPostPlusCriteria(p)) continue;
@@ -4725,9 +4765,19 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
     try {
       if (product.image) {
         const r = await tgSendPhoto(token, ch, product.image, msg, { parse_mode: 'HTML' });
-        if (!r.ok) await tgSend(token, ch, msg, { parse_mode: 'HTML' });
+        if (!r.ok) {
+          const errText = await r.text().catch(() => '');
+          console.warn(`Telegram photo post failed for ${ch} (${r.status}): ${errText}, retrying text-only`);
+          const r2 = await tgSend(token, ch, msg, { parse_mode: 'HTML' });
+          if (!r2.ok) {
+            console.error(`Telegram text post also failed for ${ch} (${r2.status}): ${await r2.text().catch(() => '')}`);
+          }
+        }
       } else {
-        await tgSend(token, ch, msg, { parse_mode: 'HTML' });
+        const r = await tgSend(token, ch, msg, { parse_mode: 'HTML' });
+        if (!r.ok) {
+          console.error(`Telegram post failed for ${ch} (${r.status}): ${await r.text().catch(() => '')}`);
+        }
       }
     } catch (e) {
       console.error('Telegram post failed for', ch, e.message);
@@ -7292,8 +7342,8 @@ export default {
       );
     }
 
-    // Dedicated slot for Telegram posting and DealsSpy/DealOfTheDay syncs (except :15 and :45)
-    if (event.cron === '0,5,10,20,25,30,35,40,50,55 * * * *') {
+    // Dedicated slot for Telegram posting and DealsSpy/DealOfTheDay syncs
+    if (event.cron === '*/5 * * * *' || event.cron === '0,5,10,20,25,30,35,40,50,55 * * * *') {
       if (getIstHour() >= 2 && getIstHour() < 7) {
         console.log('Skipping Telegram posting and Amazon syncs during sleep hours (2am-7am IST)');
         return;
