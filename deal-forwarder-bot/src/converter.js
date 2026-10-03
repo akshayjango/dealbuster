@@ -382,9 +382,15 @@ export async function convertDealUrl(rawUrl, options = {}) {
 
       const u = new URL(finalResolved);
       if (/amazon\.(?:in|com)/i.test(u.hostname)) {
-        // Strip competitor tracking parameters so the link is clean and Amazon attributes to our tag
-        ['sid', 'btn_ref', 'btn_type', 'src', 'ascsubtag', 'linkCode'].forEach(p => u.searchParams.delete(p));
-        u.searchParams.set('tag', amazonTag);
+        // Keep all original parameters (including sid, src, etc.) and percent-encoding intact.
+        // Only swap or append our affiliate tag.
+        let converted = finalResolved.replace(/\|/g, '%7C');
+        if (/[?&]tag=[^&]+/i.test(converted)) {
+          converted = converted.replace(/([?&])tag=[^&]+/i, (match, prefix) => `${prefix}tag=${amazonTag}`);
+        } else {
+          const sep = converted.includes('?') ? '&' : '?';
+          converted = `${converted}${sep}tag=${amazonTag}`;
+        }
 
         const searchKey = u.searchParams.get('hidden-keywords') || u.searchParams.get('k') || u.searchParams.get('node') || u.pathname;
         const promoId = searchKey ? `amazon_search_${searchKey.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32)}` : null;
@@ -392,7 +398,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
         return {
           originalUrl: rawUrl,
           resolvedUrl: finalResolved,
-          convertedUrl: u.href,
+          convertedUrl: converted,
           store: 'amazon',
           id: promoId
         };
