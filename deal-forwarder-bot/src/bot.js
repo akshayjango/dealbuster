@@ -439,7 +439,7 @@ async function main() {
       // 1. FAST ASIN PRE-CHECK:
       // If message contains an Amazon link whose ASIN was already posted or in-flight, skip immediately!
       let detectedAsin = null;
-      const rawUrls = extractUrls(rawText);
+      const rawUrls = extractUrls(rawText, msg.entities);
       for (const u of rawUrls) {
         const a = extractAmazonAsin(u);
         if (a) { detectedAsin = a; break; }
@@ -505,6 +505,7 @@ async function main() {
         myChannel: config.target_channel || '@dealbusterindia',
         footer: config.custom_footer,
         removeCompetitorMentions: config.remove_competitor_mentions !== false,
+        entities: msg.entities,
       };
 
       const result = await processMessageText(rawText, conversionOptions);
@@ -672,7 +673,7 @@ async function main() {
           try {
             const eIdStr = entity.id.toString();
             const lastId = lastSeenMsgIds.get(eIdStr) || 0;
-            const msgs = await client.getMessages(entity, { limit: 3 });
+            const msgs = await client.getMessages(entity, { limit: 10 });
             if (!msgs || msgs.length === 0) continue;
 
             const unhandled = msgs.filter(m => m && m.id > lastId).sort((a, b) => a.id - b.id);

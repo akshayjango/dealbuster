@@ -44,6 +44,10 @@ async function runTests() {
       name: 'Case 10: Meesho Loot Deal (MUST BE FORWARDED)',
       text: '💥 Meesho Kurti Loot at ₹149\nhttps://www.meesho.com/stylish-kurti/p/1op63p',
     },
+    {
+      name: 'Case 11: Amazon deal with amzn-to.co redirect link (MUST BE FORWARDED)',
+      text: '🔥🔥 Fastrack New Limitless X2 Smart Watch, 1.91" UltraVU with Rotating Crown\n\n🎁 Deal Price : ₹1,449\n\nBuy Here : https://amzn-to.co/wCWY6r',
+    },
   ];
 
   for (const tc of testCases) {

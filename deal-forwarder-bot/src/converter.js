@@ -4,27 +4,37 @@
 
 // Regex patterns for shorteners and redirectors commonly used in deal channels
 const REDIRECT_DOMAINS = [
-  'amzn.to', 'link.amazon', 'a.co',
+  'amzn.to', 'link.amazon', 'a.co', 'amzn-to.co', 'amzn-to', 'urlgeni.us',
   'bit.ly', 'tinyurl.com', 'cutt.ly', 't.ly', 'shorturl.at',
   'fktr.in', 'fkrt.co', 'fkrt.cc', 'ekaro.in', 'myntr.it',
   'ajiio.in', 'linkredirect.in', 'linksredirect.com', 'clnk.in',
   'mdeal.in', 'deals.dr', 'opnr.app', 'openinapp.co', 'openinapp.link',
-  'dealsping.in', 'wishlink.com'
+  'dealsping.in', 'wishlink.com', 'extrape.com', 'extp.in'
 ];
 
 /**
- * Extract all URLs from a text string
+ * Extract all URLs from a text string and optional Telegram entities
  */
-export function extractUrls(text) {
-  if (!text) return [];
-  const urlRegex = /(https?:\/\/[^\s<>"'()]+)/gi;
-  const matches = text.match(urlRegex) || [];
-  return matches
-    .map(u => u.replace(/[.,!?]+$/, ''))
-    .filter(u => {
-      // Do not convert Telegram, WhatsApp, or Instagram links as affiliate links
-      return !/(?:t\.me|telegram\.me|whatsapp\.com|wa\.me|instagram\.com|twitter\.com|x\.com)\//i.test(u);
-    });
+export function extractUrls(text, entities = []) {
+  const urls = new Set();
+  if (text) {
+    const urlRegex = /(https?:\/\/[^\s<>"'()]+)/gi;
+    const matches = text.match(urlRegex) || [];
+    for (const u of matches) {
+      urls.add(u.replace(/[.,!?]+$/, ''));
+    }
+  }
+  if (Array.isArray(entities)) {
+    for (const ent of entities) {
+      if (ent?.url && typeof ent.url === 'string') {
+        urls.add(ent.url.replace(/[.,!?]+$/, ''));
+      }
+    }
+  }
+  return Array.from(urls).filter(u => {
+    // Do not convert Telegram, WhatsApp, or Instagram links as affiliate links
+    return !/(?:t\.me|telegram\.me|whatsapp\.com|wa\.me|instagram\.com|twitter\.com|x\.com)\//i.test(u);
+  });
 }
 
 /**
@@ -35,6 +45,13 @@ export async function resolveUrl(url, maxHops = 4) {
 
   for (let i = 0; i < maxHops; i++) {
     try {
+      // Unpack embedded destination URLs in urlgeni.us links: e.g. https://amzn.urlgeni.us/https://www.amazon.in/...
+      const urlgeniMatch = currentUrl.match(/(?:amzn\.)?urlgeni\.us\/(https?:\/\/.+)/i);
+      if (urlgeniMatch) {
+        currentUrl = urlgeniMatch[1];
+        continue;
+      }
+
       const parsed = new URL(currentUrl);
       const isRedirectDomain = REDIRECT_DOMAINS.some(d => parsed.hostname.toLowerCase().includes(d));
 
@@ -59,23 +76,50 @@ export async function resolveUrl(url, maxHops = 4) {
         } catch {}
       }
 
-      const res = await fetch(currentUrl, {
+      let res = await fetch(currentUrl, {
         method: 'HEAD',
         redirect: 'manual',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(6000),
       });
 
-      const location = res.headers.get('location');
+      let location = res.headers.get('location');
+
+      // If HEAD did not redirect, try GET with manual redirect (shorteners often require GET)
+      if (!location && (res.status === 405 || res.status === 200 || isRedirectDomain)) {
+        try {
+          const getRes = await fetch(currentUrl, {
+            method: 'GET',
+            redirect: 'manual',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+            signal: AbortSignal.timeout(6000),
+          });
+          location = getRes.headers.get('location');
+          if (!location && getRes.status === 200) {
+            const html = await getRes.text();
+            const metaMatch = html.match(/content=["']\d+;\s*url=([^"']+)["']/i) ||
+                              html.match(/window\.location(?:\.href)?\s*=\s*["']([^"']+)["']/i) ||
+                              html.match(/location\.replace\(["']([^"']+)["']\)/i) ||
+                              html.match(/href=["'](https?:\/\/(?:www\.)?(?:amazon|amzn)[^"']+)["']/i);
+            if (metaMatch) {
+              location = metaMatch[1];
+            }
+          }
+        } catch {}
+      }
+
       if (location) {
         currentUrl = new URL(location, currentUrl).href;
-      } else {
-        // If HEAD didn't redirect, try GET with manual redirect
-        if (res.status >= 300 && res.status < 400) {
-          break;
+        // Unpack any embedded URL in the new location
+        const innerMatch = currentUrl.match(/(?:amzn\.)?urlgeni\.us\/(https?:\/\/.+)/i);
+        if (innerMatch) {
+          currentUrl = innerMatch[1];
         }
+      } else {
         // If not a redirect, we reached destination
         break;
       }
@@ -107,11 +151,11 @@ export async function resolveUrl(url, maxHops = 4) {
 }
 
 /**
- * Check if a URL is an Amazon link
+ * Check if a URL is an Amazon link or known Amazon shortener/deep-link
  */
 export function isAmazonUrl(url) {
   if (!url) return false;
-  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co)(?:[/?#]|$)/i.test(url);
+  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.(?:to|in)|amzn-to\.(?:co|[a-z]+)|amzn-to|amazn\.lt|link\.amazon|a\.co|(?:amzn\.)?urlgeni\.us)(?:[/?#:]|$)/i.test(url);
 }
 
 /**
@@ -173,7 +217,8 @@ export function extractAmazonAsin(url) {
   const m = url.match(/\/(?:dp|gp\/product|ASIN|gp\/aw\/d)\/([A-Z0-9]{10})/i) ||
             url.match(/[?&]asin=([A-Z0-9]{10})/i) ||
             url.match(/link\.amazon\/([A-Z0-9]{10})/i) ||
-            url.match(/-(B0[A-Z0-9]{8,9})(?:[/?#]|$)/i);
+            url.match(/-(B0[A-Z0-9]{8,9})(?:[/?#]|$)/i) ||
+            url.match(/(?:urlgeni\.us|amzn-to\.co)[^\s]*\/([A-Z0-9]{10})/i);
   return m ? m[1].toUpperCase() : null;
 }
 
@@ -326,14 +371,18 @@ export async function convertDealUrl(rawUrl, options = {}) {
         id: `amazon_${asin}`
       };
     }
-    // Fallback ONLY on genuine Amazon domains
+    // Fallback ONLY on genuine Amazon domains (unwrapping urlgeni if present)
     try {
-      const u = new URL(resolved);
+      let finalResolved = resolved;
+      const emb = resolved.match(/(?:amzn\.)?urlgeni\.us\/(https?:\/\/.+)/i);
+      if (emb) finalResolved = emb[1];
+
+      const u = new URL(finalResolved);
       if (/amazon\.(?:in|com)/i.test(u.hostname)) {
         u.searchParams.set('tag', amazonTag);
         return {
           originalUrl: rawUrl,
-          resolvedUrl: resolved,
+          resolvedUrl: finalResolved,
           convertedUrl: u.href,
           store: 'amazon',
           id: null
@@ -494,7 +543,7 @@ export async function processMessageText(text, options = {}) {
   } = options;
 
   let processed = text;
-  const urls = extractUrls(text);
+  const urls = extractUrls(text, options.entities);
   const convertedLinks = [];
 
   // Convert each URL found in the text
