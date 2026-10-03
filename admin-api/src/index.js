@@ -3869,7 +3869,7 @@ function isNonAmazonDeal(p) {
   if (link.includes('amazon.in') || link.includes('amzn.to') || link.includes('link.amazon') || link.includes('amazon.com')) return false;
   // Per user request: no CueLinks allowed, only EarnKaro
   if (link.includes('linksredirect.com') || link.includes('cuelinks.com')) return false;
-  return link.includes('ekaro') || link.includes('earnkaro');
+  return /(?:ekaro|earnkaro|fktr\.in|fkrt\.(?:co|cc)|ajiio\.(?:in|co)|myntr\.(?:it|in))/i.test(link);
 }
 
 function meetsAutoPostPlusCriteria(p) {
@@ -4708,7 +4708,10 @@ async function postNewDealsToTelegramLocked(env) {
 
   const { fresh } = await getUnpostedTgFresh(env, mode);
   if (!fresh.length) { console.log('TG cron: nothing to post, skipping'); return; }
-  await postNewDealsToTelegram(env);
+
+  const toPost = (mode === 'enhanced') ? fresh.slice(0, 1) : fresh;
+  await postDealsAndTrack(toPost, env);
+  console.log(`TG cron: posted ${toPost.length} deal(s) (mode: ${mode})`);
 }
 
 async function postDealToChannels(product, env, { companionDm = true } = {}) {
@@ -5485,7 +5488,7 @@ async function handleTelegramWebhook(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
     // ── Public: live products feed (no auth) ──────────────────────────────────
@@ -5652,10 +5655,10 @@ export default {
         return json({ ok: true, skipped: 'sleep_hours_2am_7am_ist' });
       }
       try {
-        await Promise.all([
-          postNewDealsToTelegramLocked(env),
-          cronSyncAndPublishNonAmazonDeals(env)
-        ]);
+        await postNewDealsToTelegramLocked(env);
+        if (ctx?.waitUntil) {
+          ctx.waitUntil(cronSyncAndPublishNonAmazonDeals(env).catch(e => console.error('Non-Amazon sync error:', e.message)));
+        }
         return json({ ok: true });
       } catch (e) {
         return json({ error: e.message }, 500);
@@ -5685,7 +5688,6 @@ export default {
         }
         await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
         await env.KV.put('tg_posted_times', JSON.stringify(times));
-        await env.KV.put('tg_last_posted_at', now.toString());
       } catch (e) {
         console.error('KV mirror update failed:', e.message);
       }
@@ -6866,7 +6868,6 @@ export default {
           }
           await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
           await env.KV.put('tg_posted_times', JSON.stringify(times));
-          await env.KV.put('tg_last_posted_at', now.toString());
         } catch (e) {
           console.error('KV mirror update failed:', e.message);
         }
