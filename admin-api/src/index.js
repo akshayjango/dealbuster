@@ -573,9 +573,10 @@ function fcmBase64UrlEncode(buffer) {
 }
 
 function fcmPemToArrayBuffer(pem) {
-  const b64 = pem
+  const b64 = (pem || '')
     .replace(/-----BEGIN[ A-Z0-9_-]+-----/g, '')
     .replace(/-----END[ A-Z0-9_-]+-----/g, '')
+    .replace(/\\n/g, '')
     .replace(/[\r\n\s]/g, '');
   const raw = atob(b64);
   const buf = new Uint8Array(raw.length);
@@ -585,8 +586,8 @@ function fcmPemToArrayBuffer(pem) {
   return buf.buffer;
 }
 
-async function getGoogleOAuth2AccessToken(serviceAccount, env) {
-  if (env.KV) {
+async function getGoogleOAuth2AccessToken(serviceAccount, env, forceRefresh = false) {
+  if (env.KV && !forceRefresh) {
     const cached = await env.KV.get('fcm_oauth_token');
     if (cached) return cached;
   }
@@ -598,7 +599,7 @@ async function getGoogleOAuth2AccessToken(serviceAccount, env) {
     scope: 'https://www.googleapis.com/auth/firebase.messaging',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
-    iat: now
+    iat: now - 30
   };
 
   const encHeader = fcmBase64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
@@ -622,11 +623,19 @@ async function getGoogleOAuth2AccessToken(serviceAccount, env) {
 
   const jwt = `${signingInput}.${fcmBase64UrlEncode(signature)}`;
 
-  const tokenResp = await fetchWithTimeout('https://oauth2.googleapis.com/token', {
+  const tokenPayload = {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`
-  }, 8000);
+  };
+
+  let tokenResp;
+  try {
+    tokenResp = await fetchWithTimeout('https://oauth2.googleapis.com/token', tokenPayload, 20000);
+  } catch (firstErr) {
+    console.warn(`OAuth token fetch attempt 1 failed (${firstErr.message}), retrying...`);
+    tokenResp = await fetchWithTimeout('https://oauth2.googleapis.com/token', tokenPayload, 20000);
+  }
 
   const tokenData = await tokenResp.json().catch(() => ({}));
   if (!tokenResp.ok || !tokenData.access_token) {
@@ -669,7 +678,7 @@ async function sendDealPushNotification(product, title, body, env) {
   }
 
   try {
-    const accessToken = await getGoogleOAuth2AccessToken(serviceAccount, env);
+    let accessToken = await getGoogleOAuth2AccessToken(serviceAccount, env);
 
     const fcmMessage = {
       message: {
@@ -697,17 +706,35 @@ async function sendDealPushNotification(product, title, body, env) {
 
     if (imageUrl) {
       fcmMessage.message.notification.image = imageUrl;
+      fcmMessage.message.data.image = imageUrl;
     }
 
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
-    const resp = await fetchWithTimeout(fcmUrl, {
+    const fcmOptions = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': `Bearer ${accessToken}`
       },
       body: JSON.stringify(fcmMessage)
-    }, 10000);
+    };
+
+    let resp;
+    try {
+      resp = await fetchWithTimeout(fcmUrl, fcmOptions, 20000);
+    } catch (sendErr) {
+      console.warn(`FCM send attempt 1 failed (${sendErr.message}), retrying...`);
+      resp = await fetchWithTimeout(fcmUrl, fcmOptions, 20000);
+    }
+
+    // If 401 Unauthorized, token might have been revoked/expired - clear cache and retry once with fresh token
+    if (resp.status === 401) {
+      if (env.KV) await env.KV.delete('fcm_oauth_token').catch(() => {});
+      console.log('FCM returned 401, obtaining fresh OAuth token and retrying...');
+      accessToken = await getGoogleOAuth2AccessToken(serviceAccount, env, true);
+      fcmOptions.headers['Authorization'] = `Bearer ${accessToken}`;
+      resp = await fetchWithTimeout(fcmUrl, fcmOptions, 20000);
+    }
 
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
@@ -6302,10 +6329,14 @@ export default {
 
       // ── POST /send-deal-push (Per-deal push notification to Android app) ─────
       if (url.pathname === '/send-deal-push' && request.method === 'POST') {
-        const { id, title, body } = await request.json();
-        if (!id) return json({ error: 'Missing deal id' }, 400);
-        const { products } = await getProductsFile(env);
-        const product = products.find(p => p.id === id);
+        const { id, title, body, product: clientProduct } = await request.json();
+        if (!id && !clientProduct?.id) return json({ error: 'Missing deal id' }, 400);
+
+        let product = clientProduct;
+        if (!product || !product.id) {
+          const { products } = await getProductsFile(env);
+          product = products.find(p => p.id === id);
+        }
         if (!product) return json({ error: 'Product not found' }, 404);
 
         const pushTitle = (title || '🏷️ Lowest Price Detected!').trim();

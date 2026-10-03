@@ -3733,6 +3733,8 @@ async function submitDealPush() {
   if (!id) return;
   if (!body) { alert('Please enter notification content'); return; }
 
+  const p = (allProducts || []).find(x => x.id === id);
+
   pushDealSending = true;
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   if (msg) { msg.innerHTML = '<span style="color:var(--muted);">Broadcasting notification…</span>'; }
@@ -3740,7 +3742,19 @@ async function submitDealPush() {
   try {
     const resp = await apiFetch('/send-deal-push', {
       method: 'POST',
-      body: { id, title, body }
+      body: {
+        id,
+        title,
+        body,
+        product: p ? {
+          id: p.id,
+          asin: p.asin,
+          link: p.link,
+          image: p.image,
+          title: p.title,
+          price: p.price
+        } : null
+      }
     });
     const res = await resp.json().catch(() => ({}));
     if (!resp.ok || res.error) {
