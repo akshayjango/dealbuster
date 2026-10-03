@@ -292,13 +292,16 @@ export async function convertDealUrl(rawUrl, options = {}) {
   } = options;
 
   // 1. If it's already an EarnKaro shortlink, convert directly with EarnKaro without unrolling!
-  if (/fktr\.in|fkrt\.co|ekaro\.in|myntr\.it|ajiio\.in/i.test(rawUrl)) {
+  const isEarnKaroShortlink = /(?:fktr\.in|fkrt\.(?:co|cc)|ekaro\.in|myntr\.(?:it|in)|ajiio\.(?:in|co)|earnkaro\.com)/i.test(rawUrl);
+  if (isEarnKaroShortlink) {
     const directEkaro = await convertToEarnKaro(rawUrl, earnkaroToken);
     if (directEkaro) {
       let store = 'other';
-      if (/fktr\.in|fkrt\.co/i.test(directEkaro) || /fktr\.in|fkrt\.co/i.test(rawUrl)) store = 'flipkart';
-      else if (/myntr\.it/i.test(directEkaro) || /myntr\.it/i.test(rawUrl)) store = 'myntra';
-      else if (/ajiio\.in/i.test(directEkaro) || /ajiio\.in/i.test(rawUrl)) store = 'ajio';
+      if (/fktr|fkrt/i.test(directEkaro) || /fktr|fkrt/i.test(rawUrl)) store = 'flipkart';
+      else if (/myntr/i.test(directEkaro) || /myntr/i.test(rawUrl)) store = 'myntra';
+      else if (/ajiio/i.test(directEkaro) || /ajiio/i.test(rawUrl)) store = 'ajio';
+      else if (/shopsy/i.test(directEkaro) || /shopsy/i.test(rawUrl)) store = 'shopsy';
+      else if (/meesho/i.test(directEkaro) || /meesho/i.test(rawUrl)) store = 'meesho';
 
       return {
         originalUrl: rawUrl,
@@ -392,11 +395,22 @@ export async function convertDealUrl(rawUrl, options = {}) {
     return { originalUrl: rawUrl, resolvedUrl: resolved, convertedUrl: null, store: 'other', id: null };
   }
 
+  // If resolved URL is an intermediary tracker wrapping an inner store URL, extract clean store URL
+  const innerStoreMatch = resolved.match(/[?&](?:url|dl|target|destination)=([^&]+)/i);
+  if (innerStoreMatch) {
+    try {
+      const decoded = decodeURIComponent(innerStoreMatch[1]);
+      if (/https?:\/\/[^\s]*(?:flipkart\.com|myntra\.com|ajio\.com|shopsy\.in|meesho\.com|amazon\.)/i.test(decoded)) {
+        resolved = decoded;
+      }
+    } catch {}
+  }
+
   // 2. Non-Amazon store (Flipkart, Myntra, Ajio, Shopsy, Meesho are allowed)
   let store = 'other';
   if (/flipkart\.com|fktr\.in|fkrt\.co|fkrt\.cc/i.test(resolved)) store = 'flipkart';
-  else if (/myntra\.com|myntr\.it/i.test(resolved)) store = 'myntra';
-  else if (/ajio\.com|ajiio\.in/i.test(resolved)) store = 'ajio';
+  else if (/myntra\.com|myntr\.it|myntr\.in/i.test(resolved)) store = 'myntra';
+  else if (/ajio\.com|ajiio\.in|ajiio\.co/i.test(resolved)) store = 'ajio';
   else if (/shopsy\.in/i.test(resolved)) store = 'shopsy';
   else if (/meesho\.com/i.test(resolved)) store = 'meesho';
 
@@ -436,9 +450,12 @@ export async function convertDealUrl(rawUrl, options = {}) {
   }
 
   // Convert via EarnKaro API
-  const ekaroLink = await convertToEarnKaro(cleanUrl, earnkaroToken);
+  let ekaroLink = await convertToEarnKaro(cleanUrl, earnkaroToken);
+  if (!ekaroLink && cleanUrl !== rawUrl) {
+    ekaroLink = await convertToEarnKaro(rawUrl, earnkaroToken);
+  }
 
-  // If EarnKaro cannot convert (e.g. app deep links like dl.flipkart.com), wrap with CueLinks
+  // If EarnKaro cannot convert (e.g. app deep links like dl.flipkart.com), wrap clean store URL with CueLinks
   const cuelinksPubId = options.cuelinksPubId || '312552';
   const finalAffiliateUrl = ekaroLink || buildCueLinksUrl(cleanUrl, cuelinksPubId);
 

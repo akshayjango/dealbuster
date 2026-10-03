@@ -48,6 +48,10 @@ async function runTests() {
       name: 'Case 11: Amazon deal with amzn-to.co redirect link (MUST BE FORWARDED)',
       text: '🔥🔥 Fastrack New Limitless X2 Smart Watch, 1.91" UltraVU with Rotating Crown\n\n🎁 Deal Price : ₹1,449\n\nBuy Here : https://amzn-to.co/wCWY6r',
     },
+    {
+      name: 'Case 12: Ajio deal with ajiio.co shortlink (MUST BE CONVERTED WITH EARNKARO)',
+      text: 'Ajio | Red Tape Footwear at Min 80% Discount\n\nhttps://ajiio.co/TU24UH',
+    },
   ];
 
   for (const tc of testCases) {
