@@ -95,7 +95,7 @@ function ghHeaders(env) {
 
 async function getProductsFile(env) {
   const apiUrl = `https://api.github.com/repos/akshayjango/dealbuster/contents/products.json`;
-  const resp = await fetchWithTimeout(apiUrl, { headers: ghHeaders(env) });
+  const resp = await fetchWithTimeout(apiUrl, { headers: ghHeaders(env) }, 25000);
   if (resp.status === 404) return { products: [], sha: null };
   if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.message || `GitHub fetch failed: ${resp.status}`); }
   const file = await resp.json();
@@ -110,7 +110,7 @@ async function getProductsFile(env) {
   let base64 = file.content;
   if (!base64 || file.encoding === 'none') {
     const blobUrl = `https://api.github.com/repos/akshayjango/dealbuster/git/blobs/${file.sha}`;
-    const blobResp = await fetchWithTimeout(blobUrl, { headers: ghHeaders(env) });
+    const blobResp = await fetchWithTimeout(blobUrl, { headers: ghHeaders(env) }, 35000);
     if (!blobResp.ok) { const err = await blobResp.json().catch(() => ({})); throw new Error(err.message || `GitHub blob fetch failed: ${blobResp.status}`); }
     base64 = (await blobResp.json()).content;
   }
@@ -207,7 +207,7 @@ async function saveProductsFile(products, sha, message, env, _retry = true) {
   console.log(`saveProductsFile: writing ${(rawJson.length / 1024 / 1024).toFixed(2)}MB, ${deduped.length} products`);
   const body = { message, content: encodeBase64Unicode(rawJson) };
   if (sha) body.sha = sha;
-  const resp = await fetchWithTimeout(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 15000);
+  const resp = await fetchWithTimeout(apiUrl, { method: 'PUT', headers: { ...ghHeaders(env), 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 35000);
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
     const msg = err.message || `GitHub write failed: ${resp.status}`;
@@ -751,6 +751,14 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+      const u = typeof url === 'string' ? url.split('?')[0].slice(0, 80) : '';
+      const abortErr = new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s (${u})`);
+      abortErr.name = 'AbortError';
+      throw abortErr;
+    }
+    throw err;
   } finally {
     clearTimeout(timeout);
   }
@@ -788,14 +796,24 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
   // For IndiaFreeStuff & DealsSpy, try direct fetch first with browser headers
   if (targetUrl.includes('indiafreestuff.in') || targetUrl.includes('dealsspy.in')) {
     try {
+      const mergedHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+        ...(options?.headers || {})
+      };
       const directRes = await fetchWithTimeout(targetUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Cache-Control': 'no-cache'
-        }
+        ...options,
+        headers: mergedHeaders
       }, timeoutMs);
+
+      const isRedirect = directRes.status >= 300 && directRes.status < 400;
+      if (options?.redirect === 'manual' && isRedirect) {
+        console.log(`Direct manual redirect for ${targetUrl.includes('dealsspy.in') ? 'DealsSpy' : 'IndiaFreeStuff'} succeeded (${directRes.status})`);
+        return directRes;
+      }
+
       if (directRes.ok) {
         const text = await directRes.clone().text().catch(() => '');
         if (!text.includes('Just a moment...') && !text.includes('cf-browser-verification')) {
@@ -2315,187 +2333,195 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     return { success: true, count: 0, message: 'IndiaFreeStuff: sync skipped (SCRAPER_API_URL not configured)' };
   }
 
-  const matchesMap = new Map();
-  const blockedBrands = await getBlockedBrands(env);
+  try {
+    const matchesMap = new Map();
+    const blockedBrands = await getBlockedBrands(env);
 
-  const targetUrls = [
-    'https://www.indiafreestuff.in/deals',
-    'https://www.indiafreestuff.in/trending',
-    'https://www.indiafreestuff.in/stores/amazon',
-  ];
+    const targetUrls = [
+      'https://www.indiafreestuff.in/deals',
+      'https://www.indiafreestuff.in/trending',
+      'https://www.indiafreestuff.in/stores/amazon',
+    ];
 
-  for (const targetUrl of targetUrls) {
-    try {
-      let r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
-      if (!r.ok) {
-        await new Promise(res => setTimeout(res, 2000));
-        r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
-      }
-      if (!r.ok) continue;
-      const html = await r.text();
-      console.log(`IFS fetch ${targetUrl}: HTTP ${r.status}, HTML len ${html.length}`);
-
-      const blocks = html.split(/<div class="product-item/g);
-      console.log(`IFS blocks count for ${targetUrl}: ${blocks.length - 1}`);
-      for (let i = 1; i < blocks.length; i++) {
-        const block = blocks[i];
-
-        // Title from item-title anchor
-        const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
-        if (!titleM) continue;
-        let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-        title = title.replace(/\s*Rs\.?\s*[\d,]+.*$/i, '').trim();
-        if (!title || title.length < 5) continue;
-        if (isBrandBlocked(title, blockedBrands)) continue;
-
-        const thumbM = block.match(/data-original="([^"]+)"/i)
-          || block.match(/src="([^"]+)"/i);
-        let image = '';
-        if (thumbM && thumbM[1].includes('http')) {
-          image = thumbM[1];
-        }
-
-        const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
-        const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
-        const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
-        const mrp   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : price;
-
-        const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
-        if (!rtoM) continue;
-        const rtoParam = rtoM[1];
-
-        const key = rtoParam;
-        if (!matchesMap.has(key)) {
-          matchesMap.set(key, { title, image, price, mrp, rtoParam });
-        }
-      }
-    } catch (e) {
-      console.error(`IFS fetch failed for ${targetUrl}:`, e.message);
-    }
-  }
-
-  if (matchesMap.size === 0) {
-    const msg = 'IndiaFreeStuff: no deals found (structure may have changed)';
-    await saveSyncError('IndiaFreeStuff', msg, env);
-    await recordScraperStatus('indiafreestuff', 'error', msg, 0, env);
-    return { success: false, count: 0, message: msg };
-  }
-
-  const { products, sha } = await getProductsFile(env);
-  let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
-  const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
-  const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
-  const existingTitles = new Set(products.map(p => p.title.toLowerCase().trim()));
-
-  const candidates = [];
-  for (const item of matchesMap.values()) {
-    if (item.price <= 0) continue;
-
-    // Skip only if the exact title already exists in products.json
-    if (existingTitles.has(item.title.toLowerCase().trim())) continue;
-
-    candidates.push(item);
-  }
-
-  // Resolve up to 50 candidates per sync run
-  const syncLimit = Math.min(candidates.length, 50);
-  const targetCandidates = candidates.slice(0, syncLimit);
-
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
-  const added = [];
-  const dbg = [];
-
-  // Resolve redirects in batches of 5
-  const resolved = [];
-  const chunkSize = 5;
-  for (let i = 0; i < targetCandidates.length; i += chunkSize) {
-    const chunk = targetCandidates.slice(i, i + chunkSize);
-    const chunkResolved = await Promise.all(chunk.map(async (item) => {
-      let asin = '';
-      let targetUrl = '';
+    for (const targetUrl of targetUrls) {
       try {
-        const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
+        let r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
+        if (!r.ok) {
+          await new Promise(res => setTimeout(res, 2000));
+          r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
+        }
+        if (!r.ok) continue;
+        const html = await r.text();
+        console.log(`IFS fetch ${targetUrl}: HTTP ${r.status}, HTML len ${html.length}`);
 
-        // 1. Try manual redirect first to get location header quickly
-        const redManual = await fetchWithProxy(redirTarget, {
-          redirect: 'manual',
-          headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
-        }, 15000, env);
-        
-        const loc = redManual ? (redManual.headers.get('location') || '') : '';
-        targetUrl = loc;
-        // Extract ASIN strictly from the URL location (never from HTML body, which causes bogus ASIN tokens)
-        asin = extractAsin(loc) || '';
+        const blocks = html.split(/<div class="product-item/g);
+        console.log(`IFS blocks count for ${targetUrl}: ${blocks.length - 1}`);
+        for (let i = 1; i < blocks.length; i++) {
+          const block = blocks[i];
 
-        if (!asin && (!targetUrl || targetUrl.includes('indiafreestuff.in'))) {
-          // 3. Follow redirect to final target URL
-          const redFollow = await fetchWithProxy(redirTarget, {
+          // Title from item-title anchor
+          const titleM = block.match(/class="item-title"[^>]*>\s*([^<]{5,}?)\s*<\/a>/i);
+          if (!titleM) continue;
+          let title = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
+          title = title.replace(/\s*Rs\.?\s*[\d,]+.*$/i, '').trim();
+          if (!title || title.length < 5) continue;
+          if (isBrandBlocked(title, blockedBrands)) continue;
+
+          const thumbM = block.match(/data-original="([^"]+)"/i)
+            || block.match(/src="([^"]+)"/i);
+          let image = '';
+          if (thumbM && thumbM[1].includes('http')) {
+            image = thumbM[1];
+          }
+
+          const priceM = block.match(/class="new-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+          const mrpM   = block.match(/class="old-price"[\s\S]*?fa-inr[^>]*><\/i>\s*([\d,]+)/i);
+          const price = priceM ? parseInt(priceM[1].replace(/,/g,'')) : 0;
+          const mrp   = mrpM   ? parseInt(mrpM[1].replace(/,/g,''))   : price;
+
+          const rtoM = block.match(/href="https?:\/\/www\.indiafreestuff\.in\/\?rto=([^"]+)"/i);
+          if (!rtoM) continue;
+          const rtoParam = rtoM[1];
+
+          const key = rtoParam;
+          if (!matchesMap.has(key)) {
+            matchesMap.set(key, { title, image, price, mrp, rtoParam });
+          }
+        }
+      } catch (e) {
+        console.error(`IFS fetch failed for ${targetUrl}:`, e.message);
+      }
+    }
+
+    if (matchesMap.size === 0) {
+      const msg = 'IndiaFreeStuff: no deals found (structure may have changed)';
+      await saveSyncError('IndiaFreeStuff', msg, env);
+      await recordScraperStatus('indiafreestuff', 'error', msg, 0, env);
+      return { success: false, count: 0, message: msg };
+    }
+
+    const { products, sha } = await getProductsFile(env);
+    let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
+    const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
+    const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
+    const existingTitles = new Set(products.map(p => p.title.toLowerCase().trim()));
+
+    const candidates = [];
+    for (const item of matchesMap.values()) {
+      if (item.price <= 0) continue;
+
+      // Skip only if the exact title already exists in products.json
+      if (existingTitles.has(item.title.toLowerCase().trim())) continue;
+
+      candidates.push(item);
+    }
+
+    // Resolve candidates up to limit
+    const syncLimit = Math.min(candidates.length, limit || 20);
+    const targetCandidates = candidates.slice(0, syncLimit);
+
+    const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+    const added = [];
+    const dbg = [];
+
+    // Resolve redirects in batches of 5
+    const resolved = [];
+    const chunkSize = 5;
+    for (let i = 0; i < targetCandidates.length; i += chunkSize) {
+      const chunk = targetCandidates.slice(i, i + chunkSize);
+      const chunkResolved = await Promise.all(chunk.map(async (item) => {
+        let asin = '';
+        let targetUrl = '';
+        try {
+          const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
+
+          // 1. Try manual redirect first to get location header quickly
+          const redManual = await fetchWithProxy(redirTarget, {
+            redirect: 'manual',
             headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
           }, 15000, env);
-          const finalUrl = redFollow ? (redFollow.url || '') : '';
-          asin = extractAsin(finalUrl) || '';
-          targetUrl = finalUrl;
+          
+          const loc = redManual ? (redManual.headers.get('location') || '') : '';
+          targetUrl = loc;
+          // Extract ASIN strictly from the URL location (never from HTML body, which causes bogus ASIN tokens)
+          asin = extractAsin(loc) || '';
+
+          if (!asin && (!targetUrl || targetUrl.includes('indiafreestuff.in'))) {
+            // 3. Follow redirect to final target URL
+            const redFollow = await fetchWithProxy(redirTarget, {
+              headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
+            }, 15000, env);
+            const finalUrl = redFollow ? (redFollow.url || '') : '';
+            asin = extractAsin(finalUrl) || '';
+            targetUrl = finalUrl;
+          }
+          if (dbg.length < 8) dbg.push(asin ? `amz:${asin}` : (targetUrl ? 'non-amz' : `miss:${redManual ? redManual.status : 'err'}`));
+        } catch (err) {
+          if (dbg.length < 8) dbg.push(`err:${err.message}`);
         }
-        if (dbg.length < 8) dbg.push(asin ? `amz:${asin}` : (targetUrl ? 'non-amz' : `miss:${redManual ? redManual.status : 'err'}`));
-      } catch (err) {
-        if (dbg.length < 8) dbg.push(`err:${err.message}`);
-      }
-      return { ...item, asin, targetUrl };
-    }));
-    resolved.push(...chunkResolved);
-  }
-
-  for (const item of resolved) {
-    const { asin, targetUrl, title, image, price, mrp } = item;
-
-    const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
-    const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
-    const mrpStr   = mrp   > 0 ? '₹' + mrp.toLocaleString('en-IN')   : priceStr;
-    const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
-    const category = detectCategoryFromTitle(title);
-
-    const isAmazon = (targetUrl && /(?:amazon\.[a-z.]+|amzn\.[a-z.]+)/i.test(targetUrl)) || !!asin;
-    if (isAmazon) {
-      if (asin && (deletedSet.has(asin) || existingByAsin.has(asin))) continue;
-
-      const isUpto = hasUptoOffInTitle(title);
-      const isPromoLanding = targetUrl && (targetUrl.includes('/amazonprime') || targetUrl.includes('/promotion/') || targetUrl.includes('/b?') || targetUrl.includes('/s?') || targetUrl.includes('/gp/goldbox'));
-
-      // If it's a specific product ASIN and not a promo/landing page, use standard dp link:
-      // Otherwise preserve the target promotional/category URL and tag with our partner tag:
-      const link = (asin && !isUpto && !isPromoLanding)
-        ? `https://www.amazon.in/dp/${asin}?tag=${TAG}`
-        : tagAmazonUrl(targetUrl || `https://www.amazon.in/dp/${asin}`, TAG);
-
-      added.push({
-        id: `ifs_${Date.now()}_${added.length}`,
-        asin: isPromoLanding ? '' : (asin || ''),
-        title, price: priceStr, mrp: mrpStr, disc: discStr,
-        image, link, category, highlights: ['Great deal on Amazon'],
-        lowestPriceText: null, featured: false,
-        hidden: isUpto ? true : false,
-        isUptoDeal: isUpto ? true : undefined,
-        outOfStock: false,
-        order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
-      });
+        return { ...item, asin, targetUrl };
+      }));
+      resolved.push(...chunkResolved);
     }
-  }
 
-  console.log('IFS redir debug:', JSON.stringify(dbg));
+    for (const item of resolved) {
+      const { asin, targetUrl, title, image, price, mrp } = item;
 
-  if (added.length === 0) {
+      const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
+      const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
+      const mrpStr   = mrp   > 0 ? '₹' + mrp.toLocaleString('en-IN')   : priceStr;
+      const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
+      const category = detectCategoryFromTitle(title);
+
+      const isAmazon = (targetUrl && /(?:amazon\.[a-z.]+|amzn\.[a-z.]+)/i.test(targetUrl)) || !!asin;
+      if (isAmazon) {
+        if (asin && (deletedSet.has(asin) || existingByAsin.has(asin))) continue;
+
+        const isUpto = hasUptoOffInTitle(title);
+        const isPromoLanding = targetUrl && (targetUrl.includes('/amazonprime') || targetUrl.includes('/promotion/') || targetUrl.includes('/b?') || targetUrl.includes('/s?') || targetUrl.includes('/gp/goldbox'));
+
+        // If it's a specific product ASIN and not a promo/landing page, use standard dp link:
+        // Otherwise preserve the target promotional/category URL and tag with our partner tag:
+        const link = (asin && !isUpto && !isPromoLanding)
+          ? `https://www.amazon.in/dp/${asin}?tag=${TAG}`
+          : tagAmazonUrl(targetUrl || `https://www.amazon.in/dp/${asin}`, TAG);
+
+        added.push({
+          id: `ifs_${Date.now()}_${added.length}`,
+          asin: isPromoLanding ? '' : (asin || ''),
+          title, price: priceStr, mrp: mrpStr, disc: discStr,
+          image, link, category, highlights: ['Great deal on Amazon'],
+          lowestPriceText: null, featured: false,
+          hidden: isUpto ? true : false,
+          isUptoDeal: isUpto ? true : undefined,
+          outOfStock: false,
+          order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
+        });
+      }
+    }
+
+    console.log('IFS redir debug:', JSON.stringify(dbg));
+
+    if (added.length === 0) {
+      await clearSyncError('IndiaFreeStuff', env);
+      await recordScraperStatus('indiafreestuff', 'working', 'No new deals', 0, env);
+      return { success: true, count: 0, message: 'IndiaFreeStuff: no new deals found.' };
+    }
+
+    const final = await capLiveAndBury([...added, ...products], env);
+
+    const msg = `IndiaFreeStuff sync: +${added.length} new`;
+    await saveProductsFile(final, sha, msg, env);
     await clearSyncError('IndiaFreeStuff', env);
-    await recordScraperStatus('indiafreestuff', 'working', 'No new deals', 0, env);
-    return { success: true, count: 0, message: 'IndiaFreeStuff: no new deals found.' };
+    await recordScraperStatus('indiafreestuff', 'working', msg, added.length, env);
+    return { success: true, added: added.length, message: msg, addedProducts: added };
+  } catch (err) {
+    const errorMsg = `IndiaFreeStuff sync error: ${err.message}`;
+    console.error(errorMsg);
+    await saveSyncError('IndiaFreeStuff', err.message, env);
+    await recordScraperStatus('indiafreestuff', 'error', err.message, 0, env);
+    return { success: false, count: 0, message: errorMsg, error: err.message };
   }
-
-  const final = await capLiveAndBury([...added, ...products], env);
-
-  const msg = `IndiaFreeStuff sync: +${added.length} new`;
-  await saveProductsFile(final, sha, msg, env);
-  await clearSyncError('IndiaFreeStuff', env);
-  await recordScraperStatus('indiafreestuff', 'working', msg, added.length, env);
-  return { success: true, added: added.length, message: msg, addedProducts: added };
 }
 
 function decodeHtmlEntities(str) {
@@ -7259,6 +7285,7 @@ export default {
           } catch (e) {
             console.error('IndiaFreeStuff sync error:', e.message);
             await saveSyncError('IndiaFreeStuff', e.message, env);
+            await recordScraperStatus('indiafreestuff', 'error', e.message, 0, env);
           }
         })
       );

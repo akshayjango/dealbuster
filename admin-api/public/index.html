@@ -2804,8 +2804,14 @@ async function updateScraperStatuses() {
       const activeErr = syncErrors.find(e => e.source === src.errName || e.source === src.key);
       const statusObj = backendStatuses[src.key];
 
-      if (activeErr || (statusObj && statusObj.status === 'error')) {
-        const errMsg = activeErr ? activeErr.message : (statusObj ? statusObj.message : 'Sync Error');
+      // Stale error check: if backend status was updated to 'working' after the error was recorded
+      const isErrStale = activeErr && statusObj && statusObj.status === 'working' && activeErr.time && (
+        (statusObj.timestamp && statusObj.timestamp >= new Date(activeErr.time).getTime()) ||
+        (statusObj.lastSync && new Date(statusObj.lastSync).getTime() >= new Date(activeErr.time).getTime())
+      );
+
+      if ((activeErr && !isErrStale) || (statusObj && statusObj.status === 'error')) {
+        const errMsg = (!isErrStale && activeErr) ? activeErr.message : (statusObj ? statusObj.message : 'Sync Error');
         badgeEl.innerHTML = `<span class="status-dot red"></span><span style="font-size:0.85rem; font-weight:700; color:#ef4444">Issue</span>`;
         subEl.textContent = `⚠️ ${errMsg.length > 30 ? errMsg.slice(0, 28) + '…' : errMsg} • Last: ${lastScrapedStr}`;
         subEl.style.color = '#ef4444';
