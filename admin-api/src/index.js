@@ -3244,13 +3244,12 @@ async function checkLowestPriceBadges(env) {
         changed = true;
       }
 
-      if (badge) {
-        if (updated.lowestPriceText !== badge) {
-          updated.lowestPriceText = badge;
-          changed = true;
-          badgeCount++;
-        }
-        if (!updated.outOfStock && !updated.hidden && !isZeroPrice(updated) && !updated.priceIncreased) {
+      if (badge && updated.lowestPriceText !== badge) {
+        updated.lowestPriceText = badge;
+        changed = true;
+        badgeCount++;
+        const isFreshToday = updated.addedAt && (Date.now() - Date.parse(updated.addedAt) <= 24 * 60 * 60 * 1000);
+        if (isFreshToday && !updated.outOfStock && !updated.hidden && !isZeroPrice(updated) && !updated.priceIncreased) {
           newlyDetectedLowest.push({ ...updated });
         }
       }
@@ -3273,11 +3272,22 @@ async function checkLowestPriceBadges(env) {
     }));
   }
 
-  // If any lowest price deals were detected, or unposted live lowest deals exist, post them immediately
-  const liveLowest = products.filter(p => (p.lowestPriceText || hasLowestPrice(p)) && !p.outOfStock && !p.hidden && !isZeroPrice(p) && !p.priceIncreased);
-  const candidatesToPost = [...newlyDetectedLowest, ...liveLowest];
+  // Only post fresh lowest price deals added today or tagged manually from today (never take from back / old list)
+  const isAddedToday = (p) => p.addedAt && (Date.now() - Date.parse(p.addedAt) <= 24 * 60 * 60 * 1000);
+  const freshTodayLowest = products.filter(p => (p.lowestPriceText || hasLowestPrice(p)) && isAddedToday(p) && !p.outOfStock && !p.hidden && !isZeroPrice(p) && !p.priceIncreased);
+
+  // Combine, dedup by ID/ASIN, and ensure strictly chronological order (newest first, never from back)
+  const candidateMap = new Map();
+  for (const p of [...newlyDetectedLowest, ...freshTodayLowest]) {
+    const key = (p.asin && p.asin.toUpperCase()) || p.id || p.link;
+    if (key && !candidateMap.has(key)) {
+      candidateMap.set(key, p);
+    }
+  }
+  const candidatesToPost = [...candidateMap.values()].sort((a, b) => (Date.parse(b.addedAt || 0) || 0) - (Date.parse(a.addedAt || 0) || 0));
 
   if (candidatesToPost.length > 0) {
+    console.log(`Lowest price check: found ${candidatesToPost.length} fresh lowest deal(s) from today. Triggering immediate TG post.`);
     postDealsAndTrack(candidatesToPost, env, { isLowestPricePost: true })
       .catch(e => console.error('TG lowest price deals post failed:', e.message));
   }
