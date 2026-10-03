@@ -1449,10 +1449,11 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
       const image = deal.image || asinImage(asin);
 
       const isUpto = hasUptoOffInTitle(deal.title);
+      const lowestText = extractLowestPriceText(deal.title) || (Array.isArray(deal.highlights) ? extractLowestPriceText(deal.highlights.join(' ')) : null);
       added.push({
         id: `ds_${Date.now()}_${added.length}`,
         asin, title: deal.title || '', price: priceStr, mrp: mrpStr, disc: discStr,
-        image, link, category, highlights, lowestPriceText: null, featured: false,
+        image, link, category, highlights, lowestPriceText: lowestText || null, featured: false,
         hidden: isUpto ? true : false,
         isUptoDeal: isUpto ? true : undefined,
         outOfStock: false,
@@ -1476,6 +1477,13 @@ async function scrapeAndSyncDealsSpy(env, limit = 30) {
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('DealsSpyAmazon', env);
   await recordScraperStatus('dealspy', 'working', msg, added.length, env);
+
+  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+  if (lowestDeals.length > 0) {
+    postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
+      .catch(e => console.error('TG lowest price DS post failed:', e.message));
+  }
+
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
@@ -2513,12 +2521,14 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
           ? `https://www.amazon.in/dp/${asin}?tag=${TAG}`
           : tagAmazonUrl(targetUrl || `https://www.amazon.in/dp/${asin}`, TAG);
 
+        const lowestText = extractLowestPriceText(title) || null;
+
         added.push({
           id: `ifs_${Date.now()}_${added.length}`,
           asin: isPromoLanding ? '' : (asin || ''),
           title, price: priceStr, mrp: mrpStr, disc: discStr,
           image, link, category, highlights: ['Great deal on Amazon'],
-          lowestPriceText: null, featured: false,
+          lowestPriceText: lowestText, featured: false,
           hidden: isUpto ? true : false,
           isUptoDeal: isUpto ? true : undefined,
           outOfStock: false,
@@ -2541,6 +2551,13 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     await saveProductsFile(final, sha, msg, env);
     await clearSyncError('IndiaFreeStuff', env);
     await recordScraperStatus('indiafreestuff', 'working', msg, added.length, env);
+
+    const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+    if (lowestDeals.length > 0) {
+      postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
+        .catch(e => console.error('TG lowest price IFS post failed:', e.message));
+    }
+
     return { success: true, added: added.length, message: msg, addedProducts: added };
   } catch (err) {
     const errorMsg = `IndiaFreeStuff sync error: ${err.message}`;
@@ -2677,11 +2694,13 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
     const link = `${baseLink}?tag=${TAG}`;
     const category = detectCategoryFromTitle(finalTitle);
 
+    const lowestText = extractLowestPriceText(finalTitle) || null;
+
     added.push({
       id: `dotd_${Date.now()}_${added.length}`,
       asin, title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
       image: finalImage, link, category, highlights: ['Great deal on Amazon'],
-      lowestPriceText: null, featured: false,
+      lowestPriceText: lowestText, featured: false,
       hidden: isUpto ? true : false,
       isUptoDeal: isUpto ? true : undefined,
       outOfStock: false,
@@ -2700,6 +2719,13 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('DealOfTheDayIndia', env);
   await recordScraperStatus('dealoftheday', 'working', msg, added.length, env);
+
+  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+  if (lowestDeals.length > 0) {
+    postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
+      .catch(e => console.error('TG lowest price DOTD post failed:', e.message));
+  }
+
   return { success: true, added: added.length, message: msg, addedProducts: added };
 }
 
@@ -2858,11 +2884,12 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
       }
     } else {
       if (added.length >= limit) break;
+      const lowestText = extractLowestPriceText(finalTitle) || null;
       added.push({
         id: `ot_${Date.now()}_${added.length}`,
         asin, title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
         image: finalImage, link, category, highlights: ['Great deal on Amazon'],
-        lowestPriceText: null, featured: false,
+        lowestPriceText: lowestText, featured: false,
         hidden: isUpto ? true : false,
         isUptoDeal: isUpto ? true : undefined,
         outOfStock: false,
@@ -2885,6 +2912,13 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('OfferTag', env);
   await recordScraperStatus('offertag', 'working', msg, added.length, env);
+
+  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+  if (lowestDeals.length > 0) {
+    postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
+      .catch(e => console.error('TG lowest price OfferTag post failed:', e.message));
+  }
+
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
@@ -3151,6 +3185,7 @@ async function checkLowestPriceBadges(env) {
   let changed = false;
   let badgeCount = 0;
   let highlightCount = 0;
+  const newlyDetectedLowest = [];
 
   const CHUNK_SIZE = 5;
   for (let i = 0; i < toCheck.length; i += CHUNK_SIZE) {
@@ -3209,10 +3244,15 @@ async function checkLowestPriceBadges(env) {
         changed = true;
       }
 
-      if (badge && updated.lowestPriceText !== badge) {
-        updated.lowestPriceText = badge;
-        changed = true;
-        badgeCount++;
+      if (badge) {
+        if (updated.lowestPriceText !== badge) {
+          updated.lowestPriceText = badge;
+          changed = true;
+          badgeCount++;
+        }
+        if (!updated.outOfStock && !updated.hidden && !isZeroPrice(updated) && !updated.priceIncreased) {
+          newlyDetectedLowest.push({ ...updated });
+        }
       }
 
       if (highlights.length > 0 && needsHighlights(updated)) {
@@ -3231,6 +3271,15 @@ async function checkLowestPriceBadges(env) {
         changed = true;
       }
     }));
+  }
+
+  // If any lowest price deals were detected, or unposted live lowest deals exist, post them immediately
+  const liveLowest = products.filter(p => (p.lowestPriceText || hasLowestPrice(p)) && !p.outOfStock && !p.hidden && !isZeroPrice(p) && !p.priceIncreased);
+  const candidatesToPost = [...newlyDetectedLowest, ...liveLowest];
+
+  if (candidatesToPost.length > 0) {
+    postDealsAndTrack(candidatesToPost, env, { isLowestPricePost: true })
+      .catch(e => console.error('TG lowest price deals post failed:', e.message));
   }
 
   if (!changed) return { success: true, message: `Checked ${toCheck.length} products. No changes from badge/highlight check.` };
@@ -3486,6 +3535,14 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
       }
       if (!category) category = detectCategoryFromTitle(title);
 
+      const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?|ever)|Best\s+price\s+in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?)/i);
+      let lowestPriceText = badgeM ? badgeM[1].trim() : null;
+      if (!lowestPriceText) {
+        const altBadgeM = html.match(/class="[^"]*a-badge-text[^"]*"[^>]*>\s*([^<]*Lowest[^<]*)</i) ||
+                          html.match(/"badgeText"\s*:\s*"([^"]*Lowest[^"]*)"/i);
+        if (altBadgeM && altBadgeM[1].length < 40) lowestPriceText = altBadgeM[1].trim();
+      }
+
       const isUpto = hasUptoOffInTitle(title);
       added.push({
         id: `amzdeal_${Date.now()}_${added.length}`,
@@ -3495,7 +3552,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
         disc: discNum > 0 ? `-${discNum}%` : '0%',
         image, link: `https://www.amazon.in/dp/${asin}?tag=${TAG}`,
         category, highlights: highlights.length ? highlights : ['Great deal on Amazon'],
-        lowestPriceText: null, featured: false,
+        lowestPriceText: lowestPriceText || null, featured: false,
         hidden: isUpto ? true : false,
         isUptoDeal: isUpto ? true : undefined,
         outOfStock: false,
@@ -3515,6 +3572,14 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
 
   const trimmed = await capLiveAndBury([...added, ...products], env);
   await saveProductsFile(trimmed, sha, `Amazon deals sync: +${added.length}`, env);
+
+  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+  if (lowestDeals.length > 0) {
+    console.log(`Amazon deals sync: found ${lowestDeals.length} lowest price deal(s). Triggering immediate TG post.`);
+    postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
+      .catch(e => console.error('TG lowest price sync post failed:', e.message));
+  }
+
   return { success: true, count: added.length, message: `Amazon Deals sync: added ${added.length} deal${added.length > 1 ? 's' : ''} from amazon.in/deals`, addedProducts: added };
 }
 
@@ -3552,9 +3617,8 @@ async function handlePublish(body, env) {
   const updated = await capLiveAndBury([newProduct, ...filtered], env);
   await saveProductsFile(updated, sha, `Add deal: ${product.title.slice(0,60)}`, env);
 
-  // Post new deal to Telegram channels (fire-and-forget) — tracked, so the
-  // 5-min cron won't see it as "unposted" and send it again.
-  postDealsAndTrack([newProduct], env).catch(e => console.error('TG post failed:', e.message));
+  const isLowest = !!newProduct.lowestPriceText || hasLowestPrice(newProduct);
+  postDealsAndTrack([newProduct], env, { isLowestPricePost: isLowest }).catch(e => console.error('TG post failed:', e.message));
 
   // Legacy: write card to index.html
   const params = new URLSearchParams({ title: product.title, cat: category, price: product.price, mrp: product.mrp, disc: product.disc, updated: today.slice(0,10), img: product.image, link: product.link, hl: (highlights||[]).join('|') });
@@ -3689,10 +3753,11 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const price = product.price || '';
   const mrp = product.mrp || '';
   const disc = product.disc || '';
+  const lowestRow = product.lowestPriceText ? `🏷️ <b>${escHtml(product.lowestPriceText)}</b>` : '';
   const priceRow = price ? `✅Deal Price: <b>${escHtml(price)}</b>` : '';
   const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
-  const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
+  const detailsBlock = [lowestRow, priceRow, mrpRow, discRow].filter(Boolean).join('\n');
   const isAmazon = product?.store === 'amazon' || /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(link);
   const linkHtml = (isAmazon && link.length > 75) ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
   return detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
@@ -3704,8 +3769,9 @@ function formatFbCaption(product, tag, isLowest = false, env = {}) {
   const title = (isLowest ? 'Lowest ' : '') + trimTitle(product.title);
   const price = product.price || '';
   const link = dealLink(product, tag, env);
+  const lowestBadge = product.lowestPriceText ? `🏷️ ${product.lowestPriceText}\n` : '';
   const priceBlock = price ? `💥 Deal Price @ ${price} 👇\n${link}` : `👇\n${link}`;
-  return `🔥 ${title}\n${priceBlock}`;
+  return `🔥 ${title}\n${lowestBadge}${priceBlock}`;
 }
 
 // Tracks which products have already been posted — by id AND by ASIN. ASIN is the
@@ -3881,6 +3947,12 @@ async function setAutopostMode(mode, env) {
 
 async function setAutopostEnabled(enabled, env) {
   await setAutopostMode(enabled ? 'all' : 'manual', env);
+}
+
+function extractLowestPriceText(txt) {
+  if (!txt) return null;
+  const m = String(txt).match(/(Lowest\s+[Pp]rice\s+(?:in\s+(?:the\s+year|\d+\s+days|30\s+days|7\s+days|90\s+days|365\s+days)|since\s+[A-Za-z0-9_]+|ever)|Best\s+[Pp]rice\s+in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?|Lowest\s+[Pp]rice)/i);
+  return m ? m[1].trim() : null;
 }
 
 // ── Deal qualification for Auto-Post Plus ────────────────────────────────────
@@ -4268,13 +4340,20 @@ async function sweepExpiredApprovals(env) {
 // running in different colos could both read "not posted yet" and send the same
 // batch twice. A DO has exactly one live instance worldwide, so that race is
 // structurally impossible.
-async function postDealsAndTrack(products, env) {
+async function postDealsAndTrack(products, env, { isLowestPricePost = false } = {}) {
   const list = (products || []).filter(Boolean).filter(p => {
     if (isZeroPrice(p)) { console.log(`Skipping TG post (₹0/no price): ${p.title || p.id}`); return false; }
     if (p.priceIncreased) { console.log(`Skipping TG post (price increased >15%/25%): ${p.title || p.id}`); return false; }
     return true;
   });
   if (!list.length) return;
+
+  // Respect sleep hours (2:00 AM - 7:00 AM IST) for channel posts
+  const istHour = new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours();
+  if (istHour >= 2 && istHour < 7) {
+    console.log('TG post: sleep hours (2am-7am IST), skipping Telegram posting');
+    return;
+  }
 
   const uptoDeals = list.filter(p => hasUptoOffInTitle(p.title));
   const normalDeals = list.filter(p => !hasUptoOffInTitle(p.title));
@@ -4291,15 +4370,17 @@ async function postDealsAndTrack(products, env) {
       return;
     }
     if (mode === 'enhanced') {
-      const qualifying = normalDeals.filter(meetsAutoPostPlusCriteria);
+      const qualifying = isLowestPricePost
+        ? normalDeals.filter(p => !p.hidden && !p.outOfStock)
+        : normalDeals.filter(meetsAutoPostPlusCriteria);
       if (!qualifying.length) {
-        console.log('Auto-Post Plus: no deals in batch met rating/coupon/store criteria');
+        console.log('Auto-Post Plus: no deals in batch met criteria');
         return;
       }
-      await sendToChannels(qualifying, env, { mode: 'enhanced' });
+      await sendToChannels(qualifying, env, { mode: 'enhanced', isLowestPricePost });
       return;
     }
-    await sendToChannels(normalDeals, env, { mode: 'all' });
+    await sendToChannels(normalDeals, env, { mode: 'all', isLowestPricePost });
   }
 }
 
@@ -4388,7 +4469,7 @@ async function promptAdminForUptoDeals(products, env) {
 // Returns how many actually went out (the DO skips already-posted ones unless
 // force is set — force still claims before sending, it only bypasses the
 // "seen before" check for deliberate manual re-posts).
-async function sendToChannels(products, env, { force = false, companionDm = true, mode = 'all' } = {}) {
+async function sendToChannels(products, env, { force = false, companionDm = true, mode = 'all', isLowestPricePost = false } = {}) {
   const list = (products || []).filter(Boolean);
   if (!list.length) return 0;
 
@@ -4397,11 +4478,11 @@ async function sendToChannels(products, env, { force = false, companionDm = true
     const r = await stub.fetch('https://tg-poster/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ products: list, force, companionDm, mode }),
+      body: JSON.stringify({ products: list, force, companionDm, mode, isLowestPricePost }),
     });
     if (!r.ok) { console.error('TgPoster DO failed:', r.status, await r.text().catch(() => '')); return 0; }
     const { posted } = await r.json().catch(() => ({ posted: 0 }));
-    console.log(`TgPoster: sent ${posted} of ${list.length} requested (mode: ${mode}, rest already posted or throttled)`);
+    console.log(`TgPoster: sent ${posted} of ${list.length} requested (mode: ${mode}, lowest: ${isLowestPricePost}, rest already posted or throttled)`);
     return posted;
   }
 
@@ -4451,7 +4532,7 @@ export class TgPoster {
 
   async dispatch(path, body) {
     switch (path) {
-      case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force, body.companionDm !== false, body.mode || 'all') };
+      case '/post': return { ok: true, posted: await this.postBatch(body.products || [], !!body.force, body.companionDm !== false, body.mode || 'all', !!body.isLowestPricePost) };
       case '/posted/claim': return this.postedClaim(body.items || []);
       case '/posted/check': return this.postedCheck(body.keys || []);
       case '/posted/clear': return this.postedClear(body.keys || []);
@@ -4512,11 +4593,15 @@ export class TgPoster {
     return { ok: true, posted };
   }
 
-  // Forget posted ids/asins — called when deals fall off the site's 720 cap,
+  // Forget posted ids/asins — called when deals fall off the site's cap,
   // so a later re-add (sync or manual) posts to the channel again as new.
   async postedClear(keys) {
     await this.migrateFromKV();
-    const full = keys.map(k => `posted:${k}`);
+    const full = [];
+    for (const k of keys) {
+      full.push(`posted:${k}`);
+      full.push(`lowest_posted:${k}`);
+    }
     for (let i = 0; i < full.length; i += 128) {
       await this.ctx.storage.delete(full.slice(i, i + 128));
     }
@@ -4584,6 +4669,12 @@ export class TgPoster {
     return keys;
   }
 
+  lowestKeysFor(p) {
+    const keys = [`lowest_posted:${p.id}`];
+    if (p.asin) keys.push(`lowest_posted:${p.asin.toUpperCase()}`);
+    return keys;
+  }
+
   // One-time import of the existing KV ledger so nothing already posted gets
   // re-sent when the DO takes over.
   async migrateFromKV() {
@@ -4599,13 +4690,15 @@ export class TgPoster {
 
   // force skips the already-posted check (deliberate manual re-post from the
   // dashboard) but still claims before sending, like every other post.
-  async postBatch(list, force = false, companionDm = true, mode = 'all') {
+  // isLowestPricePost allows immediate channel posting for newly detected
+  // lowest-price deals without being blocked by or resetting the 3-min/5-min schedule.
+  async postBatch(list, force = false, companionDm = true, mode = 'all', isLowestPricePost = false) {
     await this.migrateFromKV();
 
     const now = Date.now();
 
-    // In enhanced mode, enforce 3-min pacing if not force-posted
-    if (mode === 'enhanced' && !force) {
+    // In enhanced mode, enforce 3-min pacing if not force-posted and not an immediate lowest-price post
+    if (mode === 'enhanced' && !force && !isLowestPricePost) {
       const lastPost = await this.getLastPostTime();
       if (now - lastPost < TG_MIN_INTERVAL_MS) {
         console.log(`TgPoster: 3m throttle active (${Math.round((TG_MIN_INTERVAL_MS - (now - lastPost)) / 1000)}s left)`);
@@ -4617,13 +4710,21 @@ export class TgPoster {
     const alreadyPostedItems = [];
     for (const p of list) {
       if (force) { toSend.push(p); continue; }
-      const found = await this.ctx.storage.get(this.keysFor(p));
-      const isRecent = [...found.values()].some(val => isRecentlyPosted(val, now, TWO_DAYS_MS));
-      if (!isRecent) toSend.push(p);
-      else alreadyPostedItems.push(p);
+      if (isLowestPricePost) {
+        // For lowest-price posts, check if already posted as lowest price recently
+        const found = await this.ctx.storage.get(this.lowestKeysFor(p));
+        const isRecentLowest = [...found.values()].some(val => isRecentlyPosted(val, now, TWO_DAYS_MS));
+        if (!isRecentLowest) toSend.push(p);
+        else alreadyPostedItems.push(p);
+      } else {
+        const found = await this.ctx.storage.get(this.keysFor(p));
+        const isRecent = [...found.values()].some(val => isRecentlyPosted(val, now, TWO_DAYS_MS));
+        if (!isRecent) toSend.push(p);
+        else alreadyPostedItems.push(p);
+      }
     }
     if (!toSend.length) {
-      if (alreadyPostedItems.length) {
+      if (alreadyPostedItems.length && !isLowestPricePost) {
         try {
           const ids = new Set(JSON.parse(await this.env.KV.get('tg_posted_ids') || '[]'));
           let timesMap = {};
@@ -4641,13 +4742,24 @@ export class TgPoster {
       return 0;
     }
 
-    // In enhanced mode, post only 1 deal at a time (unless force)
-    const batchToSend = (mode === 'enhanced' && !force) ? toSend.slice(0, 1) : toSend;
+    // In enhanced mode, post only 1 deal at a time (unless force or lowest-price post, capped at 3 for lowest-price)
+    const batchToSend = isLowestPricePost
+      ? toSend.slice(0, 3)
+      : ((mode === 'enhanced' && !force) ? toSend.slice(0, 1) : toSend);
 
     // Claim in DO storage before sending — record timestamp for 2-day cooldown
     const claim = {};
-    for (const p of batchToSend) for (const k of this.keysFor(p)) claim[k] = now;
-    claim['last_channel_post_time'] = now;
+    for (const p of batchToSend) {
+      for (const k of this.keysFor(p)) claim[k] = now;
+      if (isLowestPricePost) {
+        for (const k of this.lowestKeysFor(p)) claim[k] = now;
+      }
+    }
+    // Crucial: Lowest price immediate posts NEVER update last_channel_post_time,
+    // so normal 3-5 min posting cadence is completely unaffected!
+    if (!isLowestPricePost) {
+      claim['last_channel_post_time'] = now;
+    }
     await this.ctx.storage.put(claim);
 
     for (const p of batchToSend) {
@@ -4657,7 +4769,9 @@ export class TgPoster {
     // Mirror into KV — only the cron's cheap "anything new?" pre-check reads
     // this (getUnpostedTgFresh). Advisory only; the DO ledger is authoritative.
     try {
-      await this.env.KV.put('tg_last_posted_at', String(now));
+      if (!isLowestPricePost) {
+        await this.env.KV.put('tg_last_posted_at', String(now));
+      }
       let timesMap = {};
       try { timesMap = JSON.parse(await this.env.KV.get('tg_posted_times') || '{}'); } catch {}
       for (const p of batchToSend) {
@@ -7111,6 +7225,12 @@ export default {
           }
           products[idx] = { ...products[idx], ...updates };
           await saveProductsFile(products, sha, `Update product: ${products[idx].title.slice(0,60)}`, env);
+
+          if (updates.lowestPriceText && !products[idx].outOfStock && !products[idx].hidden && !isZeroPrice(products[idx])) {
+            postDealsAndTrack([products[idx]], env, { isLowestPricePost: true })
+              .catch(e => console.error('TG lowest price post failed:', e.message));
+          }
+
           return json({
             success: true,
             product: products[idx],
