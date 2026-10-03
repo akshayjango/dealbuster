@@ -5,11 +5,11 @@ async function runTests() {
 
   const testCases = [
     {
-      name: 'Case 1: Amazon deal with "upto 70% off" (MUST BE SKIPPED)',
+      name: 'Case 1: Amazon deal with "upto 70% off" (MUST BE FORWARDED)',
       text: '🔥 Amazon Great Sale!\nUpto 70% off on Laptops\nhttps://www.amazon.in/dp/B0CHX1W1XY',
     },
     {
-      name: 'Case 2: Amazon deal with "up to 50% off" (MUST BE SKIPPED)',
+      name: 'Case 2: Amazon deal with "up to 50% off" (MUST BE FORWARDED)',
       text: '🔥 Amazon Deal!\nUp to 50% off on Smartwatches\nhttps://www.amazon.in/dp/B0CHX1W1XY',
     },
     {
@@ -49,8 +49,12 @@ async function runTests() {
       text: '🔥🔥 Fastrack New Limitless X2 Smart Watch, 1.91" UltraVU with Rotating Crown\n\n🎁 Deal Price : ₹1,449\n\nBuy Here : https://amzn-to.co/wCWY6r',
     },
     {
-      name: 'Case 12: Ajio deal with ajiio.co shortlink (MUST BE CONVERTED WITH EARNKARO)',
-      text: 'Ajio | Red Tape Footwear at Min 80% Discount\n\nhttps://ajiio.co/TU24UH',
+      name: 'Case 12: Clazkit Coconut Opener deal from Meesho Shopsy (MUST BE FORWARDED)',
+      text: '🔥🔥Clazkit Stainless Steel Coconut Opener Tool, Coconut Driller\n\n🎁Deal Price : ₹73\n\nBuy Here : https://amzn-to.co/k810XC',
+    },
+    {
+      name: 'Case 14: Amazon Loot Upto 92% Off On Men\'s Pants (MUST BE CONVERTED & EMBEDDED WITH 👉 Check Now)',
+      text: 'Amazon Loot : Upto 92% Off On Men\'s Pants.\n\n🔗 https://amzn-to.co/5OnkZB',
     },
   ];
 
@@ -68,12 +72,6 @@ async function runTests() {
 
     if (validDeals.length === 0) {
       console.log('⏩ SKIPPED: No allowed stores found (only Amazon, Flipkart, Myntra, Ajio, Shopsy, Meesho are allowed).');
-      continue;
-    }
-
-    const hasAmazonDeal = validDeals.some(l => l.store === 'amazon');
-    if (hasAmazonDeal && isAmazonUptoDeal(tc.text)) {
-      console.log('⏩ SKIPPED: Amazon deal contains "upto" or variable discount text.');
       continue;
     }
 

@@ -7,7 +7,7 @@ import { StringSession } from 'telegram/sessions/index.js';
 import { NewMessage } from 'telegram/events/index.js';
 import { HTMLParser } from 'telegram/extensions/html.js';
 import dotenv from 'dotenv';
-import { processMessageText, isAmazonUptoDeal, extractAmazonAsin, extractUrls } from './converter.js';
+import { processMessageText, extractAmazonAsin, extractUrls } from './converter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -553,15 +553,7 @@ async function main() {
         return;
       }
 
-      // 5. Check Amazon "upto" condition:
-      const hasAmazonDeal = validDeals.some(l => l.store === 'amazon');
-      if (hasAmazonDeal && isAmazonUptoDeal(rawText)) {
-        console.log('⏩ Skipped: Amazon deal contains "upto / up to" discount text.');
-        logEvent('Skipped: Amazon deal contains "upto" text', channelTitle, rawText);
-        return;
-      }
-
-      // 6. Check deleted/blocked ASINs
+      // 5. Check deleted/blocked ASINs
       const deletedAsins = loadDeletedAsins();
       for (const deal of validDeals) {
         if (deal.store === 'amazon' && deal.id) {

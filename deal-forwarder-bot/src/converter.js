@@ -382,13 +382,19 @@ export async function convertDealUrl(rawUrl, options = {}) {
 
       const u = new URL(finalResolved);
       if (/amazon\.(?:in|com)/i.test(u.hostname)) {
+        // Strip competitor tracking parameters so the link is clean and Amazon attributes to our tag
+        ['sid', 'btn_ref', 'btn_type', 'src', 'ascsubtag', 'linkCode'].forEach(p => u.searchParams.delete(p));
         u.searchParams.set('tag', amazonTag);
+
+        const searchKey = u.searchParams.get('hidden-keywords') || u.searchParams.get('k') || u.searchParams.get('node') || u.pathname;
+        const promoId = searchKey ? `amazon_search_${searchKey.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32)}` : null;
+
         return {
           originalUrl: rawUrl,
           resolvedUrl: finalResolved,
           convertedUrl: u.href,
           store: 'amazon',
-          id: null
+          id: promoId
         };
       }
     } catch {}
