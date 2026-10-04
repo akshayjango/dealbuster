@@ -42,7 +42,8 @@
     "order": 1,
     "addedAt": "2026-10-04T17:20:57.605Z",
     "originalPrice": "₹179",
-    "lastChecked": 1791134575682
+    "lastChecked": 1791134575682,
+    "lastBadgeCheck": 1791134645998
   },
   {
     "id": "ifs_1791134100251_0",
@@ -64,7 +65,8 @@
     "order": 2,
     "addedAt": "2026-10-04T17:15:00.251Z",
     "originalPrice": "₹199",
-    "lastChecked": 1791134575682
+    "lastChecked": 1791134575682,
+    "lastBadgeCheck": 1791134645998
   },
   {
     "id": "ifs_1791134100251_1",
@@ -85,7 +87,8 @@
     "outOfStock": false,
     "order": 3,
     "addedAt": "2026-10-04T17:15:00.251Z",
-    "originalPrice": "₹66"
+    "originalPrice": "₹66",
+    "lastBadgeCheck": 1791134645998
   },
   {
     "id": "ifs_1791134100251_2",
@@ -107,7 +110,8 @@
     "order": 4,
     "addedAt": "2026-10-04T17:15:00.251Z",
     "originalPrice": "₹208",
-    "lastChecked": 1791134575682
+    "lastChecked": 1791134575682,
+    "lastBadgeCheck": 1791134645998
   },
   {
     "id": "ifs_1791134100251_3",
@@ -129,7 +133,8 @@
     "order": 5,
     "addedAt": "2026-10-04T17:15:00.251Z",
     "originalPrice": "₹259",
-    "lastChecked": 1791134575682
+    "lastChecked": 1791134575682,
+    "lastBadgeCheck": 1791134645998
   },
   {
     "id": "ifs_1791134100251_4",
@@ -140,9 +145,13 @@
     "disc": "-83%",
     "image": "https://images.indiafreestuff.in//uploads//2026/07/deals/thumb/thumb_0fe11595_61AxTFtRWL.SX569PIbundle-15TopRight00AA569SH20.jpg",
     "link": "https://www.amazon.in/dp/B0H6R2MRQC?tag=dealbuster002-21",
-    "category": "Electronics",
+    "category": "Beauty",
     "highlights": [
-      "Great deal on Amazon"
+      "DEEP DRUM & PIPE CLEANER: Rexivo washing machine cleaner tablets penetrate deep into the drum and pipes to dissolve stubborn buildup and residue.",
+      "REMOVES ODOUR, LIMESCALE & RESIDUE: Powerful formula effectively eliminates unpleasant odours, limescale deposits, and detergent residue from your washing machine.",
+      "REFRESHING LAVENDER SCENT: Each tablet leaves your washing machine smelling fresh with a pleasant lavender fragrance after every cleaning cycle.",
+      "UNIVERSAL COMPATIBILITY: Safe for use with both front load and top load fully automatic washing machines, making it suitable for most households.",
+      "PACK OF 15 TABLETS: Comes with 15 easy-to-use cleaning tablets, providing multiple cleaning sessions to keep your washing machine in top condition."
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -151,7 +160,11 @@
     "order": 6,
     "addedAt": "2026-10-04T17:15:00.251Z",
     "originalPrice": "₹99",
-    "lastChecked": 1791134575682
+    "lastChecked": 1791134575682,
+    "lastBadgeCheck": 1791134646610,
+    "lowStock": true,
+    "rating": 3.9,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791134100251_5",
@@ -174,7 +187,7 @@
     "addedAt": "2026-10-04T17:15:00.251Z",
     "originalPrice": "₹391",
     "lastChecked": 1791134575682,
-    "lowStock": true
+    "lastBadgeCheck": 1791134646610
   },
   {
     "id": "fk_1791133821362_wrfgl",
@@ -2248,8 +2261,14 @@
     "image": "https://www.dealsspy.in/image/deal/jeewan-kamal-aloe-vera-gel-for-m-oZw17vC.webp",
     "link": "https://www.amazon.in/dp/B0F4NK7163?tag=dealbuster002-21",
     "category": "Beauty",
-    "highlights": [],
-    "lowestPriceText": null,
+    "highlights": [
+      "Hydrating Skin Gel: Keeps skin moisturized throughout the day with a light, non-sticky texture that absorbs easily and helps maintain natural softness for face, hands, and body without leaving a greasy residue.",
+      "Hair Nourishment: Can be applied to scalp and hair to help reduce dryness, promote smoothness, and provide natural hydration for roots and tips while keeping hair manageable and soft.",
+      "Soothes Irritation: Helps calm sunburns, minor skin irritations, and redness, giving a cooling effect while maintaining skin comfort and reducing tightness for daily care and relief.",
+      "Acne & Blemish Care: Gentle on skin, can be used on acne-prone areas to maintain skin balance, support hydration, and assist in reducing discomfort from blemishes or dryness without harsh chemicals.",
+      "Easy Daily Use: Suitable for all ages, can be used on face, body, and hair, blends naturally into skin, ideal for morning or night routines, travel-friendly, and works well alone or under creams and lotions."
+    ],
+    "lowestPriceText": "Lowest price in 30 days",
     "featured": false,
     "hidden": false,
     "outOfStock": false,
@@ -2257,7 +2276,10 @@
     "addedAt": "2026-10-04T14:50:56.293Z",
     "originalPrice": "₹99",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639460
+    "lastBadgeCheck": 1791134646610,
+    "lowStock": true,
+    "rating": 4.2,
+    "reviewCount": null
   },
   {
     "id": "ot_1791125181846_0",
@@ -2274,13 +2296,16 @@
     ],
     "lowestPriceText": null,
     "featured": false,
-    "hidden": false,
+    "hidden": true,
     "outOfStock": false,
     "order": 99,
     "addedAt": "2026-10-04T14:46:21.846Z",
     "originalPrice": "₹459",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639460
+    "lastBadgeCheck": 1791134646610,
+    "dead": "2026-10-04T17:24:08.362Z",
+    "rating": 3.1,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_0",
@@ -2291,9 +2316,13 @@
     "disc": "-65%",
     "image": "https://images.indiafreestuff.in//uploads//2025/05/deals/thumb/thumb_9fa1503e_61HVou-NMFL.SX679.jpg",
     "link": "https://www.amazon.in/dp/B0D6YD6F8K?tag=dealbuster002-21",
-    "category": "Health",
+    "category": "Electronics",
     "highlights": [
-      "Great deal on Amazon"
+      "Fastrack Xtreme PRO comes with 1.43” AMOLED Display with 466*466 Pixel Resolution",
+      "SingleSync BT Calling with Advanced Chipset , Favourite Contacts storage and Quick Replies (Android)",
+      "Advanced 100+ Cloud Watchfaces and Sports Modes , Up to 5 day battery, IP68 Water Resistance and many more handy features at a single tap",
+      "Health Monitoring with Stress monitor, 24x7 HRM, SPO2",
+      "Handy Features like AI Voice Assistant, Calculator, Built-In Games, Music, Camera Control and much more"
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -2303,7 +2332,9 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹2,799",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639460
+    "lastBadgeCheck": 1791134646610,
+    "rating": 4.1,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_1",
@@ -2316,7 +2347,11 @@
     "link": "https://www.amazon.in/dp/B0CJ373DGT?tag=dealbuster002-21",
     "category": "Health",
     "highlights": [
-      "Great deal on Amazon"
+      "One tablespoon of Dabur honey with warm water daily morning will help you in managing weight and reducing one size in 90days (clinically tested)",
+      "Dabur honey conforms strictly with all the 22 parameters mandated by FSSAI for testing honey.",
+      "In addition, Dabur Honey is also LCMS - MS tested for zero presence of antibiotics, as further mandated by FSSAI",
+      "Dabur Honey is IRMS tested for zero added sugar and SMR tested for zero presence of rice syrup.; Dabur honey is rich in antioxidants and hence will help in strengthening your immunity",
+      "Container Type: Bottle;Flavor Name: Pure Honey;Form Factor: Liquid"
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -2326,7 +2361,9 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹328",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639460
+    "lastBadgeCheck": 1791134649650,
+    "rating": 4.3,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_2",
@@ -2339,17 +2376,21 @@
     "link": "https://www.amazon.in/dp/B0GHP11W1P?tag=dealbuster002-21",
     "category": "Home",
     "highlights": [
-      "Great deal on Amazon"
+      "Cool White 6500K Light for Enhanced Visibility: Emits bright Cool White (6500K) illumination that improves clarity and visibility, making it suitable for corridors, bathrooms, store rooms, staircases, balconies, and other utility spaces.",
+      "B22 Base for Easy & Hassle-Free Installation: Equipped with a standard B22 bayonet cap, enabling quick installation and wide compatibility with existing bulb holders commonly used in Indian households."
     ],
     "lowestPriceText": null,
     "featured": false,
-    "hidden": false,
+    "hidden": true,
     "outOfStock": false,
     "order": 102,
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹249",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639460
+    "lastBadgeCheck": 1791134649650,
+    "dead": "2026-10-04T17:24:11.784Z",
+    "rating": 3.5,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_3",
@@ -2372,7 +2413,7 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹469",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639697
+    "lastBadgeCheck": 1791134649650
   },
   {
     "id": "ifs_1791125107781_4",
@@ -2383,9 +2424,13 @@
     "disc": "-64%",
     "image": "https://images.indiafreestuff.in//uploads//2026/09/deals/thumb/thumb_9f9d6089_71ZIn7bHAL.SX679.jpg",
     "link": "https://www.amazon.in/dp/B0C36Q9L22?tag=dealbuster002-21",
-    "category": "Electronics",
+    "category": "Home",
     "highlights": [
-      "Great deal on Amazon"
+      "Perfect to make delicious and versatile recipes like aloo Tikki, French Toast, Fried Eggs, omelette, Pancakes, Sautéed Vegetables, Fish Fry etc",
+      "Comes in 1L capacity and 22 cm diameter size. It is compatible on Induction oven and gas stove for maximum cooking flexibility in your kitchen",
+      "Tri-Ply Steel - Layer 1: 18/8 stainless steel; Layer 2: Encapsulated layer of aluminium for even heat distribution; Layer 3: SS 304 magnetic stainless steel",
+      "Unique honey comb hexa design",
+      "The riveted handle is firmly fixed providing sturdiness, durability and firm grip"
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -2395,7 +2440,9 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹1,245",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639697
+    "lastBadgeCheck": 1791134649650,
+    "rating": 4.2,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_5",
@@ -2406,19 +2453,21 @@
     "disc": "-52%",
     "image": "https://images.indiafreestuff.in//uploads//2025/11/deals/thumb/thumb_02e21f18_71XtiBR5rZL.SX679.jpg",
     "link": "https://www.amazon.in/dp/B0FK42JYRY?tag=dealbuster002-21",
-    "category": "Electronics",
+    "category": "Home",
     "highlights": [
-      "Great deal on Amazon"
+      "Best Usage: Ideal for carrying home-cooked meals and drinks to the office, school, or during travel. The glass containers are perfect for packing snacks, salads, or small meals, while the steel tumbler is great for tea, coffee, or water.",
+      "Other Details: This reusable 4-piece set is eco-friendly and perfect for everyday use. A complete mealtime solution for busy lifestyles—offering a safe, stylish, and sustainable alternative to plastic lunch boxes and bottles."
     ],
     "lowestPriceText": null,
     "featured": false,
     "hidden": false,
-    "outOfStock": false,
+    "outOfStock": true,
     "order": 105,
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹999",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639697
+    "lastBadgeCheck": 1791134649650,
+    "lowStock": true
   },
   {
     "id": "ifs_1791125107781_6",
@@ -2431,7 +2480,11 @@
     "link": "https://www.amazon.in/dp/B082LDQBXT?tag=dealbuster002-21",
     "category": "Health",
     "highlights": [
-      "Great deal on Amazon"
+      "Voted India's no.1 softest diaper with new no marks design.",
+      "360 degree Cottony soft comfort.",
+      "With aloe vera lotion and anti rash protection",
+      "12-hour leak-lock keeps baby dry while leaving no marks",
+      "Wetness indicator for timely change"
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -2441,7 +2494,9 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹761",
     "lastChecked": 1791125576130,
-    "lastBadgeCheck": 1791125639697
+    "lastBadgeCheck": 1791134652440,
+    "rating": 4.4,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_7",
@@ -2464,7 +2519,7 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹1,499",
     "lastChecked": 1791125576914,
-    "lastBadgeCheck": 1791125639697
+    "lastBadgeCheck": 1791134652440
   },
   {
     "id": "ifs_1791125107781_8",
@@ -2487,7 +2542,7 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹465",
     "lastChecked": 1791125576914,
-    "lastBadgeCheck": 1791125639885
+    "lastBadgeCheck": 1791134652440
   },
   {
     "id": "ifs_1791125107781_9",
@@ -2498,9 +2553,13 @@
     "disc": "-40%",
     "image": "https://images.indiafreestuff.in//uploads//2026/09/deals/thumb/thumb_b1df83c2_61sHqDu7CTL.SX679.jpg",
     "link": "https://www.amazon.in/dp/B0F6CSW445?tag=dealbuster002-21",
-    "category": "Electronics",
+    "category": "Beauty",
     "highlights": [
-      "Great deal on Amazon"
+      "Designed for Kids Aged 2–6 Years: Sized appropriately for young children to support comfortable and effective daily brushing",
+      "Soft Bristles for Gentle Care: Soft bristles help clean teeth gently while being kind to sensitive gums",
+      "Child-Friendly Brush Head: Compact head reaches teeth easily and supports careful cleaning for small mouths",
+      "Easy Grip Handle: Ergonomic handle allows a comfortable hold for children and helps parents assist during brushing",
+      "Bright Pink Colour: Attractive colour encourages regular brushing and makes oral care more engaging for kids"
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -2510,7 +2569,9 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹107",
     "lastChecked": 1791125576914,
-    "lastBadgeCheck": 1791125639885
+    "lastBadgeCheck": 1791134652440,
+    "rating": 3.8,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_11",
@@ -2523,7 +2584,11 @@
     "link": "https://www.amazon.in/dp/B0CW1TCKXV?tag=dealbuster002-21",
     "category": "Beauty",
     "highlights": [
-      "Great deal on Amazon"
+      "Helps fight against the five visible signs of damaged hair - Straw-like,Stiff,Dehydrated, split ends, Brittle hair",
+      "Powered by 9% Repair Concentrate with Keratin XS",
+      "Restoring Conditioner for damaged hair",
+      "Repairs and reinforces fibre's strength for shiny and healthy looking hair",
+      "Keratin XS infused conditioning formula reinforces hair fibres to give strength and resilience to wear and tear"
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -2533,7 +2598,9 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹312",
     "lastChecked": 1791125576914,
-    "lastBadgeCheck": 1791125639885
+    "lastBadgeCheck": 1791134652440,
+    "rating": 4.2,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_12",
@@ -2546,7 +2613,11 @@
     "link": "https://www.amazon.in/dp/B0GQTTK2K6?tag=dealbuster002-21",
     "category": "Beauty",
     "highlights": [
-      "Great deal on Amazon"
+      "NEW PARACHUTE ADVANSED PROTEIN SHAMPOO: Coconut milk and Amla shampoo for ultra shine.",
+      "UP TO 48 HR SHINE: ultra shine shampoo that provides up to 48 hr shine. It works to make hair shiny and nourished with every wash.",
+      "PROTEIN LOCK TECHNOLOGY: Hair is made of ~80% protein. Our Protein Lock Technology fills hair porosity and reduces protein loss by up to 98%, making hair stronger.",
+      "TRUSTED. PARACHUTE ADVANSED: From Parachute Advansed, a trusted name in haircare. This shampoo is part of our specialized range of haircare products.",
+      "PARABEN FREE: This shampoo is paraben free and is suitable for all hair types."
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -2555,7 +2626,9 @@
     "order": 111,
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹110",
-    "lastBadgeCheck": 1791125639885
+    "lastBadgeCheck": 1791134656491,
+    "rating": 4,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791125107781_13",
@@ -2568,7 +2641,11 @@
     "link": "https://www.amazon.in/dp/B0GQVB8B91?tag=dealbuster002-21",
     "category": "Beauty",
     "highlights": [
-      "Great deal on Amazon"
+      "NEW PARACHUTE ADVANSED PROTEIN SHAMPOO: Coconut milk and Shikakai shampoo that reduces hair fall due to hair breakage.",
+      "UP TO 96% HAIRFALL REDUCTION: hair fall control shampoo that provides up to 96% hair fall reduction and up to 23X hair fall control. It works to provide hairfall control from the first wash.",
+      "PROTEIN LOCK TECHNOLOGY: Hair is made of ~80% protein. Our Protein Lock Technology fills hair porosity and reduces protein loss by up to 98%, making hair stronger.",
+      "TRUSTED. PARACHUTE ADVANSED: From Parachute Advansed, a trusted name in haircare. This shampoo is part of our specialized range of haircare products.",
+      "PARABEN FREE: This shampoo is paraben free and is suitable for all hair types."
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -2577,7 +2654,9 @@
     "order": 112,
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹147",
-    "lastBadgeCheck": 1791125640783
+    "lastBadgeCheck": 1791134656491,
+    "rating": 4.2,
+    "reviewCount": null
   },
   {
     "id": "ds_1791124556797_0",
@@ -4466,7 +4545,8 @@
     "link": "https://www.amazon.in/dp/B0GGRMXMYP?tag=dealbuster002-21",
     "category": "Home",
     "highlights": [
-      "Great deal on Amazon"
+      "SLEEK AND UNIQUE DESIGN : The REO BLDC range combines sleek design with quiet performance. Its modern finish and refined details make it a perfect fit for stylish, contemporary spaces offering both function and flair in one elegant statement piece.",
+      "BUILT FOR LASTING PERFORMANCE : REO BLDC delivers 220 CMM air for powerful, even airflow. With reverse mode for winter, a timer function, Low noise levels, it ensures quiet, versatile comfort—perfect for modern, energy-efficient homes."
     ],
     "lowestPriceText": null,
     "featured": false,
@@ -4476,7 +4556,9 @@
     "addedAt": "2026-10-04T12:46:11.606Z",
     "originalPrice": "₹2,429",
     "lastChecked": 1791128578728,
-    "lastBadgeCheck": 1791125642322
+    "lastBadgeCheck": 1791134667496,
+    "rating": 3.8,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791117908698_2",
@@ -4487,19 +4569,21 @@
     "disc": "-85%",
     "image": "https://images.indiafreestuff.in/uploads/2026/10/deals/thumb/thumb_440cfe92_71LWD2llNoL.SX679.jpg",
     "link": "https://www.amazon.in/dp/B0HHZ38B4H?tag=dealbuster002-21",
-    "category": "Electronics",
+    "category": "Fashion",
     "highlights": [
       "Great deal on Amazon"
     ],
     "lowestPriceText": null,
     "featured": false,
     "hidden": false,
-    "outOfStock": false,
+    "outOfStock": true,
     "order": 195,
     "addedAt": "2026-10-04T12:45:08.698Z",
     "originalPrice": "₹99",
     "lastChecked": 1791128578728,
-    "lastBadgeCheck": 1791125642322
+    "lastBadgeCheck": 1791134667496,
+    "rating": 5,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791117908698_3",
@@ -4539,19 +4623,26 @@
     "disc": "-82%",
     "image": "https://images.indiafreestuff.in/uploads/2026/10/deals/thumb/thumb_43d6475f_81lMPY2tv1L.SX679.jpg",
     "link": "https://www.amazon.in/dp/B0CPDR76MP?tag=dealbuster002-21",
-    "category": "Electronics",
+    "category": "Home",
     "highlights": [
-      "Great deal on Amazon"
+      "Product 1: 10 meter length with 100 LEDs",
+      "Product 1: USB powered",
+      "Product 1: 12 month warranty",
+      "Product 1: Bendable to any shape",
+      "Product 2: 10 meter length with 100 LEDs"
     ],
     "lowestPriceText": null,
     "featured": false,
-    "hidden": false,
+    "hidden": true,
     "outOfStock": false,
     "order": 197,
     "addedAt": "2026-10-04T12:45:08.698Z",
     "originalPrice": "₹258",
     "lastChecked": 1791129176138,
-    "lastBadgeCheck": 1791125642322
+    "lastBadgeCheck": 1791134667496,
+    "dead": "2026-10-04T17:24:29.795Z",
+    "rating": 3.1,
+    "reviewCount": null
   },
   {
     "id": "ifs_1791117908698_5",
@@ -7890,7 +7981,7 @@
     "addedAt": "2026-10-04T10:14:52.460Z",
     "originalPrice": "₹599",
     "lastChecked": 1791130976943,
-    "lastBadgeCheck": 1791125642088,
+    "lastBadgeCheck": 1791134663826,
     "rating": 3.6,
     "reviewCount": null
   },
@@ -7915,7 +8006,7 @@
     "addedAt": "2026-10-04T10:14:52.460Z",
     "originalPrice": "₹449",
     "lastChecked": 1791130976943,
-    "lastBadgeCheck": 1791125642088,
+    "lastBadgeCheck": 1791134663826,
     "rating": 3.7,
     "reviewCount": null,
     "lowStock": true
@@ -7941,8 +8032,7 @@
     "addedAt": "2026-10-04T10:14:52.460Z",
     "originalPrice": "₹387",
     "lastChecked": 1791130976943,
-    "lastBadgeCheck": 1791125642088,
-    "lowStock": true
+    "lastBadgeCheck": 1791134663826
   },
   {
     "id": "ifs_1791108892460_3",
@@ -7994,7 +8084,7 @@
     "addedAt": "2026-10-04T10:14:52.460Z",
     "originalPrice": "₹1,499",
     "lastChecked": 1791130976943,
-    "lastBadgeCheck": 1791125642088,
+    "lastBadgeCheck": 1791134667496,
     "rating": 3.9,
     "reviewCount": null
   },
@@ -16311,7 +16401,7 @@
     "addedAt": "2026-10-04T03:25:38.234Z",
     "originalPrice": "₹269",
     "lastChecked": 1791124981153,
-    "lastBadgeCheck": 1791125641070,
+    "lastBadgeCheck": 1791134660100,
     "rating": 4.1,
     "reviewCount": null
   },
@@ -16854,9 +16944,10 @@
     "addedAt": "2026-10-04T03:14:29.935Z",
     "originalPrice": "₹321",
     "lastChecked": 1791124979174,
-    "lastBadgeCheck": 1791125640783,
+    "lastBadgeCheck": 1791134656491,
     "rating": 3.8,
-    "reviewCount": null
+    "reviewCount": null,
+    "lowStock": true
   },
   {
     "id": "ifs_1791083669935_16",
@@ -16905,7 +16996,7 @@
     "addedAt": "2026-10-04T03:14:29.935Z",
     "originalPrice": "₹349",
     "lastChecked": 1791124979174,
-    "lastBadgeCheck": 1791125640783,
+    "lastBadgeCheck": 1791134656491,
     "rating": 3.8,
     "reviewCount": null
   },
@@ -17044,7 +17135,7 @@
     "order": 655,
     "addedAt": "2026-10-04T03:14:29.935Z",
     "originalPrice": "₹273",
-    "lastBadgeCheck": 1791125641070
+    "lastBadgeCheck": 1791134660100
   },
   {
     "id": "ifs_1791083669935_25",
@@ -17067,7 +17158,7 @@
     "addedAt": "2026-10-04T03:14:29.935Z",
     "originalPrice": "₹349",
     "lastChecked": 1791124979849,
-    "lastBadgeCheck": 1791125641070
+    "lastBadgeCheck": 1791134660100
   },
   {
     "id": "ds_1791083423348_0",
@@ -24945,12 +25036,12 @@
     "lowestPriceText": null,
     "featured": false,
     "hidden": false,
-    "outOfStock": false,
+    "outOfStock": true,
     "order": 941,
     "addedAt": "2026-10-03T15:20:52.506Z",
     "originalPrice": "₹449",
     "lastChecked": 1791130982042,
-    "lastBadgeCheck": 1791125641070,
+    "lastBadgeCheck": 1791134663826,
     "rating": 3.8,
     "reviewCount": null
   },
@@ -48901,7 +48992,7 @@
     "addedAt": "2026-10-04T14:45:07.781Z",
     "originalPrice": "₹195",
     "lastChecked": 1791125576914,
-    "lastBadgeCheck": 1791125639885,
+    "lastBadgeCheck": 1791134656491,
     "dead": "2026-10-04T14:54:00.783Z",
     "rating": 3.4,
     "reviewCount": null
@@ -49318,10 +49409,11 @@
     "addedAt": "2026-10-04T10:15:43.048Z",
     "originalPrice": "₹199",
     "lastChecked": 1791109362549,
-    "lastBadgeCheck": 1791125642088,
-    "dead": "2026-10-04T10:23:49.536Z",
-    "rating": 1.8,
-    "reviewCount": null
+    "lastBadgeCheck": 1791134667496,
+    "dead": "2026-10-04T17:24:30.181Z",
+    "rating": 1,
+    "reviewCount": null,
+    "lowStock": true
   },
   {
     "id": "ifs_1791108892460_5",
@@ -49539,7 +49631,7 @@
     "addedAt": "2026-10-04T07:26:07.074Z",
     "originalPrice": "₹199",
     "lastChecked": 1791099162495,
-    "lastBadgeCheck": 1791125640783,
+    "lastBadgeCheck": 1791134660100,
     "dead": "2026-10-04T10:08:59.213Z",
     "rating": 3.3,
     "reviewCount": null
@@ -50761,7 +50853,7 @@
     "addedAt": "2026-10-04T03:14:29.935Z",
     "originalPrice": "₹513",
     "lastChecked": 1791084142964,
-    "lastBadgeCheck": 1791125640783,
+    "lastBadgeCheck": 1791134660100,
     "dead": "2026-10-04T03:23:32.077Z",
     "rating": 3.2,
     "reviewCount": null
@@ -50787,7 +50879,7 @@
     "addedAt": "2026-10-04T03:14:29.935Z",
     "originalPrice": "₹669",
     "lastChecked": 1791084142964,
-    "lastBadgeCheck": 1791125641070,
+    "lastBadgeCheck": 1791134663826,
     "dead": "2026-10-04T03:23:33.621Z",
     "rating": 2.5,
     "reviewCount": null
