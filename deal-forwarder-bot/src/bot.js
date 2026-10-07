@@ -7,7 +7,7 @@ import { StringSession } from 'telegram/sessions/index.js';
 import { NewMessage } from 'telegram/events/index.js';
 import { HTMLParser } from 'telegram/extensions/html.js';
 import dotenv from 'dotenv';
-import { processMessageText, extractAmazonAsin, extractUrls, extractCanonicalDealId } from './converter.js';
+import { processMessageText, extractAmazonAsin, extractUrls, extractCanonicalDealId, isAmazonUrl } from './converter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -522,8 +522,22 @@ async function main() {
       const rawText = msg.message || '';
       if (!rawText.trim()) return;
 
+      // DealsPing check
+      const isDealsPing = (chatUsername === 'dealping') ||
+                          (channelTitle && /dealping/i.test(channelTitle)) ||
+                          chatIdStr === '2549771239' ||
+                          rawChatId === '-1002549771239' ||
+                          rawPeerId === '2549771239';
+
       // 0. FAST RAW URL PRE-CHECK
       const rawUrls = extractUrls(rawText, msg.entities);
+
+      // DealsPing: Skip all Amazon deals immediately! Only non-Amazon deals allowed.
+      if (isDealsPing && (isAmazonUrl(rawText) || rawUrls.some(u => isAmazonUrl(u) || u.includes('dealsping.in/amz') || u.includes('amazn.') || u.includes('amzn.')))) {
+        console.log(`⏩ Skipped: Amazon deal from DealsPing (${channelTitle}). Only non-Amazon deals are accepted from DealsPing.`);
+        logEvent('Skipped: DealsPing Amazon deal', channelTitle, rawText);
+        return;
+      }
       for (const u of rawUrls) {
         if (dedupCache['url_' + u] || dedupCache[u]) {
           console.log(`⏩ Skipped: URL "${u}" was already posted.`);
@@ -653,7 +667,7 @@ async function main() {
                           config.channel_rules?.[chatUsername] ||
                           (isDealsPing ? config.channel_rules?.['@DealPing'] : null) ||
                           (isLootPing ? config.channel_rules?.['@lootping'] : null);
-      const isNonAmazonOnly = Boolean(channelRule?.non_amazon_only);
+      const isNonAmazonOnly = isDealsPing || Boolean(channelRule?.non_amazon_only);
 
       if (isNonAmazonOnly && validDeals.some(l => l.store === 'amazon')) {
         console.log(`⏩ Skipped: Amazon deal from ${channelTitle} (configured for non-Amazon deals only).`);
