@@ -256,15 +256,14 @@ async function run() {
       const bodyEl = await findInShadow('div[contenteditable="true"], div[role="textbox"], textarea[placeholder*="body"], textarea[placeholder*="Text"]', 15000);
       if (bodyEl) {
         console.log('Found Body element. Filling text...');
-        await bodyEl.click();
         await page.evaluate((el, val) => {
-          el.focus();
-          // Set contenteditable text
+          try { el.focus(); } catch (e) {}
           if (el.getAttribute('contenteditable') === 'true' || el.getAttribute('role') === 'textbox') {
             document.execCommand('insertText', false, val);
           } else {
             el.value = val;
             el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
           }
         }, bodyEl, text);
         console.log('Body filled successfully.');
@@ -277,38 +276,35 @@ async function run() {
 
     // 3. Locate and click Post button inside Shadow DOM or main document
     console.log('Locating enabled Post button...');
-    const postBtnHandle = await page.evaluateHandle(() => {
+    const postClicked = await page.evaluate(() => {
       function searchButtons(root) {
         const btns = Array.from(root.querySelectorAll('button'));
         for (const b of btns) {
           const txt = (b.textContent || '').trim().toLowerCase();
           const disabled = b.disabled || b.getAttribute('aria-disabled') === 'true';
           if ((txt === 'post' || txt === 'publish') && !disabled) {
-            return b;
+            b.click();
+            return true;
           }
         }
         const all = root.querySelectorAll('*');
         for (const el of all) {
           if (el.shadowRoot) {
             const found = searchButtons(el.shadowRoot);
-            if (found) return found;
+            if (found) return true;
           }
         }
-        return null;
+        return false;
       }
       return searchButtons(document);
     });
 
-    const postBtn = postBtnHandle.asElement();
-    if (!postBtn) {
-      throw new Error('Enabled Post button could not be located.');
+    if (!postClicked) {
+      throw new Error('Enabled Post button could not be located or clicked.');
     }
 
-    console.log('Clicking Post button...');
-    await postBtn.click();
-
     console.log('Post button clicked! Waiting for submission to finalize...');
-    await new Promise(r => setTimeout(r, 10000));
+    await new Promise(r => setTimeout(r, 12000));
 
     console.log(`Final page URL: ${page.url()}`);
     console.log('Reddit post workflow completed successfully!');
