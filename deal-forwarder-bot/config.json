@@ -10,14 +10,7 @@
   "amazon_tag": "dealbuster002-21",
   "earnkaro_api_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o",
   "custom_footer": "",
-  "channel_rules": {
-    "@DealPing": {
-      "non_amazon_only": true
-    },
-    "@lootping": {
-      "non_amazon_only": true
-    }
-  },
+  "channel_rules": {},
   "remove_competitor_mentions": true,
   "blacklist_keywords": [
     "loot over",
@@ -50,6 +43,6 @@
     "ANTINA"
   ],
   "dedup_ttl_hours": 48,
-  "delay_seconds": 2,
-  "pacing_interval_seconds": 60
+  "delay_seconds": 1,
+  "pacing_interval_seconds": 0
 }

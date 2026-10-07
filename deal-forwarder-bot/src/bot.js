@@ -379,13 +379,17 @@ async function main() {
 
     try {
       while (dealQueue.length > 0) {
-        // Enforce strict pacing interval between any two Telegram channel posts
-        const intervalSec = config.pacing_interval_seconds || 60;
+        // Post immediately per user preference (minimal safety interval to prevent Telegram FloodWait on rapid bursts)
+        const pacingSec = (config.pacing_interval_seconds !== undefined) ? Number(config.pacing_interval_seconds) : 0;
+        const minBurstDelaySec = (config.delay_seconds !== undefined) ? Number(config.delay_seconds) : 1;
+        const effectiveIntervalSec = pacingSec > 0 ? pacingSec : minBurstDelaySec;
+
         const timeSinceLast = (Date.now() - lastDealPostedTime) / 1000;
-        if (timeSinceLast < intervalSec && lastDealPostedTime > 0) {
-          const waitTimeMs = Math.ceil((intervalSec - timeSinceLast) * 1000);
-          console.log(`⏳ Anti-Spam Pacing: Waiting ${(waitTimeMs / 1000).toFixed(1)}s before sending next deal in queue...`);
-          await sleep(waitTimeMs);
+        if (timeSinceLast < effectiveIntervalSec && lastDealPostedTime > 0) {
+          const waitTimeMs = Math.ceil((effectiveIntervalSec - timeSinceLast) * 1000);
+          if (waitTimeMs > 0) {
+            await sleep(waitTimeMs);
+          }
         }
 
         botState.queueLength = dealQueue.length;
@@ -649,7 +653,7 @@ async function main() {
                           config.channel_rules?.[chatUsername] ||
                           (isDealsPing ? config.channel_rules?.['@DealPing'] : null) ||
                           (isLootPing ? config.channel_rules?.['@lootping'] : null);
-      const isNonAmazonOnly = isDealsPing || isLootPing || channelRule?.non_amazon_only;
+      const isNonAmazonOnly = Boolean(channelRule?.non_amazon_only);
 
       if (isNonAmazonOnly && validDeals.some(l => l.store === 'amazon')) {
         console.log(`⏩ Skipped: Amazon deal from ${channelTitle} (configured for non-Amazon deals only).`);
@@ -800,14 +804,25 @@ async function main() {
     seedDedupFromTargetChannel(client, targetPeer).catch(() => {});
   }, 5 * 60 * 1000);
 
-  // 2. Active background polling worker (runs every 10 seconds)
-  // Guarantees 100% reliability even if Telegram's MTProto socket pauses passive channel push updates
+  // 2. Initial deal sweep & active background polling worker
+  // On startup: Check the latest 5 messages from each source channel to catch any deals posted in the last 30 minutes
+  const startupTime = Date.now();
   for (const entity of sourceEntities) {
     try {
-      const latest = await client.getMessages(entity, { limit: 1 });
-      if (latest && latest[0]?.id) {
-        lastSeenMsgIds.set(entity.id.toString(), latest[0].id);
-        console.log(`📍 Checkpoint for ${entity.title || entity.id}: latest msg ID ${latest[0].id}`);
+      const recent = await client.getMessages(entity, { limit: 5 });
+      if (recent && recent.length > 0) {
+        const eIdStr = entity.id.toString();
+        lastSeenMsgIds.set(eIdStr, recent[0].id);
+        console.log(`📍 Checkpoint for ${entity.title || entity.id}: latest msg ID ${recent[0].id}`);
+
+        // Catch up on recent unposted deals from the last 30 minutes
+        const unhandled = recent
+          .filter(m => m && m.date && (startupTime - m.date * 1000) < 30 * 60 * 1000)
+          .sort((a, b) => a.id - b.id);
+
+        for (const msg of unhandled) {
+          await handleIncomingMessage(msg, entity);
+        }
       }
     } catch (e) {
       console.warn(`⚠️ Could not get initial checkpoint for ${entity.title || entity.id}:`, e.message);
