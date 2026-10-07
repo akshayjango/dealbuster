@@ -4776,6 +4776,12 @@ export class TgPoster {
       await postDealToChannels(p, this.env, { companionDm }).catch(e => console.error('TG post failed:', e.message));
     }
 
+    if (isLowestPricePost) {
+      for (const p of batchToSend) {
+        postDealToRedditViaWorkflow(p, this.env).catch(e => console.error('Reddit lowest-price post error:', e.message));
+      }
+    }
+
     // Mirror into KV — only the cron's cheap "anything new?" pre-check reads
     // this (getUnpostedTgFresh). Advisory only; the DO ledger is authoritative.
     try {
@@ -5031,6 +5037,104 @@ async function sendNonAmazonDealPromptToAdmin(deal, env) {
   }
 
   await tgSend(token, adminId, text);
+}
+
+function formatRedditDealPost(product, env) {
+  const store = getStoreNameFromTitleOrUrl(product.title, product.link);
+  const isAmazon = !store || store === 'Non-Amazon' || store.toLowerCase().includes('amazon') || (product.link || '').includes('amazon.in');
+  const storeName = isAmazon ? 'Amazon' : store;
+
+  // Construct direct affiliate buy link
+  let buyLink = product.link || '';
+  if (isAmazon && product.asin) {
+    const tag = env?.PA_PARTNER_TAG || 'dealbuster002-21';
+    buyLink = `https://www.amazon.in/dp/${product.asin}?tag=${tag}`;
+  }
+
+  // Construct website deal page link
+  const params = new URLSearchParams({
+    title: product.title || '',
+    cat: product.category || 'All Deals',
+    price: product.price || '',
+    mrp: product.mrp || '',
+    disc: product.disc || '',
+    updated: (product.addedAt || '').slice(0, 10),
+    img: product.image || '',
+    link: product.link || '',
+    hl: (product.highlights || []).join('|'),
+  });
+  if (product.lowestPriceText) params.set('lowestPriceText', product.lowestPriceText);
+  const webDealUrl = `https://dealbuster.in/product.html?${params.toString()}`;
+
+  const discountText = product.disc ? ` (${product.disc} off)` : '';
+  const lowestBadge = (product.lowestPriceText || hasLowestPrice(product)) ? ' - All-time Lowest Price! 🔥' : '';
+
+  const title = `[${storeName}] ${product.title.slice(0, 180)} at ${product.price}${discountText}${lowestBadge}`.slice(0, 295);
+
+  const text = `### [${product.title}](${webDealUrl})
+
+* 💰 **Deal Price:** ${product.price}
+* 🏷️ **M.R.P:** ${product.mrp || 'N/A'}${product.disc ? ` (${product.disc} OFF)` : ''}
+* 🛒 **Store:** ${storeName}
+${product.rating ? `* ⭐ **Rating:** ${product.rating} / 5\n` : ''}
+🔗 **Direct Store Link:** [👉 Buy on ${storeName}](${buyLink})  
+🌐 **Web View & Details:** [View on DealBuster](${webDealUrl})
+
+---
+📱 **Never miss a loot deal or lowest price crash in India:**
+* 📲 **Android App:** [Download DealBuster on Google Play](https://play.google.com/store/apps/details?id=com.dealbusterindia.app) *(Instant push notifications for price glitches)*
+* 💬 **Telegram:** [Join @dealbusterindia](https://t.me/dealbusterindia) *(Fast deal alerts)*
+* 🌐 **Website:** [dealbuster.in](https://dealbuster.in)`;
+
+  return { title, text, url: webDealUrl };
+}
+
+async function postDealToRedditViaWorkflow(product, env, { force = false } = {}) {
+  const token = (env.GITHUB_TOKEN || '').trim();
+  if (!token) {
+    console.warn('Reddit post skipped: GITHUB_TOKEN not configured in env');
+    return { error: 'GITHUB_TOKEN not configured' };
+  }
+
+  const pid = product.id || product.asin;
+  if (!force && pid && env.KV) {
+    const already = await env.KV.get(`reddit_posted:${pid}`).catch(() => null);
+    if (already) {
+      console.log(`Reddit post skipped: product ${pid} was already posted to Reddit recently`);
+      return { skipped: true, message: 'Already posted recently' };
+    }
+  }
+
+  const { title, text, url } = formatRedditDealPost(product, env);
+
+  const dispatchUrl = 'https://api.github.com/repos/akshayjango/dealbuster/actions/workflows/reddit-post.yml/dispatches';
+  const resp = await fetchWithTimeout(dispatchUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'Dealbuster-Admin',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ref: 'main',
+      inputs: { title, text, url }
+    })
+  }, 10000);
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    console.error(`GitHub Actions Reddit dispatch failed (${resp.status}): ${errText}`);
+    return { error: `GitHub dispatch failed: ${resp.status} ${errText}` };
+  }
+
+  if (pid && env.KV) {
+    // 2-day cooldown in KV
+    await env.KV.put(`reddit_posted:${pid}`, String(Date.now()), { expirationTtl: 172800 }).catch(() => {});
+  }
+
+  console.log(`Successfully dispatched Reddit post workflow for deal: "${title.slice(0, 50)}..."`);
+  return { success: true, title };
 }
 
 async function handleTelegramWebhook(request, env) {
@@ -6449,6 +6553,19 @@ export default {
         if (isZeroPrice(product)) return json({ error: 'Product has no price — refusing to post' }, 400);
         const posted = await sendToChannels([product], env, { force: !!force });
         return json({ success: true, posted, alreadyPosted: posted === 0 });
+      }
+
+      // ── POST /post-to-reddit (per-product button in the dashboard menu) ────────
+      if (url.pathname === '/post-to-reddit' && request.method === 'POST') {
+        const { id, force } = await request.json();
+        if (!id) return json({ error: 'Missing id' }, 400);
+        const { products } = await getProductsFile(env);
+        const product = products.find(p => p.id === id);
+        if (!product) return json({ error: 'Product not found' }, 404);
+        if (isZeroPrice(product)) return json({ error: 'Product has no price — refusing to post' }, 400);
+        const res = await postDealToRedditViaWorkflow(product, env, { force: !!force });
+        if (res.error) return json({ error: res.error }, 500);
+        return json({ success: true, title: res.title, skipped: !!res.skipped, message: res.message });
       }
 
       // ── POST /send-deal-push (Per-deal push notification to Android app) ─────
