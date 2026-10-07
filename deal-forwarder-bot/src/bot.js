@@ -7,7 +7,7 @@ import { StringSession } from 'telegram/sessions/index.js';
 import { NewMessage } from 'telegram/events/index.js';
 import { HTMLParser } from 'telegram/extensions/html.js';
 import dotenv from 'dotenv';
-import { processMessageText, extractAmazonAsin, extractUrls } from './converter.js';
+import { processMessageText, extractAmazonAsin, extractUrls, extractCanonicalDealId } from './converter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -230,17 +230,40 @@ async function main() {
   botState.targetChannel = targetPeer?.title || config.target_channel;
   botState.monitoredChannels = sourceEntities.map(e => `${e.title || e.username} (ID: ${e.id})`);
 
+  // Fast query to Cloudflare Worker DO to check if deal is in authoritative channel ledger
+  async function isAlreadyPostedInAdminApi(keys) {
+    if (!Array.isArray(keys) || keys.length === 0) return false;
+    const cleanKeys = keys.filter(Boolean).map(k => String(k).trim()).filter(Boolean);
+    if (cleanKeys.length === 0) return false;
+    try {
+      const res = await fetch('https://dealbuster-admin-api.vakshay083.workers.dev/tg-posted/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys: cleanKeys }),
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (Array.isArray(data?.posted) && data.posted.length > 0) {
+          console.log(`📡 Cloudflare Worker DO reports already posted: [${data.posted.join(', ')}]`);
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  }
+
   // Synchronize posted deal with Cloudflare Worker so background crons never double-post
   async function syncPostedToAdminApi(item) {
     try {
       const items = [];
       if (item.convertedLinks) {
         for (const l of item.convertedLinks) {
-          let asin = null;
-          if (l.store === 'amazon') {
+          let asin = l.asin || null;
+          if (!asin && l.store === 'amazon') {
             asin = extractAmazonAsin(l.convertedUrl) || extractAmazonAsin(l.originalUrl);
           }
-          items.push({ id: l.id, asin });
+          items.push({ id: l.id, asin, pid: l.pid || null });
         }
       }
       if (items.length > 0) {
@@ -257,28 +280,83 @@ async function main() {
     }
   }
 
+  // Real-time ingestion of any deal posted directly to @dealbusterindia (e.g. by admin-api or manual post)
+  function ingestTargetChannelMessage(msg) {
+    try {
+      if (!msg || !msg.message) return;
+      const text = msg.message;
+      const urls = extractUrls(text, msg.entities);
+      let added = 0;
+      const now = (msg.date || 0) * 1000 || Date.now();
+      for (const u of urls) {
+        const canonical = extractCanonicalDealId(u);
+        if (canonical?.id) {
+          if (!dedupCache[canonical.id]) { dedupCache[canonical.id] = now; added++; }
+        }
+        if (canonical?.asin) {
+          const aKey = 'amazon_' + canonical.asin.toUpperCase();
+          if (!dedupCache[aKey]) { dedupCache[aKey] = now; added++; }
+        }
+        if (canonical?.pid) {
+          const pKey = `pid_${canonical.pid}`;
+          if (!dedupCache[pKey]) { dedupCache[pKey] = now; added++; }
+        }
+        const uKey = 'url_' + u;
+        if (!dedupCache[uKey]) { dedupCache[uKey] = now; added++; }
+      }
+      const fp = getDealFingerprint(text, msg.media);
+      if (fp && !dedupCache[fp]) {
+        dedupCache[fp] = now;
+        added++;
+      }
+      if (added > 0) {
+        saveDedupCache(dedupCache);
+        console.log(`📡 Ingested ${added} mark(s) from @dealbusterindia into dedupCache.`);
+      }
+    } catch (e) {
+      console.warn('⚠️ Target channel message ingestion error:', e.message);
+    }
+  }
+
   // Pre-seed dedupCache from recent channel messages in @dealbusterindia
   async function seedDedupFromTargetChannel(client, targetPeer) {
     try {
       console.log('🔄 Pre-seeding dedup cache from @dealbusterindia recent history...');
-      const msgs = await client.getMessages(targetPeer, { limit: 100 });
+      const msgs = await client.getMessages(targetPeer, { limit: 120 });
       let addedCount = 0;
       for (const m of msgs) {
         if (!m.message) continue;
-        const urls = extractUrls(m.message);
+        const msgDate = (m.date || 0) * 1000 || Date.now();
+        const urls = extractUrls(m.message, m.entities);
         for (const u of urls) {
-          const asin = extractAmazonAsin(u);
-          if (asin) {
-            const key = 'amazon_' + asin.toUpperCase();
+          const canonical = extractCanonicalDealId(u);
+          if (canonical?.id && !dedupCache[canonical.id]) {
+            dedupCache[canonical.id] = msgDate;
+            addedCount++;
+          }
+          if (canonical?.asin) {
+            const key = 'amazon_' + canonical.asin.toUpperCase();
             if (!dedupCache[key]) {
-              dedupCache[key] = (m.date || 0) * 1000;
+              dedupCache[key] = msgDate;
               addedCount++;
             }
           }
+          if (canonical?.pid) {
+            const pKey = `pid_${canonical.pid}`;
+            if (!dedupCache[pKey]) {
+              dedupCache[pKey] = msgDate;
+              addedCount++;
+            }
+          }
+          const uKey = 'url_' + u;
+          if (!dedupCache[uKey]) {
+            dedupCache[uKey] = msgDate;
+            addedCount++;
+          }
         }
-        const fp = getDealFingerprint(m.message);
-        if (fp.length >= 8 && !dedupCache[fp]) {
-          dedupCache[fp] = (m.date || 0) * 1000;
+        const fp = getDealFingerprint(m.message, m.media);
+        if (fp && !dedupCache[fp]) {
+          dedupCache[fp] = msgDate;
           addedCount++;
         }
       }
@@ -402,19 +480,23 @@ async function main() {
   // In-flight claims set to synchronously serialize and drop concurrent duplicates across channels
   const inFlightClaims = new Set();
 
-  function getDealFingerprint(text) {
-    if (!text) return '';
-    return 'fp_' + text
+  function getDealFingerprint(text, media = null) {
+    if (!text && !media) return '';
+    const clean = (text || '')
       .toLowerCase()
       .replace(/https?:\/\/[^\s]+/g, '')
       .replace(/[^a-z0-9]/g, '')
       .slice(0, 50);
+    const photoId = media?.photo?.id?.toString() || media?.document?.id?.toString() || '';
+    if (!clean && !photoId) return '';
+    return 'fp_' + clean + (photoId ? `_m${photoId}` : '');
   }
 
   // Core message processor: converts links, validates stores, applies filters, and queues for posting
   async function handleIncomingMessage(msg, matchedEntity = null) {
     let claimedFingerprint = null;
     let claimedAsinKey = null;
+    let validDeals = [];
     try {
       if (!msg || !msg.message) return;
 
@@ -436,20 +518,38 @@ async function main() {
       const rawText = msg.message || '';
       if (!rawText.trim()) return;
 
+      // 0. FAST RAW URL PRE-CHECK
+      const rawUrls = extractUrls(rawText, msg.entities);
+      for (const u of rawUrls) {
+        if (dedupCache['url_' + u] || dedupCache[u]) {
+          console.log(`⏩ Skipped: URL "${u}" was already posted.`);
+          logEvent(`Skipped: Duplicate URL`, channelTitle, rawText);
+          return;
+        }
+      }
+
       // 1. FAST ASIN PRE-CHECK:
       // If message contains an Amazon link whose ASIN was already posted or in-flight, skip immediately!
       let detectedAsin = null;
-      const rawUrls = extractUrls(rawText, msg.entities);
       for (const u of rawUrls) {
         const a = extractAmazonAsin(u);
-        if (a) { detectedAsin = a; break; }
+        if (a) { detectedAsin = a.toUpperCase(); break; }
       }
       if (detectedAsin) {
-        const asinKey = 'amazon_' + detectedAsin.toUpperCase();
+        const asinKey = 'amazon_' + detectedAsin;
         if (dedupCache[asinKey] || inFlightClaims.has(asinKey)) {
           const hoursAgo = dedupCache[asinKey] ? ((Date.now() - dedupCache[asinKey]) / (1000 * 60 * 60)).toFixed(1) : 0;
           console.log(`⏩ Skipped: ASIN "${detectedAsin}" was already posted ${hoursAgo}h ago.`);
           logEvent(`Skipped: Duplicate ASIN "${detectedAsin}" (${hoursAgo}h ago)`, channelTitle, rawText);
+          return;
+        }
+        // Also check Cloudflare Worker DO authoritative ledger
+        const inWorker = await isAlreadyPostedInAdminApi([detectedAsin, asinKey]);
+        if (inWorker) {
+          console.log(`⏩ Skipped: ASIN "${detectedAsin}" was already posted in Cloudflare Worker DO.`);
+          logEvent(`Skipped: Duplicate ASIN in Worker DO`, channelTitle, rawText);
+          dedupCache[asinKey] = Date.now();
+          saveDedupCache(dedupCache);
           return;
         }
         inFlightClaims.add(asinKey);
@@ -458,8 +558,8 @@ async function main() {
 
       // 2. FAST CONTENT PRE-CHECK & SYNCHRONOUS IN-FLIGHT CLAIM:
       // If the deal was already posted or is being processed concurrently by another channel, DROP IT in 0ms!
-      const fingerprint = getDealFingerprint(rawText);
-      if (fingerprint.length >= 8) {
+      const fingerprint = getDealFingerprint(rawText, msg.media);
+      if (fingerprint && fingerprint.length >= 4) {
         if (inFlightClaims.has(fingerprint)) {
           console.log(`⏩ Skipped: Duplicate deal already in-flight from another channel.`);
           logEvent('Skipped: Concurrent cross-channel duplicate (in-flight)', channelTitle, rawText);
@@ -511,7 +611,7 @@ async function main() {
       const result = await processMessageText(rawText, conversionOptions);
 
       // Filter only allowed stores: amazon, flipkart, myntra, ajio, shopsy, meesho
-      const validDeals = result.convertedLinks.filter(l => {
+      validDeals = result.convertedLinks.filter(l => {
         if (!['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy', 'meesho'].includes(l.store)) return false;
         if (!l.convertedUrl || /dealsping\.in|t\.me|telegram\.me/i.test(l.convertedUrl)) return false;
 
@@ -566,20 +666,48 @@ async function main() {
         }
       }
 
-      // 7. Deduplication check by product ID
+      // 7. Deduplication check by canonical product ID and Cloudflare Worker DO ledger
       for (const link of validDeals) {
-        if (link.id && dedupCache[link.id]) {
-          const hoursAgo = ((Date.now() - dedupCache[link.id]) / (1000 * 60 * 60)).toFixed(1);
-          console.log(`⏩ Skipped: Duplicate product "${link.id}" posted ${hoursAgo}h ago.`);
-          logEvent(`Skipped: Duplicate product (${hoursAgo}h ago)`, channelTitle, rawText);
+        const dealId = link.id;
+        if (!dealId) continue;
+
+        if (dedupCache[dealId] || inFlightClaims.has(dealId)) {
+          const hoursAgo = dedupCache[dealId] ? ((Date.now() - dedupCache[dealId]) / (1000 * 60 * 60)).toFixed(1) : 0;
+          console.log(`⏩ Skipped: Duplicate canonical product "${dealId}" posted ${hoursAgo}h ago.`);
+          logEvent(`Skipped: Duplicate canonical product (${hoursAgo}h ago)`, channelTitle, rawText);
+          return;
+        }
+
+        // Check Cloudflare Worker DO ledger for canonicalId, pid, asin
+        const checkKeys = [dealId];
+        if (link.pid) checkKeys.push(link.pid);
+        if (link.asin) checkKeys.push(link.asin);
+        const inWorker = await isAlreadyPostedInAdminApi(checkKeys);
+        if (inWorker) {
+          console.log(`⏩ Skipped: Product "${dealId}" already in Cloudflare Worker DO ledger.`);
+          logEvent(`Skipped: Product in Worker DO`, channelTitle, rawText);
+          dedupCache[dealId] = Date.now();
+          saveDedupCache(dedupCache);
           return;
         }
       }
 
-      // Record in dedup cache
+      // Record in dedup cache and in-flight claims immediately to prevent any concurrent race
       for (const link of validDeals) {
         if (link.id) {
+          inFlightClaims.add(link.id);
           dedupCache[link.id] = Date.now();
+        }
+        if (link.asin) {
+          const aKey = 'amazon_' + link.asin.toUpperCase();
+          inFlightClaims.add(aKey);
+          dedupCache[aKey] = Date.now();
+        }
+        if (link.pid) {
+          dedupCache[`pid_${link.pid}`] = Date.now();
+        }
+        if (link.originalUrl) {
+          dedupCache['url_' + link.originalUrl] = Date.now();
         }
       }
       if (claimedFingerprint) {
@@ -589,6 +717,9 @@ async function main() {
         dedupCache[claimedAsinKey] = Date.now();
       }
       saveDedupCache(dedupCache);
+
+      // Pre-claim with Cloudflare Worker DO immediately so Worker crons never double-post
+      syncPostedToAdminApi({ convertedLinks: validDeals }).catch(() => {});
 
       // Add to pacing queue and trigger queue processor
       console.log(`📥 Added to queue (Queue length: ${dealQueue.length + 1})`);
@@ -613,6 +744,9 @@ async function main() {
       if (claimedAsinKey) {
         inFlightClaims.delete(claimedAsinKey);
       }
+      for (const link of validDeals || []) {
+        if (link?.id) inFlightClaims.delete(link.id);
+      }
     }
   }
 
@@ -625,6 +759,20 @@ async function main() {
       const rawChatId = msg.chatId ? msg.chatId.toString() : '';
       const rawPeerId = msg.peerId?.channelId ? msg.peerId.channelId.toString() : '';
 
+      // Check if message was posted directly to our target channel @dealbusterindia
+      const targetIdStr = targetPeer?.id ? targetPeer.id.toString() : '';
+      const isTargetChannel = targetIdStr && (
+        rawPeerId === targetIdStr ||
+        rawChatId === targetIdStr ||
+        rawPeerId === `-100${targetIdStr}` ||
+        rawChatId === `-100${targetIdStr}`
+      );
+
+      if (isTargetChannel) {
+        ingestTargetChannelMessage(msg);
+        return;
+      }
+
       const entity = sourceEntityMap.get(rawPeerId) ||
                      sourceEntityMap.get(rawChatId) ||
                      sourceEntityMap.get(`-100${rawPeerId}`);
@@ -632,7 +780,9 @@ async function main() {
 
       const eIdStr = entity.id.toString();
       if (msg.id) {
-        lastSeenMsgIds.set(eIdStr, Math.max(lastSeenMsgIds.get(eIdStr) || 0, msg.id));
+        const lastId = lastSeenMsgIds.get(eIdStr) || 0;
+        if (msg.id <= lastId) return;
+        lastSeenMsgIds.set(eIdStr, Math.max(lastId, msg.id));
       }
 
       await handleIncomingMessage(msg, entity);
@@ -640,6 +790,11 @@ async function main() {
       console.error('❌ Error in message event handler:', err);
     }
   }, new NewMessage({}));
+
+  // Periodically refresh dedupCache from recent messages in @dealbusterindia (every 5 minutes)
+  setInterval(() => {
+    seedDedupFromTargetChannel(client, targetPeer).catch(() => {});
+  }, 5 * 60 * 1000);
 
   // 2. Active background polling worker (runs every 10 seconds)
   // Guarantees 100% reliability even if Telegram's MTProto socket pauses passive channel push updates

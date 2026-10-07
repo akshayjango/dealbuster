@@ -3784,16 +3784,51 @@ function formatFbCaption(product, tag, isLowest = false, env = {}) {
   return `🔥 ${title}\n${lowestBadge}${priceBlock}`;
 }
 
-// Tracks which products have already been posted — by id AND by ASIN. ASIN is the
-// durable key: if a product's id ever changes (cap eviction, a sync re-adding it,
-// any future bug) but the ASIN is the same, this still recognizes it as already
-// posted. id-only tracking couldn't survive that and would repost it as "new".
+// Extract canonical store product identifier (Flipkart PID, Myntra ID, etc.) from product link
+function extractStorePid(url) {
+  if (!url) return null;
+  let targetUrl = url;
+  try {
+    const m = url.match(/[?&](?:url|dl|target|destination)=([^&]+)/i);
+    if (m) {
+      const decoded = decodeURIComponent(m[1]);
+      if (/https?:\/\//i.test(decoded)) targetUrl = decoded;
+    }
+  } catch {}
+
+  const pidMatch = targetUrl.match(/[?&]pid=([A-Z0-9]{16})/i) ||
+                   url.match(/[?&]pid=([A-Z0-9]{16})/i) ||
+                   targetUrl.match(/\/p\/itm([a-z0-9]{10,16})/i) ||
+                   url.match(/\/p\/itm([a-z0-9]{10,16})/i) ||
+                   targetUrl.match(/\/p\/([a-z0-9]{16})/i) ||
+                   url.match(/\/p\/([a-z0-9]{16})/i);
+  if (pidMatch) return `flipkart_${pidMatch[1].toUpperCase()}`;
+
+  const myntraMatch = targetUrl.match(/\/(\d{5,12})(?:\/buy|[?#]|$)/i) || url.match(/\/(\d{5,12})(?:\/buy|[?#]|$)/i);
+  if (myntraMatch) return `myntra_${myntraMatch[1]}`;
+
+  const ajioMatch = targetUrl.match(/\/p\/([a-zA-Z0-9_]+)/i) || url.match(/\/p\/([a-zA-Z0-9_]+)/i);
+  if (ajioMatch) return `ajio_${ajioMatch[1]}`;
+
+  return null;
+}
+
+// Tracks which products have already been posted — by id, by ASIN, AND by store PID.
+// Durable keys survive cap eviction and re-sync across stores and forwarder bots.
 function isAlreadyPosted(p, postedIds) {
-  return postedIds.has(p.id) || (p.asin && postedIds.has(p.asin.toUpperCase()));
+  if (!p) return false;
+  if (p.id && postedIds.has(p.id)) return true;
+  if (p.asin && postedIds.has(p.asin.toUpperCase())) return true;
+  const storePid = extractStorePid(p.link);
+  if (storePid && postedIds.has(storePid)) return true;
+  return false;
 }
 function markPosted(p, postedIds) {
-  postedIds.add(p.id);
+  if (!p) return;
+  if (p.id) postedIds.add(p.id);
   if (p.asin) postedIds.add(p.asin.toUpperCase());
+  const storePid = extractStorePid(p.link);
+  if (storePid) postedIds.add(storePid);
 }
 
 // Inline-keyboard row with the FB-caption button (and Keepa price history when
@@ -4572,13 +4607,15 @@ export class TgPoster {
     const fresh = [];
     const claim = {};
     for (const it of items) {
-      if (!it?.id) continue;
-      const keys = [`posted:${it.id}`];
+      if (!it?.id && !it?.asin && !it?.pid) continue;
+      const keys = [];
+      if (it.id) keys.push(`posted:${it.id}`);
       if (it.asin) keys.push(`posted:${it.asin.toUpperCase()}`);
+      if (it.pid) keys.push(`posted:${it.pid}`);
       const found = await this.ctx.storage.get(keys);
       const isRecent = [...found.values()].some(val => isRecentlyPosted(val, now, TWO_DAYS_MS));
       if (isRecent) continue;
-      fresh.push(it.id);
+      fresh.push(it.id || it.asin || it.pid);
       for (const k of keys) claim[k] = now;
     }
     if (Object.keys(claim).length) await this.ctx.storage.put(claim);
@@ -4674,14 +4711,20 @@ export class TgPoster {
   }
 
   keysFor(p) {
-    const keys = [`posted:${p.id}`];
+    const keys = [];
+    if (p.id) keys.push(`posted:${p.id}`);
     if (p.asin) keys.push(`posted:${p.asin.toUpperCase()}`);
+    const storePid = extractStorePid(p.link);
+    if (storePid) keys.push(`posted:${storePid}`);
     return keys;
   }
 
   lowestKeysFor(p) {
-    const keys = [`lowest_posted:${p.id}`];
+    const keys = [];
+    if (p.id) keys.push(`lowest_posted:${p.id}`);
     if (p.asin) keys.push(`lowest_posted:${p.asin.toUpperCase()}`);
+    const storePid = extractStorePid(p.link);
+    if (storePid) keys.push(`lowest_posted:${storePid}`);
     return keys;
   }
 
@@ -4744,6 +4787,8 @@ export class TgPoster {
             markPosted(p, ids);
             if (p.id && !timesMap[p.id]) { timesMap[p.id] = now; changed = true; }
             if (p.asin && !timesMap[p.asin.toUpperCase()]) { timesMap[p.asin.toUpperCase()] = now; changed = true; }
+            const storePid = extractStorePid(p.link);
+            if (storePid && !timesMap[storePid]) { timesMap[storePid] = now; changed = true; }
           });
           await this.env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
           if (changed) await this.env.KV.put('tg_posted_times', JSON.stringify(timesMap));
@@ -4793,6 +4838,8 @@ export class TgPoster {
       for (const p of batchToSend) {
         if (p.id) timesMap[p.id] = now;
         if (p.asin) timesMap[p.asin.toUpperCase()] = now;
+        const storePid = extractStorePid(p.link);
+        if (storePid) timesMap[storePid] = now;
       }
       const cutoff = now - TWO_DAYS_MS;
       for (const k in timesMap) {
@@ -4826,6 +4873,8 @@ async function getUnpostedTgFresh(env, mode) {
     const idTime = postedTimes[p.id];
     if (idTime && (now - idTime) < TWO_DAYS_MS) return true;
     if (p.asin && postedTimes[p.asin.toUpperCase()] && (now - postedTimes[p.asin.toUpperCase()]) < TWO_DAYS_MS) return true;
+    const storePid = extractStorePid(p.link);
+    if (storePid && postedTimes[storePid] && (now - postedTimes[storePid]) < TWO_DAYS_MS) return true;
     return false;
   };
 
@@ -6019,6 +6068,7 @@ export default {
         for (const item of items) {
           if (item.id) { ids.add(item.id); times[item.id] = now; }
           if (item.asin) { ids.add(item.asin.toUpperCase()); times[item.asin.toUpperCase()] = now; }
+          if (item.pid) { ids.add(item.pid); times[item.pid] = now; }
         }
         await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
         await env.KV.put('tg_posted_times', JSON.stringify(times));
@@ -7216,6 +7266,7 @@ export default {
           for (const item of items) {
             if (item.id) { ids.add(item.id); times[item.id] = now; }
             if (item.asin) { ids.add(item.asin.toUpperCase()); times[item.asin.toUpperCase()] = now; }
+            if (item.pid) { ids.add(item.pid); times[item.pid] = now; }
           }
           await env.KV.put('tg_posted_ids', JSON.stringify(Array.from(ids).slice(-20000)));
           await env.KV.put('tg_posted_times', JSON.stringify(times));

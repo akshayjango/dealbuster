@@ -283,6 +283,74 @@ export function buildCueLinksUrl(url, pubId = '312552') {
 }
 
 /**
+ * Extract canonical store and product identifier across stores (Amazon ASIN, Flipkart PID, etc.)
+ */
+export function extractCanonicalDealId(url) {
+  if (!url) return null;
+
+  let targetUrl = url;
+  try {
+    const m = url.match(/[?&](?:url|dl|target|destination)=([^&]+)/i);
+    if (m) {
+      const decoded = decodeURIComponent(m[1]);
+      if (/https?:\/\//i.test(decoded)) targetUrl = decoded;
+    }
+  } catch {}
+
+  // 1. Amazon: check both targetUrl and url
+  const asin = extractAmazonAsin(targetUrl) || extractAmazonAsin(url);
+  if (asin) {
+    return { store: 'amazon', asin: asin.toUpperCase(), id: `amazon_${asin.toUpperCase()}` };
+  }
+
+  // 2. Flipkart / Shopsy:
+  if (/flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)|shopsy\.in/i.test(targetUrl) ||
+      /flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)|shopsy\.in/i.test(url)) {
+    const pidMatch = targetUrl.match(/[?&]pid=([A-Z0-9]{16})/i) ||
+                     url.match(/[?&]pid=([A-Z0-9]{16})/i) ||
+                     targetUrl.match(/\/p\/itm([a-z0-9]{10,16})/i) ||
+                     url.match(/\/p\/itm([a-z0-9]{10,16})/i) ||
+                     targetUrl.match(/\/p\/([a-z0-9]{16})/i) ||
+                     url.match(/\/p\/([a-z0-9]{16})/i);
+    if (pidMatch) {
+      const pid = pidMatch[1].toUpperCase();
+      return { store: 'flipkart', pid, id: `flipkart_${pid}` };
+    }
+  }
+
+  // 3. Myntra:
+  if (/myntra\.com|myntr\.(?:it|in)/i.test(targetUrl) || /myntra\.com|myntr\.(?:it|in)/i.test(url)) {
+    const myntraMatch = targetUrl.match(/\/(\d{5,12})(?:\/buy|[?#]|$)/i) ||
+                        url.match(/\/(\d{5,12})(?:\/buy|[?#]|$)/i) ||
+                        targetUrl.match(/[?&](?:productId|styleId)=(\d{5,12})/i);
+    if (myntraMatch) {
+      return { store: 'myntra', pid: myntraMatch[1], id: `myntra_${myntraMatch[1]}` };
+    }
+  }
+
+  // 4. Ajio:
+  if (/ajio\.com|ajiio\.(?:in|co)/i.test(targetUrl) || /ajio\.com|ajiio\.(?:in|co)/i.test(url)) {
+    const ajioMatch = targetUrl.match(/\/p\/([a-zA-Z0-9_]+)/i) ||
+                      url.match(/\/p\/([a-zA-Z0-9_]+)/i) ||
+                      targetUrl.match(/\/([0-9]{8,14})(?:[/?#]|$)/i);
+    if (ajioMatch) {
+      return { store: 'ajio', pid: ajioMatch[1], id: `ajio_${ajioMatch[1]}` };
+    }
+  }
+
+  // 5. Meesho:
+  if (/meesho\.com/i.test(targetUrl) || /meesho\.com/i.test(url)) {
+    const meeshoMatch = targetUrl.match(/\/p\/([a-zA-Z0-9]+)/i) ||
+                        targetUrl.match(/\/product\/([a-zA-Z0-9]+)/i);
+    if (meeshoMatch) {
+      return { store: 'meesho', pid: meeshoMatch[1], id: `meesho_${meeshoMatch[1]}` };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Converts a raw URL to our affiliate link
  */
 export async function convertDealUrl(rawUrl, options = {}) {
@@ -291,29 +359,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
     earnkaroToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o',
   } = options;
 
-  // 1. If it's already an EarnKaro shortlink, convert directly with EarnKaro without unrolling!
-  const isEarnKaroShortlink = /(?:fktr\.in|fkrt\.(?:co|cc)|ekaro\.in|myntr\.(?:it|in)|ajiio\.(?:in|co)|earnkaro\.com)/i.test(rawUrl);
-  if (isEarnKaroShortlink) {
-    const directEkaro = await convertToEarnKaro(rawUrl, earnkaroToken);
-    if (directEkaro) {
-      let store = 'other';
-      if (/fktr|fkrt/i.test(directEkaro) || /fktr|fkrt/i.test(rawUrl)) store = 'flipkart';
-      else if (/myntr/i.test(directEkaro) || /myntr/i.test(rawUrl)) store = 'myntra';
-      else if (/ajiio/i.test(directEkaro) || /ajiio/i.test(rawUrl)) store = 'ajio';
-      else if (/shopsy/i.test(directEkaro) || /shopsy/i.test(rawUrl)) store = 'shopsy';
-      else if (/meesho/i.test(directEkaro) || /meesho/i.test(rawUrl)) store = 'meesho';
-
-      return {
-        originalUrl: rawUrl,
-        resolvedUrl: rawUrl,
-        convertedUrl: directEkaro,
-        store,
-        id: `${store}_${directEkaro}`
-      };
-    }
-  }
-
-  // 2. Dedicated resolution for DealsPing links
+  // 1. Dedicated resolution for DealsPing links
   if (rawUrl.includes('dealsping.in')) {
     const dp = await resolveDealsPingUrl(rawUrl);
     if (dp?.asin) {
@@ -322,6 +368,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
         resolvedUrl: dp.resolvedUrl,
         convertedUrl: buildAmazonUrl(dp.asin, amazonTag),
         store: 'amazon',
+        asin: dp.asin,
         id: `amazon_${dp.asin}`
       };
     } else if (dp?.resolvedUrl && !dp.resolvedUrl.includes('dealsping.in')) {
@@ -348,6 +395,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
         resolvedUrl: dp.resolvedUrl,
         convertedUrl: buildAmazonUrl(dp.asin, amazonTag),
         store: 'amazon',
+        asin: dp.asin,
         id: `amazon_${dp.asin}`
       };
     } else if (dp?.resolvedUrl && !dp.resolvedUrl.includes('dealsping.in')) {
@@ -362,15 +410,19 @@ export async function convertDealUrl(rawUrl, options = {}) {
     };
   }
 
-  // 2. Amazon Deal
-  if (isAmazonUrl(resolved) || isAmazonUrl(rawUrl)) {
-    const asin = extractAmazonAsin(resolved) || extractAmazonAsin(rawUrl);
+  // 2. Extract canonical deal identity across resolved and raw URL
+  const canonical = extractCanonicalDealId(resolved) || extractCanonicalDealId(rawUrl);
+
+  // 3. Amazon Deal Handling
+  if (isAmazonUrl(resolved) || isAmazonUrl(rawUrl) || canonical?.store === 'amazon') {
+    const asin = canonical?.asin || extractAmazonAsin(resolved) || extractAmazonAsin(rawUrl);
     if (asin) {
       return {
         originalUrl: rawUrl,
         resolvedUrl: resolved,
         convertedUrl: buildAmazonUrl(asin, amazonTag),
         store: 'amazon',
+        asin,
         id: `amazon_${asin}`
       };
     }
@@ -382,8 +434,6 @@ export async function convertDealUrl(rawUrl, options = {}) {
 
       const u = new URL(finalResolved);
       if (/amazon\.(?:in|com)/i.test(u.hostname)) {
-        // Keep all original parameters (including sid, src, etc.) and percent-encoding intact.
-        // Only swap or append our affiliate tag.
         let converted = finalResolved.replace(/\|/g, '%7C');
         if (/[?&]tag=[^&]+/i.test(converted)) {
           converted = converted.replace(/([?&])tag=[^&]+/i, (match, prefix) => `${prefix}tag=${amazonTag}`);
@@ -418,13 +468,15 @@ export async function convertDealUrl(rawUrl, options = {}) {
     } catch {}
   }
 
-  // 2. Non-Amazon store (Flipkart, Myntra, Ajio, Shopsy, Meesho are allowed)
-  let store = 'other';
-  if (/flipkart\.com|fktr\.in|fkrt\.co|fkrt\.cc/i.test(resolved)) store = 'flipkart';
-  else if (/myntra\.com|myntr\.it|myntr\.in/i.test(resolved)) store = 'myntra';
-  else if (/ajio\.com|ajiio\.in|ajiio\.co/i.test(resolved)) store = 'ajio';
-  else if (/shopsy\.in/i.test(resolved)) store = 'shopsy';
-  else if (/meesho\.com/i.test(resolved)) store = 'meesho';
+  // 4. Non-Amazon store detection
+  let store = canonical?.store || 'other';
+  if (store === 'other') {
+    if (/flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.co|fkrt\.cc/i.test(resolved)) store = 'flipkart';
+    else if (/myntra\.com|myntr\.it|myntr\.in/i.test(resolved)) store = 'myntra';
+    else if (/ajio\.com|ajiio\.in|ajiio\.co/i.test(resolved)) store = 'ajio';
+    else if (/shopsy\.in/i.test(resolved)) store = 'shopsy';
+    else if (/meesho\.com/i.test(resolved)) store = 'meesho';
+  }
 
   // If not one of our allowed stores, do not convert
   if (store === 'other') {
@@ -445,29 +497,15 @@ export async function convertDealUrl(rawUrl, options = {}) {
     cleanUrl = u.href;
   } catch {}
 
-  // Extract canonical product ID for cross-channel deduplication
-  let canonicalId = `${store}_${cleanUrl}`;
-  if (store === 'flipkart' || store === 'shopsy') {
-    const pidMatch = cleanUrl.match(/[?&]pid=([A-Z0-9]{16})/i) || cleanUrl.match(/\/p\/([a-z0-9]{16})/i);
-    if (pidMatch) canonicalId = `flipkart_${pidMatch[1]}`;
-  } else if (store === 'myntra') {
-    const myntraMatch = cleanUrl.match(/\/(\d{6,10})(?:\/buy|[?#]|$)/i);
-    if (myntraMatch) canonicalId = `myntra_${myntraMatch[1]}`;
-  } else if (store === 'ajio') {
-    const ajioMatch = cleanUrl.match(/\/p\/([a-zA-Z0-9_]+)/i) || cleanUrl.match(/\/([0-9]{8,12})/i);
-    if (ajioMatch) canonicalId = `ajio_${ajioMatch[1]}`;
-  } else if (store === 'meesho') {
-    const meeshoMatch = cleanUrl.match(/\/p\/([a-zA-Z0-9]+)/i);
-    if (meeshoMatch) canonicalId = `meesho_${meeshoMatch[1]}`;
-  }
+  // Always use canonical ID if found; fallback to cleaned store URL
+  const canonicalId = canonical?.id || `${store}_${cleanUrl}`;
 
-  // Convert via EarnKaro API
+  // 5. Convert via EarnKaro API (primary) or CueLinks (fallback)
   let ekaroLink = await convertToEarnKaro(cleanUrl, earnkaroToken);
   if (!ekaroLink && cleanUrl !== rawUrl) {
     ekaroLink = await convertToEarnKaro(rawUrl, earnkaroToken);
   }
 
-  // If EarnKaro cannot convert (e.g. app deep links like dl.flipkart.com), wrap clean store URL with CueLinks
   const cuelinksPubId = options.cuelinksPubId || '312552';
   const finalAffiliateUrl = ekaroLink || buildCueLinksUrl(cleanUrl, cuelinksPubId);
 
@@ -476,6 +514,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
     resolvedUrl: resolved,
     convertedUrl: finalAffiliateUrl,
     store,
+    pid: canonical?.pid || null,
     id: canonicalId
   };
 }

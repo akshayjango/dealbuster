@@ -56,6 +56,10 @@ async function runTests() {
       name: 'Case 14: Amazon Loot Upto 92% Off On Men\'s Pants (MUST BE CONVERTED & EMBEDDED WITH 👉 Check Now)',
       text: 'Amazon Loot : Upto 92% Off On Men\'s Pants.\n\n🔗 https://amzn-to.co/5OnkZB',
     },
+    {
+      name: 'Case 15: Race coffee Flipkart shortlink (MUST RESOLVE TO FLIPKART PID)',
+      text: '697 : https://fktr.in/T1ZjGMQ',
+    },
   ];
 
   for (const tc of testCases) {
@@ -77,7 +81,7 @@ async function runTests() {
 
     console.log('✅ FORWARDED:');
     console.log(result.text);
-    console.log('Links:', validDeals.map(d => `[${d.store}] ${d.convertedUrl}`).join(', '));
+    console.log('Links:', validDeals.map(d => `[${d.store}] ID: ${d.id} -> ${d.convertedUrl}`).join(', '));
   }
 }
 
