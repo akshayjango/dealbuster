@@ -601,7 +601,7 @@ async function main() {
       // 3. Process text and convert links
       const conversionOptions = {
         amazonTag: config.amazon_tag || 'dealbuster002-21',
-        earnkaroToken: config.earnkaro_api_token,
+        earnkaroToken: process.env.EARNKARO_API_TOKEN || config.earnkaro_api_token,
         myChannel: config.target_channel || '@dealbusterindia',
         footer: config.custom_footer,
         removeCompetitorMentions: config.remove_competitor_mentions !== false,
@@ -619,7 +619,11 @@ async function main() {
         if (l.store === 'amazon') {
           return l.convertedUrl.includes('tag=dealbuster');
         }
-        // Verify non-Amazon has an affiliate domain (EarnKaro or CueLinks)
+        // For Flipkart, Myntra, Ajio, Shopsy: STRICTLY REQUIRE EarnKaro shortlink (fktr.in, ekaro.in, myntr.it, ajiio.in)
+        if (['flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store)) {
+          return /(?:ekaro\.in|fktr\.in|myntr\.it|ajiio\.in)/i.test(l.convertedUrl);
+        }
+        // For other stores (e.g. Meesho where EarnKaro is unavailable), accept CueLinks
         return /(?:ekaro\.in|fktr\.in|myntr\.it|ajiio\.in|linksredirect\.com|linkredirect\.in|clnk\.in)/i.test(l.convertedUrl);
       });
 

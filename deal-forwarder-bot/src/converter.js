@@ -226,30 +226,42 @@ export function extractAmazonAsin(url) {
  * EarnKaro API converter
  */
 export async function convertToEarnKaro(dealUrlOrText, token) {
-  if (!token || !dealUrlOrText) return null;
-  try {
-    const res = await fetch('https://ekaro-api.affiliaters.in/api/converter/public', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token.trim()}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        deal: dealUrlOrText,
-        convert_option: 'convert_only',
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
+  const authToken = (token || process.env.EARNKARO_API_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o').trim();
+  if (!authToken || !dealUrlOrText) return null;
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.success === 1 && data?.data) {
-        const match = data.data.match(/https?:\/\/[^\s]+/i);
-        if (match) return match[0];
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch('https://ekaro-api.affiliaters.in/api/converter/public', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deal: dealUrlOrText,
+          convert_option: 'convert_only',
+        }),
+        signal: AbortSignal.timeout(12000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success === 1 && data?.data) {
+          const match = data.data.match(/https?:\/\/[^\s]+/i);
+          if (match) return match[0];
+        } else if (data?.data && typeof data.data === 'string' && data.data.includes('could not locate')) {
+          // Seller not available on EarnKaro
+          return null;
+        }
+      } else {
+        const errText = await res.text().catch(() => '');
+        console.warn(`⚠️ EarnKaro API attempt ${attempt} returned HTTP ${res.status}: ${errText.slice(0, 100)}`);
+      }
+    } catch (err) {
+      if (attempt === 2) {
+        console.warn('⚠️ EarnKaro conversion error:', err.message);
       }
     }
-  } catch (err) {
-    console.warn('⚠️ EarnKaro conversion error:', err.message);
   }
   return null;
 }
@@ -489,25 +501,41 @@ export async function convertDealUrl(rawUrl, options = {}) {
     };
   }
 
-  // Clean tracking params from non-Amazon URL
+  // Clean tracking and competitor affiliate params from non-Amazon URL
   let cleanUrl = resolved;
   try {
     const u = new URL(resolved);
-    ['affid', 'affExtParam', 'affExtParam1', 'affExtParam2', 'utm_source', 'utm_medium', 'utm_campaign', 'af_siteid', 'af_sub_siteid', 'c', 'tag'].forEach(p => u.searchParams.delete(p));
+    [
+      'affid', 'affExtParam', 'affExtParam1', 'affExtParam2',
+      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+      'af_siteid', 'af_sub_siteid', 'c', 'tag', 'subid', 'pub_id',
+      'pwsvid', 'cmpid', 'src'
+    ].forEach(p => u.searchParams.delete(p));
     cleanUrl = u.href;
   } catch {}
+
+  // For Flipkart: also prepare normalized standard web URL if it was an app deep-link
+  let cleanWebUrl = cleanUrl;
+  if (/dl\.flipkart\.com\/dl\//i.test(cleanUrl)) {
+    cleanWebUrl = cleanUrl.replace(/dl\.flipkart\.com\/dl\//i, 'www.flipkart.com/');
+  }
 
   // Always use canonical ID if found; fallback to cleaned store URL
   const canonicalId = canonical?.id || `${store}_${cleanUrl}`;
 
-  // 5. Convert via EarnKaro API (primary) or CueLinks (fallback)
+  // 5. Convert via EarnKaro API (primary)
   let ekaroLink = await convertToEarnKaro(cleanUrl, earnkaroToken);
+  if (!ekaroLink && cleanWebUrl !== cleanUrl) {
+    ekaroLink = await convertToEarnKaro(cleanWebUrl, earnkaroToken);
+  }
   if (!ekaroLink && cleanUrl !== rawUrl) {
     ekaroLink = await convertToEarnKaro(rawUrl, earnkaroToken);
   }
 
+  // CueLinks is ONLY permitted for stores EarnKaro does not support (e.g. Meesho).
+  // For Flipkart, Myntra, Ajio, and Shopsy, ONLY EarnKaro shortlinks are allowed per user rules.
   const cuelinksPubId = options.cuelinksPubId || '312552';
-  const finalAffiliateUrl = ekaroLink || buildCueLinksUrl(cleanUrl, cuelinksPubId);
+  const finalAffiliateUrl = ekaroLink || (store === 'meesho' ? buildCueLinksUrl(cleanUrl, cuelinksPubId) : null);
 
   return {
     originalUrl: rawUrl,
@@ -581,10 +609,8 @@ export function formatDealsPingPost(text, affLink) {
     if (mrp) out.push(`❌MRP: ${escHtml(mrp)}`);
     if (discount) out.push(`Discount: ${escHtml(discount)}`);
     if (coupon) out.push(`🏷️ ${escHtml(coupon)}`);
-    if (bankOffer) out.push(`🏦 ${escHtml(bankOffer)}`);
     out.push('');
-    const isAmazon = isAmazonUrl(affLink);
-    const linkBtn = (isAmazon && affLink && (affLink.length > 60 || /\/s\?|\/b\?|\/gp\/browse/i.test(affLink)))
+    const linkBtn = (affLink && (affLink.length > 60 || /\/s\?|\/b\?|\/gp\/browse/i.test(affLink)))
       ? `<a href="${escHtml(affLink)}">👉 Check Now</a>`
       : `👉 ${escHtml(affLink)}`;
     out.push(linkBtn);
@@ -635,7 +661,7 @@ export async function processMessageText(text, options = {}) {
       const rawUrl = l.originalUrl;
       const affUrl = l.convertedUrl;
       const isAmazon = (l.store === 'amazon') || isAmazonUrl(affUrl) || isAmazonUrl(rawUrl);
-      const isLongLink = isAmazon && Boolean(affUrl && (affUrl.length > 60 || convertedLinks.length > 1 || /\/s\?|\/b\?|\/gp\/browse/i.test(affUrl)));
+      const isLongLink = Boolean(affUrl && (affUrl.length > 60 || (isAmazon && (convertedLinks.length > 1 || /\/s\?|\/b\?|\/gp\/browse/i.test(affUrl)))));
       const placeholder = `%%DBLINK${idx}%%`;
 
       // If the link is long and preceded by a decorative hand/link emoji (e.g. 🔗, 👉, 👇, 🛍️),

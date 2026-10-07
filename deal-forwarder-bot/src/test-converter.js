@@ -60,6 +60,10 @@ async function runTests() {
       name: 'Case 15: Race coffee Flipkart shortlink (MUST RESOLVE TO FLIPKART PID)',
       text: '697 : https://fktr.in/T1ZjGMQ',
     },
+    {
+      name: 'Case 16: Multi-deal post with deep Flipkart links (MUST CONVERT TO FKTR.IN SHORT LINKS, NO CUELINKS)',
+      text: 'Flipkart : Best deals on Fashion\n\nRare Rabbit Min 65% off\nhttps://dl.flipkart.com/dl/clothing-and-accessories/~cs-qsfyuh83gz/pr?sid=clo&collection-tab-name=RR+SMU&sort=popularity&src=ot&pwsvid=3DPW1791401370760S8ilHHIRVSq3sP4V&src=ot\n\nThe Bear House Under 599\nhttps://dl.flipkart.com/dl/clothing-and-accessories/topwear/shirts/~cs-qb7w8tg765/pr?sid=clo',
+    },
   ];
 
   for (const tc of testCases) {
