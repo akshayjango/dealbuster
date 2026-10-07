@@ -195,128 +195,90 @@ async function run() {
     await page.setCookie(...cookies);
 
     console.log('Navigating to r/DealBusterIndia submit page...');
-    await page.goto('https://www.reddit.com/r/DealBusterIndia/submit', {
+    await page.goto('https://old.reddit.com/r/DealBusterIndia/submit?selftext=true', {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     });
 
-    await new Promise(r => setTimeout(r, 4000));
+    await new Promise(r => setTimeout(r, 3000));
+    console.log(`Current page URL: ${page.url()}`);
 
-    // Fill Title
+    // Locate Title input
     console.log('Locating Title input...');
-    const titleSelectors = [
-      'textarea[placeholder*="Title"]',
-      'input[placeholder*="Title"]',
-      'textarea[name="title"]',
-      'input[name="title"]',
-      '#post-composer-title'
-    ];
+    const titleSelector = 'textarea[name="title"], textarea[placeholder*="Title"], input[name="title"], input[placeholder*="Title"], #post-composer-title';
+    await page.waitForSelector(titleSelector, { timeout: 30000 });
+    const titleEl = await page.$(titleSelector);
+    if (!titleEl) throw new Error('Could not find Title input.');
 
-    let titleFound = false;
-    for (const sel of titleSelectors) {
-      const el = await page.$(sel);
-      if (el) {
-        console.log(`Found title selector: ${sel}`);
-        await el.click();
-        await el.type(title, { delay: 10 });
-        titleFound = true;
-        break;
-      }
-    }
-
-    if (!titleFound) {
-      throw new Error('Title input could not be found on submit page.');
-    }
+    await titleEl.click();
+    await titleEl.type(title, { delay: 5 });
+    console.log('Title typed successfully.');
 
     await new Promise(r => setTimeout(r, 1000));
 
-    // Try switching to markdown if present
-    const markdownBtn = await page.$('button:has-text("Markdown"), button:has-text("Switch to markdown")');
-    if (markdownBtn) {
-      try {
-        await markdownBtn.click();
-        await new Promise(r => setTimeout(r, 1000));
-      } catch (e) {}
+    // Locate Body / Text input
+    if (text) {
+      console.log('Locating Body / Text input...');
+      const bodySelector = 'textarea[name="text"], textarea[placeholder*="Text"], textarea[placeholder*="body"], div[contenteditable="true"], div[role="textbox"], #post-composer-body';
+      await page.waitForSelector(bodySelector, { timeout: 20000 }).catch(() => null);
+      const bodyEl = await page.$(bodySelector);
+
+      if (bodyEl) {
+        const isContentEditable = await page.evaluate(el => el.getAttribute('contenteditable') === 'true', bodyEl);
+        if (isContentEditable) {
+          await page.evaluate((el, val) => {
+            el.innerText = val;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }, bodyEl, text);
+        } else {
+          await bodyEl.click();
+          await bodyEl.type(text, { delay: 2 });
+        }
+        console.log('Body text filled successfully.');
+      } else {
+        console.warn('Body element not found, proceeding to submit button...');
+      }
     }
 
-    // Fill Body
-    console.log('Locating Body / Text input...');
-    const bodySelectors = [
-      'textarea[placeholder*="Text"]',
-      'textarea[placeholder*="body"]',
-      'div[contenteditable="true"]',
-      'div[role="textbox"]',
-      '#post-composer-body'
+    await new Promise(r => setTimeout(r, 1500));
+
+    // Submit button
+    console.log('Locating Submit / Post button...');
+    const submitBtnSelectors = [
+      'button[name="submit"]',
+      'input[type="submit"][name="submit"]',
+      'button[type="submit"]:has-text("submit")',
+      'button[type="submit"]:has-text("Post")',
+      'button:has-text("Submit")',
+      'button:has-text("Post")',
+      '#post-composer-submit-button'
     ];
 
-    if (text) {
-      let bodyFound = false;
-      for (const sel of bodySelectors) {
-        const el = await page.$(sel);
-        if (el) {
-          console.log(`Found body selector: ${sel}`);
-          await el.click();
-          await new Promise(r => setTimeout(r, 500));
-          const isContentEditable = await page.evaluate(node => node.getAttribute('contenteditable') === 'true', el);
-          if (isContentEditable) {
-            await page.evaluate((node, txt) => {
-              node.innerText = txt;
-              node.dispatchEvent(new Event('input', { bubbles: true }));
-            }, el, text);
-          } else {
-            await el.type(text, { delay: 5 });
-          }
-          bodyFound = true;
+    let clicked = false;
+    for (const sel of submitBtnSelectors) {
+      const btn = await page.$(sel).catch(() => null);
+      if (btn) {
+        const disabled = await page.evaluate(el => el.disabled || el.getAttribute('aria-disabled') === 'true', btn);
+        if (!disabled) {
+          console.log(`Clicking submit button with selector: ${sel}`);
+          await btn.click();
+          clicked = true;
           break;
         }
       }
-      if (!bodyFound) {
-        console.warn('Body element not found by selectors, continuing to Post button...');
+    }
+
+    if (!clicked) {
+      // Fallback: click any submit button
+      const anyBtn = await page.$('button[type="submit"], input[type="submit"]');
+      if (anyBtn) {
+        await anyBtn.click();
+        clicked = true;
       }
     }
 
-    await new Promise(r => setTimeout(r, 2000));
-
-    // Find and Click Post
-    console.log('Locating Post button...');
-    const postBtnSelectors = [
-      'button:has-text("Post"):not([disabled])',
-      'button[type="submit"]:has-text("Post")',
-      '#post-composer-submit-button',
-      'button:has-text("Publish")'
-    ];
-
-    let postClicked = false;
-    // Also try XPath for exact "Post" button text
-    const buttons = await page.$$('button');
-    for (const btn of buttons) {
-      const textContent = await page.evaluate(el => el.textContent?.trim(), btn);
-      const disabled = await page.evaluate(el => el.disabled || el.getAttribute('aria-disabled') === 'true', btn);
-      if (textContent === 'Post' && !disabled) {
-        console.log('Found enabled Post button by text content.');
-        await btn.click();
-        postClicked = true;
-        break;
-      }
-    }
-
-    if (!postClicked) {
-      for (const sel of postBtnSelectors) {
-        const btn = await page.$(sel);
-        if (btn) {
-          const disabled = await page.evaluate(el => el.disabled || el.getAttribute('aria-disabled') === 'true', btn);
-          if (!disabled) {
-            console.log(`Clicking Post button with selector: ${sel}`);
-            await btn.click();
-            postClicked = true;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!postClicked) {
-      throw new Error('Could not find enabled Post button to click.');
+    if (!clicked) {
+      throw new Error('Could not find enabled Submit/Post button to click.');
     }
 
     console.log('Post button clicked! Waiting for submission to finalize...');
