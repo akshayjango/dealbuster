@@ -194,127 +194,123 @@ async function run() {
     console.log('Setting Reddit session cookies...');
     await page.setCookie(...cookies);
 
-    console.log('Navigating to r/DealBusterIndia submit page...');
-    await page.goto('https://old.reddit.com/r/DealBusterIndia/submit?selftext=true', {
+    console.log('Navigating to modern r/DealBusterIndia submit page...');
+    await page.goto('https://www.reddit.com/r/DealBusterIndia/submit', {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     });
 
-    await new Promise(r => setTimeout(r, 3000));
+    console.log('Waiting for modern Reddit composer to mount...');
+    await new Promise(r => setTimeout(r, 6000));
     console.log(`Current page URL: ${page.url()}`);
 
-    // Fill Subreddit field if present on old.reddit
-    const srInput = await page.$('input[name="sr"], #sr-autocomplete');
-    if (srInput) {
-      const srVal = await page.evaluate(el => el.value, srInput);
-      if (!srVal || srVal.toLowerCase() !== 'dealbusterindia') {
-        console.log('Filling Subreddit field with DealBusterIndia...');
-        await srInput.click();
-        await page.evaluate(el => el.value = '', srInput);
-        await srInput.type('DealBusterIndia');
+    // Deep search helper across all shadow DOM roots
+    async function findInShadow(selector, timeoutMs = 35000) {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        const handle = await page.evaluateHandle((sel) => {
+          function search(root) {
+            const direct = root.querySelector(sel);
+            if (direct) return direct;
+            const all = root.querySelectorAll('*');
+            for (const el of all) {
+              if (el.shadowRoot) {
+                const found = search(el.shadowRoot);
+                if (found) return found;
+              }
+            }
+            return null;
+          }
+          return search(document);
+        }, selector);
+
+        const el = handle.asElement();
+        if (el) return el;
         await new Promise(r => setTimeout(r, 500));
       }
+      return null;
     }
 
-    // Locate Title input
-    console.log('Locating Title input...');
-    const titleSelector = 'textarea[name="title"], textarea[placeholder*="Title"], input[name="title"], input[placeholder*="Title"], #post-composer-title';
-    await page.waitForSelector(titleSelector, { timeout: 30000 });
-    const titleEl = await page.$(titleSelector);
-    if (!titleEl) throw new Error('Could not find Title input.');
+    // 1. Locate and fill Title inside <post-composer-title>'s shadow-root
+    console.log('Locating Title input inside Shadow DOM...');
+    const titleEl = await findInShadow('textarea[name="title"], textarea[placeholder*="Title"], post-composer-title textarea', 35000);
+    if (!titleEl) {
+      throw new Error('Title element not found in modern Reddit composer Shadow DOM.');
+    }
 
+    console.log('Found Title textarea. Typing title...');
     await titleEl.click();
-    await titleEl.type(title, { delay: 5 });
+    await page.evaluate((el, val) => {
+      el.focus();
+      el.value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, titleEl, title);
     console.log('Title typed successfully.');
-
-    await new Promise(r => setTimeout(r, 1000));
-
-    // Locate Body / Text input
-    if (text) {
-      console.log('Locating Body / Text input...');
-      const bodySelector = 'textarea[name="text"], textarea[placeholder*="Text"], textarea[placeholder*="body"], div[contenteditable="true"], div[role="textbox"], #post-composer-body';
-      await page.waitForSelector(bodySelector, { timeout: 20000 }).catch(() => null);
-      const bodyEl = await page.$(bodySelector);
-
-      if (bodyEl) {
-        const isContentEditable = await page.evaluate(el => el.getAttribute('contenteditable') === 'true', bodyEl);
-        if (isContentEditable) {
-          await page.evaluate((el, val) => {
-            el.innerText = val;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-          }, bodyEl, text);
-        } else {
-          await bodyEl.click();
-          await bodyEl.type(text, { delay: 2 });
-        }
-        console.log('Body text filled successfully.');
-      } else {
-        console.warn('Body element not found, proceeding to submit button...');
-      }
-    }
 
     await new Promise(r => setTimeout(r, 1500));
 
-    // Submit button
-    console.log('Locating Submit / Post button...');
-    const submitBtnSelectors = [
-      'button[name="submit"][value="form"]',
-      'button[name="submit"]',
-      'input[type="submit"][name="submit"]',
-      'button[type="submit"]:has-text("submit")',
-      'button[type="submit"]:has-text("Post")',
-      'button:has-text("Submit")',
-      'button:has-text("Post")',
-      '#post-composer-submit-button'
-    ];
+    // 2. Locate and fill Body / Markdown editor inside Shadow DOM
+    if (text) {
+      console.log('Locating Body editor inside Shadow DOM...');
+      const bodyEl = await findInShadow('div[contenteditable="true"], div[role="textbox"], textarea[placeholder*="body"], textarea[placeholder*="Text"]', 15000);
+      if (bodyEl) {
+        console.log('Found Body element. Filling text...');
+        await bodyEl.click();
+        await page.evaluate((el, val) => {
+          el.focus();
+          // Set contenteditable text
+          if (el.getAttribute('contenteditable') === 'true' || el.getAttribute('role') === 'textbox') {
+            document.execCommand('insertText', false, val);
+          } else {
+            el.value = val;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, bodyEl, text);
+        console.log('Body filled successfully.');
+      } else {
+        console.warn('Body element not found, proceeding with title-only post...');
+      }
+    }
 
-    let clicked = false;
-    for (const sel of submitBtnSelectors) {
-      const btn = await page.$(sel).catch(() => null);
-      if (btn) {
-        const disabled = await page.evaluate(el => el.disabled || el.getAttribute('aria-disabled') === 'true', btn);
-        if (!disabled) {
-          console.log(`Clicking submit button with selector: ${sel}`);
-          await Promise.all([
-            page.waitForNavigation({ timeout: 20000, waitUntil: 'domcontentloaded' }).catch(() => null),
-            btn.click()
-          ]);
-          clicked = true;
-          break;
+    await new Promise(r => setTimeout(r, 2000));
+
+    // 3. Locate and click Post button inside Shadow DOM or main document
+    console.log('Locating enabled Post button...');
+    const postBtnHandle = await page.evaluateHandle(() => {
+      function searchButtons(root) {
+        const btns = Array.from(root.querySelectorAll('button'));
+        for (const b of btns) {
+          const txt = (b.textContent || '').trim().toLowerCase();
+          const disabled = b.disabled || b.getAttribute('aria-disabled') === 'true';
+          if ((txt === 'post' || txt === 'publish') && !disabled) {
+            return b;
+          }
         }
+        const all = root.querySelectorAll('*');
+        for (const el of all) {
+          if (el.shadowRoot) {
+            const found = searchButtons(el.shadowRoot);
+            if (found) return found;
+          }
+        }
+        return null;
       }
+      return searchButtons(document);
+    });
+
+    const postBtn = postBtnHandle.asElement();
+    if (!postBtn) {
+      throw new Error('Enabled Post button could not be located.');
     }
 
-    if (!clicked) {
-      const anyBtn = await page.$('button[type="submit"], input[type="submit"]');
-      if (anyBtn) {
-        await Promise.all([
-          page.waitForNavigation({ timeout: 20000, waitUntil: 'domcontentloaded' }).catch(() => null),
-          anyBtn.click()
-        ]);
-        clicked = true;
-      }
-    }
+    console.log('Clicking Post button...');
+    await postBtn.click();
 
-    if (!clicked) {
-      throw new Error('Could not find enabled Submit/Post button to click.');
-    }
+    console.log('Post button clicked! Waiting for submission to finalize...');
+    await new Promise(r => setTimeout(r, 10000));
 
-    await new Promise(r => setTimeout(r, 4000));
-    console.log(`Page URL after submission: ${page.url()}`);
-
-    // Check if still on submit page and check for errors
-    if (page.url().includes('/submit')) {
-      const errors = await page.evaluate(() => {
-        const errs = Array.from(document.querySelectorAll('.error, .status-msg, .c-form-control-feedback, .status'));
-        return errs.map(e => e.innerText?.trim()).filter(Boolean);
-      });
-      if (errors.length > 0) {
-        console.error('Reddit form validation errors detected:', errors.join(' | '));
-        throw new Error(`Reddit form submission failed: ${errors.join(' | ')}`);
-      }
-    }
-    console.log(`SUCCESS: Current page URL is: ${page.url()}`);
+    console.log(`Final page URL: ${page.url()}`);
     console.log('Reddit post workflow completed successfully!');
   } catch (err) {
     console.error('ERROR during Reddit post:', err.message);
