@@ -203,6 +203,19 @@ async function run() {
     await new Promise(r => setTimeout(r, 3000));
     console.log(`Current page URL: ${page.url()}`);
 
+    // Fill Subreddit field if present on old.reddit
+    const srInput = await page.$('input[name="sr"], #sr-autocomplete');
+    if (srInput) {
+      const srVal = await page.evaluate(el => el.value, srInput);
+      if (!srVal || srVal.toLowerCase() !== 'dealbusterindia') {
+        console.log('Filling Subreddit field with DealBusterIndia...');
+        await srInput.click();
+        await page.evaluate(el => el.value = '', srInput);
+        await srInput.type('DealBusterIndia');
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
     // Locate Title input
     console.log('Locating Title input...');
     const titleSelector = 'textarea[name="title"], textarea[placeholder*="Title"], input[name="title"], input[placeholder*="Title"], #post-composer-title';
@@ -245,6 +258,7 @@ async function run() {
     // Submit button
     console.log('Locating Submit / Post button...');
     const submitBtnSelectors = [
+      'button[name="submit"][value="form"]',
       'button[name="submit"]',
       'input[type="submit"][name="submit"]',
       'button[type="submit"]:has-text("submit")',
@@ -261,7 +275,10 @@ async function run() {
         const disabled = await page.evaluate(el => el.disabled || el.getAttribute('aria-disabled') === 'true', btn);
         if (!disabled) {
           console.log(`Clicking submit button with selector: ${sel}`);
-          await btn.click();
+          await Promise.all([
+            page.waitForNavigation({ timeout: 20000, waitUntil: 'domcontentloaded' }).catch(() => null),
+            btn.click()
+          ]);
           clicked = true;
           break;
         }
@@ -269,10 +286,12 @@ async function run() {
     }
 
     if (!clicked) {
-      // Fallback: click any submit button
       const anyBtn = await page.$('button[type="submit"], input[type="submit"]');
       if (anyBtn) {
-        await anyBtn.click();
+        await Promise.all([
+          page.waitForNavigation({ timeout: 20000, waitUntil: 'domcontentloaded' }).catch(() => null),
+          anyBtn.click()
+        ]);
         clicked = true;
       }
     }
@@ -281,8 +300,20 @@ async function run() {
       throw new Error('Could not find enabled Submit/Post button to click.');
     }
 
-    console.log('Post button clicked! Waiting for submission to finalize...');
-    await new Promise(r => setTimeout(r, 8000));
+    await new Promise(r => setTimeout(r, 4000));
+    console.log(`Page URL after submission: ${page.url()}`);
+
+    // Check if still on submit page and check for errors
+    if (page.url().includes('/submit')) {
+      const errors = await page.evaluate(() => {
+        const errs = Array.from(document.querySelectorAll('.error, .status-msg, .c-form-control-feedback, .status'));
+        return errs.map(e => e.innerText?.trim()).filter(Boolean);
+      });
+      if (errors.length > 0) {
+        console.error('Reddit form validation errors detected:', errors.join(' | '));
+        throw new Error(`Reddit form submission failed: ${errors.join(' | ')}`);
+      }
+    }
     console.log(`SUCCESS: Current page URL is: ${page.url()}`);
     console.log('Reddit post workflow completed successfully!');
   } catch (err) {
