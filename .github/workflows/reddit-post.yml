@@ -16,7 +16,7 @@ on:
         required: false
         default: ''
   schedule:
-    # 04:00 UTC = 09:30 AM IST daily promo
+    # 04:00 UTC = 09:30 AM IST daily SEO promo
     - cron: '0 4 * * *'
 
 jobs:
@@ -34,11 +34,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm install playwright-chromium@1.44.0
-
-      - name: Install Chromium browser binary
-        run: |
-          npx playwright install chromium --with-deps
+          npm install puppeteer
 
       - name: Post to Reddit
         env:
