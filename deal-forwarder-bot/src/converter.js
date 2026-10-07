@@ -129,24 +129,6 @@ export async function resolveUrl(url, maxHops = 4) {
     }
   }
 
-  // If dealsping.in deal page, extract target store link if not an Amazon ASIN slug
-  if (currentUrl.includes('dealsping.in/deals/')) {
-    const asinMatch = extractAmazonAsin(currentUrl);
-    if (!asinMatch) {
-      try {
-        const html = await fetch(currentUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-          signal: AbortSignal.timeout(5000),
-        }).then(r => r.text());
-        const affMatch = html.match(/"affiliateLink"\s*:\s*"([^"]+)"/i) ||
-                         html.match(/href="([^"]*(?:amazon\.in|flipkart\.com|myntra\.com|ajio\.com|shopsy\.in)[^"]*)"/i);
-        if (affMatch) {
-          currentUrl = affMatch[1].replace(/\\u0026/g, '&');
-        }
-      } catch {}
-    }
-  }
-
   return currentUrl;
 }
 
@@ -156,57 +138,6 @@ export async function resolveUrl(url, maxHops = 4) {
 export function isAmazonUrl(url) {
   if (!url) return false;
   return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.(?:to|in)|amzn-to\.(?:co|[a-z]+)|amzn-to|amazn\.lt|link\.amazon|a\.co|(?:amzn\.)?urlgeni\.us)(?:[/?#:]|$)/i.test(url);
-}
-
-/**
- * Resolves a DealsPing redirect link to find the underlying Amazon ASIN or destination store URL
- */
-export async function resolveDealsPingUrl(url) {
-  if (!url) return null;
-  try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      },
-      signal: AbortSignal.timeout(7000),
-    });
-
-    const finalUrl = res.url || '';
-    const asin = extractAmazonAsin(finalUrl);
-    if (asin) {
-      return { resolvedUrl: finalUrl, asin, store: 'amazon' };
-    }
-
-    // If finalUrl is a dealsping deal page, inspect HTML for destination link / ASIN
-    if (finalUrl.includes('dealsping.in/deals/')) {
-      const html = await res.text().catch(() => '');
-      const asinMatch = html.match(/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) ||
-                        html.match(/-(B0[A-Z0-9]{8,9})/i);
-      if (asinMatch) {
-        return {
-          resolvedUrl: `https://www.amazon.in/dp/${asinMatch[1].toUpperCase()}`,
-          asin: asinMatch[1].toUpperCase(),
-          store: 'amazon'
-        };
-      }
-      const affMatch = html.match(/"affiliateLink"\s*:\s*"([^"]+)"/i) ||
-                       html.match(/href="([^"]*(?:amazon\.in|flipkart\.com|myntra\.com|ajio\.com|shopsy\.in)[^"]*)"/i);
-      if (affMatch) {
-        const dest = affMatch[1].replace(/\\u0026/g, '&');
-        const a = extractAmazonAsin(dest);
-        return {
-          resolvedUrl: dest,
-          asin: a,
-          store: a ? 'amazon' : 'other'
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('⚠️ Error resolving DealsPing link:', err.message);
-  }
-  return null;
 }
 
 /**
@@ -371,22 +302,8 @@ export async function convertDealUrl(rawUrl, options = {}) {
     earnkaroToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o',
   } = options;
 
-  // 1. Dedicated resolution for DealsPing links
+  // 1. Reject DealsPing deal links
   if (rawUrl.includes('dealsping.in')) {
-    const dp = await resolveDealsPingUrl(rawUrl);
-    if (dp?.asin) {
-      return {
-        originalUrl: rawUrl,
-        resolvedUrl: dp.resolvedUrl,
-        convertedUrl: buildAmazonUrl(dp.asin, amazonTag),
-        store: 'amazon',
-        asin: dp.asin,
-        id: `amazon_${dp.asin}`
-      };
-    } else if (dp?.resolvedUrl && !dp.resolvedUrl.includes('dealsping.in')) {
-      return convertDealUrl(dp.resolvedUrl, options);
-    }
-    // If DealsPing could NOT be resolved to a clean store/Amazon, REJECT IT so competitor links never leak!
     return {
       originalUrl: rawUrl,
       resolvedUrl: rawUrl,
@@ -398,21 +315,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
 
   const resolved = await resolveUrl(rawUrl);
 
-  // If resolved URL ended up on dealsping, resolve via DealsPing helper
   if (resolved.includes('dealsping.in')) {
-    const dp = await resolveDealsPingUrl(resolved);
-    if (dp?.asin) {
-      return {
-        originalUrl: rawUrl,
-        resolvedUrl: dp.resolvedUrl,
-        convertedUrl: buildAmazonUrl(dp.asin, amazonTag),
-        store: 'amazon',
-        asin: dp.asin,
-        id: `amazon_${dp.asin}`
-      };
-    } else if (dp?.resolvedUrl && !dp.resolvedUrl.includes('dealsping.in')) {
-      return convertDealUrl(dp.resolvedUrl, options);
-    }
     return {
       originalUrl: rawUrl,
       resolvedUrl: resolved,
@@ -555,70 +458,6 @@ export function escHtml(str) {
     .replace(/>/g, '&gt;');
 }
 
-/**
- * Formats a DealsPing post into DealBuster's standard channel style:
- *
- * Title
- * ✅Deal Price: ₹...
- * ❌MRP: ₹...
- * Discount: ...% OFF
- * 🏷️ Coupon: ...
- * 🏦 Bank Offer: ...
- *
- * 👉 Check Now (or 👉 https://...)
- */
-export function formatDealsPingPost(text, affLink) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  let title = '';
-  let dealPrice = '';
-  let mrp = '';
-  let discount = '';
-  let coupon = '';
-  let bankOffer = '';
-
-  for (const line of lines) {
-    if (line.includes('⚡')) {
-      title = line.replace(/^[⚡\s]+/, '').trim();
-    } else if (line.startsWith('💰') || line.includes('🔻')) {
-      const priceMatch = line.match(/₹[\d,]+/g);
-      if (priceMatch && priceMatch.length >= 2) {
-        dealPrice = priceMatch[0];
-        mrp = priceMatch[1];
-      } else if (priceMatch && priceMatch.length === 1) {
-        dealPrice = priceMatch[0];
-      }
-      const discMatch = line.match(/(?:\d+%\s*OFF|\d+%\s*off)/i);
-      if (discMatch) discount = discMatch[0].toUpperCase();
-    } else if (line.toLowerCase().includes('coupon:')) {
-      coupon = line.replace(/^[🏷️\s]+/, '').trim();
-    } else if (line.toLowerCase().includes('bank offer:')) {
-      bankOffer = line.replace(/^[🏦\s]+/, '').trim();
-    }
-  }
-
-  if (!title) {
-    const candidate = lines.find(l => !l.startsWith('🏷️') && !l.startsWith('💰') && !l.startsWith('🛒') && !l.startsWith('http'));
-    if (candidate) title = candidate.replace(/^[⚡\s]+/, '').trim();
-  }
-
-  // Only use if we extracted title and dealPrice
-  if (title && dealPrice) {
-    const out = [];
-    out.push(escHtml(title));
-    out.push(`✅Deal Price: ${escHtml(dealPrice)}`);
-    if (mrp) out.push(`❌MRP: ${escHtml(mrp)}`);
-    if (discount) out.push(`Discount: ${escHtml(discount)}`);
-    if (coupon) out.push(`🏷️ ${escHtml(coupon)}`);
-    out.push('');
-    const linkBtn = (affLink && (affLink.length > 60 || /\/s\?|\/b\?|\/gp\/browse/i.test(affLink)))
-      ? `<a href="${escHtml(affLink)}">👉 Check Now</a>`
-      : `👉 ${escHtml(affLink)}`;
-    out.push(linkBtn);
-    return out.join('\n');
-  }
-
-  return null;
-}
 
 /**
  * Clean and rebrand message text:
@@ -646,15 +485,6 @@ export async function processMessageText(text, options = {}) {
     convertedLinks.push(result);
   }
 
-  // Check if this post is from DealsPing (or matches ⚡ and 💰 price structure)
-  const isDealsPingFormat = (text.includes('dealsping.in') || (text.includes('⚡') && text.includes('💰')));
-  if (isDealsPingFormat && convertedLinks.length > 0) {
-    const formatted = formatDealsPingPost(text, convertedLinks[0].convertedUrl);
-    if (formatted) {
-      processed = formatted;
-    }
-  } else {
-    // Standard forwarded deal post
     // Replace raw URLs with converted affiliate URLs, embedding links that wrap > 4 lines (length > 75) into "👉 Check Now" buttons
     const placeholders = [];
     convertedLinks.forEach((l, idx) => {
@@ -726,7 +556,6 @@ export async function processMessageText(text, options = {}) {
         : escHtml(affUrl);
       processed = processed.split(placeholder).join(rendered);
     });
-  }
 
   // Trim trailing whitespace and append our custom footer if provided
   processed = processed.trim();

@@ -29,7 +29,7 @@ async function runTests() {
       text: '🔥 Random Store Loot!\nhttps://www.randomshop123.com/deal/xyz',
     },
     {
-      name: 'Case 7: DealsPing Puma shoes Amazon deal (MUST CONVERT DIRECTLY TO AMAZON WITH TAG, NEVER DEALSPING)',
+      name: 'Case 7: DealsPing dealsping.in link (MUST BE SKIPPED)',
       text: '⚡PUMA | Reeping XT 2 Mens Training Shoes | Peacoat-Faded Denim | 8UK\n💰₹1,085 (75% OFF) 🔻MRP ₹4,299\n\n🛒https://dealsping.in/amz/2609281611',
     },
     {
