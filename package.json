@@ -1,0 +1,16 @@
+{
+  "name": "dealbuster",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "npm --prefix deal-forwarder-bot install",
+    "build": "npm --prefix deal-forwarder-bot install",
+    "start": "node deal-forwarder-bot/src/bot.js",
+    "test": "node deal-forwarder-bot/src/test-converter.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "telegram": "^2.26.22"
+  }
+}

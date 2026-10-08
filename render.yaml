@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: dealbuster
+    env: node
+    plan: free
+    buildCommand: npm install && cd deal-forwarder-bot && npm install
+    startCommand: node deal-forwarder-bot/src/bot.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20

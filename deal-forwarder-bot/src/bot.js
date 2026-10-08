@@ -362,11 +362,64 @@ async function main() {
     }
   }
 
+  // Pre-seed dedupCache from live products database (products.json)
+  async function seedDedupFromProducts() {
+    try {
+      console.log('🔄 Pre-seeding dedup cache from DealBuster products database...');
+      let products = [];
+      const localProductsFile = path.join(rootDir, '../products.json');
+      if (fs.existsSync(localProductsFile)) {
+        try {
+          const raw = fs.readFileSync(localProductsFile, 'utf8');
+          products = JSON.parse(raw);
+        } catch {}
+      }
+      if (!Array.isArray(products) || products.length === 0) {
+        try {
+          const res = await fetch('https://dealbuster.in/products.json', { signal: AbortSignal.timeout(4000) });
+          if (res.ok) products = await res.json();
+        } catch {}
+      }
+      if (Array.isArray(products) && products.length > 0) {
+        let count = 0;
+        const now = Date.now();
+        for (const p of products) {
+          if (!p) continue;
+          if (p.id && !dedupCache[p.id]) { dedupCache[p.id] = now; count++; }
+          if (p.asin) {
+            const aKey = 'amazon_' + p.asin.toUpperCase();
+            if (!dedupCache[aKey]) { dedupCache[aKey] = now; count++; }
+          }
+          if (p.link) {
+            const canonical = extractCanonicalDealId(p.link);
+            if (canonical?.id && !dedupCache[canonical.id]) { dedupCache[canonical.id] = now; count++; }
+            if (canonical?.pid) {
+              const pKey = `pid_${canonical.pid}`;
+              if (!dedupCache[pKey]) { dedupCache[pKey] = now; count++; }
+            }
+          }
+          if (p.title) {
+            const normTitle = normalizeDealTitle(p.title);
+            if (normTitle && normTitle.length >= 6) {
+              const tKey = 'title_' + normTitle.replace(/\s+/g, '');
+              if (!dedupCache[tKey]) { dedupCache[tKey] = now; count++; }
+              recordRecentTitle(normTitle, now);
+            }
+          }
+        }
+        saveDedupCache(dedupCache);
+        console.log(`✅ Pre-seeded ${count} deal marks from products database into dedupCache.`);
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not pre-seed from products database:', e.message);
+    }
+  }
+
   // Pre-seed dedupCache from recent channel messages in @dealbusterindia
   async function seedDedupFromTargetChannel(client, targetPeer) {
     try {
       console.log('🔄 Pre-seeding dedup cache from @dealbusterindia recent history...');
-      const msgs = await client.getMessages(targetPeer, { limit: 120 });
+      const msgs = await client.getMessages(targetPeer, { limit: 250 });
       let addedCount = 0;
       for (const m of msgs) {
         if (!m.message) continue;
@@ -530,7 +583,8 @@ async function main() {
     }
   }, 25 * 1000);
 
-  // Pre-seed dedupCache from recent messages in @dealbusterindia to guarantee zero duplicate re-posts across restarts/crons
+  // Pre-seed dedupCache from products database & recent messages in @dealbusterindia to guarantee zero duplicate re-posts across restarts/crons
+  await seedDedupFromProducts();
   await seedDedupFromTargetChannel(client, targetPeer);
 
   console.log('\n🚀 Auto-Forwarder is running! Waiting for new deals...\n');
@@ -748,11 +802,6 @@ async function main() {
 
       // 4. Channel-specific store rule:
       // DealsPing & LootPing: ONLY non-Amazon deals (Flipkart, Myntra, Ajio, Shopsy). Skip all Amazon deals!
-      const isDealsPing = (chatUsername === 'dealping') ||
-                          (channelTitle && /dealping/i.test(channelTitle)) ||
-                          chatIdStr === '2549771239' ||
-                          rawChatId === '-1002549771239' ||
-                          rawPeerId === '2549771239';
       const isLootPing = (chatUsername === 'lootping') ||
                          (channelTitle && /lootping/i.test(channelTitle)) ||
                          chatIdStr === '1175095956' ||
