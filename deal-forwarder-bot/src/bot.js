@@ -7,7 +7,15 @@ import { StringSession } from 'telegram/sessions/index.js';
 import { NewMessage } from 'telegram/events/index.js';
 import { HTMLParser } from 'telegram/extensions/html.js';
 import dotenv from 'dotenv';
-import { processMessageText, extractAmazonAsin, extractUrls, extractCanonicalDealId, isAmazonUrl } from './converter.js';
+import {
+  processMessageText,
+  extractAmazonAsin,
+  extractUrls,
+  extractCanonicalDealId,
+  isAmazonUrl,
+  normalizeDealTitle,
+  calculateTitleSimilarity,
+} from './converter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -280,6 +288,33 @@ async function main() {
     }
   }
 
+  // In-memory buffer of recent deal titles for fuzzy similarity checks across channels
+  const recentTitles = [];
+  const MAX_RECENT_TITLES = 300;
+
+  function recordRecentTitle(title, time = Date.now()) {
+    if (!title || title.length < 6) return;
+    recentTitles.unshift({ title, time });
+    if (recentTitles.length > MAX_RECENT_TITLES) {
+      recentTitles.pop();
+    }
+  }
+
+  function checkRecentTitleMatch(newTitle, maxAgeHours = 12) {
+    if (!newTitle || newTitle.length < 6) return null;
+    const now = Date.now();
+    const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
+
+    for (const item of recentTitles) {
+      if (now - item.time > maxAgeMs) continue;
+      const sim = calculateTitleSimilarity(newTitle, item.title);
+      if (sim >= 0.75) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   // Real-time ingestion of any deal posted directly to @dealbusterindia (e.g. by admin-api or manual post)
   function ingestTargetChannelMessage(msg) {
     try {
@@ -308,6 +343,15 @@ async function main() {
       if (fp && !dedupCache[fp]) {
         dedupCache[fp] = now;
         added++;
+      }
+      const normTitle = normalizeDealTitle(text);
+      if (normTitle && normTitle.length >= 6) {
+        const tKey = 'title_' + normTitle.replace(/\s+/g, '');
+        if (!dedupCache[tKey]) {
+          dedupCache[tKey] = now;
+          added++;
+        }
+        recordRecentTitle(normTitle, now);
       }
       if (added > 0) {
         saveDedupCache(dedupCache);
@@ -359,9 +403,18 @@ async function main() {
           dedupCache[fp] = msgDate;
           addedCount++;
         }
+        const normTitle = normalizeDealTitle(m.message);
+        if (normTitle && normTitle.length >= 6) {
+          const tKey = 'title_' + normTitle.replace(/\s+/g, '');
+          if (!dedupCache[tKey]) {
+            dedupCache[tKey] = msgDate;
+            addedCount++;
+          }
+          recordRecentTitle(normTitle, msgDate);
+        }
       }
       saveDedupCache(dedupCache);
-      console.log(`✅ Pre-seeded ${addedCount} entries from @dealbusterindia channel history.`);
+      console.log(`✅ Pre-seeded ${addedCount} entries (including deal titles) from @dealbusterindia channel history.`);
     } catch (err) {
       console.warn('⚠️ Could not pre-seed from target channel:', err.message);
     }
@@ -441,8 +494,11 @@ async function main() {
           lastDealPostedTime = Date.now();
           if (item.fingerprint) {
             dedupCache[item.fingerprint] = Date.now();
-            saveDedupCache(dedupCache);
           }
+          if (item.titleKey) {
+            dedupCache[item.titleKey] = Date.now();
+          }
+          saveDedupCache(dedupCache);
 
           logEvent('Forwarded deal to channel', item.title, item.text);
           console.log(`✅ Deal posted successfully to ${config.target_channel}!`);
@@ -491,6 +547,12 @@ async function main() {
       .replace(/https?:\/\/[^\s]+/g, '')
       .replace(/[^a-z0-9]/g, '')
       .slice(0, 50);
+    // If text content is present and substantial, use ONLY clean text!
+    // Telegram assigns different 64-bit photo IDs to the same image uploaded across channels,
+    // which previously made cross-channel fingerprints differ.
+    if (clean && clean.length >= 10) {
+      return 'fp_' + clean;
+    }
     const photoId = media?.photo?.id?.toString() || media?.document?.id?.toString() || '';
     if (!clean && !photoId) return '';
     return 'fp_' + clean + (photoId ? `_m${photoId}` : '');
@@ -499,6 +561,7 @@ async function main() {
   // Core message processor: converts links, validates stores, applies filters, and queues for posting
   async function handleIncomingMessage(msg, matchedEntity = null) {
     let claimedFingerprint = null;
+    let claimedTitleKey = null;
     let claimedAsinKey = null;
     let validDeals = [];
     try {
@@ -591,6 +654,38 @@ async function main() {
         }
         inFlightClaims.add(fingerprint);
         claimedFingerprint = fingerprint;
+      }
+
+      // 2b. FAST TITLE & SEMANTIC DEDUPLICATION:
+      // Identifies and drops duplicate deals across channels from normalized title / product name
+      const normTitle = normalizeDealTitle(rawText);
+      if (normTitle && normTitle.length >= 6) {
+        const titleKey = 'title_' + normTitle.replace(/\s+/g, '');
+
+        if (inFlightClaims.has(titleKey)) {
+          console.log(`⏩ Skipped: Duplicate deal title "${normTitle}" already in-flight from another channel.`);
+          logEvent('Skipped: Concurrent duplicate title (in-flight)', channelTitle, rawText);
+          return;
+        }
+
+        if (dedupCache[titleKey]) {
+          const hoursAgo = ((Date.now() - dedupCache[titleKey]) / (1000 * 60 * 60)).toFixed(1);
+          console.log(`⏩ Skipped: Duplicate deal title "${normTitle}" posted ${hoursAgo}h ago.`);
+          logEvent(`Skipped: Duplicate title (${hoursAgo}h ago)`, channelTitle, rawText);
+          return;
+        }
+
+        // Fuzzy similarity check against recent posted titles buffer
+        const matchedRecent = checkRecentTitleMatch(normTitle);
+        if (matchedRecent) {
+          const hoursAgo = ((Date.now() - matchedRecent.time) / (1000 * 60 * 60)).toFixed(1);
+          console.log(`⏩ Skipped: Highly similar deal "${normTitle}" matches recent "${matchedRecent.title}" (${hoursAgo}h ago).`);
+          logEvent(`Skipped: Similar deal title (${hoursAgo}h ago)`, channelTitle, rawText);
+          return;
+        }
+
+        inFlightClaims.add(titleKey);
+        claimedTitleKey = titleKey;
       }
 
       console.log(`\n📥 [${new Date().toLocaleTimeString()}] New message from: ${channelTitle}`);
@@ -735,6 +830,10 @@ async function main() {
       if (claimedFingerprint) {
         dedupCache[claimedFingerprint] = Date.now();
       }
+      if (claimedTitleKey) {
+        dedupCache[claimedTitleKey] = Date.now();
+        recordRecentTitle(normTitle, Date.now());
+      }
       if (claimedAsinKey) {
         dedupCache[claimedAsinKey] = Date.now();
       }
@@ -752,6 +851,7 @@ async function main() {
         convertedLinks: validDeals,
         title: channelTitle,
         fingerprint: claimedFingerprint,
+        titleKey: claimedTitleKey,
         queuedAt: Date.now(),
       });
 
@@ -762,6 +862,9 @@ async function main() {
     } finally {
       if (claimedFingerprint) {
         inFlightClaims.delete(claimedFingerprint);
+      }
+      if (claimedTitleKey) {
+        inFlightClaims.delete(claimedTitleKey);
       }
       if (claimedAsinKey) {
         inFlightClaims.delete(claimedAsinKey);

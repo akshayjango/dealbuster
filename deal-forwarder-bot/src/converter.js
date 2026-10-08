@@ -226,7 +226,7 @@ export function buildCueLinksUrl(url, pubId = '312552') {
 }
 
 /**
- * Extract canonical store and product identifier across stores (Amazon ASIN, Flipkart PID, etc.)
+ * Extract canonical store and product identifier across stores (Amazon ASIN, Flipkart PID, collections, etc.)
  */
 export function extractCanonicalDealId(url) {
   if (!url) return null;
@@ -259,6 +259,29 @@ export function extractCanonicalDealId(url) {
       const pid = pidMatch[1].toUpperCase();
       return { store: 'flipkart', pid, id: `flipkart_${pid}` };
     }
+
+    // Collection / Brand / Curated list / Search handling across channels
+    const brandMatch = targetUrl.match(/([a-z0-9-]+~brand)/i) || url.match(/([a-z0-9-]+~brand)/i);
+    const sidMatch = targetUrl.match(/[?&]sid=([a-z0-9,]+)/i) || url.match(/[?&]sid=([a-z0-9,]+)/i);
+    if (brandMatch) {
+      const brand = brandMatch[1].toLowerCase();
+      const sid = sidMatch ? `_${sidMatch[1].toLowerCase()}` : '';
+      return { store: 'flipkart', collId: `${brand}${sid}`, id: `flipkart_coll_${brand}${sid}` };
+    }
+
+    const csMatch = targetUrl.match(/~cs-([a-z0-9]+)/i) || url.match(/~cs-([a-z0-9]+)/i);
+    if (csMatch) {
+      const sid = sidMatch ? `_${sidMatch[1].toLowerCase()}` : '';
+      return { store: 'flipkart', collId: csMatch[1].toLowerCase(), id: `flipkart_coll_${csMatch[1].toLowerCase()}${sid}` };
+    }
+
+    const qMatch = targetUrl.match(/[?&]q=([^&]+)/i) || url.match(/[?&]q=([^&]+)/i);
+    if (qMatch) {
+      const q = decodeURIComponent(qMatch[1]).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (q.length >= 3) {
+        return { store: 'flipkart', q, id: `flipkart_search_${q}` };
+      }
+    }
   }
 
   // 3. Myntra:
@@ -269,6 +292,11 @@ export function extractCanonicalDealId(url) {
     if (myntraMatch) {
       return { store: 'myntra', pid: myntraMatch[1], id: `myntra_${myntraMatch[1]}` };
     }
+
+    const myntraBrand = targetUrl.match(/myntra\.com\/([a-z0-9-]+)(?:[/?#]|$)/i) || url.match(/myntra\.com\/([a-z0-9-]+)(?:[/?#]|$)/i);
+    if (myntraBrand && !['gateway', 'checkout', 'login', 'shop'].includes(myntraBrand[1].toLowerCase())) {
+      return { store: 'myntra', id: `myntra_coll_${myntraBrand[1].toLowerCase()}` };
+    }
   }
 
   // 4. Ajio:
@@ -278,6 +306,11 @@ export function extractCanonicalDealId(url) {
                       targetUrl.match(/\/([0-9]{8,14})(?:[/?#]|$)/i);
     if (ajioMatch) {
       return { store: 'ajio', pid: ajioMatch[1], id: `ajio_${ajioMatch[1]}` };
+    }
+
+    const ajioColl = targetUrl.match(/ajio\.com\/(?:s|b)\/([a-z0-9-]+)/i) || url.match(/ajio\.com\/(?:s|b)\/([a-z0-9-]+)/i);
+    if (ajioColl) {
+      return { store: 'ajio', id: `ajio_coll_${ajioColl[1].toLowerCase()}` };
     }
   }
 
@@ -291,6 +324,123 @@ export function extractCanonicalDealId(url) {
   }
 
   return null;
+}
+
+/**
+ * Normalizes deal titles to a canonical product/brand representation
+ * Strips promotional fluff, percentages, prices, hype buzzwords, and store names
+ */
+export function normalizeDealTitle(text) {
+  if (!text || typeof text !== 'string') return '';
+
+  // 1. Split lines and find the first line containing the product/deal name
+  const lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  let candidateLine = '';
+  for (const line of lines) {
+    // Skip lines that are only URLs
+    if (/^https?:\/\//i.test(line)) continue;
+    // Skip lines that are only coupon codes
+    if (/^(?:use\s*coupon|coupon\s*code|code|apply\s*code)\s*[:\-]/i.test(line)) continue;
+    // Skip call-to-action lines
+    if (/^(?:👉|🔗|🛒|🛍️)?\s*(?:buy|shop|check|link|order|grab|visit)\s*(?:here|now|link)?\s*[:\-]?\s*https?:\/\//i.test(line)) continue;
+    // Skip lines with only emojis or tiny tags (< 4 characters)
+    const withoutEmojis = line.replace(/[\p{Emoji}\p{Symbol}]/gu, '').trim();
+    if (withoutEmojis.length < 4) continue;
+    // Skip pure discount/hype lines like "🔥 80% OFF 🔥" or "LOOT OF THE DAY"
+    if (/^(?:🔥|⚡|💥|✨|🚨|📢|‼️|\s)*(?:loot|deal|deals|hot|mega|super|huge|hurry|lowest|special|offer|sale|discounts?|flat\s*\d+%\s*off|upto\s*\d+%\s*off)*(?:🔥|⚡|💥|✨|🚨|📢|‼️|\s)*$/i.test(withoutEmojis)) continue;
+
+    candidateLine = line;
+    break;
+  }
+
+  if (!candidateLine) {
+    candidateLine = lines[0] || '';
+  }
+
+  // 2. Remove HTML tags, markdown formatting, and URLs
+  let cleaned = candidateLine
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[*_~`]/g, ' ')
+    .replace(/https?:\/\/[^\s]+/gi, ' ');
+
+  // 3. Remove discount expressions:
+  // e.g. "at minimum 68% Discount", "min 70% off", "upto 65% off", "flat 50% off", "extra 10% off", "68% off", "68% discount"
+  cleaned = cleaned
+    .replace(/\b(?:at\s*)?(?:min|minimum|upto|up\s+to|flat|extra|save|off|discount)\s*\d+%\s*(?:off|discount|from|onwards)?(?:\s+(?:on|for))?\b/gi, ' ')
+    .replace(/\bat\s*(?:min|minimum)?\s*\d+%\s*(?:off|discount)?(?:\s+(?:on|for))?\b/gi, ' ')
+    .replace(/\b\d+%\s*(?:off|discount|from|onwards)(?:\s+(?:on|for))?\b/gi, ' ')
+    .replace(/\b\d+%\b/g, ' ');
+
+  // 4. Remove price expressions:
+  // e.g. "at ₹1,299", "under 599", "@ ₹999", "just 499", "starting @ ₹199", "price ₹1,499", "mrp ₹4,999"
+  cleaned = cleaned
+    .replace(/\b(?:under|@|at|just|starting\s*(?:at|@)?|price|deal\s*price|now\s*at|loot\s*at|mrp|worth)\s*₹?\s*[\d,]+(?:\s*\/\-)?\b/gi, ' ')
+    .replace(/₹\s*[\d,]+(?:\s*\/\-)?/g, ' ')
+    .replace(/\brs\.?\s*[\d,]+/gi, ' ');
+
+  // 5. Remove promotional buzzwords / tags:
+  cleaned = cleaned
+    .replace(/\b(?:super\s*loot|mega\s*loot|loot\s*deal|hot\s*deal|loot|deals?|mega|super|crazy|biggest|best|lowest|price\s*drop|drop|sales?|offers?|grab|fast|hurry|special|bbd|gif|diwali|festive|lightning|flash|live|back\s*in\s*stock|restocked?|coupons?|free|steal|unbelievable)\b/gi, ' ');
+
+  // 6. Remove store mentions:
+  cleaned = cleaned
+    .replace(/\b(?:on\s+)?(?:amazon|flipkart|myntra|ajio|shopsy|meesho|tatacliq|nykaa)\b/gi, ' ');
+
+  // 7. Normalize plural forms for fashion/products:
+  cleaned = cleaned
+    .replace(/\bmens\b/gi, 'men')
+    .replace(/\bwomens\b/gi, 'women')
+    .replace(/\bshoes\b/gi, 'shoe')
+    .replace(/\bshirts\b/gi, 'shirt')
+    .replace(/\btshirts\b/gi, 'tshirt');
+
+  // 8. Replace all non-alphanumeric characters with space
+  cleaned = cleaned.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+
+  // 9. Strip leading prepositions (e.g. "on new balance", "for men")
+  cleaned = cleaned.replace(/^\s*(?:on|for|at|in|with)\s+/gi, ' ');
+
+  // 10. Collapse multiple spaces and trim
+  return cleaned.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Calculates similarity between two normalized deal titles (0.0 to 1.0)
+ * Uses token Jaccard similarity and containment
+ */
+export function calculateTitleSimilarity(normA, normB) {
+  if (!normA || !normB) return 0;
+  if (normA === normB) return 1.0;
+
+  const wordsA = normA.split(/\s+/).filter(w => w.length >= 2);
+  const wordsB = normB.split(/\s+/).filter(w => w.length >= 2);
+  if (wordsA.length === 0 || wordsB.length === 0) return 0;
+
+  const setA = new Set(wordsA);
+  const setB = new Set(wordsB);
+
+  let common = 0;
+  for (const w of setA) {
+    if (setB.has(w)) common++;
+  }
+
+  // Jaccard similarity
+  const union = new Set([...setA, ...setB]).size;
+  const jaccard = union > 0 ? common / union : 0;
+
+  // Containment similarity (e.g. all words of the shorter title are present in the longer title)
+  const minSize = Math.min(setA.size, setB.size);
+  const containment = minSize > 0 ? common / minSize : 0;
+
+  if (common >= 3 && (jaccard >= 0.70 || containment >= 0.85)) {
+    return Math.max(jaccard, containment);
+  }
+
+  return jaccard;
 }
 
 /**

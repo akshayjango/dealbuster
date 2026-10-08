@@ -1,4 +1,66 @@
-import { processMessageText, isAmazonUptoDeal } from './converter.js';
+import {
+  processMessageText,
+  isAmazonUptoDeal,
+  normalizeDealTitle,
+  calculateTitleSimilarity,
+  extractCanonicalDealId,
+} from './converter.js';
+
+function runTitleNormalizationTests() {
+  console.log('=== Title Normalization & Deduplication Unit Tests ===\n');
+
+  const titles = [
+    'New Balance Mens Casual Shoes at minimum 68% Discount',
+    'Upto 65% Off - New Balance Mens Casual Shoes',
+    '🔥 Loot Deal : New Balance Mens Casual Shoes Under ₹1499',
+    '⚡ Flat 70% Off on New Balance Mens Casual Shoes',
+    '💥 Min 68% Off : New Balance Mens Casual Shoes',
+    'New Balance Mens Casual Shoes',
+    'New Balance Men Casual Shoes',
+  ];
+
+  const normalized = titles.map(t => normalizeDealTitle(t));
+  console.log('Normalized Titles:');
+  titles.forEach((t, i) => {
+    console.log(`  "${t}" => "${normalized[i]}"`);
+  });
+
+  // Verify that all variations normalize to "new balance men casual shoe"
+  const expected = 'new balance men casual shoe';
+  let allMatched = true;
+  for (let i = 0; i < normalized.length; i++) {
+    if (normalized[i] !== expected) {
+      console.error(`❌ Mismatch at index ${i}: expected "${expected}", got "${normalized[i]}"`);
+      allMatched = false;
+    }
+  }
+
+  if (allMatched) {
+    console.log('✅ All 7 title variations normalized to EXACT same canonical title:', expected);
+  } else {
+    throw new Error('Title normalization test failed');
+  }
+
+  // Test similarity
+  const sim = calculateTitleSimilarity(normalized[0], normalized[1]);
+  console.log(`Similarity between Title 0 and Title 1: ${sim} (Expected: 1.0)`);
+  if (sim !== 1.0) throw new Error('Similarity calculation test failed');
+
+  // Test collection URL canonical extraction
+  const url1 = 'https://www.flipkart.com/mens-footwear/new-balance~brand/pr?sid=osp,cil,e1f&marketplace=FLIPKART&sort=price_asc';
+  const url2 = 'https://www.flipkart.com/mens-footwear/new-balance~brand/pr?sid=osp,cil,e1f&sort=recency_desc';
+  const c1 = extractCanonicalDealId(url1);
+  const c2 = extractCanonicalDealId(url2);
+  console.log('Canonical ID 1:', c1?.id);
+  console.log('Canonical ID 2:', c2?.id);
+  if (!c1?.id || c1.id !== c2?.id) {
+    throw new Error(`Collection canonical IDs do not match: ${c1?.id} vs ${c2?.id}`);
+  }
+  console.log('✅ Collection canonical IDs match perfectly:', c1.id);
+  console.log('\n========================================\n');
+}
+
+runTitleNormalizationTests();
 
 async function runTests() {
   console.log('Testing Store Rules & Amazon Upto Filter...\n');
