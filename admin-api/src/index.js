@@ -437,7 +437,11 @@ async function recordScraperStatus(source, status, message, count, env) {
   if (!env.KV) return;
   try {
     const key = 'scraper_status';
-    const current = await env.KV.get(key, 'json') || {};
+    let current = {};
+    try {
+      const raw = await env.KV.get(key);
+      if (raw) current = JSON.parse(raw);
+    } catch {}
     const existing = current[source];
     // Optimize KV writes: if already working with 0 added deals and synced recently (<30m), skip redundant write
     if (existing && existing.status === 'working' && status === 'working' && (count || 0) === 0 && existing.lastSync) {
@@ -6242,15 +6246,14 @@ export default {
       }
     }
 
-    // ── /trigger-sync-sample (sync 1 new deal from DealsPing and 1 from DealsHeaven) ──
+    // ── /trigger-sync-sample (sync new deals from DealsPing and DealsHeaven) ──
     if (url0.pathname === '/trigger-sync-sample' && request.method === 'GET') {
       try {
-        console.log('trigger-sync-sample: syncing DealsPing...');
-        const dp = await scrapeAndSyncDealsPing(env, 1);
-        console.log('trigger-sync-sample: DealsPing result:', dp);
-        console.log('trigger-sync-sample: syncing DealsHeaven...');
-        const dh = await scrapeAndSyncDealsHeaven(env, 1);
-        console.log('trigger-sync-sample: DealsHeaven result:', dh);
+        const limit = parseInt(url0.searchParams.get('limit') || '5', 10);
+        console.log(`trigger-sync-sample: syncing DealsPing with limit ${limit}...`);
+        const dp = await scrapeAndSyncDealsPing(env, limit);
+        console.log(`trigger-sync-sample: syncing DealsHeaven with limit ${limit}...`);
+        const dh = await scrapeAndSyncDealsHeaven(env, limit);
         return json({ success: true, dealsping: dp, dealsheaven: dh });
       } catch (e) {
         console.error('trigger-sync-sample error:', e.message);
