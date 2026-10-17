@@ -1107,6 +1107,14 @@
           <div class="scraper-count-val" id="statusDealsheavenCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
           <div class="scraper-subtext" id="statusDealsheavenSubtext" style="margin-top:6px;">Loading status…</div>
         </div>
+        <div class="stat-card scraper-card" id="cardDealspy" onclick="filterBySource('dealspy')" title="Click to filter products by DealSpy">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="stat-label" style="margin-bottom:0;">DealSpy</div>
+            <div class="scraper-status-badge" id="statusDealspyBadge"><span class="status-dot green"></span><span id="statusDealspyText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
+          </div>
+          <div class="scraper-count-val" id="statusDealspyCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
+          <div class="scraper-subtext" id="statusDealspySubtext" style="margin-top:6px;">Loading status…</div>
+        </div>
         <div class="stat-card scraper-card" id="cardOffertag" onclick="filterBySource('offertag')" title="Click to filter products by OfferTag">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
             <div class="stat-label" style="margin-bottom:0;">OfferTag</div>
@@ -1130,10 +1138,11 @@
             <option value="manual">Manual</option>
             <option value="dealsping">DealsPing</option>
             <option value="dealsheaven">DealsHeaven</option>
+            <option value="dealspy">DealSpy</option>
             <option value="dotd">DealOfTheDayIndia</option>
             <option value="indiafree">IndiaFreeStuff</option>
             <option value="offertag">OfferTag</option>
-            <option value="dealsradar">DealsRadar / DealSpy (Legacy)</option>
+            <option value="dealsradar">DealsRadar (Legacy)</option>
           </select>
           <select id="dashStore" onchange="renderList()">
             <option value="">All Stores</option>
@@ -2791,6 +2800,7 @@ async function updateScraperStatuses() {
       { key: 'dealoftheday', errName: 'DealOfTheDayIndia', prefix: 'dotd_', countId: 'statusDotdCount', badgeId: 'statusDotdBadge', subId: 'statusDotdSubtext' },
       { key: 'dealsping', errName: 'DealsPing', prefix: 'dp_', countId: 'statusDealspingCount', badgeId: 'statusDealspingBadge', subId: 'statusDealspingSubtext' },
       { key: 'dealsheaven', errName: 'DealsHeaven', prefix: 'dh_', countId: 'statusDealsheavenCount', badgeId: 'statusDealsheavenBadge', subId: 'statusDealsheavenSubtext' },
+      { key: 'dealspy', errName: 'DealsSpy', prefix: 'ds_', countId: 'statusDealspyCount', badgeId: 'statusDealspyBadge', subId: 'statusDealspySubtext' },
       { key: 'offertag', errName: 'OfferTag', prefix: 'ot_', countId: 'statusOffertagCount', badgeId: 'statusOffertagBadge', subId: 'statusOffertagSubtext' }
     ];
 
@@ -3145,7 +3155,8 @@ function renderList(resetScroll = false) {
     const matchSrc = !src ||
       (src === 'dealsping' ? (p.id || '').startsWith('dp_') :
       src === 'dealsheaven' ? (p.id || '').startsWith('dh_') :
-      src === 'dealsradar' ? ((p.id || '').startsWith('dr_') || (p.id || '').startsWith('ds_')) :
+      src === 'dealspy' ? (p.id || '').startsWith('ds_') :
+      src === 'dealsradar' ? (p.id || '').startsWith('dr_') :
       src === 'dotd' ? (p.id || '').startsWith('dotd_') :
       src === 'indiafree' ? (p.id || '').startsWith('ifs_') :
       src === 'offertag' ? (p.id || '').startsWith('ot_') :

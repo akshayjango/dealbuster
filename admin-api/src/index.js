@@ -1349,7 +1349,92 @@ function parseDealsHeavenHtml(html) {
 }
 
 function parseDealsSpyHtml(html) {
-  return []; // DealsSpy is deprecated and offline
+  if (!html) return [];
+  const rawArticles = html.split('<article').slice(1);
+  const parsedDeals = [];
+  const seenLinks = new Set();
+
+  for (const raw of rawArticles) {
+    const art = '<article' + raw.split('</article>')[0] + '</article>';
+
+    let destUrl = '';
+    const utmMatch = art.match(/utm_content=([A-Za-z0-9+/=]+)/i);
+    if (utmMatch) {
+      try {
+        destUrl = atob(utmMatch[1]);
+      } catch (e) {
+        try { destUrl = Buffer.from(utmMatch[1], 'base64').toString('utf8'); } catch (_) {}
+      }
+    }
+    if (!destUrl) continue;
+
+    const linkClean = destUrl.trim();
+    if (seenLinks.has(linkClean.toLowerCase())) continue;
+    seenLinks.add(linkClean.toLowerCase());
+
+    let saveObj = null;
+    const saveMatch = art.match(/data-ds-save='([^']+)'/i) || art.match(/data-save="([^"]+)"/i);
+    if (saveMatch) {
+      try {
+        const decoded = saveMatch[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+        saveObj = JSON.parse(decoded);
+      } catch {}
+    }
+
+    let title = saveObj?.title || '';
+    if (!title) {
+      const titleMatch = art.match(/<h3><a[^>]*>(.*?)<\/a><\/h3>/i);
+      if (titleMatch) title = titleMatch[1].replace(/<[^>]+>/g, '').trim();
+    }
+    title = decodeHtmlEntities(title).replace(/\s+/g, ' ').trim();
+    if (!title) continue;
+
+    // Image URL: extract clean .webp image directly without any overlay/background classes
+    let image = saveObj?.img || '';
+    if (!image) {
+      const imgMatch = art.match(/<img[^>]+src="([^">]+\.webp)"[^>]*>/i);
+      if (imgMatch) image = imgMatch[1];
+    }
+
+    let price = 0;
+    if (saveObj?.price) {
+      price = parsePrice(saveObj.price) || 0;
+    }
+    if (!price) {
+      const p1 = art.match(/class="c-pricepill">([^<]+)/i);
+      const p2 = art.match(/class="c-card-row">[\s\S]*?<b>([^<]+)<\/b>/i);
+      const p3 = art.match(/data-price="([^"]+)"/i);
+      if (p1) price = parsePrice(p1[1]) || 0;
+      else if (p2) price = parsePrice(p2[1]) || 0;
+      else if (p3) price = parsePrice(p3[1]) || 0;
+    }
+
+    let mrp = price;
+    const mrpMatch = art.match(/class="ss-mrp"[^>]*>([\s\S]*?)<\/s>/i) || art.match(/<s>[\s\S]*?<span[^>]*>MRP\s*<\/span>([^<]+)<\/s>/i);
+    if (mrpMatch) {
+      const parsedMrp = parsePrice(mrpMatch[1]);
+      if (parsedMrp && parsedMrp > 0) mrp = parsedMrp;
+    }
+
+    const isAmazon = /amazon\.in|amzn\.to|amazon\.com/i.test(destUrl);
+    let asin = null;
+    if (isAmazon) {
+      const asinM = destUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+      if (asinM) asin = asinM[1].toUpperCase();
+    }
+
+    parsedDeals.push({
+      title,
+      link: destUrl,
+      image,
+      price,
+      mrp,
+      isAmazon,
+      asin
+    });
+  }
+
+  return parsedDeals;
 }
 
 async function scrapeIfsNonAmazonDeals(env) {
@@ -1530,6 +1615,34 @@ async function scrapeDealsHeavenNonAmazonDeals(env) {
       }));
   } catch (e) {
     console.error('Non-Amazon DealsHeaven scrape failed:', e.message);
+    return [];
+  }
+}
+
+async function scrapeDealsSpyNonAmazonDeals(env) {
+  try {
+    const r = await fetchWithProxy('https://www.dealsspy.in/', {
+      headers: {
+        'User-Agent': AMZ_HEADERS['User-Agent'],
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    }, 15000, env);
+    if (!r.ok) return [];
+    const html = await r.text();
+    const deals = parseDealsSpyHtml(html);
+    return deals
+      .filter(d => !d.isAmazon && !d.asin && d.link && !/amazon\.in|amzn\.to/i.test(d.link))
+      .map(d => ({
+        title: d.title,
+        link: d.link,
+        image: d.image || 'images/dealbuster_icon.png',
+        price: d.price > 0 ? '₹' + d.price.toLocaleString('en-IN') : '',
+        mrp: d.mrp > 0 ? '₹' + d.mrp.toLocaleString('en-IN') : (d.price > 0 ? '₹' + d.price.toLocaleString('en-IN') : ''),
+        category: detectCategoryFromTitle(d.title),
+        source: 'dealspy'
+      }));
+  } catch (e) {
+    console.error('Non-Amazon DealsSpy scrape failed:', e.message);
     return [];
   }
 }
@@ -1798,9 +1911,132 @@ async function scrapeAndSyncDealsHeaven(env, limit = 25) {
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
-// Legacy alias
-async function scrapeAndSyncDealsSpy(env, limit = 30) {
-  return scrapeAndSyncDealsPing(env, limit);
+async function scrapeAndSyncDealsSpy(env, limit = 25) {
+  let html = '';
+  try {
+    const r = await fetchWithProxy('https://www.dealsspy.in/', {
+      headers: {
+        'User-Agent': AMZ_HEADERS['User-Agent'],
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    }, 20000, env);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    html = await r.text();
+  } catch (e) {
+    const msg = `DealsSpy fetch failed: ${e.message}`;
+    console.error(msg);
+    await saveSyncError('DealsSpy', msg, env);
+    await recordScraperStatus('dealspy', 'error', msg, 0, env);
+    return { success: false, count: 0, message: msg };
+  }
+
+  let allDeals = [];
+  try {
+    allDeals = parseDealsSpyHtml(html);
+  } catch (e) {
+    const msg = `DealsSpy parse failed: ${e.message}`;
+    await saveSyncError('DealsSpy', msg, env);
+    await recordScraperStatus('dealspy', 'error', msg, 0, env);
+    return { success: false, count: 0, message: msg };
+  }
+
+  const amazonDeals = allDeals.filter(d => d.isAmazon && d.asin);
+
+  const { products, sha } = await getProductsFile(env);
+  let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
+  const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
+  const blockedBrands = await getBlockedBrands(env);
+
+  const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
+  const seenThisRun = new Set();
+
+  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const added = [];
+  const updated = [];
+
+  for (const deal of amazonDeals) {
+    const asin = deal.asin;
+    if (!asin) continue;
+    const asinUpper = asin.toUpperCase();
+    if (deletedSet.has(asinUpper)) continue;
+    if (seenThisRun.has(asinUpper)) continue;
+    seenThisRun.add(asinUpper);
+    if (isBrandBlocked(deal.title, blockedBrands)) continue;
+
+    const parsedPriceVal = parsePrice(deal.price);
+    const price = parsedPriceVal || 0;
+    if (price <= 0) continue;
+
+    const parsedMrpVal = parsePrice(deal.mrp);
+    const mrp = parsedMrpVal || price;
+    const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
+    const priceStr = '₹' + price.toLocaleString('en-IN');
+    const mrpStr = '₹' + mrp.toLocaleString('en-IN');
+    const discStr = discNum > 0 ? `-${discNum}%` : '0%';
+    const baseLink = `https://www.amazon.in/dp/${asin}`;
+    const link = `${baseLink}?tag=${TAG}`;
+
+    const category = detectCategoryFromTitle(deal.title);
+    const highlights = [];
+
+    if (existingByAsin.has(asinUpper)) {
+      const existing = existingByAsin.get(asinUpper);
+      if (isDead(existing)) continue;
+      const existingPrice = parsePrice(existing.price);
+      const newPrice = parsePrice(priceStr);
+
+      if (newPrice && existingPrice && newPrice < existingPrice) {
+        const priceHistory = appendPriceHistory(existing, priceStr);
+        const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
+        const origPrice = parsePrice(existing.originalPrice || existing.price);
+        if (origPrice && newPrice && shouldDemote(origPrice, newPrice)) {
+          updatedProduct.priceIncreased = true;
+        } else {
+          delete updatedProduct.priceIncreased;
+        }
+        updated.push(updatedProduct);
+      }
+    } else {
+      if (added.length >= limit) break;
+      const image = deal.image || asinImage(asin);
+
+      const isUpto = hasUptoOffInTitle(deal.title);
+      const lowestText = extractLowestPriceText(deal.title);
+      added.push({
+        id: `ds_${Date.now()}_${added.length}`,
+        asin, title: deal.title || '', price: priceStr, mrp: mrpStr, disc: discStr,
+        image, link, category, highlights, lowestPriceText: lowestText || null, featured: false,
+        hidden: isUpto ? true : false,
+        isUptoDeal: isUpto ? true : undefined,
+        outOfStock: false,
+        order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
+      });
+    }
+  }
+
+  if (added.length === 0 && updated.length === 0) {
+    await clearSyncError('DealsSpy', env);
+    await recordScraperStatus('dealspy', 'working', 'No new deals', 0, env);
+    return { success: true, count: 0, message: 'No new or updated DealsSpy deals.' };
+  }
+
+  const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
+  const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
+
+  const final = await capLiveAndBury([...added, ...base], env);
+
+  const msg = `DealsSpy sync: +${added.length} new, ${updated.length} updated`;
+  await saveProductsFile(final, sha, msg, env);
+  await clearSyncError('DealsSpy', env);
+  await recordScraperStatus('dealspy', 'working', msg, added.length, env);
+
+  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+  if (lowestDeals.length > 0) {
+    postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
+      .catch(e => console.error('TG lowest price DealsSpy post failed:', e.message));
+  }
+
+  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
 // Helper to extract original URL from CueLinks URL
@@ -2308,7 +2544,14 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     console.error('Non-Amazon OfferTag cron fetch failed:', e.message);
   }
 
-  const scrapedDeals = [...dhDeals, ...ifsDeals, ...otDeals];
+  let dsDeals = [];
+  try {
+    dsDeals = await scrapeDealsSpyNonAmazonDeals(env);
+  } catch (e) {
+    console.error('Non-Amazon DealsSpy cron fetch failed:', e.message);
+  }
+
+  const scrapedDeals = [...dhDeals, ...dsDeals, ...ifsDeals, ...otDeals];
   if (!scrapedDeals.length) return;
 
   const { products, sha } = await getProductsFile(env);
@@ -5251,6 +5494,14 @@ async function runDealScrapersLocked(env) {
       await saveSyncError('DealsHeaven', e.message, env);
     }
     try {
+      console.log('DealsSpy sync start');
+      const r = await scrapeAndSyncDealsSpy(env, 25);
+      console.log('DealsSpy sync:', r.message);
+    } catch (e) {
+      console.error('DealsSpy sync error:', e.message);
+      await saveSyncError('DealsSpy', e.message, env);
+    }
+    try {
       console.log('DealOfTheDayIndia sync start');
       const r = await scrapeAndSyncDealOfTheDayIndia(env, 10);
       console.log('DealOfTheDayIndia sync:', r.message);
@@ -6271,7 +6522,9 @@ export default {
         const dp = await scrapeAndSyncDealsPing(env, limit);
         console.log(`trigger-sync-sample: syncing DealsHeaven with limit ${limit}...`);
         const dh = await scrapeAndSyncDealsHeaven(env, limit);
-        return json({ success: true, dealsping: dp, dealsheaven: dh });
+        console.log(`trigger-sync-sample: syncing DealsSpy with limit ${limit}...`);
+        const ds = await scrapeAndSyncDealsSpy(env, limit);
+        return json({ success: true, dealsping: dp, dealsheaven: dh, dealspy: ds });
       } catch (e) {
         console.error('trigger-sync-sample error:', e.message);
         return json({ success: false, error: e.message }, 500);
