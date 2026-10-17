@@ -1221,31 +1221,33 @@ function parseDealsPingHtml(html) {
   try {
     const rawDeals = JSON.parse(payload.slice(start, end));
     if (!Array.isArray(rawDeals)) return [];
-    return rawDeals.map(d => {
-      const store = (d.store || '').toLowerCase();
-      const title = decodeHtmlEntities((d.title || '').replace(/\s+/g, ' ').trim());
-      const price = typeof d.price === 'number' ? d.price : parseInt(String(d.price || 0).replace(/[^\d]/g, '')) || 0;
-      const mrp = typeof d.mrp === 'number' ? d.mrp : parseInt(String(d.mrp || 0).replace(/[^\d]/g, '')) || price;
-      const image = d.image || (Array.isArray(d.images) && d.images[0]) || '';
-      const link = d.originalLink || d.affiliateLink || '';
-      let asin = d.asin;
-      if (!asin && link) {
-        const m = link.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-        if (m) asin = m[1];
-      }
-      return {
-        id: d.id,
-        store,
-        title,
-        price,
-        mrp,
-        image,
-        link,
-        asin: asin ? asin.toUpperCase() : null,
-        category: d.category || '',
-        highlights: Array.isArray(d.highlights) ? d.highlights : []
-      };
-    });
+    return rawDeals
+      .map(d => {
+        const store = (d.store || '').toLowerCase();
+        const title = decodeHtmlEntities((d.title || '').replace(/\s+/g, ' ').trim());
+        const price = typeof d.price === 'number' ? d.price : parseInt(String(d.price || 0).replace(/[^\d]/g, '')) || 0;
+        const mrp = typeof d.mrp === 'number' ? d.mrp : parseInt(String(d.mrp || 0).replace(/[^\d]/g, '')) || price;
+        const image = d.image || (Array.isArray(d.images) && d.images[0]) || '';
+        const link = d.originalLink || d.affiliateLink || '';
+        let asin = d.asin;
+        if (!asin && link) {
+          const m = link.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+          if (m) asin = m[1];
+        }
+        return {
+          id: d.id,
+          store,
+          title,
+          price,
+          mrp,
+          image,
+          link,
+          asin: asin ? asin.toUpperCase() : null,
+          category: d.category || '',
+          highlights: Array.isArray(d.highlights) ? d.highlights : []
+        };
+      })
+      .filter(d => (d.store === 'amazon' || /amazon\.in|amzn\.to/i.test(d.link)) && !!d.asin);
   } catch (e) {
     console.error('Error parsing DealsPing initialDeals:', e.message);
     return [];
@@ -1481,34 +1483,7 @@ async function scrapeOfferTagNonAmazonDeals(env) {
   return nonAmzDeals;
 }
 
-async function scrapeDealsPingNonAmazonDeals(env) {
-  try {
-    const r = await fetchWithProxy('https://dealsping.in/deals?tab=all', {
-      headers: {
-        'User-Agent': AMZ_HEADERS['User-Agent'],
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    }, 15000, env);
-    if (!r.ok) return [];
-    const html = await r.text();
-    const deals = parseDealsPingHtml(html);
-    return deals
-      .filter(d => d.store !== 'amazon' && !d.asin && d.link && !/amazon\.in|amzn\.to/i.test(d.link))
-      .map(d => ({
-        store: d.store,
-        title: d.title,
-        link: d.link,
-        image: d.image || 'images/dealbuster_icon.png',
-        price: d.price > 0 ? '₹' + d.price.toLocaleString('en-IN') : '',
-        mrp: d.mrp > 0 ? '₹' + d.mrp.toLocaleString('en-IN') : (d.price > 0 ? '₹' + d.price.toLocaleString('en-IN') : ''),
-        category: d.category || detectCategoryFromTitle(d.title),
-        source: 'dealsping'
-      }));
-  } catch (e) {
-    console.error('Non-Amazon DealsPing scrape failed:', e.message);
-    return [];
-  }
-}
+// Note: DealsPing is used exclusively for Amazon deals. Non-Amazon deals from DealsPing are omitted.
 
 async function scrapeDealsHeavenNonAmazonDeals(env) {
   try {
@@ -2288,14 +2263,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     }
   }
 
-  // Scrape Non-Amazon deals from DealsPing, DealsHeaven, IndiaFreeStuff, and OfferTag
-  let dpDeals = [];
-  try {
-    dpDeals = await scrapeDealsPingNonAmazonDeals(env);
-  } catch (e) {
-    console.error('Non-Amazon DealsPing cron fetch failed:', e.message);
-  }
-
+  // Scrape Non-Amazon deals from DealsHeaven, IndiaFreeStuff, and OfferTag (DealsPing is Amazon-only)
   let dhDeals = [];
   try {
     dhDeals = await scrapeDealsHeavenNonAmazonDeals(env);
@@ -2319,7 +2287,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     console.error('Non-Amazon OfferTag cron fetch failed:', e.message);
   }
 
-  const scrapedDeals = [...dpDeals, ...dhDeals, ...ifsDeals, ...otDeals];
+  const scrapedDeals = [...dhDeals, ...ifsDeals, ...otDeals];
   if (!scrapedDeals.length) return;
 
   const { products, sha } = await getProductsFile(env);
