@@ -5210,6 +5210,43 @@ async function postNewDealsToTelegram(env) {
   console.log(`TG cron: posted ${toPost.length} deal(s) (mode: ${mode})`);
 }
 
+async function runDealScrapersLocked(env) {
+  return withCronLock('cron_radar_dotd', 180, env, async () => {
+    try {
+      console.log('DealsPing sync start');
+      const r = await scrapeAndSyncDealsPing(env, 25);
+      console.log('DealsPing sync:', r.message);
+    } catch (e) {
+      console.error('DealsPing sync error:', e.message);
+      await saveSyncError('DealsPing', e.message, env);
+    }
+    try {
+      console.log('DealsHeaven sync start');
+      const r = await scrapeAndSyncDealsHeaven(env, 25);
+      console.log('DealsHeaven sync:', r.message);
+    } catch (e) {
+      console.error('DealsHeaven sync error:', e.message);
+      await saveSyncError('DealsHeaven', e.message, env);
+    }
+    try {
+      console.log('DealOfTheDayIndia sync start');
+      const r = await scrapeAndSyncDealOfTheDayIndia(env, 10);
+      console.log('DealOfTheDayIndia sync:', r.message);
+    } catch (e) {
+      console.error('DealOfTheDayIndia sync error:', e.message);
+      await saveSyncError('DealOfTheDayIndia', e.message, env);
+    }
+    try {
+      console.log('OfferTag sync start');
+      const r = await scrapeAndSyncOfferTag(env, 20);
+      console.log('OfferTag sync:', r.message);
+    } catch (e) {
+      console.error('OfferTag sync error:', e.message);
+      await saveSyncError('OfferTag', e.message, env);
+    }
+  });
+}
+
 // The actual send+track locking lives in postDealsAndTrack now. This wrapper is
 // just a cheap pre-check (KV.get + a GitHub fetch, no KV write) so the 5-min
 // cron doesn't touch GitHub/lock at all when there's nothing to post.
@@ -6196,6 +6233,7 @@ export default {
         await postNewDealsToTelegramLocked(env);
         if (ctx?.waitUntil) {
           ctx.waitUntil(cronSyncAndPublishNonAmazonDeals(env).catch(e => console.error('Non-Amazon sync error:', e.message)));
+          ctx.waitUntil(runDealScrapersLocked(env).catch(e => console.error('Deal scrapers cron error:', e.message)));
         }
         return json({ ok: true });
       } catch (e) {
@@ -7901,40 +7939,7 @@ export default {
       );
 
       ctx.waitUntil(
-        withCronLock('cron_radar_dotd', 180, env, async () => {
-          try {
-            console.log('DealsPing sync start');
-            const r = await scrapeAndSyncDealsPing(env, 25);
-            console.log('DealsPing sync:', r.message);
-          } catch (e) {
-            console.error('DealsPing sync error:', e.message);
-            await saveSyncError('DealsPing', e.message, env);
-          }
-          try {
-            console.log('DealsHeaven sync start');
-            const r = await scrapeAndSyncDealsHeaven(env, 25);
-            console.log('DealsHeaven sync:', r.message);
-          } catch (e) {
-            console.error('DealsHeaven sync error:', e.message);
-            await saveSyncError('DealsHeaven', e.message, env);
-          }
-          try {
-            console.log('DealOfTheDayIndia sync start');
-            const r = await scrapeAndSyncDealOfTheDayIndia(env, 10);
-            console.log('DealOfTheDayIndia sync:', r.message);
-          } catch (e) {
-            console.error('DealOfTheDayIndia sync error:', e.message);
-            await saveSyncError('DealOfTheDayIndia', e.message, env);
-          }
-          try {
-            console.log('OfferTag sync start');
-            const r = await scrapeAndSyncOfferTag(env, 20);
-            console.log('OfferTag sync:', r.message);
-          } catch (e) {
-            console.error('OfferTag sync error:', e.message);
-            await saveSyncError('OfferTag', e.message, env);
-          }
-        })
+        runDealScrapersLocked(env).catch(e => console.error('Deal scrapers cron error:', e.message))
       );
     }
   },
