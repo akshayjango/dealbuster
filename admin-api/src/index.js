@@ -6241,6 +6241,22 @@ export default {
       }
     }
 
+    // ── /trigger-sync-sample (sync 1 new deal from DealsPing and 1 from DealsHeaven) ──
+    if (url0.pathname === '/trigger-sync-sample' && request.method === 'GET') {
+      try {
+        console.log('trigger-sync-sample: syncing DealsPing...');
+        const dp = await scrapeAndSyncDealsPing(env, 1);
+        console.log('trigger-sync-sample: DealsPing result:', dp);
+        console.log('trigger-sync-sample: syncing DealsHeaven...');
+        const dh = await scrapeAndSyncDealsHeaven(env, 1);
+        console.log('trigger-sync-sample: DealsHeaven result:', dh);
+        return json({ success: true, dealsping: dp, dealsheaven: dh });
+      } catch (e) {
+        console.error('trigger-sync-sample error:', e.message);
+        return json({ success: false, error: e.message }, 500);
+      }
+    }
+
     // Allow deal-forwarder-bot to check and claim posted marks without admin password
     if (url0.pathname === '/tg-posted/claim' && request.method === 'POST') {
       const body = await request.json().catch(() => ({}));
