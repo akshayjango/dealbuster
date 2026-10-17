@@ -1,3 +1,20 @@
+import indexHtml from '../public/index.html';
+
+const SW_JS = `self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data.json(); } catch {}
+  const title = data.title || 'Dealbuster Admin';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || '',
+    tag: 'dealbuster-sync',
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow('/'));
+});`;
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -6326,27 +6343,26 @@ export default {
     }
 
     // ── Public: static assets (dashboard HTML, service worker) ───────────────
-    if ((url0.pathname === '/' || url0.pathname === '/index.html' || url0.pathname === '/sw.js') && request.method === 'GET') {
-      try {
-        const fetchReq = url0.pathname === '/index.html'
-          ? new Request(new URL('/', request.url).toString(), request)
-          : request;
-        const assetRes = await env.ASSETS.fetch(fetchReq);
-        if (url0.pathname === '/' || url0.pathname === '/index.html') {
-          const newHeaders = new Headers(assetRes.headers);
-          newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
-          newHeaders.set('Pragma', 'no-cache');
-          newHeaders.set('Expires', '0');
-          return new Response(assetRes.body, {
-            status: assetRes.status,
-            statusText: assetRes.statusText,
-            headers: newHeaders,
-          });
-        }
-        return assetRes;
-      } catch (err) {
-        console.error('Asset fetch error:', err.message);
-      }
+    if ((url0.pathname === '/' || url0.pathname === '/index.html') && request.method === 'GET') {
+      return new Response(indexHtml, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
+    }
+
+    if (url0.pathname === '/sw.js' && request.method === 'GET') {
+      return new Response(SW_JS, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/javascript; charset=UTF-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        },
+      });
     }
 
     const password = request.headers.get('X-Admin-Password');
@@ -7835,7 +7851,7 @@ export default {
         return json({ kurlon: kRes, florance: fRes });
       }
 
-      return await env.ASSETS.fetch(request);
+      return json({ error: 'Not found' }, 404);
     } catch (e) {
       return json({ error: e.message }, 500);
     }

@@ -1,12 +1,6 @@
 name = "dealbuster-admin-api"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-10-17"
 main = "src/index.js"
-
-[assets]
-directory = "public"
-binding = "ASSETS"
-not_found_handling = "none"
-run_worker_first = true
 
 [[kv_namespaces]]
 binding = "KV"
