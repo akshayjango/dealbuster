@@ -3183,8 +3183,9 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
 // ── Price check + OOS detection (Creators API) ────────────────────────────────
 
 function parsePrice(str) {
-  if (!str) return null;
-  const n = parseFloat(str.replace(/[^0-9.]/g,''));
+  if (str === null || str === undefined || str === '') return null;
+  if (typeof str === 'number') return str > 0 ? Math.round(str) : null;
+  const n = parseFloat(String(str).replace(/[^0-9.]/g,''));
   return n > 0 ? Math.round(n) : null;
 }
 
