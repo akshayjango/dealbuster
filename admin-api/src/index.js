@@ -6299,6 +6299,30 @@ export default {
       return json({ ok: true, cleared: keys.length });
     }
 
+    // ── Public: static assets (dashboard HTML, service worker) ───────────────
+    if ((url0.pathname === '/' || url0.pathname === '/index.html' || url0.pathname === '/sw.js') && request.method === 'GET') {
+      try {
+        const fetchReq = url0.pathname === '/index.html'
+          ? new Request(new URL('/', request.url).toString(), request)
+          : request;
+        const assetRes = await env.ASSETS.fetch(fetchReq);
+        if (url0.pathname === '/' || url0.pathname === '/index.html') {
+          const newHeaders = new Headers(assetRes.headers);
+          newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+          newHeaders.set('Pragma', 'no-cache');
+          newHeaders.set('Expires', '0');
+          return new Response(assetRes.body, {
+            status: assetRes.status,
+            statusText: assetRes.statusText,
+            headers: newHeaders,
+          });
+        }
+        return assetRes;
+      } catch (err) {
+        console.error('Asset fetch error:', err.message);
+      }
+    }
+
     const password = request.headers.get('X-Admin-Password');
     if (password !== env.ADMIN_PASSWORD) return json({ error: 'Unauthorized' }, 401);
 
