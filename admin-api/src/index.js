@@ -6343,8 +6343,8 @@ export default {
     }
 
     // ── Public: static assets (dashboard HTML, service worker) ───────────────
-    if ((url0.pathname === '/' || url0.pathname === '/index.html') && request.method === 'GET') {
-      return new Response(indexHtml, {
+    if ((url0.pathname === '/' || url0.pathname === '/index.html') && (request.method === 'GET' || request.method === 'HEAD')) {
+      return new Response(request.method === 'HEAD' ? null : indexHtml, {
         status: 200,
         headers: {
           'Content-Type': 'text/html; charset=UTF-8',
@@ -6355,8 +6355,8 @@ export default {
       });
     }
 
-    if (url0.pathname === '/sw.js' && request.method === 'GET') {
-      return new Response(SW_JS, {
+    if (url0.pathname === '/sw.js' && (request.method === 'GET' || request.method === 'HEAD')) {
+      return new Response(request.method === 'HEAD' ? null : SW_JS, {
         status: 200,
         headers: {
           'Content-Type': 'application/javascript; charset=UTF-8',
