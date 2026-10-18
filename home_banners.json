@@ -155,6 +155,43 @@
       ]
     },
     {
+      "id": "hbanner_1790181559235",
+      "store": "myntra",
+      "storeName": "Myntra",
+      "template": "myntra_eors",
+      "badgeText": "",
+      "applyEffect": false,
+      "lines": [
+        {
+          "text": "Price",
+          "size": "big"
+        },
+        {
+          "text": "Crash Deals",
+          "size": "big"
+        },
+        {
+          "text": "Buy before it gone",
+          "size": "small"
+        }
+      ],
+      "title": "Price",
+      "subtitle": "Crash Deals • Buy before it gone",
+      "imageUrl": "images/banners/home-banner-1790181031280.webp",
+      "link": "https://myntr.it/dVhaxNc",
+      "active": true,
+      "order": 4,
+      "createdAt": "2026-09-23T16:39:19.235Z",
+      "updatedAt": "2026-10-18T10:09:07.295Z",
+      "background": "linear-gradient(135deg, #831843 0%, #DB2777 45%, #F97316 100%)",
+      "radialLight": "radial-gradient(circle, rgba(254, 240, 138, 0.48) 0%, rgba(219, 39, 119, 0.25) 55%, transparent 75%)",
+      "colors": [
+        "#831843",
+        "#DB2777",
+        "#F97316"
+      ]
+    },
+    {
       "id": "hbanner_1790330744260",
       "store": "myntra",
       "storeName": "Myntra",
@@ -180,7 +217,7 @@
       "imageUrl": "images/banners/home-banner-1790330737841.webp",
       "link": "https://myntr.it/sEmTly4",
       "active": false,
-      "order": 4,
+      "order": 5,
       "createdAt": "2026-09-25T10:05:44.260Z",
       "updatedAt": "2026-09-25T10:06:58.686Z"
     },
@@ -209,7 +246,7 @@
       "imageUrl": "images/banners/home-banner-1789889483264.webp",
       "link": "https://link.amazon/B0coRNmKB",
       "active": false,
-      "order": 5,
+      "order": 6,
       "createdAt": "2026-09-20T06:18:01.733Z",
       "updatedAt": "2026-10-08T03:56:29.186Z",
       "template": "amazon_warm"
@@ -239,46 +276,9 @@
       "link": "https://link.amazon/B0coRNmKB",
       "applyEffect": false,
       "active": false,
-      "order": 6,
+      "order": 7,
       "createdAt": "2026-09-20T05:50:38.112Z",
       "updatedAt": "2026-09-20T06:15:44.314Z"
-    },
-    {
-      "id": "hbanner_1790181559235",
-      "store": "myntra",
-      "storeName": "Myntra",
-      "template": "myntra_eors",
-      "badgeText": "",
-      "applyEffect": false,
-      "lines": [
-        {
-          "text": "Price",
-          "size": "big"
-        },
-        {
-          "text": "Crash Deals",
-          "size": "big"
-        },
-        {
-          "text": "Buy before it gone",
-          "size": "small"
-        }
-      ],
-      "title": "Price",
-      "subtitle": "Crash Deals • Buy before it gone",
-      "imageUrl": "images/banners/home-banner-1790181031280.webp",
-      "link": "https://myntr.it/dVhaxNc",
-      "active": true,
-      "order": 7,
-      "createdAt": "2026-09-23T16:39:19.235Z",
-      "updatedAt": "2026-10-18T10:09:07.295Z",
-      "background": "linear-gradient(135deg, #831843 0%, #DB2777 45%, #F97316 100%)",
-      "radialLight": "radial-gradient(circle, rgba(254, 240, 138, 0.48) 0%, rgba(219, 39, 119, 0.25) 55%, transparent 75%)",
-      "colors": [
-        "#831843",
-        "#DB2777",
-        "#F97316"
-      ]
     }
   ]
 }
