@@ -4,10 +4,10 @@
 
 // Regex patterns for shorteners and redirectors commonly used in deal channels
 const REDIRECT_DOMAINS = [
-  'amzn.to', 'link.amazon', 'a.co', 'amzn-to.co', 'amzn-to', 'urlgeni.us',
+  'amzn.to', 'link.amazon', 'a.co', 'amzn-to.co', 'amzn-to', 'amazn.lt', 'urlgeni.us',
   'bit.ly', 'tinyurl.com', 'cutt.ly', 't.ly', 'shorturl.at',
-  'fktr.in', 'fkrt.co', 'fkrt.cc', 'ekaro.in', 'myntr.it',
-  'ajiio.in', 'linkredirect.in', 'linksredirect.com', 'clnk.in',
+  'fktr.in', 'fkrt.co', 'fkrt.cc', 'ekaro.in', 'myntr.it', 'myntr.in',
+  'ajiio.in', 'ajiio.co', 'bitli.in', 'linkredirect.in', 'linksredirect.com', 'clnk.in',
   'mdeal.in', 'deals.dr', 'opnr.app', 'openinapp.co', 'openinapp.link',
   'dealsping.in', 'wishlink.com', 'extrape.com', 'extp.in'
 ];
@@ -247,8 +247,8 @@ export function extractCanonicalDealId(url) {
   }
 
   // 2. Flipkart / Shopsy:
-  if (/flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)|shopsy\.in/i.test(targetUrl) ||
-      /flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)|shopsy\.in/i.test(url)) {
+  if (/flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)|shopsy\.in|bitli\.in/i.test(targetUrl) ||
+      /flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)|shopsy\.in|bitli\.in/i.test(url)) {
     const pidMatch = targetUrl.match(/[?&]pid=([A-Z0-9]{16})/i) ||
                      url.match(/[?&]pid=([A-Z0-9]{16})/i) ||
                      targetUrl.match(/\/p\/itm([a-z0-9]{10,16})/i) ||
@@ -539,7 +539,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
     if (/flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.co|fkrt\.cc/i.test(resolved)) store = 'flipkart';
     else if (/myntra\.com|myntr\.it|myntr\.in/i.test(resolved)) store = 'myntra';
     else if (/ajio\.com|ajiio\.in|ajiio\.co/i.test(resolved)) store = 'ajio';
-    else if (/shopsy\.in/i.test(resolved)) store = 'shopsy';
+    else if (/shopsy\.in|bitli\.in/i.test(resolved)) store = 'shopsy';
     else if (/meesho\.com/i.test(resolved)) store = 'meesho';
   }
 

@@ -786,12 +786,12 @@ async function main() {
         if (l.store === 'amazon') {
           return l.convertedUrl.includes('tag=dealbuster');
         }
-        // For Flipkart, Myntra, Ajio, Shopsy: STRICTLY REQUIRE EarnKaro shortlink (fktr.in, ekaro.in, myntr.it, ajiio.in)
+        // For Flipkart, Myntra, Ajio, Shopsy: STRICTLY REQUIRE EarnKaro shortlink (fktr.in, fkrt.cc, fkrt.co, bitli.in, ekaro.in, myntr.it, myntr.in, ajiio.in, ajiio.co)
         if (['flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store)) {
-          return /(?:ekaro\.in|fktr\.in|myntr\.it|ajiio\.in)/i.test(l.convertedUrl);
+          return /(?:ekaro\.in|fktr\.in|fkrt\.(?:cc|co)|bitli\.in|myntr\.(?:it|in)|ajiio\.(?:in|co))/i.test(l.convertedUrl);
         }
         // For other stores (e.g. Meesho where EarnKaro is unavailable), accept CueLinks
-        return /(?:ekaro\.in|fktr\.in|myntr\.it|ajiio\.in|linksredirect\.com|linkredirect\.in|clnk\.in)/i.test(l.convertedUrl);
+        return /(?:ekaro\.in|fktr\.in|fkrt\.(?:cc|co)|bitli\.in|myntr\.(?:it|in)|ajiio\.(?:in|co)|linksredirect\.com|linkredirect\.in|clnk\.in)/i.test(l.convertedUrl);
       });
 
       if (validDeals.length === 0) {
@@ -947,9 +947,14 @@ async function main() {
         return;
       }
 
+      const cleanPeerId = rawPeerId.replace(/^-100/, '').replace(/^-/, '');
+      const cleanChatId = rawChatId.replace(/^-100/, '').replace(/^-/, '');
       const entity = sourceEntityMap.get(rawPeerId) ||
                      sourceEntityMap.get(rawChatId) ||
-                     sourceEntityMap.get(`-100${rawPeerId}`);
+                     sourceEntityMap.get(cleanPeerId) ||
+                     sourceEntityMap.get(cleanChatId) ||
+                     sourceEntityMap.get(`-100${cleanPeerId}`) ||
+                     sourceEntityMap.get(`-100${cleanChatId}`);
       if (!entity) return;
 
       const eIdStr = entity.id.toString();
