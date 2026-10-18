@@ -2,6 +2,43 @@
   "showDefaultAnimatedBanner": false,
   "banners": [
     {
+      "id": "hbanner_1789845268189",
+      "store": "flipkart",
+      "storeName": "Flipkart",
+      "badgeText": "",
+      "lines": [
+        {
+          "text": "Sale",
+          "size": "big"
+        },
+        {
+          "text": "Ends Tonight",
+          "size": "big"
+        },
+        {
+          "text": "Check your favourites",
+          "size": "small"
+        }
+      ],
+      "title": "Sale",
+      "subtitle": "Ends Tonight • Check your favourites",
+      "imageUrl": "images/banners/home-banner-1789888666184.webp",
+      "link": "https://fkrt.cc/zu9SJMy",
+      "applyEffect": false,
+      "active": true,
+      "order": 0,
+      "createdAt": "2026-09-19T19:14:28.189Z",
+      "updatedAt": "2026-10-18T10:13:56.916Z",
+      "template": "flipkart_bbd_carnival",
+      "background": "linear-gradient(135deg, #2E1065 0%, #4C1D95 45%, #F59E0B 100%)",
+      "radialLight": "radial-gradient(circle, rgba(253, 224, 71, 0.5) 0%, rgba(168, 85, 247, 0.25) 55%, transparent 75%)",
+      "colors": [
+        "#2E1065",
+        "#4C1D95",
+        "#F59E0B"
+      ]
+    },
+    {
       "id": "hbanner_1792317693676",
       "store": "ajio",
       "storeName": "AJIO",
@@ -37,7 +74,7 @@
       "radialColor": null,
       "badgeBg": null,
       "badgeTextColor": null,
-      "order": 7,
+      "order": 1,
       "createdAt": "2026-10-18T10:01:33.676Z"
     },
     {
@@ -76,7 +113,7 @@
       "radialColor": null,
       "badgeBg": null,
       "badgeTextColor": null,
-      "order": 6,
+      "order": 2,
       "createdAt": "2026-09-29T03:16:51.689Z",
       "updatedAt": "2026-10-01T05:42:26.777Z"
     },
@@ -106,7 +143,7 @@
       "imageUrl": "images/banners/home-banner-1790359759315.webp",
       "link": "https://fktr.in/0eeS4rZ",
       "active": false,
-      "order": 0,
+      "order": 3,
       "createdAt": "2026-09-25T18:11:50.447Z",
       "updatedAt": "2026-09-25T20:05:25.013Z",
       "background": "linear-gradient(135deg, #09090B 0%, #18181B 60%, #84CC16 100%)",
@@ -143,7 +180,7 @@
       "imageUrl": "images/banners/home-banner-1790330737841.webp",
       "link": "https://myntr.it/sEmTly4",
       "active": false,
-      "order": 1,
+      "order": 4,
       "createdAt": "2026-09-25T10:05:44.260Z",
       "updatedAt": "2026-09-25T10:06:58.686Z"
     },
@@ -172,7 +209,7 @@
       "imageUrl": "images/banners/home-banner-1789889483264.webp",
       "link": "https://link.amazon/B0coRNmKB",
       "active": false,
-      "order": 2,
+      "order": 5,
       "createdAt": "2026-09-20T06:18:01.733Z",
       "updatedAt": "2026-10-08T03:56:29.186Z",
       "template": "amazon_warm"
@@ -202,7 +239,7 @@
       "link": "https://link.amazon/B0coRNmKB",
       "applyEffect": false,
       "active": false,
-      "order": 3,
+      "order": 6,
       "createdAt": "2026-09-20T05:50:38.112Z",
       "updatedAt": "2026-09-20T06:15:44.314Z"
     },
@@ -232,7 +269,7 @@
       "imageUrl": "images/banners/home-banner-1790181031280.webp",
       "link": "https://myntr.it/dVhaxNc",
       "active": true,
-      "order": 4,
+      "order": 7,
       "createdAt": "2026-09-23T16:39:19.235Z",
       "updatedAt": "2026-10-18T10:09:07.295Z",
       "background": "linear-gradient(135deg, #831843 0%, #DB2777 45%, #F97316 100%)",
@@ -241,43 +278,6 @@
         "#831843",
         "#DB2777",
         "#F97316"
-      ]
-    },
-    {
-      "id": "hbanner_1789845268189",
-      "store": "flipkart",
-      "storeName": "Flipkart",
-      "badgeText": "",
-      "lines": [
-        {
-          "text": "Sale",
-          "size": "big"
-        },
-        {
-          "text": "Ends Tonight",
-          "size": "big"
-        },
-        {
-          "text": "Check your favourites",
-          "size": "small"
-        }
-      ],
-      "title": "Sale",
-      "subtitle": "Ends Tonight • Check your favourites",
-      "imageUrl": "images/banners/home-banner-1789888666184.webp",
-      "link": "https://fkrt.cc/zu9SJMy",
-      "applyEffect": false,
-      "active": true,
-      "order": 5,
-      "createdAt": "2026-09-19T19:14:28.189Z",
-      "updatedAt": "2026-10-18T10:13:56.916Z",
-      "template": "flipkart_bbd_carnival",
-      "background": "linear-gradient(135deg, #2E1065 0%, #4C1D95 45%, #F59E0B 100%)",
-      "radialLight": "radial-gradient(circle, rgba(253, 224, 71, 0.5) 0%, rgba(168, 85, 247, 0.25) 55%, transparent 75%)",
-      "colors": [
-        "#2E1065",
-        "#4C1D95",
-        "#F59E0B"
       ]
     }
   ]
