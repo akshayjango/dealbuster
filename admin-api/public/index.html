@@ -5234,7 +5234,7 @@ document.addEventListener('click', function(e) {
 
 async function updateNotifications() {
   const priceAlerts = allProducts.filter(p => p.lowestPriceText);
-  const dropAlerts  = allProducts.filter(p => p.priceDropText);
+  const dropAlerts  = allProducts.filter(p => p.asin && p.priceDropText);
   // OOS intentionally excluded from the notification bar — too noisy. Products
   // still get pushed to the bottom via the price sync; use the ⚠ OOS filter
   // in the product list toolbar to review them instead.

@@ -2381,7 +2381,6 @@ function extractPageListedPrice(html) {
   const patterns = [
     /property="product:price:amount"\s+content="([\d.]+)"/i,
     /itemprop="price"[^>]*content="([\d.]+)"/i,
-    /"price"\s*:\s*"?([\d.]+)"?/i,
   ];
   for (const re of patterns) {
     const m = html.match(re);
@@ -2492,19 +2491,17 @@ async function checkListingAvailability(url, scrapedPrice, env) {
 
     // Price variation check: flag price increases (>15% for >=₹500, >25% for <₹500)
     let priceIncreased = false;
-    let listedPrice = null;
     const pagePrice = extractPageListedPrice(html);
     if (pagePrice && pagePrice > 0) {
-      listedPrice = pagePrice;
-      if (scrapedPrice > 0 && shouldDemote(scrapedPrice, listedPrice)) {
+      if (scrapedPrice > 0 && shouldDemote(scrapedPrice, pagePrice)) {
         priceIncreased = true;
-        console.log(`Non-Amazon deal price increased (${scrapedPrice} -> ${listedPrice}): ${url}`);
+        console.log(`Non-Amazon deal price increased (${scrapedPrice} -> ${pagePrice}): ${url}`);
       }
     }
 
-    return { available: true, cookieHealth, rating, reviewCount, priceIncreased, listedPrice };
+    return { available: true, cookieHealth, rating, reviewCount, priceIncreased };
   } catch (e) {
-    return { available: true, cookieHealth, rating: null, reviewCount: null, priceIncreased: false, listedPrice: null };
+    return { available: true, cookieHealth, rating: null, reviewCount: null, priceIncreased: false };
   }
 }
 
@@ -2733,7 +2730,6 @@ async function checkNonAmazonPricesAndOOS(env, limit = 12) {
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
   let changed = false;
   let oosChanges = 0;
-  let priceChanges = 0;
   const now = Date.now();
 
   const CHUNK_SIZE = 4;
@@ -2743,6 +2739,16 @@ async function checkNonAmazonPricesAndOOS(env, limit = 12) {
       const item = productMap.get(p.id);
       if (!item) return;
       item.lastChecked = now;
+
+      // Ensure non-Amazon deals NEVER retain priceDrop or priceDropText
+      if (item.priceDropText) {
+        delete item.priceDropText;
+        changed = true;
+      }
+      if (item.priceDrop) {
+        delete item.priceDrop;
+        changed = true;
+      }
 
       const currentPriceNum = parsePrice(item.price) || 0;
       const targetUrl = getOriginalUrl(item.link) || item.link;
@@ -2771,29 +2777,6 @@ async function checkNonAmazonPricesAndOOS(env, limit = 12) {
           item.reviewCount = availability.reviewCount;
           changed = true;
         }
-
-        if (availability.listedPrice && availability.listedPrice > 0) {
-          const newPriceStr = '₹' + Math.round(availability.listedPrice).toLocaleString('en-IN');
-          const oldPriceNum = parsePrice(item.price) || 0;
-          const newPriceNum = Math.round(availability.listedPrice);
-
-          if (oldPriceNum > 0 && newPriceNum !== oldPriceNum) {
-            item.priceHistory = appendPriceHistory(item, newPriceStr);
-            if (newPriceNum < oldPriceNum) {
-              item.priceDropText = `Price dropped from ${item.price}`;
-            } else if (item.priceDropText) {
-              delete item.priceDropText;
-            }
-            item.price = newPriceStr;
-            const mrpNum = parsePrice(item.mrp) || 0;
-            if (mrpNum > newPriceNum) {
-              item.disc = `-${Math.round((1 - newPriceNum / mrpNum) * 100)}%`;
-            }
-            changed = true;
-            priceChanges++;
-            console.log(`Non-Amazon item price updated (${oldPriceNum} -> ${newPriceNum}): ${item.title.slice(0, 30)}`);
-          }
-        }
       }
     }));
   }
@@ -2818,9 +2801,9 @@ async function checkNonAmazonPricesAndOOS(env, limit = 12) {
   const finalOrder = [...liveInStock, ...oos, ...tombs];
   const reordered = finalOrder.map((p, i) => ({ ...p, order: i }));
 
-  const msg = `Non-Amazon check: checked ${toCheck.length}, ${priceChanges} price updates, ${oosChanges} stock changes`;
+  const msg = `Non-Amazon check: checked ${toCheck.length}, ${oosChanges} stock changes`;
   await saveProductsFile(reordered, sha, msg, env);
-  return { success: true, checked: toCheck.length, priceChanges, oosChanges, message: msg };
+  return { success: true, checked: toCheck.length, oosChanges, message: msg };
 }
 
 async function readHeadPrefix(res) {

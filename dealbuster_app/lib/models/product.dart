@@ -67,7 +67,8 @@ class Product {
   });
 
   bool get isPriceDrop =>
-      priceDrop || (priceDropText != null && priceDropText!.isNotEmpty);
+      (asin != null && asin!.isNotEmpty) &&
+      (priceDrop || (priceDropText != null && priceDropText!.isNotEmpty));
 
   // Replicate web logic for displaying title: title.split('|')[0].trim()
   // Also strips leading bracketed tags like "[Apply 5% Coupon] [MRP Error]"
