@@ -554,6 +554,52 @@
       display: flex;
       justify-content: center;
       margin: 20px 20px 30px;
+      position: relative;
+    }
+    .search-suggestions {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 580px;
+      background: #ffffff;
+      border: 1px solid var(--border-c);
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+      z-index: 1000;
+      overflow: hidden;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .suggestion-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: .88rem;
+      color: var(--text);
+      gap: 12px;
+      transition: background .12s ease;
+      user-select: none;
+    }
+    .suggestion-item:hover, .suggestion-item.is-selected {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+    .suggestion-icon {
+      opacity: .45;
+      flex-shrink: 0;
+    }
+    .suggestion-text {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .suggestion-text b {
+      color: var(--primary);
+      font-weight: 700;
     }
     .search-box {
       display: flex;
@@ -1778,6 +1824,49 @@
       cursor: pointer; padding: 0; font-weight: 800;
     }
     .so-clear:active { background: #E7E8F0; }
+    .so-suggestions {
+      background: #ffffff;
+      padding: 4px 14px 6px;
+      border-bottom: 1px solid var(--border-c);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .so-sugg-item {
+      display: flex;
+      align-items: center;
+      padding: 11px 4px;
+      gap: 12px;
+      border-bottom: 1px solid #f2f3f7;
+      color: var(--text);
+      font-size: .9rem;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .so-sugg-item:last-child {
+      border-bottom: none;
+    }
+    .so-sugg-item:active {
+      background: #f8f8fc;
+    }
+    .so-sugg-icon {
+      opacity: .4;
+      flex-shrink: 0;
+    }
+    .so-sugg-text {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .so-sugg-text b {
+      color: var(--primary);
+      font-weight: 700;
+    }
+    .so-sugg-arrow {
+      opacity: .35;
+      flex-shrink: 0;
+    }
     .so-results { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 14px 40px; }
     .so-hint {
       text-align: center; color: var(--text); font-weight: 400;
@@ -2269,6 +2358,7 @@
       <svg class="search-btn-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
     </button>
   </div>
+  <div class="search-suggestions" id="desktopSuggestions" style="display:none;" role="listbox" aria-label="Search suggestions"></div>
 </div>
 
 <!-- QUICK CHIPS (hidden on mobile, visible on desktop) -->
@@ -2662,6 +2752,7 @@
       </button>
     </div>
   </div>
+  <div class="so-suggestions" id="soSuggestions" style="display:none;" role="listbox" aria-label="Search suggestions"></div>
   <div class="so-results" id="soResults">
     <div class="so-hint" id="soHint">Type to search all live deals…</div>
     <div class="so-grid" id="soGrid"></div>
@@ -3571,6 +3662,8 @@
   </div>
 </footer>
 
+<script src="minisearch.min.js"></script>
+<script src="search-engine.js"></script>
 <script>
   // Wire up "View on Amazon" buttons on static cards
   document.querySelectorAll('.product-card').forEach(card => {
@@ -3653,13 +3746,32 @@
     return tokens.map(stemToken).join('');
   }
 
+  function escapeHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function escapeRegExp(str) {
+    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   function applyFilters() {
-    const query = normalizeSearchText(searchInput.value.trim());
+    const rawQuery = searchInput.value.trim();
+    const query = normalizeSearchText(rawQuery);
     filteredCards = [];
     const _mob = window.innerWidth <= 640;
     let shownSoFar = 0;
-    cards().forEach(card => {
-      const title = normalizeSearchText(card.querySelector('.card-title').textContent);
+
+    let matchingScoreMap = null;
+    if (rawQuery && window.DealSearch && window.DealSearch.isReady) {
+      const results = window.DealSearch.search(rawQuery, 250);
+      matchingScoreMap = new Map();
+      results.forEach((r, idx) => {
+        matchingScoreMap.set(r.id, idx);
+      });
+    }
+
+    const cardList = Array.from(cards());
+    cardList.forEach(card => {
+      const title = normalizeSearchText(card.querySelector('.card-title')?.textContent || '');
       let matchesTab = false;
       if (activeTab === 'all') { matchesTab = true; }
       else if (activeTab === 'deals') {
@@ -3667,28 +3779,46 @@
         const price = parseFloat((card.querySelector('.price-current')?.textContent || '').replace(/[^\d.]/g, ''));
         matchesTab = price > 0 && price < 500;
       } else { matchesTab = card.dataset.cat === activeTab; }
-      const matchesSearch = query === '' || title.includes(query);
+
+      let matchesSearch = false;
+      const key = card.dataset.key || card.dataset.asin || card.dataset.link || '';
+      if (!rawQuery) {
+        matchesSearch = true;
+        card.style.order = '';
+      } else if (matchingScoreMap) {
+        if (matchingScoreMap.has(key)) {
+          matchesSearch = true;
+          card.style.order = matchingScoreMap.get(key);
+        } else if (title.includes(query)) {
+          matchesSearch = true;
+          card.style.order = 9999;
+        } else {
+          matchesSearch = false;
+          card.style.order = '';
+        }
+      } else {
+        matchesSearch = title.includes(query);
+        card.style.order = '';
+      }
+
       let show = false;
       if (matchesTab && matchesSearch) {
         filteredCards.push(card);
         show = _mob || shownSoFar < visibleCount;
         shownSoFar++;
       }
-      // Set each card's FINAL display value directly instead of hiding
-      // every card first and revealing a subset after. With ~1440 cards on
-      // mobile, that hide-everything-then-reveal-a-subset pattern forced a
-      // real (if brief) collapse of the whole grid down to near-zero
-      // height on every single call — and the browser clamps scrollY to 0
-      // the instant a page that short exists, with no event fired for it,
-      // so nothing could catch and undo it. That's what made Back
-      // navigation land at the top even after a scroll restore had already
-      // landed correctly: applyFilters() runs again right after (onDone),
-      // silently zeroing the scroll it had just fixed. A card that's
-      // already showing and still matches now goes straight from
-      // flex→flex — never through none in between — so the grid's height
-      // never actually dips.
       card.style.display = show ? 'flex' : 'none';
     });
+
+    // If search is active on desktop, sort filteredCards array so loadMore() respects relevance order
+    if (rawQuery && matchingScoreMap) {
+      filteredCards.sort((a, b) => {
+        const orderA = parseInt(a.style.order, 10) || 9999;
+        const orderB = parseInt(b.style.order, 10) || 9999;
+        return orderA - orderB;
+      });
+    }
+
     loadMoreWrap.style.display = (!_mob && filteredCards.length > visibleCount) ? 'flex' : 'none';
     if (_mob) {
       mobileLoop.offset = 0;
@@ -3709,17 +3839,6 @@
     activeTab = btn.dataset.tab;
     visibleCount = ITEMS_PER_PAGE;
 
-    // On mobile, applyFilters() shows every match with no cap, so a different
-    // tab's deals used to render wherever the user happened to be scrolled —
-    // often mid-list, or short enough to collapse the page height out from
-    // under the scroll position (which snapped the whole page back to the
-    // hero and popped the sticky nav out of its "stuck" state). Instead:
-    // jump (no scroll animation) straight to the top of the grid, flush
-    // against the sticky bar, THEN filter — both synchronous, same tick, so
-    // the browser paints the end result directly with no intermediate
-    // collapsed-height frame to flash. Only needed once the nav is actually
-    // pinned (scrolled past the hero) — at rest / from the default
-    // top-of-page state there's nothing to preserve, so switch instantly.
     const stickyEl = document.getElementById('mobileSticky');
     const isStuck = stickyEl && stickyEl.classList.contains('stuck');
     if (window.innerWidth > 640 || !isStuck) { applyFilters(); return; }
@@ -3736,9 +3855,106 @@
 
   tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn)));
 
-  searchInput.addEventListener('input', () => { visibleCount = ITEMS_PER_PAGE; applyFilters(); });
-  searchBtn.addEventListener('click', () => { visibleCount = ITEMS_PER_PAGE; applyFilters(); });
-  searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { visibleCount = ITEMS_PER_PAGE; applyFilters(); } });
+  // Desktop search suggestions handling
+  const desktopSuggestions = document.getElementById('desktopSuggestions');
+  let selectedDesktopSuggestionIndex = -1;
+
+  function updateDesktopSuggestions(q) {
+    if (!desktopSuggestions) return;
+    if (window.innerWidth <= 640 || !window.DealSearch || !window.DealSearch.isReady || !q || q.length < 2) {
+      desktopSuggestions.style.display = 'none';
+      selectedDesktopSuggestionIndex = -1;
+      return;
+    }
+    const suggestions = window.DealSearch.getSuggestions(q, 6);
+    if (!suggestions.length) {
+      desktopSuggestions.style.display = 'none';
+      selectedDesktopSuggestionIndex = -1;
+      return;
+    }
+    desktopSuggestions.innerHTML = suggestions.map((s, idx) => {
+      const highlighted = escapeHtml(s).replace(new RegExp('^(' + escapeRegExp(q) + ')', 'i'), '<b>$1</b>');
+      return `<div class="suggestion-item" data-index="${idx}" data-val="${escapeHtml(s)}">
+        <svg class="suggestion-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
+        <span class="suggestion-text">${highlighted}</span>
+      </div>`;
+    }).join('');
+    desktopSuggestions.style.display = 'block';
+  }
+
+  if (desktopSuggestions) {
+    desktopSuggestions.addEventListener('click', e => {
+      const item = e.target.closest('.suggestion-item');
+      if (!item) return;
+      const val = item.dataset.val;
+      searchInput.value = val;
+      refreshMainPlaceholder();
+      desktopSuggestions.style.display = 'none';
+      selectedDesktopSuggestionIndex = -1;
+      visibleCount = ITEMS_PER_PAGE;
+      applyFilters();
+      searchInput.focus();
+    });
+  }
+
+  document.addEventListener('click', e => {
+    if (desktopSuggestions && !e.target.closest('.search-wrap')) {
+      desktopSuggestions.style.display = 'none';
+      selectedDesktopSuggestionIndex = -1;
+    }
+  });
+
+  searchInput.addEventListener('input', () => {
+    visibleCount = ITEMS_PER_PAGE;
+    applyFilters();
+    updateDesktopSuggestions(searchInput.value.trim());
+  });
+
+  searchBtn.addEventListener('click', () => {
+    if (desktopSuggestions) desktopSuggestions.style.display = 'none';
+    visibleCount = ITEMS_PER_PAGE;
+    applyFilters();
+  });
+
+  searchInput.addEventListener('keydown', e => {
+    if (!desktopSuggestions || desktopSuggestions.style.display === 'none') {
+      if (e.key === 'Enter') {
+        visibleCount = ITEMS_PER_PAGE;
+        applyFilters();
+      }
+      return;
+    }
+    const items = desktopSuggestions.querySelectorAll('.suggestion-item');
+    if (!items.length) {
+      if (e.key === 'Enter') { visibleCount = ITEMS_PER_PAGE; applyFilters(); }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedDesktopSuggestionIndex = (selectedDesktopSuggestionIndex + 1) % items.length;
+      items.forEach((it, i) => it.classList.toggle('is-selected', i === selectedDesktopSuggestionIndex));
+      searchInput.value = items[selectedDesktopSuggestionIndex].dataset.val;
+      refreshMainPlaceholder();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedDesktopSuggestionIndex = (selectedDesktopSuggestionIndex - 1 + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle('is-selected', i === selectedDesktopSuggestionIndex));
+      searchInput.value = items[selectedDesktopSuggestionIndex].dataset.val;
+      refreshMainPlaceholder();
+    } else if (e.key === 'Enter') {
+      if (selectedDesktopSuggestionIndex >= 0 && items[selectedDesktopSuggestionIndex]) {
+        searchInput.value = items[selectedDesktopSuggestionIndex].dataset.val;
+      }
+      desktopSuggestions.style.display = 'none';
+      selectedDesktopSuggestionIndex = -1;
+      visibleCount = ITEMS_PER_PAGE;
+      applyFilters();
+    } else if (e.key === 'Escape') {
+      desktopSuggestions.style.display = 'none';
+      selectedDesktopSuggestionIndex = -1;
+    }
+  });
 
   // ── Mobile full-screen search overlay ──────────────────────────────────────
   // On phones the inline search box acts as a trigger: tapping it opens a
@@ -3752,6 +3968,7 @@
     const soHint  = document.getElementById('soHint');
     const soHeader = document.getElementById('soHeader');
     const soResults = document.getElementById('soResults');
+    const soSuggestions = document.getElementById('soSuggestions');
 
     // Status bar otherwise stays whatever color the home page left it in
     // (purple banner, or the pinned bar's off-white) — swap it to match the
@@ -3767,17 +3984,76 @@
     // own box so it can't spread into the page below it.
     soResults.addEventListener('scroll', () => {
       soHeader.classList.toggle('is-scrolled', soResults.scrollTop > 4);
+      if (soResults.scrollTop > 10 && soSuggestions && soSuggestions.style.display !== 'none') {
+        soSuggestions.style.display = 'none';
+      }
     });
+
+    function renderMobileSuggestions(q) {
+      if (!soSuggestions) return;
+      if (!window.DealSearch || !window.DealSearch.isReady || !q || q.length < 2) {
+        soSuggestions.style.display = 'none';
+        return;
+      }
+      const suggestions = window.DealSearch.getSuggestions(q, 4);
+      if (!suggestions.length) {
+        soSuggestions.style.display = 'none';
+        return;
+      }
+      soSuggestions.innerHTML = suggestions.map(s => {
+        const highlighted = escapeHtml(s).replace(new RegExp('^(' + escapeRegExp(q) + ')', 'i'), '<b>$1</b>');
+        return `
+          <div class="so-sugg-item" data-val="${escapeHtml(s)}">
+            <svg class="so-sugg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E7385" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
+            <span class="so-sugg-text">${highlighted}</span>
+            <svg class="so-sugg-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A0A5BA" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+          </div>`;
+      }).join('');
+      soSuggestions.style.display = 'flex';
+    }
+
+    if (soSuggestions) {
+      soSuggestions.addEventListener('click', e => {
+        const item = e.target.closest('.so-sugg-item');
+        if (!item) return;
+        const val = item.dataset.val;
+        soInput.value = val;
+        refreshSoPlaceholder();
+        soSuggestions.style.display = 'none';
+        renderResults();
+      });
+    }
 
     function renderResults() {
       const q = soInput.value.trim();
       soClear.style.display = q ? 'flex' : 'none';
       soGrid.innerHTML = '';
       if (!q) {
+        if (soSuggestions) soSuggestions.style.display = 'none';
         soHint.textContent = 'Type to search all live deals…';
         soHint.style.display = 'block';
         return;
       }
+
+      renderMobileSuggestions(q);
+
+      let searchResults = [];
+      if (window.DealSearch && window.DealSearch.isReady) {
+        searchResults = window.DealSearch.search(q, 60);
+      }
+
+      if (searchResults && searchResults.length > 0) {
+        soHint.style.display = 'none';
+        const frag = document.createDocumentFragment();
+        searchResults.forEach(item => {
+          const cardEl = buildProductCard(item.product);
+          cardEl.style.display = 'flex';
+          frag.appendChild(cardEl);
+        });
+        soGrid.appendChild(frag);
+        return;
+      }
+
       const normQ = normalizeSearchText(q);
       const matches = [];
       const seen = new Set();
@@ -3849,6 +4125,7 @@
       // Start fresh next time — a stale query with stale result cards under
       // the finger is what caused accidental taps on reopen.
       soInput.value = '';
+      if (soSuggestions) soSuggestions.style.display = 'none';
       refreshSoPlaceholder();
       renderResults();
       soResults.scrollTop = 0;
@@ -4026,6 +4303,9 @@
     el.className = 'product-card';
     el.dataset.cat = cat;
     el.dataset.managed = '1';
+    el.dataset.key = p.asin || p.link || '';
+    if (p.asin) el.dataset.asin = p.asin;
+    if (p.link) el.dataset.link = p.link;
     if (p.featured) el.dataset.featured = '1';
     // Link straight to the clean URL — product.html 307-redirects to /product,
     // and that redirect hop is a known bfcache-eligibility risk that was
@@ -4252,6 +4532,7 @@
 
     if (cached && cached.length) {
       window.allProductsData = cached;
+      if (window.DealSearch) window.DealSearch.init(cached);
       // Instant render from the last successful fetch on this tab. The fetch
       // below still runs and silently corrects anything stale. Cards build
       // in chunks (see renderProducts) — apply filters/scroll after the
@@ -4276,6 +4557,7 @@
       const data = await resp.json();
       const products = sortProducts(Array.isArray(data) ? data : (data.products || []));
       window.allProductsData = products;
+      if (window.DealSearch) window.DealSearch.init(products);
       setCachedProducts(products);
       renderProducts(products,
         () => {
@@ -4420,6 +4702,8 @@
           (a.order ?? 999) - (b.order ?? 999));
       const fresh = products.filter(p => !knownProductIds.has(productKey(p)));
       if (!fresh.length) return;
+      window.allProductsData = [...fresh, ...(window.allProductsData || [])];
+      if (window.DealSearch) window.DealSearch.init(window.allProductsData);
 
       const grid = document.getElementById('productsGrid');
       const query = normalizeSearchText(searchInput.value.trim());

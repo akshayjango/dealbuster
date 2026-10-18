@@ -4747,10 +4747,298 @@ async function tgSetKeyboard(token, chatId, messageId, rows) {
   });
 }
 
+async function tgEdit(token, chatId, msgId, htmlContent, isPhoto = false) {
+  const method = isPhoto ? 'editMessageCaption' : 'editMessageText';
+  const param = isPhoto ? 'caption' : 'text';
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: msgId,
+        [param]: htmlContent,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      }),
+    });
+    if (!res.ok && isPhoto) {
+      await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: msgId,
+          text: htmlContent,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        }),
+      });
+    }
+  } catch (err) {
+    console.error('tgEdit failed:', err.message);
+  }
+}
+
+async function getTelegramFileUrl(token, fileId) {
+  if (!fileId) return '';
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.result?.file_path) {
+        return `https://api.telegram.org/file/bot${token}/${data.result.file_path}`;
+      }
+    }
+  } catch {}
+  return '';
+}
+
+function detectStoreFromUrl(url) {
+  if (!url) return 'other';
+  if (/amazon\.(?:in|com)|amzn\.(?:to|in)|link\.amazon|a\.co/i.test(url)) return 'amazon';
+  if (/flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)/i.test(url)) return 'flipkart';
+  if (/myntra\.com|myntr\.it|myntr\.in/i.test(url)) return 'myntra';
+  if (/ajio\.com|ajiio\.(?:in|co)/i.test(url)) return 'ajio';
+  if (/shopsy\.in|bitli\.in/i.test(url)) return 'shopsy';
+  if (/meesho\.com/i.test(url)) return 'meesho';
+  if (/tatacliq\.com/i.test(url)) return 'tatacliq';
+  if (/nykaa\.com/i.test(url)) return 'nykaa';
+  return 'other';
+}
+
+function formatStoreName(store) {
+  const map = {
+    amazon: 'Amazon',
+    flipkart: 'Flipkart',
+    myntra: 'Myntra',
+    ajio: 'Ajio',
+    shopsy: 'Shopsy',
+    meesho: 'Meesho',
+    tatacliq: 'Tata CLiQ',
+    nykaa: 'Nykaa',
+    other: 'Online'
+  };
+  return map[store] || 'Online';
+}
+
+function extractAllDealUrls(text, msg) {
+  const urls = new Set();
+  const entities = (msg && (msg.entities || msg.caption_entities)) || [];
+  for (const ent of entities) {
+    if (ent.type === 'text_link' && ent.url) {
+      urls.add(ent.url.replace(/[.,!?]+$/, ''));
+    } else if (ent.type === 'url' && text) {
+      const raw = text.slice(ent.offset, ent.offset + ent.length);
+      if (raw) urls.add(raw.replace(/[.,!?]+$/, ''));
+    }
+  }
+  if (text) {
+    const matches = text.match(/https?:\/\/[^\s<>"'()]+/gi) || [];
+    for (const u of matches) {
+      urls.add(u.replace(/[.,!?]+$/, ''));
+    }
+  }
+  return Array.from(urls).filter(u => {
+    return !/(?:t\.me|telegram\.me|whatsapp\.com|wa\.me|instagram\.com|twitter\.com|x\.com)\//i.test(u);
+  });
+}
+
+function extractDealTitleFromText(text) {
+  if (!text || typeof text !== 'string') return '';
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let candidate = '';
+  for (const line of lines) {
+    if (/^https?:\/\//i.test(line)) continue;
+    if (/^(?:use\s*coupon|coupon\s*code|code|apply\s*code)\s*[:\-]/i.test(line)) continue;
+    if (/^(?:👉|🔗|🛒|🛍️)?\s*(?:buy|shop|check|link|order|grab|visit)\s*(?:here|now|link)?\s*[:\-]?\s*https?:\/\//i.test(line)) continue;
+    if (/(?:deal\s*price|mrp|price|discount)\s*[:\-]/i.test(line)) continue;
+    const withoutEmojis = line.replace(/[\p{Emoji}\p{Symbol}]/gu, '').trim();
+    if (withoutEmojis.length < 4) continue;
+    if (/^(?:loot|deal|deals|hot|mega|super|huge|hurry|lowest|special|offer|sale|flat\s*\d+%\s*off|upto\s*\d+%\s*off)+$/i.test(withoutEmojis.replace(/\s+/g, ''))) continue;
+    candidate = line;
+    break;
+  }
+  if (!candidate) candidate = lines[0] || '';
+  let cleaned = candidate
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[*_~`]/g, ' ')
+    .replace(/https?:\/\/[^\s]+/gi, ' ')
+    .replace(/\b(?:at\s*)?(?:min|minimum|upto|up\s+to|flat|extra|save|off|discount)\s*\d+%\s*(?:off|discount|from|onwards)?(?:\s+(?:on|for))?\b/gi, ' ')
+    .replace(/\b\d+%\s*(?:off|discount)?\b/gi, ' ')
+    .replace(/(?:deal\s*price|mrp|price)\s*[:\-–—]?\s*(?:₹|Rs\.?|INR)?\s*[\d,]+/gi, ' ')
+    .replace(/(?:@|at|just|only)\s*(?:₹|Rs\.?|INR)\s*[\d,]+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return sanitizeTitle(cleaned);
+}
+
+function extractDealDetailsFromText(text) {
+  let dealPrice = '';
+  let mrp = '';
+  let discount = '';
+
+  if (!text) return { dealPrice, mrp, discount };
+
+  // 1. MRP
+  const mrpM = text.match(/(?:~~|<s>|<strike>)[₹\s]*([0-9,]+)(?:~~|<\/s>|<\/strike>)/i) ||
+               text.match(/(?:MRP|M\.R\.P\.?|Original\s*Price|Actual\s*Price|List\s*Price)\s*[:\-–—]?\s*(?:₹|Rs\.?|INR)?\s*([0-9,]+)/i);
+  if (mrpM) {
+    const val = parseInt(mrpM[1].replace(/,/g, ''), 10);
+    if (val > 0 && val < 10000000) mrp = `₹${val.toLocaleString('en-IN')}`;
+  }
+
+  // 2. Deal Price
+  const priceM = text.match(/(?:Deal\s*Price|Special\s*Price|Offer\s*Price|Selling\s*Price|Effective\s*Price|Price|Now|Sale\s*Price)\s*[:\-–—@]?\s*(?:₹|Rs\.?|INR)?\s*([0-9,]+)/i) ||
+                 text.match(/(?:@|at|just|only)\s*(?:₹|Rs\.?|INR)\s*([0-9,]+)/i) ||
+                 text.match(/(?:₹|Rs\.?)\s*([0-9,]+)/i);
+  if (priceM) {
+    const val = parseInt(priceM[1].replace(/,/g, ''), 10);
+    if (val > 0 && val < 10000000) {
+      const formatted = `₹${val.toLocaleString('en-IN')}`;
+      if (formatted !== mrp) {
+        dealPrice = formatted;
+      }
+    }
+  }
+
+  // 3. Discount %
+  const discM = text.match(/([1-9][0-9]?)\s*%\s*(?:off|discount)?/i);
+  if (discM) {
+    discount = `${discM[1]}% OFF`;
+  } else if (dealPrice && mrp) {
+    const pVal = parseInt(dealPrice.replace(/[^\d]/g, ''), 10);
+    const mVal = parseInt(mrp.replace(/[^\d]/g, ''), 10);
+    if (mVal > pVal && pVal > 0) {
+      discount = `-${Math.round((1 - pVal / mVal) * 100)}%`;
+    }
+  }
+
+  return { dealPrice, mrp, discount };
+}
+
+async function resolveAmazonAsin(rawUrl) {
+  let finalUrl = rawUrl;
+  let asinM = rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || rawUrl.match(/link\.amazon\/([A-Z0-9]{10})/i);
+  if (!asinM && /amzn\.to|link\.amazon|a\.co/i.test(rawUrl)) {
+    try {
+      const redir = await fetchWithTimeout(rawUrl, { redirect: 'follow', headers: AMZ_HEADERS }, 6000);
+      finalUrl = redir.url;
+      asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+    } catch (e) {
+      console.warn('Amazon redirect resolution failed:', e.message);
+    }
+  }
+  return { asinM, finalUrl };
+}
+
+async function fetchMetadataForDeal(asin, rawUrl, env) {
+  let title = '';
+  let price = null;
+  let mrp = null;
+  let image = '';
+  let category = '';
+
+  try {
+    if (asin || (rawUrl && /amazon\.(?:in|com)|amzn\.(?:to|in)|link\.amazon|a\.co/i.test(rawUrl))) {
+      let targetAsin = asin;
+      if (!targetAsin && rawUrl) {
+        const m = rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || rawUrl.match(/link\.amazon\/([A-Z0-9]{10})/i);
+        if (m) targetAsin = m[1].toUpperCase();
+      }
+      if (targetAsin) {
+        const r = await fetchWithTimeout(`https://www.amazon.in/dp/${targetAsin}?th=1&psc=1`, { headers: AMZ_HEADERS }, 7000);
+        if (r.ok) {
+          const html = await r.text();
+          const tM = html.match(/id="productTitle"[^>]*>\s*([\s\S]*?)\s*<\/span>/);
+          if (tM) title = tM[1].replace(/\s+/g, ' ').trim();
+          const imgM = html.match(/id="landingImage"[^>]*data-old-hires="([^"]+)"/i) ||
+                       html.match(/id="landingImage"[^>]*src="([^"]+)"/i) ||
+                       html.match(/data-a-dynamic-image="\{&quot;([^&]+)&quot;/i);
+          if (imgM) image = imgM[1];
+          const wholeM = html.match(/class="[^"]*a-price-whole[^"]*"[^>]*>([\d,]+)/i);
+          if (wholeM) price = parsePrice(wholeM[1]);
+          const mrpM = html.match(/class="[^"]*a-text-price[^"]*"[^>]*>[\s\S]{0,300}?₹\s*([\d,]+\.?\d*)/i);
+          if (mrpM) mrp = parsePrice(mrpM[1]);
+        }
+      }
+    } else if (rawUrl) {
+      const canonical = await resolveCanonicalProductUrl(rawUrl);
+      let resp = null;
+      try {
+        resp = await fetchWithProxy(canonical, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }, 8000, env);
+      } catch {}
+      if (!resp || !resp.ok) {
+        resp = await fetchWithTimeout(canonical, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }, 6000).catch(() => null);
+      }
+      if (resp && resp.ok) {
+        const html = await resp.text();
+        const tM = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+                   html.match(/<title>([^|<]+)/i);
+        if (tM) title = tM[1].replace(/&amp;/g, '&').replace(/\s*-\s*Buy\s+.*$/i, '').trim();
+        const imgM = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+        if (imgM && !imgM[1].includes('store_logo')) image = imgM[1].trim();
+      }
+    }
+  } catch (e) {
+    console.warn('fetchMetadataForDeal error:', e.message);
+  }
+
+  return { title, price, mrp, image, category };
+}
+
+async function publishProductToSite(product, env) {
+  const today = new Date().toISOString();
+  if (product.asin) await restoreAsinIfDeleted(product.asin, env);
+
+  const { products, sha } = await getProductsFile(env);
+  const cleanTitleStr = sanitizeTitle(product.title || '');
+  let finalLink = product.link || '';
+  if (hasUptoOffInTitle(cleanTitleStr)) {
+    if (!finalLink.includes('linksredirect.com')) {
+      const rawUrl = product.asin ? `https://www.amazon.in/dp/${product.asin}` : getOriginalUrl(finalLink);
+      if (rawUrl) finalLink = buildManualCueLink(rawUrl, env);
+    }
+  }
+
+  const isUpto = hasUptoOffInTitle(cleanTitleStr);
+  const newProduct = {
+    id: Date.now().toString(),
+    asin: product.asin || '',
+    title: cleanTitleStr,
+    price: product.price || '',
+    mrp: product.mrp || '',
+    disc: product.disc || '0%',
+    image: product.image || 'images/dealbuster_icon.png',
+    link: finalLink,
+    category: product.category || detectCategoryFromTitle(cleanTitleStr) || 'other',
+    highlights: product.highlights || [],
+    lowestPriceText: product.lowestPriceText || null,
+    featured: false,
+    hidden: isUpto,
+    outOfStock: false,
+    order: 0,
+    addedAt: today,
+    originalPrice: product.price || '',
+  };
+
+  let filtered = products;
+  if (product.asin) {
+    filtered = products.filter(p => !p.asin || p.asin.toUpperCase() !== product.asin.toUpperCase());
+  } else if (product.link) {
+    const linkLower = product.link.toLowerCase();
+    filtered = products.filter(p => !p.link || p.link.toLowerCase() !== linkLower);
+  }
+  const updated = await capLiveAndBury([newProduct, ...filtered], env);
+  await saveProductsFile(updated, sha, `Add deal: ${cleanTitleStr.slice(0, 60)}`, env);
+  return newProduct;
+}
+
 async function handleApprovalCallback(cq, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) return new Response('ok');
-  if (cq.from?.id !== TG_ADMIN_ID) {
+  const adminIdStr = (env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID)?.toString();
+  if (cq.from?.id?.toString() !== adminIdStr) {
     await tgAnswerCallback(token, cq.id, '⛔ Unauthorized');
     return new Response('ok');
   }
@@ -4775,6 +5063,106 @@ async function handleApprovalCallback(cq, env) {
     } catch (e) {
       console.error('FB caption failed:', e.message);
       await tgAnswerCallback(token, cq.id, '⚠️ Failed, try again');
+    }
+    return new Response('ok');
+  }
+
+  // ── Forwarded Deal Action Buttons (Site, Channel, Both, Cancel) ─────────────
+  const fwdMatch = (cq.data || '').match(/^fwdpub_(site|chan|both|cancel):(.+)$/);
+  if (fwdMatch) {
+    const [, action, key] = fwdMatch;
+    const chatId = cq.message?.chat?.id || TG_ADMIN_ID;
+    const msgId = cq.message?.message_id;
+    const isPhoto = !!cq.message?.photo;
+
+    if (action === 'cancel') {
+      if (env.KV) await env.KV.delete(key).catch(() => {});
+      await tgAnswerCallback(token, cq.id, '❌ Cancelled');
+      await tgEdit(token, chatId, msgId, '❌ Cancelled.', isPhoto);
+      return new Response('ok');
+    }
+
+    let pending = null;
+    try {
+      pending = env.KV ? await env.KV.get(key, 'json') : null;
+    } catch (e) {
+      console.error('KV get error for pending forwarded deal:', e.message);
+    }
+
+    if (!pending || !pending.product) {
+      await tgAnswerCallback(token, cq.id, '⏱️ Session expired. Please forward again.');
+      await tgEdit(token, chatId, msgId, '⏱️ Session expired. Please forward again.', isPhoto);
+      return new Response('ok');
+    }
+
+    const { product, channelText, photoId } = pending;
+    const title = product.title || 'Deal';
+    const price = product.price || '';
+    const mrp = product.mrp || '';
+    const disc = product.disc || '';
+
+    try {
+      let publishedSite = false;
+      let postedChan = false;
+
+      // ── 1. Publish to Site ──
+      if (action === 'site' || action === 'both') {
+        await publishProductToSite(product, env);
+        publishedSite = true;
+      }
+
+      // ── 2. Post to Telegram Channel ──
+      if (action === 'chan' || action === 'both') {
+        const textToSend = channelText || formatDealMsg(product, env.PA_PARTNER_TAG || 'dealbuster002-21', false, env);
+        for (const ch of TG_CHANNELS) {
+          if (photoId) {
+            await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: ch, photo: photoId, caption: textToSend, parse_mode: 'HTML', disable_notification: true }),
+            });
+          } else if (product.image && !product.image.includes('dealbuster_icon')) {
+            await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: ch, photo: product.image, caption: textToSend, parse_mode: 'HTML', disable_notification: true }),
+            });
+          } else {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: ch, text: textToSend, parse_mode: 'HTML', disable_notification: true, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
+            });
+          }
+        }
+        // Claim in DO ledger so crons never double post this deal
+        try {
+          const items = [{ id: product.id || String(Date.now()), asin: product.asin || null }];
+          await pendingApprovalsDO(env, '/posted/claim', { items, force: true });
+        } catch (e) {
+          console.error('DO claim failed on fwdpub_chan:', e.message);
+        }
+        postedChan = true;
+      }
+
+      if (env.KV) await env.KV.delete(key).catch(() => {});
+
+      let successMsg = '';
+      if (publishedSite && postedChan) {
+        successMsg = `🚀 <b>Published to Both!</b>\n\n<b>${escHtml(title)}</b>\n${price ? `Price: <b>${escHtml(price)}</b>` : ''}${mrp ? `  <s>${escHtml(mrp)}</s>` : ''}${disc ? `  (<b>${escHtml(disc)}</b>)` : ''}\n\n✅ Live on dealbuster.in & posted to @dealbusterindia!`;
+        await tgAnswerCallback(token, cq.id, '🚀 Published to Site & Channel!');
+      } else if (publishedSite) {
+        successMsg = `🌐 <b>Published to Site!</b>\n\n<b>${escHtml(title)}</b>\n${price ? `Price: <b>${escHtml(price)}</b>` : ''}${mrp ? `  <s>${escHtml(mrp)}</s>` : ''}${disc ? `  (<b>${escHtml(disc)}</b>)` : ''}\n\n✅ Live on dealbuster.in!`;
+        await tgAnswerCallback(token, cq.id, '🌐 Published to Site!');
+      } else {
+        successMsg = `📢 <b>Posted to Channel!</b>\n\n<b>${escHtml(title)}</b>\n${price ? `Price: <b>${escHtml(price)}</b>` : ''}${mrp ? `  <s>${escHtml(mrp)}</s>` : ''}${disc ? `  (<b>${escHtml(disc)}</b>)` : ''}\n\n✅ Broadcast to @dealbusterindia!`;
+        await tgAnswerCallback(token, cq.id, '📢 Posted to Channel!');
+      }
+
+      await tgEdit(token, chatId, msgId, successMsg, isPhoto);
+    } catch (e) {
+      console.error('Error handling fwdpub action:', e);
+      await tgAnswerCallback(token, cq.id, `❌ Error: ${e.message}`);
     }
     return new Response('ok');
   }
@@ -5929,167 +6317,14 @@ async function handleTelegramWebhook(request, env) {
     }
   }
 
-  // ── 2. Check if non-Amazon link(s) sent/forwarded directly to bot ────────────
-  const AMZ_HOST_RE = /^(?:www\.)?(?:amazon\.in|amzn\.in|amzn\.to|amazn\.lt|link\.amazon|a\.co)$/i;
-  const isAmazonUrl = u => { try { return AMZ_HOST_RE.test(new URL(u).hostname); } catch { return false; } };
-
-  const msgEntities = msg.entities || msg.caption_entities || [];
-  const allMessageUrls = [];
-  for (const ent of msgEntities) {
-    if (ent.type === 'text_link' && ent.url) {
-      if (!allMessageUrls.includes(ent.url)) allMessageUrls.push(ent.url);
-    } else if (ent.type === 'url') {
-      const raw = text.slice(ent.offset, ent.offset + ent.length);
-      if (raw && !allMessageUrls.includes(raw)) allMessageUrls.push(raw);
-    }
-  }
-  for (const m of text.matchAll(/https?:\/\/[^\s]+/gi)) {
-    if (!allMessageUrls.includes(m[0])) allMessageUrls.push(m[0]);
-  }
-
-  const uniqueNonAmzLinks = allMessageUrls.filter(u => !isAmazonUrl(u));
-
-  if (uniqueNonAmzLinks.length > 0 && !msg.reply_to_message) {
-    // Attempt automatic conversion via EarnKaro Converter API
-    const ekaroConverted = await convertToEarnKaro(text, env);
-    if (ekaroConverted && (ekaroConverted.includes('http') || ekaroConverted.includes('www'))) {
-      const photoId = msg.photo ? msg.photo[msg.photo.length - 1].file_id : null;
-      let sendError = null;
-
-      for (const ch of TG_CHANNELS) {
-        let r;
-        if (photoId) {
-          r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: ekaroConverted, disable_notification: true })
-          });
-          if (!r.ok) {
-            r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: ch,
-                text: ekaroConverted,
-                disable_notification: true,
-                disable_web_page_preview: true,
-                link_preview_options: { is_disabled: true },
-              })
-            });
-          }
-        } else {
-          r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: ch,
-              text: ekaroConverted,
-              disable_notification: true,
-              disable_web_page_preview: true,
-              link_preview_options: { is_disabled: true },
-            })
-          });
-        }
-
-        const resJson = await r.json().catch(() => ({}));
-        if (!r.ok || !resJson.ok) {
-          console.error(`Telegram API send failed to ${ch}:`, resJson);
-          sendError = resJson.description || `HTTP ${r.status}`;
-        }
-      }
-
-      if (!sendError) {
-        await tgSend(token, chatId, escTg('✅ Auto-converted via EarnKaro API & published directly to Telegram channel!'));
-        return new Response('ok');
-      }
-    }
-
-    if (uniqueNonAmzLinks.length > 1) {
-      // Multi-link non-Amazon deal
-      const linksListStr = uniqueNonAmzLinks.map((url, i) => `${i + 1}. ${url}`).join('\n');
-      const promptMsgText = `📦 New Non-Amazon Multi-Link Deal (${uniqueNonAmzLinks.length} Links)\n\nOriginal Links:\n${linksListStr}\n\n👉 Reply to this message with your ${uniqueNonAmzLinks.length} converted EarnKaro affiliate links (one URL per line, in order) to publish it!`;
-
-      let promptMsg;
-      if (msg.photo && msg.photo.length > 0) {
-        const photoId = msg.photo[msg.photo.length - 1].file_id;
-        const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, photo: photoId, caption: promptMsgText }),
-        });
-        try { promptMsg = await r.json(); } catch (e) {}
-      } else {
-        const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text: promptMsgText, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
-        });
-        try { promptMsg = await r.json(); } catch (e) {}
-      }
-
-      const promptMsgId = promptMsg?.result?.message_id;
-      if (promptMsgId) {
-        await env.KV.put(`pending_ml_${promptMsgId}`, JSON.stringify({
-          rawText: text,
-          photoId: msg.photo ? msg.photo[msg.photo.length - 1].file_id : null,
-          originalLinks: uniqueNonAmzLinks
-        }), { expirationTtl: 86400 });
-      }
-
-      return new Response('ok');
-    }
-
-    // Single-link non-Amazon deal
-    const rawUrl = uniqueNonAmzLinks[0];
-    const storeName = getStoreNameFromTitleOrUrl(text, rawUrl);
-    let title = trimTitle(text.replace(/https?:\/\/[^\s]+/g, '').trim()) || `${storeName} Special Deal`;
-    let price = '';
-    let mrp = '';
-    const priceM = text.match(/(?:Deal Price|Price|₹)\s*:\s*₹?\s*([\d,]+)/i) || text.match(/₹\s*([\d,]+)/);
-    if (priceM) price = '₹' + priceM[1].replace(/,/g, '');
-    const mrpM = text.match(/(?:MRP|Original Price)\s*:\s*₹?\s*([\d,]+)/i);
-    if (mrpM) mrp = '₹' + mrpM[1].replace(/,/g, '');
-
-    const promptMsgText = `📦 New ${storeName} Deal\n\nTitle: ${title}\n${price ? `Price: ${price}\n` : ''}${mrp ? `MRP: ${mrp}\n` : ''}Original Link: ${rawUrl}\n\n👉 Reply to this message with your converted EarnKaro affiliate link to publish it!`;
-
-    let promptMsg;
-    if (msg.photo && msg.photo.length > 0) {
-      const photoId = msg.photo[msg.photo.length - 1].file_id;
-      const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, photo: photoId, caption: promptMsgText }),
-      });
-      try { promptMsg = await r.json(); } catch (e) {}
-    } else {
-      const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: promptMsgText, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
-      });
-      try { promptMsg = await r.json(); } catch (e) {}
-    }
-
-    const promptMsgId = promptMsg?.result?.message_id;
-    if (promptMsgId) {
-      await env.KV.put(`pending_ml_${promptMsgId}`, JSON.stringify({
-        rawText: text,
-        photoId: msg.photo ? msg.photo[msg.photo.length - 1].file_id : null,
-        originalLinks: [rawUrl]
-      }), { expirationTtl: 86400 });
-    }
-
+  // ── Admin Commands ──────────────────────────────────────────────────────────
+  const trimmed = text.trim();
+  if (trimmed === '/start' || trimmed === '/help') {
+    await tgSend(token, chatId, escTg('👋 DealBuster Deal Bot\n\nForward any Amazon or Non-Amazon deal to me, or send a link!\nI will convert the affiliate links, format the deal in DealBuster style, and let you:\n• 🌐 Publish to Site\n• 📢 Post to Channel\n• 🚀 Publish Both\n\nCommands:\n/help — Show this message\n/sync_ifs — Trigger IndiaFreeStuff sync\n/sync_ot — Trigger OfferTag sync\n/clear_errors — Clear sync errors'));
     return new Response('ok');
   }
 
-  // Help command
-  if (text.trim() === '/start' || text.trim() === '/help') {
-    await tgSend(token, chatId, escTg('👋 DealBuster Bot\n\nSend me:\n• Forward any deal message with a link → I swap the link and repost\n• Non-Amazon deal → Reply with EarnKaro link to publish\n\nCommands:\n/help — this message\n/sync_ifs — trigger IndiaFreeStuff sync now\n/clear_errors — clear sync errors'));
-    return new Response('ok');
-  }
-
-  // Admin command: Trigger IndiaFreeStuff sync immediately
-  if (text.trim() === '/sync' || text.trim() === '/sync_ifs') {
+  if (trimmed === '/sync' || trimmed === '/sync_ifs') {
     await tgSend(token, chatId, escTg('⏳ Running IndiaFreeStuff sync...'));
     try {
       const r = await scrapeAndSyncIndiaFreeStuff(env, 30);
@@ -6101,8 +6336,7 @@ async function handleTelegramWebhook(request, env) {
     return new Response('ok');
   }
 
-  // Admin command: Trigger OfferTag sync immediately
-  if (text.trim() === '/sync_ot' || text.trim() === '/sync_offertag') {
+  if (trimmed === '/sync_ot' || trimmed === '/sync_offertag') {
     await tgSend(token, chatId, escTg('⏳ Running OfferTag sync...'));
     try {
       const r = await scrapeAndSyncOfferTag(env, 20);
@@ -6114,203 +6348,181 @@ async function handleTelegramWebhook(request, env) {
     return new Response('ok');
   }
 
-  // Admin command: Clear sync errors from KV
-  if (text.trim() === '/clear_errors') {
+  if (trimmed === '/clear_errors') {
     await clearSyncError('IndiaFreeStuff', env);
     await clearSyncError('OfferTag', env);
     await tgSend(token, chatId, escTg('✅ Cleared sync errors from KV!'));
     return new Response('ok');
   }
 
-  // Find every Amazon link in the message, however it's encoded:
-  // - a bare URL sitting in the text (regex)
-  // - a link hidden behind styled anchor text, e.g. "👉 Click Here 🛍️" — some
-  //   source channels format links this way, and the destination URL isn't in
-  //   `text`/`caption` at all then, only in the message's `entities` metadata.
-  const entities = msg.entities || msg.caption_entities || [];
-  let linkSpans = []; // { start, end, url } — end is exclusive
-  for (const ent of entities) {
-    if (ent.type === 'text_link' && ent.url && isAmazonUrl(ent.url)) {
-      linkSpans.push({ start: ent.offset, end: ent.offset + ent.length, url: ent.url, isTextLink: true });
-    } else if (ent.type === 'url') {
-      const raw = text.slice(ent.offset, ent.offset + ent.length);
-      if (isAmazonUrl(raw)) linkSpans.push({ start: ent.offset, end: ent.offset + ent.length, url: raw });
-    }
-  }
-  // Regex fallback for bare URLs Telegram didn't tag as an entity, skipping
-  // any range an entity above already covers.
-  for (const m of text.matchAll(/https?:\/\/(?:(?:www\.)?(?:amazon\.in|amzn\.in|amzn\.to|amazn\.lt|link\.amazon|a\.co))[^\s]*/gi)) {
-    const start = m.index, end = start + m[0].length;
-    if (!linkSpans.some(s => s.start < end && s.end > start)) linkSpans.push({ start, end, url: m[0] });
-  }
-  // A text_link anchor is often wrapped in decorative emoji the source channel
-  // added around it, e.g. "👉 Click Here 🛍️" — only "Click Here" is the actual
-  // hyperlink. Absorb an immediately-adjacent pointer/bag emoji into the span
-  // so it gets removed along with the anchor text, instead of doubling up next
-  // to our own "👉 Check Now" button.
-  const DECOR_BEFORE = ['👉', '👆', '☝️', '🔗', '👇'];
-  const DECOR_AFTER = ['🛍️', '🛒', '🛍'];
-  linkSpans = linkSpans.map(span => {
-    if (!span.isTextLink) return span;
-    let { start, end } = span;
-    for (const d of DECOR_BEFORE) {
-      const withSpace = d + ' ';
-      if (text.slice(start - withSpace.length, start) === withSpace) { start -= withSpace.length; break; }
-      if (text.slice(start - d.length, start) === d) { start -= d.length; break; }
-    }
-    for (const d of DECOR_AFTER) {
-      const withSpace = ' ' + d;
-      if (text.slice(end, end + withSpace.length) === withSpace) { end += withSpace.length; break; }
-      if (text.slice(end, end + d.length) === d) { end += d.length; break; }
-    }
-    return { ...span, start, end };
-  });
-  linkSpans.sort((a, b) => a.start - b.start);
-
-  if (!linkSpans.length) {
-    await tgSend(token, chatId, escTg('❓ Send me an Amazon link or forward a deal message.'));
+  // ── 2. Unified Deal Treatment & Preview (Amazon + Non-Amazon) ───────────────
+  const allUrls = extractAllDealUrls(text, msg);
+  if (!allUrls.length) {
+    await tgSend(token, chatId, escTg('❓ Send me any Amazon or non-Amazon deal link, or forward a deal message.'));
     return new Response('ok');
   }
-
-  await tgSend(token, chatId, escTg('⏳ Fetching product info...'));
 
   try {
     const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
-    const resolveAsin = async (rawUrl) => {
-      const r = await fetchWithTimeout(rawUrl, { redirect: 'follow', headers: AMZ_HEADERS });
-      const finalUrl = r.url;
-      const asinM = finalUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
-                 || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)
-                 || rawUrl.match(/link\.amazon\/([A-Z0-9]{10})/i);
-      return { asinM, finalUrl, html: asinM ? await r.text() : null };
-    };
+    const rawUrl = allUrls[0];
+    const isAmz = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(rawUrl);
 
-    // Feature 3: forwarded message — replace link with embedded Buy Now, no preview
-    const isForward = !!(msg.forward_from || msg.forward_from_chat || msg.forward_sender_name || msg.forward_date);
-    if (isForward) {
-      let isUpto = isUptoDealText(text);
+    let finalAffiliateUrl = '';
+    let store = 'other';
+    let storeName = 'Online';
+    let asin = null;
 
-      const links = []; // { placeholder, affiliateLink, originalUrl }
-      const pieces = [];
-      let cursor = 0;
-      for (const span of linkSpans) {
+    if (isAmz) {
+      store = 'amazon';
+      storeName = 'Amazon';
+      const { asinM, finalUrl } = await resolveAmazonAsin(rawUrl);
+      if (asinM) {
+        asin = asinM[1].toUpperCase();
+        finalAffiliateUrl = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
+      } else if (finalUrl.includes('amazon.') || finalUrl.includes('amzn.') || finalUrl.includes('link.amazon') || finalUrl.includes('a.co')) {
+        finalAffiliateUrl = tagAmazonUrl(finalUrl, TAG);
+      } else {
+        finalAffiliateUrl = buildManualCueLink(finalUrl, env);
+      }
+    } else {
+      const canonicalUrl = await resolveCanonicalProductUrl(rawUrl);
+      store = detectStoreFromUrl(canonicalUrl);
+      storeName = formatStoreName(store);
+
+      // Primary: Convert via EarnKaro API
+      try {
+        const ekLink = await convertToEarnKaroLink(canonicalUrl, env);
+        if (ekLink) finalAffiliateUrl = ekLink;
+      } catch (e) {
+        console.error('EarnKaro conversion failed in bot:', e.message);
+      }
+
+      if (!finalAffiliateUrl && text.length > rawUrl.length) {
         try {
-          const { asinM, finalUrl, html } = await resolveAsin(span.url);
-          if (html) {
-            const titleM = html.match(/id="productTitle"[^>]*>\s*([\s\S]*?)\s*<\/span>/);
-            if (titleM) {
-              const itemTitle = decodeHtmlEntities(titleM[1].replace(/\s+/g,' ').trim());
-              if (hasUptoOffInTitle(itemTitle) || isUptoDealText(itemTitle)) {
-                isUpto = true;
-              }
-            }
-          }
-          let affiliateLink;
-          if (asinM) {
-            affiliateLink = `https://www.amazon.in/dp/${asinM[1]}?tag=${TAG}`;
-          } else if (finalUrl.includes('amazon.') || finalUrl.includes('amzn.') || finalUrl.includes('link.amazon') || finalUrl.includes('a.co')) {
-            affiliateLink = tagAmazonUrl(finalUrl, TAG);
-          } else {
-            affiliateLink = buildManualCueLink(finalUrl, env);
-          }
-          const placeholder = `%%DBLINK${links.length}%%`;
-          pieces.push(text.slice(cursor, span.start), placeholder);
-          links.push({ placeholder, affiliateLink, originalUrl: span.url });
-          cursor = span.end;
-        } catch (e) {
-          console.error('Link resolve failed for', span.url, e.message);
-        }
-      }
-      pieces.push(text.slice(cursor));
-      let newText = pieces.join('');
-      const resolved = links.length;
-      if (!resolved) {
-        await tgSend(token, chatId, escTg('❌ Could not resolve any links in this message.'));
-        return new Response('ok');
+          const ekText = await convertToEarnKaro(rawUrl, env);
+          if (ekText && ekText.startsWith('http')) finalAffiliateUrl = ekText;
+        } catch {}
       }
 
-      if (isUpto) {
-        // Amazon "upto" deal forwarded! Prompt the admin to reply with custom link.
-        const linksCount = linkSpans.length;
-        const promptLinksStr = linkSpans.map((s, i) => `${i + 1}. ${s.url}`).join('\n');
-        const promptMsgText = `📦 <b>Forwarded Amazon 'Up to' Deal Detected</b>${linksCount > 1 ? ` (${linksCount} Links)` : ''}\n\n${linksCount > 1 ? `Original Links:\n${promptLinksStr}` : `Original Link: ${linkSpans[0].url}`}\n\n👉 <b>Reply to this message with your link${linksCount > 1 ? 's (one per line, in order)' : ''} to publish to Telegram!</b>\n<i>(Accepts any link: short, long, EarnKaro, CueLinks, etc.)</i>`;
-
-        let promptMsg = null;
-        if (msg.photo && msg.photo.length > 0) {
-          const photoId = msg.photo[msg.photo.length - 1].file_id;
-          const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, photo: photoId, caption: promptMsgText, parse_mode: 'HTML' }),
-          });
-          promptMsg = await r.json().catch(() => null);
-        } else {
-          const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: promptMsgText, parse_mode: 'HTML', disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
-          });
-          promptMsg = await r.json().catch(() => null);
-        }
-
-        const promptMsgId = promptMsg?.result?.message_id;
-        if (promptMsgId && env.KV) {
-          await env.KV.put(`pending_fwd_upto_${promptMsgId}`, JSON.stringify({
-            rawText: newText,
-            photoId: msg.photo ? msg.photo[msg.photo.length - 1].file_id : null,
-            links: links.map(l => ({ placeholder: l.placeholder, originalUrl: l.originalUrl })),
-            promptedAt: Date.now(),
-          }), { expirationTtl: 86400 });
-        }
-
-        return new Response('ok');
+      // Secondary fallback (e.g. for Meesho or if EarnKaro is down)
+      if (!finalAffiliateUrl) {
+        finalAffiliateUrl = buildManualCueLink(canonicalUrl, env);
       }
-      newText = newText.replace(/\n{3,}/g, '\n\n').trim();
-      // Swap the source channel's own "Join @theirhandle for more deals" footer for
-      // a clickable "Deal Buster" link. The anchor requires parse_mode HTML, so the
-      // whole message is escaped first — swapping before escaping would mangle the
-      // anchor tag itself.
-      let htmlText = escHtml(newText);
-      htmlText = htmlText.replace(/^.*\bjoin\b.*@\w+.*\bdeals?\b.*$/gim, '📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!');
-      // Multi-link messages (e.g. one product per brand/size) get compact
-      // "👉 Check Now" buttons instead of raw URLs — a wall of full Amazon
-      // links per line is what this is fixing. A lone link still renders as a
-      // button once it's long enough to wrap past ~3 lines on a phone screen;
-      // short single links stay as plain text (Telegram auto-links them anyway).
-      links.forEach(({ placeholder, affiliateLink }) => {
-        const isAmazon = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(affiliateLink);
-        const useButton = isAmazon && (resolved > 1 || affiliateLink.length > 60);
-        const rendered = useButton
-          ? `<a href="${escHtml(affiliateLink)}">👉 Check Now</a>`
-          : escHtml(affiliateLink);
-        htmlText = htmlText.split(placeholder).join(rendered);
-      });
-      for (const ch of TG_CHANNELS) {
-        if (msg.photo) {
-          const photoId = msg.photo[msg.photo.length - 1].file_id;
-          await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, photo: photoId, caption: htmlText, parse_mode: 'HTML', disable_notification: true }),
-          });
-        } else {
-          await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ch, text: htmlText, parse_mode: 'HTML', disable_notification: true, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
-          });
-        }
-      }
-      const skipped = linkSpans.length - resolved;
-      const suffix = skipped > 0 ? ` (${skipped} link${skipped > 1 ? 's' : ''} skipped)` : '';
-      await tgSend(token, chatId, escTg(`✅ Reposted to ${TG_CHANNELS.length} channels with ${resolved} affiliate link${resolved > 1 ? 's' : ''}!${suffix}`));
-      return new Response('ok');
     }
 
-    // Direct-link publish removed — the bot only reposts forwarded deal messages now.
-    await tgSend(token, chatId, escTg('❌ Direct link publishing is disabled. Forward a deal message instead.'));
-    return new Response('ok');
+    // Extract details from forwarded text
+    let { dealPrice, mrp, discount } = extractDealDetailsFromText(text);
+    let title = extractDealTitleFromText(text);
+    const photoId = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1].file_id : null;
+    let imageUrl = '';
 
+    if (photoId) {
+      imageUrl = await getTelegramFileUrl(token, photoId);
+    }
+
+    // Fallback: fetch metadata if missing title, price, or image
+    if (!title || !dealPrice || !imageUrl) {
+      try {
+        const meta = await fetchMetadataForDeal(asin, rawUrl, env);
+        if (meta) {
+          if (!title && meta.title) title = meta.title;
+          if (!dealPrice && meta.price) dealPrice = `₹${meta.price.toLocaleString('en-IN')}`;
+          if (!mrp && meta.mrp) mrp = `₹${meta.mrp.toLocaleString('en-IN')}`;
+          if (!imageUrl && meta.image) imageUrl = meta.image;
+        }
+      } catch (e) {
+        console.warn('Metadata fetch fallback error:', e.message);
+      }
+    }
+
+    if (!title) title = `${storeName} Deal`;
+    if (!dealPrice && mrp) dealPrice = mrp;
+    if (dealPrice && mrp && !discount) {
+      const pVal = parseInt(dealPrice.replace(/[^\d]/g, ''), 10);
+      const mVal = parseInt(mrp.replace(/[^\d]/g, ''), 10);
+      if (mVal > pVal && pVal > 0) {
+        discount = `${Math.round((1 - pVal / mVal) * 100)}% OFF`;
+      }
+    }
+
+    // Format channel message (DealBuster channel style)
+    const cleanTitle = escHtml(trimTitle(title));
+    const priceRow = dealPrice ? `✅Deal Price: <b>${escHtml(dealPrice)}</b>` : '';
+    const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
+    const discRow = discount ? `Discount: <b>${escHtml(discount)}</b>` : '';
+    const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
+    const isLong = finalAffiliateUrl.length > 70;
+    const linkHtml = isLong ? `<a href="${escHtml(finalAffiliateUrl)}">👉 Check Now</a>` : `👉 ${escHtml(finalAffiliateUrl)}`;
+    const channelText = detailsBlock ? `${cleanTitle}\n${detailsBlock}\n\n${linkHtml}` : `${cleanTitle}\n\n${linkHtml}`;
+
+    // Format admin preview card
+    const previewLines = [
+      `📦 <b>${cleanTitle}</b>`,
+      dealPrice ? `✅ Deal Price: <b>${escHtml(dealPrice)}</b>` : '',
+      mrp ? `❌ MRP: <s>${escHtml(mrp)}</s>${discount ? ` (<b>${escHtml(discount)}</b>)` : ''}` : '',
+      `🛒 Store: <b>${escHtml(storeName)}</b>`,
+      `\n🔗 ${escHtml(finalAffiliateUrl)}`
+    ].filter(Boolean).join('\n');
+
+    // Store in KV with 1-day TTL
+    const key = `fwddeal_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const pendingData = {
+      product: {
+        asin: asin || '',
+        title: cleanTitle,
+        price: dealPrice || '',
+        mrp: mrp || '',
+        disc: discount || '0%',
+        image: imageUrl || 'images/dealbuster_icon.png',
+        link: finalAffiliateUrl,
+        store: store
+      },
+      channelText,
+      photoId,
+      createdAt: Date.now()
+    };
+    if (env.KV) {
+      await env.KV.put(key, JSON.stringify(pendingData), { expirationTtl: 86400 });
+    }
+
+    // 4 Action Buttons
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '🌐 Publish to Site', callback_data: `fwdpub_site:${key}` },
+          { text: '📢 Post to Channel', callback_data: `fwdpub_chan:${key}` }
+        ],
+        [
+          { text: '🚀 Publish Both', callback_data: `fwdpub_both:${key}` }
+        ],
+        [
+          { text: '❌ Cancel', callback_data: `fwdpub_cancel:${key}` }
+        ]
+      ]
+    };
+
+    if (photoId) {
+      const r = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, photo: photoId, caption: previewLines, parse_mode: 'HTML', reply_markup: keyboard }),
+      });
+      if (!r.ok) {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: previewLines, parse_mode: 'HTML', reply_markup: keyboard, disable_web_page_preview: true }),
+        });
+      }
+    } else {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: previewLines, parse_mode: 'HTML', reply_markup: keyboard, disable_web_page_preview: true }),
+      });
+    }
+
+    return new Response('ok');
   } catch (e) {
     await tgSend(token, chatId, escTg(`❌ Error: ${e.message}`));
   }
