@@ -250,28 +250,35 @@
       "badgeText": "",
       "lines": [
         {
-          "text": "Early",
+          "text": "Sale",
           "size": "big"
         },
         {
-          "text": "Bid Deals",
+          "text": "Ends Tonight",
           "size": "big"
         },
         {
-          "text": "wishlist your favourites",
+          "text": "Check your favourites",
           "size": "small"
         }
       ],
-      "title": "Early",
-      "subtitle": "Bid Deals • wishlist your favourites",
+      "title": "Sale",
+      "subtitle": "Ends Tonight • Check your favourites",
       "imageUrl": "images/banners/home-banner-1789888666184.webp",
-      "link": "https://fktr.in/1stCo2P",
+      "link": "https://fkrt.cc/zu9SJMy",
       "applyEffect": false,
-      "active": false,
+      "active": true,
       "order": 5,
       "createdAt": "2026-09-19T19:14:28.189Z",
-      "updatedAt": "2026-10-08T03:56:33.210Z",
-      "template": "flipkart_light"
+      "updatedAt": "2026-10-18T10:13:56.916Z",
+      "template": "flipkart_bbd_carnival",
+      "background": "linear-gradient(135deg, #2E1065 0%, #4C1D95 45%, #F59E0B 100%)",
+      "radialLight": "radial-gradient(circle, rgba(253, 224, 71, 0.5) 0%, rgba(168, 85, 247, 0.25) 55%, transparent 75%)",
+      "colors": [
+        "#2E1065",
+        "#4C1D95",
+        "#F59E0B"
+      ]
     }
   ]
 }
