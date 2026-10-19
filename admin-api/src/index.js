@@ -4780,19 +4780,6 @@ async function tgEdit(token, chatId, msgId, htmlContent, isPhoto = false) {
   }
 }
 
-async function getTelegramFileUrl(token, fileId) {
-  if (!fileId) return '';
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.result?.file_path) {
-        return `https://api.telegram.org/file/bot${token}/${data.result.file_path}`;
-      }
-    }
-  } catch {}
-  return '';
-}
 
 function detectStoreFromUrl(url) {
   if (!url) return 'other';
@@ -6416,11 +6403,9 @@ async function handleTelegramWebhook(request, env) {
     const photoId = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1].file_id : null;
     let imageUrl = '';
 
-    if (photoId) {
-      imageUrl = await getTelegramFileUrl(token, photoId);
-    }
-
     // Fallback: fetch metadata if missing title, price, or image
+    // NOTE: NEVER use Telegram getFile URLs for product.image — they embed the secret bot token
+    // (triggering GitHub secret scanning alerts) and expire in ~1h anyway. photoId is preserved for Telegram.
     if (!title || !dealPrice || !imageUrl) {
       try {
         const meta = await fetchMetadataForDeal(asin, rawUrl, env);
@@ -6428,7 +6413,7 @@ async function handleTelegramWebhook(request, env) {
           if (!title && meta.title) title = meta.title;
           if (!dealPrice && meta.price) dealPrice = `₹${meta.price.toLocaleString('en-IN')}`;
           if (!mrp && meta.mrp) mrp = `₹${meta.mrp.toLocaleString('en-IN')}`;
-          if (!imageUrl && meta.image) imageUrl = meta.image;
+          if (meta.image) imageUrl = meta.image;
         }
       } catch (e) {
         console.warn('Metadata fetch fallback error:', e.message);
