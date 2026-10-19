@@ -2,6 +2,45 @@
   "showDefaultAnimatedBanner": false,
   "banners": [
     {
+      "id": "hbanner_1792432007069",
+      "store": "flipkart",
+      "storeName": "Flipkart",
+      "template": "flipkart_electric",
+      "badgeText": "",
+      "applyEffect": false,
+      "lines": [
+        {
+          "text": "Sale",
+          "size": "big"
+        },
+        {
+          "text": "Starts Now",
+          "size": "big"
+        },
+        {
+          "text": "Explore all deals",
+          "size": "small"
+        }
+      ],
+      "title": "Sale",
+      "subtitle": "Starts Now • Explore all deals",
+      "imageUrl": "images/banners/home-banner-1792431994428.webp",
+      "link": "https://fkrt.cc/zyEjYm5",
+      "active": true,
+      "background": "linear-gradient(135deg, #0284C7 0%, #0369A1 50%, #075985 100%)",
+      "radialLight": "radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(2, 132, 199, 0.2) 55%, transparent 75%)",
+      "colors": [
+        "#0284C7",
+        "#0369A1",
+        "#075985"
+      ],
+      "radialColor": null,
+      "badgeBg": null,
+      "badgeTextColor": null,
+      "order": 8,
+      "createdAt": "2026-10-19T17:46:47.069Z"
+    },
+    {
       "id": "hbanner_1789845268189",
       "store": "flipkart",
       "storeName": "Flipkart",
