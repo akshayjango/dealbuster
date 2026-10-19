@@ -1409,12 +1409,44 @@ function parseDealsSpyHtml(html) {
       else if (p3) price = parsePrice(p3[1]) || 0;
     }
 
-    let mrp = price;
-    const mrpMatch = art.match(/class="ss-mrp"[^>]*>([\s\S]*?)<\/s>/i) || art.match(/<s>[\s\S]*?<span[^>]*>MRP\s*<\/span>([^<]+)<\/s>/i);
-    if (mrpMatch) {
-      const parsedMrp = parsePrice(mrpMatch[1]);
-      if (parsedMrp && parsedMrp > 0) mrp = parsedMrp;
+    let mrp = 0;
+    // 1. Explicit <s> tag (e.g. c-card top carousel)
+    const sMatch = art.match(/class="ss-mrp"[^>]*>([\s\S]*?)<\/s>/i) ||
+                   art.match(/<s>[\s\S]*?<span[^>]*>MRP\s*<\/span>([^<]+)<\/s>/i) ||
+                   art.match(/<s>([\s\S]*?)<\/s>/i);
+    if (sMatch) {
+      const parsedMrp = parsePrice(sMatch[1]);
+      if (parsedMrp && parsedMrp > price) mrp = parsedMrp;
     }
+
+    // 2. ss-save tag (e.g. c-tile grid: <span class="ss-save">Save ₹11,369</span>)
+    if (!mrp || mrp <= price) {
+      const saveMatch = art.match(/class="ss-save"[^>]*>[\s\S]*?Save\s*₹?([\d,]+)/i);
+      if (saveMatch && price > 0) {
+        const savings = parsePrice(saveMatch[1]);
+        if (savings > 0) mrp = price + savings;
+      }
+    }
+
+    // 3. Discount percentage (data-pct="79", <em>−79%</em>, c-card-drop, or JSON pct)
+    if (!mrp || mrp <= price) {
+      let pct = 0;
+      const pctAttr = art.match(/data-pct="(\d+)"/i);
+      const pctEm = art.match(/<em>[−-]?(\d+)%<\/em>/i);
+      const pctDrop = art.match(/class="c-card-drop">[\s\S]*?[−-](\d+)%/i);
+      const pctJson = art.match(/"pct":\s*(\d+)/i);
+
+      if (pctAttr) pct = parseInt(pctAttr[1], 10);
+      else if (pctEm) pct = parseInt(pctEm[1], 10);
+      else if (pctDrop) pct = parseInt(pctDrop[1], 10);
+      else if (pctJson) pct = parseInt(pctJson[1], 10);
+
+      if (pct > 0 && pct < 100 && price > 0) {
+        mrp = Math.round(price / (1 - pct / 100));
+      }
+    }
+
+    if (!mrp || mrp < price) mrp = price;
 
     const isAmazon = /amazon\.in|amzn\.to|amazon\.com/i.test(destUrl);
     let asin = null;
@@ -1985,8 +2017,9 @@ async function scrapeAndSyncDealsSpy(env, limit = 25) {
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
 
-      if (newPrice && existingPrice && newPrice < existingPrice) {
-        const priceHistory = appendPriceHistory(existing, priceStr);
+      const needsDiscFix = (existing.disc === '0%' || existing.disc === '-0%' || parsePrice(existing.mrp) <= parsePrice(existing.price)) && discNum > 0;
+      if ((newPrice && existingPrice && newPrice < existingPrice) || needsDiscFix) {
+        const priceHistory = (newPrice && existingPrice && newPrice < existingPrice) ? appendPriceHistory(existing, priceStr) : (existing.priceHistory || []);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
         const origPrice = parsePrice(existing.originalPrice || existing.price);
         if (origPrice && newPrice && shouldDemote(origPrice, newPrice)) {
