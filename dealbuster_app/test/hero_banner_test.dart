@@ -143,6 +143,36 @@ void main() {
     expect(find.text('Up to 50% off'), findsOneWidget);
   });
 
+  testWidgets('HeroBanner renders banner without store tag when store is none', (tester) async {
+    final noTagBanner = const HomeBannerItem(
+      id: 'no_tag_1',
+      store: 'none',
+      storeName: 'No Tags',
+      badgeText: '',
+      title: 'Tagless Special Promo',
+      subtitle: 'Clean background',
+      imageUrl: '',
+      link: 'https://dealbuster.in',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HeroBanner(
+            liveDealCount: 10,
+            showDefaultAnimatedBanner: false,
+            customBanners: [noTagBanner],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(HeroBanner), findsOneWidget);
+    expect(find.text('Tagless Special Promo'), findsOneWidget);
+    expect(find.text('No Tags'), findsNothing);
+    expect(find.byType(SvgPicture), findsNothing);
+  });
+
   testWidgets('HomeHeaderDelegate allocates 192dp height when banner or skeleton is active', (tester) async {
     final delegate = HomeHeaderDelegate(
       searchBar: const SizedBox(),

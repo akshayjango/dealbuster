@@ -1825,6 +1825,11 @@ class _CustomBannerCard extends StatelessWidget {
             ),
           ],
         );
+      case 'none':
+      case 'no_tags':
+      case 'no_tag':
+      case 'notags':
+        return const SizedBox.shrink();
       default:
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -1910,56 +1915,58 @@ class _CustomBannerCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Top Row: Store Badge + Deal Badge
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        height: 24,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+                  if (banner.hasStoreTag || (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty))
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (banner.hasStoreTag)
+                          Container(
+                            height: 24,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
                             ),
-                          ],
-                        ),
-                        child: _buildStoreLogo(banner.store, banner.storeName),
-                      ),
-                      if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                          decoration: BoxDecoration(
-                            color: tpl.badgeBg,
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: _buildStoreLogo(banner.store, banner.storeName),
+                          ),
+                        if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
+                          if (banner.hasStoreTag) const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: tpl.badgeBg,
+                              borderRadius: BorderRadius.circular(AppRadius.pill),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              banner.badgeText!.trim().toUpperCase(),
+                              style: TextStyle(
+                                color: tpl.badgeTextColor,
+                                fontSize: 9.8,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            banner.badgeText!.trim().toUpperCase(),
-                            style: TextStyle(
-                              color: tpl.badgeTextColor,
-                              fontSize: 9.8,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.4,
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
 
                   // Text Lines (vertically centered in remaining space)
                   Expanded(
@@ -2099,52 +2106,54 @@ class _CustomBannerCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Top Row: Store Badge + Deal Badge
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      height: 24,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                if (banner.hasStoreTag || (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty))
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (banner.hasStoreTag)
+                        Container(
+                          height: 24,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
                           ),
-                        ],
-                      ),
-                      child: _buildStoreLogo(banner.store, banner.storeName),
-                    ),
-                    if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Text(
-                          banner.badgeText!.trim().toUpperCase(),
-                          style: const TextStyle(
+                          decoration: BoxDecoration(
                             color: Colors.white,
-                            fontSize: 9.8,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
+                            borderRadius: BorderRadius.circular(6),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: _buildStoreLogo(banner.store, banner.storeName),
+                        ),
+                      if (banner.badgeText != null && banner.badgeText!.trim().isNotEmpty) ...[
+                        if (banner.hasStoreTag) const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Text(
+                            banner.badgeText!.trim().toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.8,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
 
                 // Text Lines (vertically centered in remaining space like Store Banner)
                 Expanded(

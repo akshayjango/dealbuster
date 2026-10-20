@@ -2071,6 +2071,7 @@
                 <option value="tatacliq">Tata CLiQ</option>
                 <option value="nykaa">Nykaa</option>
                 <option value="dealbuster">DealBuster Special</option>
+                <option value="none">No Tags</option>
               </select>
             </div>
             <div class="field">
@@ -7036,7 +7037,7 @@ function onHomeBannerFormatChange() {
     const tpl = HOME_BANNER_TEMPLATES[fmt];
     if (tpl && tpl.store) {
       const storeSelect = document.getElementById('homeBannerStore');
-      if (storeSelect) storeSelect.value = tpl.store;
+      if (storeSelect && storeSelect.value !== 'none' && storeSelect.value !== 'no_tags') storeSelect.value = tpl.store;
     }
   } else {
     if (fullBgHint) fullBgHint.style.display = 'block';
@@ -7054,7 +7055,7 @@ function getHomeBannerDataFromForm() {
   const template = document.getElementById('homeBannerFormat')?.value || 'full_bg';
   const store = document.getElementById('homeBannerStore')?.value || 'amazon';
   const selEl = document.getElementById('homeBannerStore');
-  const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text?.replace(/ \(.*\)/, '') : 'Amazon';
+  const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text?.replace(/ \(.*\)/, '') : (store === 'none' ? 'No Tags' : 'Amazon');
   const badgeText = document.getElementById('homeBannerBadge')?.value?.trim() || '';
   const link = document.getElementById('homeBannerLink')?.value?.trim() || '';
   const imageUrl = document.getElementById('homeBannerImageUrl')?.value?.trim() || '';
@@ -7075,6 +7076,7 @@ function getHomeBannerDataFromForm() {
 
 function getStoreLogoHtml(store, storeName) {
   const s = (store || '').toLowerCase().trim();
+  if (!s || s === 'none' || s === 'no_tags' || s === 'no_tag' || s === 'notags') return '';
   const key = s.includes('_') ? s.split('_')[0] : s;
   if (key === 'myntra') return SVG_MYNTRA;
   if (key === 'flipkart') return SVG_FLIPKART;
@@ -7144,16 +7146,16 @@ function renderHomeBannerCardHtml(b) {
         `}
 
         <!-- Top Row: Store Badge + Deal Badge -->
+        ${(logoHtml || badgeText) ? `
         <div style="position:relative; z-index:4; display:flex; align-items:center; gap:8px;">
-          <div class="banner-store-pill">
-            ${logoHtml}
-          </div>
+          ${logoHtml ? `<div class="banner-store-pill">${logoHtml}</div>` : ''}
           ${badgeText ? `
             <span style="background:${tpl.badgeBg || '#111827'}; color:${tpl.badgeColor || '#fff'}; font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:0.04em; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
               ${escHtml(badgeText)}
             </span>
           ` : ''}
         </div>
+        ` : ''}
 
         <!-- Left: Vertically Centered Text Lines -->
         <div style="position:relative; z-index:4; flex:1; display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:54%;">
@@ -7175,16 +7177,16 @@ function renderHomeBannerCardHtml(b) {
       ` : ''}
       
       <!-- Top Row: Store Badge + Deal Badge -->
+      ${(logoHtml || badgeText) ? `
       <div style="position:relative; z-index:2; display:flex; align-items:center; gap:8px;">
-        <div class="banner-store-pill">
-          ${logoHtml}
-        </div>
+        ${logoHtml ? `<div class="banner-store-pill">${logoHtml}</div>` : ''}
         ${badgeText ? `
           <span style="background:rgba(0,0,0,0.55); color:#fff; border:1px solid rgba(255,255,255,0.3); font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:0.03em; backdrop-filter:blur(4px);">
             ${escHtml(badgeText)}
           </span>
         ` : ''}
       </div>
+      ` : ''}
 
       <!-- Middle: Vertically Centered Text Lines (matching store banners) -->
       <div style="position:relative; z-index:2; flex:1; display:flex; flex-direction:column; justify-content:center; gap:2px; max-width:54%;">
@@ -7399,7 +7401,7 @@ async function saveHomeBannerForm() {
   const template = document.getElementById('homeBannerFormat')?.value || 'full_bg';
   const store = document.getElementById('homeBannerStore').value;
   const selEl = document.getElementById('homeBannerStore');
-  const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text?.replace(/ \(.*\)/, '') : (store.charAt(0).toUpperCase() + store.slice(1));
+  const storeName = selEl ? selEl.options[selEl.selectedIndex]?.text?.replace(/ \(.*\)/, '') : (store === 'none' ? 'No Tags' : (store.charAt(0).toUpperCase() + store.slice(1)));
   const badgeText = document.getElementById('homeBannerBadge').value.trim();
   const applyEffect = document.getElementById('homeBannerApplyEffect')?.checked === true;
   const link = document.getElementById('homeBannerLink').value.trim();
@@ -7498,7 +7500,8 @@ function editHomeBanner(id) {
     onHomeBannerFormatChange();
   }
 
-  document.getElementById('homeBannerStore').value = b.store || 'amazon';
+  const _bStore = (b.store || '').toLowerCase();
+  document.getElementById('homeBannerStore').value = (_bStore === 'none' || _bStore === 'no_tags' || _bStore === 'no_tag' || _bStore === 'notags') ? 'none' : (b.store || 'amazon');
   document.getElementById('homeBannerBadge').value = b.badgeText || '';
   const effectEl = document.getElementById('homeBannerApplyEffect');
   if (effectEl) effectEl.checked = b.applyEffect === true;

@@ -7552,8 +7552,8 @@ export default {
               }
               banners[idx] = {
                 ...oldBanner,
-                store: data.store || oldBanner.store || 'amazon',
-                storeName: data.storeName || oldBanner.storeName || 'Amazon',
+                store: data.store !== undefined ? data.store : (oldBanner.store || 'amazon'),
+                storeName: data.storeName !== undefined ? data.storeName : (oldBanner.storeName || 'Amazon'),
                 template: data.template !== undefined ? data.template : (oldBanner.template || 'full_bg'),
                 badgeText: data.badgeText !== undefined ? data.badgeText : oldBanner.badgeText,
                 applyEffect: data.applyEffect !== undefined ? (data.applyEffect === true) : (oldBanner.applyEffect === true),
@@ -7578,8 +7578,8 @@ export default {
           } else {
             const newBanner = {
               id: 'hbanner_' + Date.now(),
-              store: data.store || 'amazon',
-              storeName: data.storeName || (data.store ? data.store.charAt(0).toUpperCase() + data.store.slice(1) : 'Amazon'),
+              store: data.store !== undefined ? data.store : 'amazon',
+              storeName: data.storeName || (data.store && data.store !== 'none' ? data.store.charAt(0).toUpperCase() + data.store.slice(1) : (data.store === 'none' ? 'No Tags' : 'Amazon')),
               template: data.template || 'full_bg',
               badgeText: data.badgeText || '',
               applyEffect: data.applyEffect === true,

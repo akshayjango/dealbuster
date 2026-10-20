@@ -351,6 +351,11 @@ class StoreBannerCard extends StatelessWidget {
             ),
           ],
         );
+      case 'none':
+      case 'no_tags':
+      case 'no_tag':
+      case 'notags':
+        return const SizedBox.shrink();
       default:
         return Row(
           mainAxisSize: MainAxisSize.min,

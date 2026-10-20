@@ -45,6 +45,11 @@ class HomeBannerItem {
 
   bool get isTemplate => template.isNotEmpty && template != 'full_bg';
 
+  bool get hasStoreTag {
+    final s = store.toLowerCase().trim();
+    return s.isNotEmpty && s != 'none' && s != 'no_tags' && s != 'no_tag' && s != 'notags';
+  }
+
   String get fullImageUrl {
     if (imageUrl.isEmpty) return '';
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
