@@ -97,14 +97,16 @@
     ],
     "lowestPriceText": null,
     "featured": false,
-    "hidden": false,
-    "outOfStock": false,
+    "hidden": true,
+    "outOfStock": true,
     "order": 3,
     "addedAt": "2026-10-20T03:24:27.333Z",
     "originalPrice": "",
     "rating": null,
     "reviewCount": null,
-    "priceIncreased": false
+    "priceIncreased": false,
+    "lastChecked": 1792466670358,
+    "dead": "2026-10-20T03:24:41.661Z"
   },
   {
     "id": "ds_1792466455686_0",
@@ -171,7 +173,7 @@
     ],
     "lowestPriceText": null,
     "featured": false,
-    "hidden": true,
+    "hidden": false,
     "outOfStock": false,
     "order": 6,
     "addedAt": "2026-10-20T03:15:38.084Z",
@@ -4147,7 +4149,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792438006583
+    "lastChecked": 1792466670358
   },
   {
     "id": "fk_1792437992164_b3egl",
@@ -4173,7 +4175,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792438006583
+    "lastChecked": 1792466670358
   },
   {
     "id": "fk_1792437983439_hmp1o",
@@ -4199,7 +4201,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792438006583
+    "lastChecked": 1792466670358
   },
   {
     "id": "fk_1792437979309_2ywlh",
@@ -4225,7 +4227,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792438006583
+    "lastChecked": 1792466670358
   },
   {
     "id": "fk_1792437976023_12sul",
@@ -20341,7 +20343,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792437013394
+    "lastChecked": 1792466670358
   },
   {
     "id": "dotd_1792404342670_0",
@@ -37502,7 +37504,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792437013394
+    "lastChecked": 1792466670358
   },
   {
     "id": "ds_1792346723113_0",
@@ -37773,7 +37775,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792437013394
+    "lastChecked": 1792466670358
   },
   {
     "id": "fk_1792346056585_rpek4",
@@ -48054,7 +48056,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792437013394
+    "lastChecked": 1792466670358
   },
   {
     "id": "fk_1792319152219_zps1m",
@@ -48080,7 +48082,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792437013394
+    "lastChecked": 1792466670358
   },
   {
     "id": "ds_1792318827113_0",
@@ -48683,7 +48685,7 @@
     "rating": null,
     "reviewCount": 92301,
     "priceIncreased": false,
-    "lastChecked": 1792437013394
+    "lastChecked": 1792466670358
   },
   {
     "id": "fk_1792317333887_4tmkc",
@@ -48710,7 +48712,7 @@
     "rating": null,
     "reviewCount": null,
     "priceIncreased": false,
-    "lastChecked": 1792437013394
+    "lastChecked": 1792466670358
   },
   {
     "id": "amzdeal_1792317199234_0",
