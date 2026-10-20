@@ -89,13 +89,19 @@ class ApiService {
 
       return list
           .map<Product>((json) => Product.fromJson(json))
-          .where((p) =>
-              !p.hidden &&
-              !p.outOfStock &&
-              p.price.isNotEmpty &&
-              p.price != '₹0' &&
-              p.price != '₹' &&
-              !_uptoRegex.hasMatch(p.title))
+          .where((p) {
+            if (p.hidden || p.outOfStock) return false;
+            if (p.price.isEmpty || p.price == '₹0' || p.price == '₹') return false;
+            final numPrice = double.tryParse(p.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+            if (numPrice < 10.0) return false;
+            if (p.disc == '-100%' || p.disc == '100%') return false;
+            final numMrp = double.tryParse(p.mrp.replaceAll(RegExp(r'[^0-9.]'), '')) ?? numPrice;
+            if (numMrp >= 500 && numPrice < 20) return false;
+            if (numMrp >= 5000 && numPrice < 100) return false;
+            if (numMrp >= 50000 && numPrice < 1000) return false;
+            if (_uptoRegex.hasMatch(p.title)) return false;
+            return true;
+          })
           .toList();
     } catch (e) {
       debugPrint('[ApiService] Error parsing products: $e');

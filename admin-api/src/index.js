@@ -1743,7 +1743,9 @@ async function scrapeAndSyncDealsPing(env, limit = 25) {
 
     const parsedMrpVal = parsePrice(deal.mrp);
     const mrp = parsedMrpVal || price;
+    if (!isValidDealPrice(price, mrp)) continue;
     const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
+    if (discNum >= 100) continue;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = '₹' + mrp.toLocaleString('en-IN');
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
@@ -1759,7 +1761,7 @@ async function scrapeAndSyncDealsPing(env, limit = 25) {
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
 
-      if (newPrice && existingPrice && newPrice < existingPrice) {
+      if (isValidPriceDrop(existingPrice, newPrice)) {
         const priceHistory = appendPriceHistory(existing, priceStr);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
         const origPrice = parsePrice(existing.originalPrice || existing.price);
@@ -1873,7 +1875,9 @@ async function scrapeAndSyncDealsHeaven(env, limit = 25) {
 
     const parsedMrpVal = parsePrice(deal.mrp);
     const mrp = parsedMrpVal || price;
+    if (!isValidDealPrice(price, mrp)) continue;
     const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
+    if (discNum >= 100) continue;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = '₹' + mrp.toLocaleString('en-IN');
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
@@ -1889,7 +1893,7 @@ async function scrapeAndSyncDealsHeaven(env, limit = 25) {
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
 
-      if (newPrice && existingPrice && newPrice < existingPrice) {
+      if (isValidPriceDrop(existingPrice, newPrice)) {
         const priceHistory = appendPriceHistory(existing, priceStr);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
         const origPrice = parsePrice(existing.originalPrice || existing.price);
@@ -2001,7 +2005,9 @@ async function scrapeAndSyncDealsSpy(env, limit = 25) {
 
     const parsedMrpVal = parsePrice(deal.mrp);
     const mrp = parsedMrpVal || price;
+    if (!isValidDealPrice(price, mrp)) continue;
     const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
+    if (discNum >= 100) continue;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = '₹' + mrp.toLocaleString('en-IN');
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
@@ -2017,9 +2023,10 @@ async function scrapeAndSyncDealsSpy(env, limit = 25) {
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
 
-      const needsDiscFix = (existing.disc === '0%' || existing.disc === '-0%' || parsePrice(existing.mrp) <= parsePrice(existing.price)) && discNum > 0;
-      if ((newPrice && existingPrice && newPrice < existingPrice) || needsDiscFix) {
-        const priceHistory = (newPrice && existingPrice && newPrice < existingPrice) ? appendPriceHistory(existing, priceStr) : (existing.priceHistory || []);
+      const isGoodDrop = isValidPriceDrop(existingPrice, newPrice);
+      const needsDiscFix = (existing.disc === '0%' || existing.disc === '-0%' || parsePrice(existing.mrp) <= parsePrice(existing.price)) && discNum > 0 && newPrice && newPrice >= 10;
+      if (isGoodDrop || needsDiscFix) {
+        const priceHistory = isGoodDrop ? appendPriceHistory(existing, priceStr) : (existing.priceHistory || []);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
         const origPrice = parsePrice(existing.originalPrice || existing.price);
         if (origPrice && newPrice && shouldDemote(origPrice, newPrice)) {
@@ -3039,8 +3046,10 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
     for (const item of resolved) {
       const { asin, targetUrl, title, image, price, mrp } = item;
+      if (!isValidDealPrice(price, mrp)) continue;
 
       const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
+      if (discNum >= 100) continue;
       const priceStr = price > 0 ? '₹' + price.toLocaleString('en-IN') : '';
       const mrpStr   = mrp   > 0 ? '₹' + mrp.toLocaleString('en-IN')   : priceStr;
       const discStr  = discNum > 0 ? `-${discNum}%` : '0%';
@@ -3223,7 +3232,9 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
       }
     }
 
+    if (!isValidDealPrice(price, mrp)) continue;
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
+    if (discNum >= 100) continue;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
@@ -3394,7 +3405,9 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
       }
     }
 
+    if (!isValidDealPrice(price, mrp)) continue;
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
+    if (discNum >= 100) continue;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
@@ -3409,7 +3422,7 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
 
-      if (newPrice && existingPrice && newPrice < existingPrice) {
+      if (isValidPriceDrop(existingPrice, newPrice)) {
         const priceHistory = appendPriceHistory(existing, priceStr);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
         const origPrice = parsePrice(existing.originalPrice || existing.price);
@@ -3461,6 +3474,32 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
 }
 
 // ── Price check + OOS detection (Creators API) ────────────────────────────────
+function isValidDealPrice(price, mrp) {
+  const p = parsePrice(price);
+  if (!p || p < 10) return false;
+  const m = parsePrice(mrp);
+  if (m && m > 0) {
+    if (m < p) return false;
+    const disc = Math.round((1 - p / m) * 100);
+    if (disc >= 100) return false;
+    if (m >= 500 && p < 20) return false;
+    if (m >= 5000 && p < 100) return false;
+    if (m >= 50000 && p < 1000) return false;
+  }
+  return true;
+}
+
+function isValidPriceDrop(existingPrice, newPrice) {
+  const oldP = parsePrice(existingPrice);
+  const newP = parsePrice(newPrice);
+  if (!oldP || !newP) return false;
+  if (newP >= oldP) return false;
+  if (newP < 10) return false;
+  if (oldP >= 200 && newP < oldP * 0.20) return false;
+  if (oldP >= 5000 && newP < 500) return false;
+  if (oldP >= 50000 && newP < 5000) return false;
+  return true;
+}
 
 function parsePrice(str) {
   if (str === null || str === undefined || str === '') return null;
@@ -3604,10 +3643,16 @@ async function checkAndCleanDeals(env) {
         if (!amPrice || amPrice <= 0) continue;
 
         const dbPrice = parsePrice(p.price);
+        if (dbPrice !== null && amPrice < dbPrice && !isValidPriceDrop(dbPrice, amPrice)) {
+          console.log(`priceCheck: skipping suspicious price collapse for ${p.asin}: ${p.price} -> ₹${amPrice}`);
+          continue;
+        }
+
         let amMrp = listing?.dealDetails?.originalPrice?.amount || listing?.price?.amount || dbPrice || amPrice;
-        if (Math.round(amMrp).toString().length > 5 || Math.round(amPrice).toString().length > 5) {
+        if (Math.round(amMrp).toString().length > 7 || Math.round(amPrice).toString().length > 7) {
           amMrp = amPrice;
         }
+        if (!isValidDealPrice(amPrice, amMrp)) continue;
         const newDisc = amPrice && amMrp && amMrp > amPrice ? Math.round((1 - amPrice / amMrp) * 100) : 0;
         const newPriceStr = '₹' + Math.round(amPrice).toLocaleString('en-IN');
         const newMrpStr = '₹' + Math.round(amMrp).toLocaleString('en-IN');
@@ -4049,12 +4094,13 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
       const mrpM = html.match(/class="[^"]*a-text-price[^"]*"[^>]*><span[^>]*>₹([\d,]+)/i) ||
                    html.match(/M\.R\.P\.[^₹]*₹\s*([\d,]+)/i);
       let mrp = mrpM ? parseInt(mrpM[1].replace(/,/g,'')) : price;
-      // Sanitize scraped MRP: if MRP digits > 5 (or price digits > 5), paise was accidentally concatenated (e.g. 124999.00 -> 12499900)
-      if (String(mrp).length > 5 || String(price).length > 5) {
+      // Sanitize scraped MRP: if digits > 7, paise was accidentally concatenated (e.g. 124999.00 -> 12499900)
+      if (String(mrp).length > 7 || String(price).length > 7) {
         mrp = price;
       }
+      if (!isValidDealPrice(price, mrp)) continue;
       const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
-      if (discNum < 10) continue; // skip near-zero discount
+      if (discNum < 10 || discNum >= 100) continue; // skip near-zero or impossible 100% discount
 
       // Image
       let image = '';
@@ -4384,7 +4430,15 @@ function fbCaptionRow(p) {
 
 // Same "no price" definition as the admin dashboard's ₹ N/A filter — keep in sync.
 function isZeroPrice(p) {
-  return !p.price || p.price === '₹0' || p.price === '₹';
+  if (!p || !p.price || p.price === '₹0' || p.price === '₹') return true;
+  const val = parsePrice(p.price);
+  if (val === null || val < 10) return true;
+  if (p.disc === '-100%' || p.disc === '100%') return true;
+  const mrp = parsePrice(p.mrp);
+  if (mrp && mrp >= 500 && val < 20) return true;
+  if (mrp && mrp >= 5000 && val < 100) return true;
+  if (mrp && mrp >= 50000 && val < 1000) return true;
+  return false;
 }
 
 // ── Tombstones ────────────────────────────────────────────────────────────────
@@ -6557,7 +6611,7 @@ export default {
     if (url0.pathname === '/public/products.json' && request.method === 'GET') {
       try {
         const { products } = await getProductsFile(env);
-        const visible = products.filter(p => !p.hidden && !hasUptoOffInTitle(p.title) && !p.isDealspyAjio);
+        const visible = products.filter(p => !p.hidden && !isZeroPrice(p) && !hasUptoOffInTitle(p.title) && !p.isDealspyAjio);
         return new Response(JSON.stringify(visible), {
           headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         });

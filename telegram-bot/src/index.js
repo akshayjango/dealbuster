@@ -187,7 +187,7 @@ function extractDealDetailsFromText(text) {
                  text.match(/(?:₹|Rs\.?)\s*([0-9,]+)/i);
   if (priceM) {
     const val = parseInt(priceM[1].replace(/,/g, ''), 10);
-    if (val > 0 && val < 10000000) {
+    if (val >= 10 && val < 10000000) {
       const formatted = `₹${val.toLocaleString('en-IN')}`;
       if (formatted !== mrp) {
         dealPrice = formatted;

@@ -70,6 +70,32 @@ void main() {
         'hidden': false,
         'outOfStock': false,
       },
+      {
+        'id': 'p6',
+        'title': 'Corrupt 1 Rupee Refrigerator',
+        'price': '₹1',
+        'mrp': '₹1,77,990',
+        'disc': '-100%',
+        'image': 'https://example.com/p6.jpg',
+        'link': 'https://amazon.in/dp/B006',
+        'category': 'appliances',
+        'featured': false,
+        'hidden': false,
+        'outOfStock': false,
+      },
+      {
+        'id': 'p7',
+        'title': 'Corrupt 3 Rupee Cable',
+        'price': '₹3',
+        'mrp': '₹599',
+        'disc': '-99%',
+        'image': 'https://example.com/p7.jpg',
+        'link': 'https://amazon.in/dp/B007',
+        'category': 'electronics',
+        'featured': false,
+        'hidden': false,
+        'outOfStock': false,
+      },
     ]);
 
     final products = ApiService.parseProductsSync(testJson);

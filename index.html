@@ -4231,7 +4231,17 @@
   // Same string #scrollRestoreCover populated itself from above — one
   // canonical template, so the two can't drift out of sync.
   const skeletonCardHtml = window.DB_SKELETON_CARD;
-  const zeroPrice = p => !p.price || p.price === '₹0' || p.price === '₹';
+  const zeroPrice = p => {
+    if (!p || !p.price || p.price === '₹0' || p.price === '₹') return true;
+    const val = parseInt(String(p.price).replace(/[^\d]/g, '')) || 0;
+    if (val < 10) return true;
+    if (p.disc === '-100%' || p.disc === '100%') return true;
+    const mrp = parseInt(String(p.mrp || '').replace(/[^\d]/g, '')) || 0;
+    if (mrp >= 500 && val < 20) return true;
+    if (mrp >= 5000 && val < 100) return true;
+    if (mrp >= 50000 && val < 1000) return true;
+    return false;
+  };
   const productKey = p => p.asin || p.link;
   // Populated as products are rendered — lets the silent 5-min poll below
   // tell brand-new deals apart from ones already on the page.
@@ -4516,7 +4526,7 @@
   function sortProducts(list) {
     if (!Array.isArray(list)) return [];
     return list
-      .filter(p => !p.hidden && !p.dead && !p.outOfStock && !hasUptoOffInTitle(p.title) && !p.isDealspyAjio)
+      .filter(p => !p.hidden && !p.dead && !p.outOfStock && !zeroPrice(p) && !hasUptoOffInTitle(p.title) && !p.isDealspyAjio)
       .sort((a, b) =>
         (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
         (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
@@ -4695,7 +4705,7 @@
       if (!resp.ok) return;
       const data = await resp.json();
       const products = (Array.isArray(data) ? data : (data.products || []))
-        .filter(p => !p.hidden && !p.isDealspyAjio)
+        .filter(p => !p.hidden && !zeroPrice(p) && !p.isDealspyAjio)
         .sort((a, b) =>
           (b.featured ? 1 : 0) - (a.featured ? 1 : 0) ||
           (zeroPrice(a) ? 1 : 0) - (zeroPrice(b) ? 1 : 0) ||
