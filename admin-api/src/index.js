@@ -8566,8 +8566,8 @@ export default {
       );
     }
 
-    // 8 AM, 1 PM, 6 PM, 10 PM IST (2:30, 7:30, 12:30, 16:30 UTC) — Deep sweep (All Deals) & Amazon deals
-    if (event.cron === '30 2,7,12,16 * * *' || event.cron === '31 2,12 * * *') {
+    // 8:01 AM, 1:01 PM, 6:01 PM, 10:01 PM IST (2:31, 7:31, 12:31, 16:31 UTC) — Deep sweep (All Deals) & Amazon deals
+    if (event.cron === '31 2,7,12,16 * * *' || event.cron === '31 2,12 * * *') {
       ctx.waitUntil(
         withCronLock('cron_deep_sweep', 600, env, async () => {
           try {
