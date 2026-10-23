@@ -1801,8 +1801,8 @@ async function scrapeAndSyncDealsPing(env, limit = 25) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
+  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...base], env);
-
   const msg = `DealsPing sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('DealsPing', env);
@@ -1933,8 +1933,8 @@ async function scrapeAndSyncDealsHeaven(env, limit = 25) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
+  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...base], env);
-
   const msg = `DealsHeaven sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('DealsHeaven', env);
@@ -2065,8 +2065,8 @@ async function scrapeAndSyncDealsSpy(env, limit = 25) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
+  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...base], env);
-
   const msg = `DealsSpy sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('DealsSpy', env);
@@ -3094,6 +3094,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       return { success: true, count: 0, message: 'IndiaFreeStuff: no new deals found.' };
     }
 
+    if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
     const final = await capLiveAndBury([...added, ...products], env);
 
     const msg = `IndiaFreeStuff sync: +${added.length} new`;
@@ -3265,6 +3266,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
     return { success: true, count: 0, message: 'DealOfTheDayIndia: no new Amazon deals.' };
   }
 
+  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...products], env);
   const msg = `DealOfTheDayIndia sync: +${added.length} new`;
   await saveProductsFile(final, sha, msg, env);
@@ -3460,6 +3462,7 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
+  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...base], env);
   const msg = `OfferTag sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -3535,6 +3538,82 @@ function shouldDemote(origPrice, currentPrice) {
   if (!origPrice || !currentPrice) return false;
   const threshold = origPrice < 500 ? 1.25 : 1.15;
   return currentPrice >= origPrice * threshold;
+}
+
+// ── Enrich and verify newly discovered Amazon deals at ingestion ────────────
+async function enrichAndVerifyNewAmazonDeals(newDeals, env) {
+  if (!newDeals || !newDeals.length) return newDeals;
+  const amzDeals = newDeals.filter(p => p && p.asin && !p.outOfStock && !p.hidden && !p.dead);
+  if (!amzDeals.length) return newDeals;
+
+  const accessKey = env.CREATOR_OOS_ACCESS_KEY || env.PA_ACCESS_KEY;
+  const secretKey = env.CREATOR_OOS_SECRET_KEY || env.PA_SECRET_KEY;
+  if (!accessKey || !secretKey) return newDeals;
+
+  try {
+    const token = await getAccessToken(accessKey, secretKey);
+    const CHUNK = 10;
+    for (let i = 0; i < amzDeals.length; i += CHUNK) {
+      const chunk = amzDeals.slice(i, i + CHUNK);
+      const asins = chunk.map(p => p.asin.trim().toUpperCase());
+      const resp = await fetchWithTimeout('https://creatorsapi.amazon/catalog/v1/getItems', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'x-marketplace': 'www.amazon.in' },
+        body: JSON.stringify({
+          itemIds: asins, itemIdType: 'ASIN', marketplace: 'www.amazon.in',
+          partnerTag: env.PA_PARTNER_TAG || 'dealbuster002-21',
+          resources: ['itemInfo.title','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.dealDetails','images.primary.large'],
+        }),
+      }, 7000);
+
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const items = data.itemsResult?.items || [];
+      const now = Date.now();
+
+      for (const p of chunk) {
+        p.lastChecked = now;
+        const item = items.find(it => it.asin?.toUpperCase() === p.asin?.toUpperCase());
+        if (!item) continue;
+
+        // Stock check: mark OOS if unavailable or no active seller listings
+        const listing = item?.offersV2?.listings?.[0];
+        const availability = listing?.availability;
+        const availMsg = (availability?.message || '').toLowerCase();
+        const isOOS = availability?.type === 'OUT_OF_STOCK' ||
+          availMsg.includes('currently unavailable') ||
+          (!item.offersV2?.listings || item.offersV2.listings.length === 0);
+
+        if (isOOS) {
+          p.outOfStock = true;
+          console.log(`[New Deal Ingest OOS] ${p.asin} is out of stock on Amazon, marked OOS`);
+          continue;
+        }
+
+        // Image upgrade: replace low-res/scraped thumbnail with official Amazon large image
+        const amImg = item?.images?.primary?.large?.url;
+        if (amImg && (!p.image || p.image.includes('_SL150_') || p.image.includes('_AC_US40_') || p.image.includes('_SX150_') || p.image.includes('_SL75_') || p.image.includes('media-amazon.com/images/I/'))) {
+          p.image = amImg;
+        }
+
+        // Live price verify: ensure live checkout price matches aggregator price
+        const amPrice = listing?.price?.amount;
+        if (amPrice && amPrice > 0) {
+          const dbPrice = parsePrice(p.price);
+          let amMrp = listing?.dealDetails?.originalPrice?.amount || listing?.price?.amount || dbPrice || amPrice;
+          if (isValidDealPrice(amPrice, amMrp)) {
+            const newDisc = amPrice && amMrp && amMrp > amPrice ? Math.round((1 - amPrice / amMrp) * 100) : 0;
+            p.price = '₹' + Math.round(amPrice).toLocaleString('en-IN');
+            p.mrp = '₹' + Math.round(amMrp).toLocaleString('en-IN');
+            p.disc = newDisc > 0 ? `-${newDisc}%` : '0%';
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('enrichAndVerifyNewAmazonDeals skipped on error:', err.message);
+  }
+  return newDeals;
 }
 
 async function checkAndCleanDeals(env, options = {}) {
@@ -4184,6 +4263,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
     return { success: true, count: 0, message: `Amazon Deals sync: processed ${toProcess.length} ASINs, 0 valid deals (low discount or no data)` };
   }
 
+  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
   const trimmed = await capLiveAndBury([...added, ...products], env);
   await saveProductsFile(trimmed, sha, `Amazon deals sync: +${added.length}`, env);
 
