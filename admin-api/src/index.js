@@ -2643,8 +2643,8 @@ async function syncAndPostAjioCuratedDeal(env, options = {}) {
 
   // Try current page and up to 4 subsequent pages to find unposted item
   while (!selected && attempts < 5) {
-    const fetchUrl = `https://www.ajio.com/api/category/offer-deals-03022021?query=%3Arelevance%3Arating%3A4+star+%26+above&curated=true&curatedid=offer-deals-03022021&gridColumns=3&sort=relevance&currentPage=${page}&pageSize=45&format=json`;
-    const resp = await fetchWithTimeout(fetchUrl, { headers: ajioHeaders }, 10000);
+    const fetchUrl = `https://www.ajio.com/api/category/offer-deals-03022021?query=%3Arelevance%3Arating%3A4+star+%26+above&curated=true&curatedid=offer-deals-03022021&gridColumns=3&sort=relevance&currentPage=${page}&pageSize=15&format=json`;
+    const resp = await fetchWithTimeout(fetchUrl, { headers: ajioHeaders }, 20000);
     if (!resp.ok) {
       throw new Error(`Ajio API returned HTTP ${resp.status}`);
     }
