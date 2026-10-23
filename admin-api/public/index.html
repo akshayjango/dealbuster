@@ -1179,6 +1179,7 @@
             <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIndiaFreeStuffBtn">Sync IndiaFreeStuff</button>
             <button class="btn btn-outline btn-sm" onclick="syncOffertag()" id="syncOffertagBtn">Sync OfferTag</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
+            <button class="btn btn-outline btn-sm" onclick="runPriceAndOOSCheck()" id="runPriceCheckBtn" style="border-color:#3b82f6;color:#2563eb;">⚡ Check OOS &amp; Prices</button>
             <button class="btn btn-outline btn-sm" onclick="checkLowestPriceBadges()" id="checkBadgesBtn" style="border-color:#10b981;color:#059669;">🏷 Check Lowest Price Badges</button>
             <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
             <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
@@ -5153,6 +5154,25 @@ async function syncAmazonDeals() {
     await loadProducts();
   } catch (e) {
     alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function runPriceAndOOSCheck() {
+  const btn = document.getElementById('runPriceCheckBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Checking OOS & Prices…';
+  try {
+    const resp = await apiFetch('/clean-deals?limit=150', { method: 'POST' });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Price & OOS check complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Price & OOS check failed: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;

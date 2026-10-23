@@ -30,11 +30,11 @@ function json(data, status = 200) {
 
 // ── OAuth token ───────────────────────────────────────────────────────────────
 
-let cachedToken = null;
-let tokenExpiry = 0;
+const tokenCache = new Map();
 
 async function getAccessToken(clientId, clientSecret) {
-  if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
+  const cached = tokenCache.get(clientId);
+  if (cached && Date.now() < cached.expiry) return cached.token;
   const resp = await fetchWithTimeout('https://api.amazon.com/auth/o2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -42,9 +42,11 @@ async function getAccessToken(clientId, clientSecret) {
   });
   const data = await resp.json();
   if (!resp.ok || !data.access_token) throw new Error(data.error_description || data.error || 'Token fetch failed');
-  cachedToken = data.access_token;
-  tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
-  return cachedToken;
+  tokenCache.set(clientId, {
+    token: data.access_token,
+    expiry: Date.now() + (data.expires_in - 60) * 1000,
+  });
+  return data.access_token;
 }
 
 // ── Creators API search ───────────────────────────────────────────────────────
@@ -3535,19 +3537,19 @@ function shouldDemote(origPrice, currentPrice) {
   return currentPrice >= origPrice * threshold;
 }
 
-async function checkAndCleanDeals(env) {
+async function checkAndCleanDeals(env, options = {}) {
   const { products, sha } = await getProductsFile(env);
   if (!products.length) return { success: true, message: 'No products to check.' };
 
+  const accessKey = env.CREATOR_OOS_ACCESS_KEY || env.PA_ACCESS_KEY;
+  const secretKey = env.CREATOR_OOS_SECRET_KEY || env.PA_SECRET_KEY;
   let token;
-  try { token = await getAccessToken(env.PA_ACCESS_KEY, env.PA_SECRET_KEY); }
+  try { token = await getAccessToken(accessKey, secretKey); }
   catch (e) { throw new Error(`Auth failed: ${e.message}`); }
 
-  // Rotate through products: check oldest-checked first, up to 100 per run,
-  // across ALL live products (up to the 1440 cap). At 6 runs/hour that's a
-  // ~2.4hr full-cycle staleness at the 1440 cap vs ~72min at 720 — same API
-  // call volume per run either way (100 checked, chunked by 10), just spread
-  // across more products.
+  // Rotate through products: check oldest-checked first.
+  // Dedicated key (CREATOR_OOS_ACCESS_KEY) allows higher batch sizes (150 per run = 15 chunks)
+  // safely staying well below Cloudflare's 50 subrequest limit while completing sweeps faster.
   const live = products.filter(p => !isDead(p));
   const withAsin = live.filter(p => p.asin);
   const checkable = withAsin.filter(p => {
@@ -3555,7 +3557,8 @@ async function checkAndCleanDeals(env) {
     return !hasCoupon;
   });
   const sorted = [...checkable].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
-  const toCheck = sorted.slice(0, 100);
+  const checkLimit = options.limit || 150;
+  const toCheck = sorted.slice(0, checkLimit);
 
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
   let priceDrops = 0;
@@ -3592,11 +3595,13 @@ async function checkAndCleanDeals(env) {
         const updated = productMap.get(p.id);
         const item = items.find(it => it.asin.toUpperCase() === p.asin.toUpperCase());
 
-        // Only mark OOS when API explicitly signals it — not on missing item or missing price
+        // OOS detection: check availability flag, message, or missing offers
         const listing = item?.offersV2?.listings?.[0];
         const availability = listing?.availability;
-        const isOOS = availability?.type === 'OUT_OF_STOCK';
         const availMsg = (availability?.message || '').toLowerCase();
+        const isOOS = availability?.type === 'OUT_OF_STOCK' ||
+          availMsg.includes('currently unavailable') ||
+          (item && (!item.offersV2?.listings || item.offersV2.listings.length === 0));
         const isLowStockOrUndeliverable = !!availMsg.match(/only\s+[1-4]\s+left\s+in\s+stock/) ||
           availMsg.includes('cannot be shipped');
 
@@ -4261,6 +4266,8 @@ async function handleDebug(env) {
   const secrets = {
     PA_ACCESS_KEY: env.PA_ACCESS_KEY ? env.PA_ACCESS_KEY.slice(0,20)+'...' : 'NOT SET',
     PA_SECRET_KEY: env.PA_SECRET_KEY ? env.PA_SECRET_KEY.slice(0,10)+'...' : 'NOT SET',
+    CREATOR_OOS_ACCESS_KEY: env.CREATOR_OOS_ACCESS_KEY ? env.CREATOR_OOS_ACCESS_KEY.slice(0,20)+'...' : 'NOT SET',
+    CREATOR_OOS_SECRET_KEY: env.CREATOR_OOS_SECRET_KEY ? env.CREATOR_OOS_SECRET_KEY.slice(0,10)+'...' : 'NOT SET',
     PA_PARTNER_TAG: env.PA_PARTNER_TAG || 'NOT SET',
     ADMIN_PASSWORD: env.ADMIN_PASSWORD ? 'SET' : 'NOT SET',
     GITHUB_TOKEN: env.GITHUB_TOKEN ? { length: env.GITHUB_TOKEN.length, prefix: env.GITHUB_TOKEN.slice(0,10) } : 'NOT SET',
@@ -7928,8 +7935,9 @@ export default {
       }
 
       // ── /clean-deals ─────────────────────────────────────────────────────────
-      if (url.pathname === '/clean-deals' && request.method === 'GET') {
-        try { return json(await checkAndCleanDeals(env)); } catch (e) { return json({ error: e.message }, 502); }
+      if (url.pathname === '/clean-deals' && (request.method === 'GET' || request.method === 'POST')) {
+        const limitParam = parseInt(url.searchParams.get('limit') || '150', 10);
+        try { return json(await checkAndCleanDeals(env, { limit: limitParam })); } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /repair-nan-prices ────────────────────────────────────────────────────
