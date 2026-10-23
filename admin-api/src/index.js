@@ -3861,7 +3861,7 @@ async function checkLowestPriceBadges(env) {
   // Products needing highlights go first, then sort by oldest badge check
   const needHL = withAsin.filter(needsHighlights).sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
   const hasHL  = withAsin.filter(p => !needsHighlights(p)).sort((a, b) => (a.lastBadgeCheck || 0) - (b.lastBadgeCheck || 0));
-  const toCheck = [...needHL, ...hasHL].slice(0, 40);
+  const toCheck = [...needHL, ...hasHL].slice(0, 60);
 
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
   let changed = false;
