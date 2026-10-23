@@ -2581,6 +2581,166 @@ async function checkListingAvailability(url, scrapedPrice, env) {
   }
 }
 
+
+// ── Ajio Curated 4★+ Deals (Every 15 min, 8am-11pm IST, 7-day dedup, EarnKaro) ─────
+async function syncAndPostAjioCuratedDeal(env, options = {}) {
+  const isForce = options.force === true;
+  const now = Date.now();
+
+  // Daytime check: 8:00 AM - 11:00 PM IST (UTC+5:30)
+  const istDate = new Date(now + 5.5 * 60 * 60 * 1000);
+  const istHour = istDate.getUTCHours();
+  const istMinute = istDate.getUTCMinutes();
+  const istMinutesSinceMidnight = istHour * 60 + istMinute;
+
+  // Daytime: 8:00 AM (480 mins) to 11:00 PM (1380 mins)
+  const isDaytime = istMinutesSinceMidnight >= 480 && istMinutesSinceMidnight < 1380;
+  if (!isForce && !isDaytime) {
+    console.log(`Ajio curated: outside daytime hours (${istHour}:${istMinute} IST). Pausing.`);
+    return { success: true, skipped: 'nighttime' };
+  }
+
+  // Interval check: every 15 minutes (unless forced)
+  const lastPostTimeStr = await env.KV.get('last_ajio_curated_post_time');
+  const lastPostTime = lastPostTimeStr ? parseInt(lastPostTimeStr, 10) : 0;
+  const FOURTEEN_MINS_MS = 14 * 60 * 1000;
+  if (!isForce && (now - lastPostTime) < FOURTEEN_MINS_MS) {
+    return { success: true, skipped: 'interval_not_elapsed' };
+  }
+
+  // 7-day dedup ledger: { [productCode]: timestamp }
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  let ledger = {};
+  try {
+    const rawLedger = await env.KV.get('ajio_curated_posted_pids');
+    if (rawLedger) ledger = JSON.parse(rawLedger);
+  } catch (e) {
+    console.error('Failed to parse ajio_curated_posted_pids:', e.message);
+  }
+
+  // Clean entries older than 7 days
+  for (const [code, ts] of Object.entries(ledger)) {
+    if (now - ts > SEVEN_DAYS_MS) {
+      delete ledger[code];
+    }
+  }
+
+  // Current page tracker in KV (0 to 2000)
+  let page = 0;
+  try {
+    const pStr = await env.KV.get('ajio_curated_page');
+    if (pStr) page = parseInt(pStr, 10) || 0;
+  } catch {}
+
+  const ajioHeaders = {
+    'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 14; Pixel 7 Build/UQ1A.240105.004) AjioAndroid/9.0.0',
+    'Accept': 'application/json',
+    'Accept-Language': 'en-IN'
+  };
+
+  let selected = null;
+  let attempts = 0;
+
+  // Try current page and up to 4 subsequent pages to find unposted item
+  while (!selected && attempts < 5) {
+    const fetchUrl = `https://www.ajio.com/api/category/offer-deals-03022021?query=%3Arelevance%3Arating%3A4+star+%26+above&curated=true&curatedid=offer-deals-03022021&gridColumns=3&sort=relevance&currentPage=${page}&pageSize=45&format=json`;
+    const resp = await fetchWithTimeout(fetchUrl, { headers: ajioHeaders }, 10000);
+    if (!resp.ok) {
+      throw new Error(`Ajio API returned HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const products = data.products || [];
+    if (!products.length) {
+      page = 0;
+      await env.KV.put('ajio_curated_page', '0');
+      break;
+    }
+
+    for (const p of products) {
+      const code = String(p.code);
+      if (!ledger[code] && p.price?.value > 0) {
+        selected = p;
+        break;
+      }
+    }
+
+    if (!selected) {
+      page = (page + 1) % (data.pagination?.totalPages || 500);
+      attempts++;
+    }
+  }
+
+  if (!selected) {
+    await env.KV.put('ajio_curated_page', String(page));
+    return { success: false, message: 'No unposted product found across checked pages' };
+  }
+
+  // Convert raw product URL to EarnKaro
+  const rawUrl = `https://www.ajio.com${selected.url.startsWith('/') ? '' : '/'}${selected.url}`;
+  const ekaroLink = await convertToEarnKaroLink(rawUrl, env);
+  const finalLink = ekaroLink || rawUrl;
+
+  const brand = selected.fnlColorVariantData?.brandName || selected.brandName || '';
+  const title = `${brand ? brand + ' ' : ''}${selected.name}`.trim();
+  const priceVal = selected.price?.value;
+  const priceStr = selected.price?.displayformattedValue?.replace('Rs.', '₹').replace(/\.00$/, '') || `₹${priceVal}`;
+  const mrpVal = selected.wasPriceData?.value || priceVal;
+  const mrpStr = selected.wasPriceData?.displayformattedValue?.replace('Rs.', '₹').replace(/\.00$/, '') || `₹${mrpVal}`;
+  const discStr = selected.discountPercent ? `-${selected.discountPercent.replace(/\s*off/i, '').trim()}` : '';
+  const imgUrl = selected.images?.find(img => img.format === 'product')?.url || selected.images?.[0]?.url;
+
+  const newProduct = {
+    id: `ajio_${selected.code}_${Date.now()}`,
+    store: 'ajio',
+    title,
+    price: priceStr,
+    mrp: mrpStr,
+    disc: discStr,
+    image: imgUrl,
+    link: finalLink,
+    category: 'Fashion',
+    highlights: [
+      `${brand ? brand + ' - ' : ''}${selected.name}`,
+      'Rated 4★ & above on AJIO',
+      `Curated offer with ${selected.discountPercent || 'special discount'}`
+    ],
+    lowestPriceText: null,
+    featured: false,
+    hidden: false,
+    outOfStock: false,
+    addedAt: new Date().toISOString(),
+    originalPrice: priceStr
+  };
+
+  // 1. Publish to site (products.json)
+  await publishProductToSite(newProduct, env);
+
+  // 2. Post to Telegram channel
+  await sendToChannels([newProduct], env, { force: true, companionDm: false });
+
+  // 3. Update KV ledger & last post timestamp & advance page if appropriate
+  ledger[String(selected.code)] = now;
+  await env.KV.put('ajio_curated_posted_pids', JSON.stringify(ledger));
+  await env.KV.put('last_ajio_curated_post_time', String(now));
+  await env.KV.put('ajio_curated_page', String(page));
+
+  console.log(`Ajio curated: successfully posted ${newProduct.title} (${newProduct.price})`);
+
+  return {
+    success: true,
+    product: {
+      id: newProduct.id,
+      title: newProduct.title,
+      price: newProduct.price,
+      mrp: newProduct.mrp,
+      disc: newProduct.disc,
+      link: newProduct.link,
+      image: newProduct.image
+    }
+  };
+}
+
 async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
   // Save proxy credits: Do not run background crons between 2 AM and 7 AM IST unless forced
   if (!force) {
@@ -6942,6 +7102,17 @@ export default {
       }
     }
 
+    // ── /post-ajio-curated (trigger 1 deal from curated 4★+ collection) ──────
+    if (url0.pathname === '/post-ajio-curated' && (request.method === 'GET' || request.method === 'POST')) {
+      try {
+        const isForce = url0.searchParams.get('force') !== 'false';
+        const res = await syncAndPostAjioCuratedDeal(env, { force: isForce });
+        return json(res);
+      } catch (e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
     // ── /trigger-sync-sample (sync new deals from DealsPing and DealsHeaven) ──
     if (url0.pathname === '/trigger-sync-sample' && request.method === 'GET') {
       try {
@@ -8637,6 +8808,13 @@ export default {
             console.log('Non-Amazon price/stock check:', r.message);
           } catch (e) {
             console.error('Non-Amazon price/stock check error:', e.message);
+          }
+          try {
+            console.log('Ajio curated deals sync start (15-min interval)');
+            const r = await syncAndPostAjioCuratedDeal(env);
+            console.log('Ajio curated deals sync:', r?.message || (r?.product ? `posted ${r.product.title}` : 'done'));
+          } catch (e) {
+            console.error('Ajio curated deals sync error:', e.message);
           }
         })
       );
