@@ -1190,8 +1190,30 @@ async function fetchAmazonPageData(asin) {
                   html.includes('"availability":"OutOfStock"') ||
                   html.includes('"availability":"http://schema.org/OutOfStock"');
 
-    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title, image };
-  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false, title: null, image: null }; }
+    // Check clippable Amazon coupons (e.g. "Apply 4% coupon", "Apply ₹50 coupon", "Save 10% with coupon")
+    let couponText = null;
+    const cLabelM = html.match(/(?:class=["'][^"']*couponLabelText[^"']*["']|id=["']couponText[^"']*["'])[^>]*>([^<]+)/i);
+    if (cLabelM && cLabelM[1].trim()) {
+      couponText = cLabelM[1].trim().replace(/\s+/g, ' ');
+    } else {
+      const cApplyM = html.match(/\b(Apply\s+(?:₹|Rs\.?\s*)?\d+(?:%|\s*₹)?\s+coupon)\b/i);
+      if (cApplyM && cApplyM[1].trim()) {
+        couponText = cApplyM[1].trim();
+      } else {
+        const cSaveM = html.match(/\b(Save\s+(?:₹|Rs\.?\s*)?\d+(?:%|\s*₹)?\s+(?:with|at\s+checkout\s+with)\s+coupon)\b/i);
+        if (cSaveM && cSaveM[1].trim()) {
+          couponText = cSaveM[1].trim();
+        } else {
+          const cPctOffM = html.match(/(\d+%\s*off\s*coupon)/i);
+          if (cPctOffM && cPctOffM[1].trim()) {
+            couponText = cPctOffM[1].trim();
+          }
+        }
+      }
+    }
+
+    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title, image, couponText };
+  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false, title: null, image: null, couponText: null }; }
 }
 
 // ── DealsPing & DealsHeaven Parsers ──────────────────────────────────────────
@@ -3643,11 +3665,9 @@ async function checkAndCleanDeals(env, options = {}) {
   // safely staying well below Cloudflare's 50 subrequest limit while completing sweeps faster.
   const live = products.filter(p => !isDead(p));
   const withAsin = live.filter(p => p.asin);
-  const checkable = withAsin.filter(p => {
-    const hasCoupon = (p.title || '').match(/\[[^\]]*coupon[^\]]*\]/i);
-    return !hasCoupon;
-  });
-  const sorted = [...checkable].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
+  // All ASIN deals can be checked for OOS. For deals with coupons, we protect their
+  // discounted price from being overwritten with the higher non-coupon API base price.
+  const sorted = [...withAsin].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
   const checkLimit = options.all ? sorted.length : (options.limit || 150);
   const toCheck = sorted.slice(0, checkLimit);
 
@@ -3750,6 +3770,12 @@ async function checkAndCleanDeals(env, options = {}) {
         if (!amPrice || amPrice <= 0) continue;
 
         const dbPrice = parsePrice(p.price);
+        // If this product is a coupon deal, the API base price will be higher than the scraped coupon price.
+        // We do NOT overwrite the discounted coupon deal price with the higher base price.
+        const isCouponDeal = (p.title || '').match(/\[[^\]]*coupon[^\]]*\]/i) || p.couponText || p.coupon;
+        if (isCouponDeal && dbPrice !== null && amPrice >= dbPrice) {
+          continue;
+        }
         if (dbPrice !== null && amPrice < dbPrice && !isValidPriceDrop(dbPrice, amPrice)) {
           console.log(`priceCheck: skipping suspicious price collapse for ${p.asin}: ${p.price} -> ₹${amPrice}`);
           continue;
@@ -3889,7 +3915,7 @@ async function checkLowestPriceBadges(env) {
       if (!updated) return;
       updated.lastBadgeCheck = Date.now();
 
-      const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title: pageTitle, image: pageImage } = await fetchAmazonPageData(p.asin);
+      const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title: pageTitle, image: pageImage, couponText } = await fetchAmazonPageData(p.asin);
 
       // Auto-heal logo or generic titles/images for existing products!
       if (isGenericOrLogoTitle(updated.title) || isGenericOrLogoImage(updated.image)) {
@@ -3935,6 +3961,14 @@ async function checkLowestPriceBadges(env) {
       // Fix wrong category: if Amazon breadcrumb says something different, update
       if (category && updated.category !== category) {
         updated.category = category;
+        changed = true;
+      }
+
+      if (couponText && updated.couponText !== couponText) {
+        updated.couponText = couponText;
+        changed = true;
+      } else if (!couponText && updated.couponText) {
+        delete updated.couponText;
         changed = true;
       }
 
@@ -4474,10 +4508,11 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const mrp = product.mrp || '';
   const disc = product.disc || '';
   const lowestRow = product.lowestPriceText ? `🏷️ <b>${escHtml(product.lowestPriceText)}</b>` : '';
+  const couponRow = product.couponText ? `🎟️ <b>${escHtml(product.couponText)}</b>` : '';
   const priceRow = price ? `✅Deal Price: <b>${escHtml(price)}</b>` : '';
   const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
-  const detailsBlock = [lowestRow, priceRow, mrpRow, discRow].filter(Boolean).join('\n');
+  const detailsBlock = [lowestRow, couponRow, priceRow, mrpRow, discRow].filter(Boolean).join('\n');
   const isAmazon = product?.store === 'amazon' || /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(link);
   const linkHtml = (isAmazon && link.length > 75) ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
   return detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
@@ -4490,8 +4525,9 @@ function formatFbCaption(product, tag, isLowest = false, env = {}) {
   const price = product.price || '';
   const link = dealLink(product, tag, env);
   const lowestBadge = product.lowestPriceText ? `🏷️ ${product.lowestPriceText}\n` : '';
+  const couponBadge = product.couponText ? `🎟️ ${product.couponText}\n` : '';
   const priceBlock = price ? `💥 Deal Price @ ${price} 👇\n${link}` : `👇\n${link}`;
-  return `🔥 ${title}\n${lowestBadge}${priceBlock}`;
+  return `🔥 ${title}\n${lowestBadge}${couponBadge}${priceBlock}`;
 }
 
 // Extract canonical store product identifier (Flipkart PID, Myntra ID, etc.) from product link
@@ -7448,7 +7484,23 @@ export default {
 
           const lowestPriceText = extractLowestPriceText(html);
 
-          if (title) return json({ title, price, mrp, highlights, category, asin, image, lowestPriceText });
+          let couponText = null;
+          const cLabelM = html.match(/(?:class=["'][^"']*couponLabelText[^"']*["']|id=["']couponText[^"']*["'])[^>]*>([^<]+)/i);
+          if (cLabelM && cLabelM[1].trim()) {
+            couponText = cLabelM[1].trim().replace(/\s+/g, ' ');
+          } else {
+            const cApplyM = html.match(/\b(Apply\s+(?:₹|Rs\.?\s*)?\d+(?:%|\s*₹)?\s+coupon)\b/i);
+            if (cApplyM && cApplyM[1].trim()) {
+              couponText = cApplyM[1].trim();
+            } else {
+              const cSaveM = html.match(/\b(Save\s+(?:₹|Rs\.?\s*)?\d+(?:%|\s*₹)?\s+(?:with|at\s+checkout\s+with)\s+coupon)\b/i);
+              if (cSaveM && cSaveM[1].trim()) {
+                couponText = cSaveM[1].trim();
+              }
+            }
+          }
+
+          if (title) return json({ title, price, mrp, highlights, category, asin, image, lowestPriceText, couponText });
           return json({ error: 'Title not found' }, 404);
         } catch (e) { return json({ error: e.message }, 502); }
       }

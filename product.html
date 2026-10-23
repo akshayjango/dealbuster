@@ -1030,6 +1030,14 @@
     pill.innerHTML = `🔥 ${lowestText}`;
     document.getElementById('catTag')?.insertAdjacentElement('afterend', pill);
   }
+  const couponText = p.get('couponText');
+  if (couponText) {
+    const couponPill = document.createElement('span');
+    couponPill.className = 'coupon-tag';
+    couponPill.style.cssText = 'background:#ea580c;color:#fff;font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:6px;display:inline-block;margin-left:8px;vertical-align:middle;';
+    couponPill.innerHTML = `🏷️ ${couponText}`;
+    document.getElementById('catTag')?.insertAdjacentElement('afterend', couponPill);
+  }
   document.getElementById('productTitle').textContent = title;
 
   // Prices — collection/category deals don't show a specific price at all,
@@ -1258,6 +1266,13 @@
           pill.style.cssText = 'background:#10b981;color:#fff;font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:6px;display:inline-block;margin-left:8px;vertical-align:middle;';
           pill.innerHTML = `🔥 ${self.lowestPriceText}`;
           document.getElementById('catTag')?.insertAdjacentElement('afterend', pill);
+        }
+        if (self.couponText && !document.querySelector('.coupon-tag')) {
+          const couponPill = document.createElement('span');
+          couponPill.className = 'coupon-tag';
+          couponPill.style.cssText = 'background:#ea580c;color:#fff;font-size:.75rem;font-weight:700;padding:3px 8px;border-radius:6px;display:inline-block;margin-left:8px;vertical-align:middle;';
+          couponPill.innerHTML = `🏷️ ${self.couponText}`;
+          document.getElementById('catTag')?.insertAdjacentElement('afterend', couponPill);
         }
       }
 

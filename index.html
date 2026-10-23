@@ -4307,7 +4307,9 @@
       hl: (p.highlights || []).join('|'),
       collection: collection ? '1' : '',
     });
+    const couponText = p.couponText || ((p.title || '').match(/\[(Apply\s+[^\]]+coupon|[^\]]*coupon[^\]]*)\]/i)?.[1]) || null;
     if (p.lowestPriceText) params.set('lowestPriceText', p.lowestPriceText);
+    if (couponText) params.set('couponText', couponText);
     const el = document.createElement('a');
     el.href = 'product.html?' + params.toString();
     el.className = 'product-card';
@@ -4342,6 +4344,7 @@
         <img src="${cardImg}" alt="${displayTitle.replace(/"/g,'&quot;')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='images/dealbuster_icon.png';">
         <span class="discount-badge"><span class="db-num">${String(p.disc).replace(/^-/, '').replace(/%$/, '')}<span class="db-pct">%</span></span><span class="db-off">OFF</span></span>
         ${p.lowestPriceText ? `<span class="lowest-price-badge" style="position:absolute;bottom:6px;left:6px;background:#10b981;color:#fff;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;z-index:2;">🔥 ${p.lowestPriceText}</span>` : ''}
+        ${couponText ? `<span class="coupon-badge" style="position:absolute;bottom:6px;${p.lowestPriceText ? 'right:6px' : 'left:6px'};background:#ea580c;color:#fff;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;z-index:2;">🏷️ ${couponText}</span>` : ''}
       </div>
       <div class="card-body">
         <p class="card-title${collection ? ' full-title' : ''}">${displayTitle}</p>
