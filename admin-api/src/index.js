@@ -2713,19 +2713,16 @@ async function syncAndPostAjioCuratedDeal(env, options = {}) {
     originalPrice: priceStr
   };
 
-  // 1. Publish to site (products.json)
+  // Publish to site only (products.json) — normal 5-min TG cron picks qualifying deals naturally
   await publishProductToSite(newProduct, env);
 
-  // 2. Post to Telegram channel
-  await sendToChannels([newProduct], env, { force: true, companionDm: false });
-
-  // 3. Update KV ledger & last post timestamp & advance page if appropriate
+  // Update KV ledger & last post timestamp & advance page if appropriate
   ledger[String(selected.code)] = now;
   await env.KV.put('ajio_curated_posted_pids', JSON.stringify(ledger));
   await env.KV.put('last_ajio_curated_post_time', String(now));
   await env.KV.put('ajio_curated_page', String(page));
 
-  console.log(`Ajio curated: successfully posted ${newProduct.title} (${newProduct.price})`);
+  console.log(`Ajio curated: successfully published to site ${newProduct.title} (${newProduct.price})`);
 
   return {
     success: true,
