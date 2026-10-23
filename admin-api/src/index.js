@@ -1801,7 +1801,7 @@ async function scrapeAndSyncDealsPing(env, limit = 25) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
-  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
+  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...base], env);
   const msg = `DealsPing sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -1933,7 +1933,7 @@ async function scrapeAndSyncDealsHeaven(env, limit = 25) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
-  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
+  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...base], env);
   const msg = `DealsHeaven sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -2065,7 +2065,7 @@ async function scrapeAndSyncDealsSpy(env, limit = 25) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
-  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
+  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...base], env);
   const msg = `DealsSpy sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -3094,7 +3094,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       return { success: true, count: 0, message: 'IndiaFreeStuff: no new deals found.' };
     }
 
-    if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
+    if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
     const final = await capLiveAndBury([...added, ...products], env);
 
     const msg = `IndiaFreeStuff sync: +${added.length} new`;
@@ -3266,7 +3266,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
     return { success: true, count: 0, message: 'DealOfTheDayIndia: no new Amazon deals.' };
   }
 
-  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
+  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...products], env);
   const msg = `DealOfTheDayIndia sync: +${added.length} new`;
   await saveProductsFile(final, sha, msg, env);
@@ -3462,7 +3462,7 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
   const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
   const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
 
-  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
+  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
   const final = await capLiveAndBury([...added, ...base], env);
   const msg = `OfferTag sync: +${added.length} new, ${updated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
@@ -4263,7 +4263,7 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
     return { success: true, count: 0, message: `Amazon Deals sync: processed ${toProcess.length} ASINs, 0 valid deals (low discount or no data)` };
   }
 
-  if (added.length > 0) added = await enrichAndVerifyNewAmazonDeals(added, env);
+  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
   const trimmed = await capLiveAndBury([...added, ...products], env);
   await saveProductsFile(trimmed, sha, `Amazon deals sync: +${added.length}`, env);
 
