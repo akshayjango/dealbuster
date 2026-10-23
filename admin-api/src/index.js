@@ -1812,6 +1812,10 @@ async function scrapeAndSyncDealsPing(env, limit = 25) {
   if (lowestDeals.length > 0) {
     postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
       .catch(e => console.error('TG lowest price DealsPing post failed:', e.message));
+    for (const p of lowestDeals) {
+      const b = p.lowestPriceText || 'Lowest Price Deal';
+      notifyAdminPush(`🔥 DealsPing: ${b}!`, `${p.price ? p.price + ' - ' : ''}${p.title ? p.title.slice(0, 90) : ''}`, env).catch(() => {});
+    }
   }
 
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
@@ -1944,6 +1948,10 @@ async function scrapeAndSyncDealsHeaven(env, limit = 25) {
   if (lowestDeals.length > 0) {
     postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
       .catch(e => console.error('TG lowest price DealsHeaven post failed:', e.message));
+    for (const p of lowestDeals) {
+      const b = p.lowestPriceText || 'Lowest Price Deal';
+      notifyAdminPush(`🔥 DealsHeaven: ${b}!`, `${p.price ? p.price + ' - ' : ''}${p.title ? p.title.slice(0, 90) : ''}`, env).catch(() => {});
+    }
   }
 
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
@@ -2076,6 +2084,10 @@ async function scrapeAndSyncDealsSpy(env, limit = 25) {
   if (lowestDeals.length > 0) {
     postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
       .catch(e => console.error('TG lowest price DealsSpy post failed:', e.message));
+    for (const p of lowestDeals) {
+      const b = p.lowestPriceText || 'Lowest Price Deal';
+      notifyAdminPush(`🔥 DealsSpy: ${b}!`, `${p.price ? p.price + ' - ' : ''}${p.title ? p.title.slice(0, 90) : ''}`, env).catch(() => {});
+    }
   }
 
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
@@ -3972,6 +3984,10 @@ async function checkLowestPriceBadges(env) {
     console.log(`Lowest price check: found ${candidatesToPost.length} fresh lowest deal(s) from today. Triggering immediate TG post.`);
     postDealsAndTrack(candidatesToPost, env, { isLowestPricePost: true })
       .catch(e => console.error('TG lowest price deals post failed:', e.message));
+    for (const p of candidatesToPost) {
+      const b = p.lowestPriceText || 'Lowest Price Deal';
+      notifyAdminPush(`🔥 ${b}!`, `${p.price ? p.price + ' - ' : ''}${p.title ? p.title.slice(0, 90) : ''}`, env).catch(() => {});
+    }
   }
 
   if (!changed) return { success: true, message: `Checked ${toCheck.length} products. No changes from badge/highlight check.` };
@@ -4272,6 +4288,10 @@ async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
     console.log(`Amazon deals sync: found ${lowestDeals.length} lowest price deal(s). Triggering immediate TG post.`);
     postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
       .catch(e => console.error('TG lowest price sync post failed:', e.message));
+    for (const p of lowestDeals) {
+      const b = p.lowestPriceText || 'Lowest Price Deal';
+      notifyAdminPush(`🔥 Amazon Deals: ${b}!`, `${p.price ? p.price + ' - ' : ''}${p.title ? p.title.slice(0, 90) : ''}`, env).catch(() => {});
+    }
   }
 
   return { success: true, count: added.length, message: `Amazon Deals sync: added ${added.length} deal${added.length > 1 ? 's' : ''} from amazon.in/deals`, addedProducts: added };
@@ -4313,6 +4333,10 @@ async function handlePublish(body, env) {
 
   const isLowest = !!newProduct.lowestPriceText || hasLowestPrice(newProduct);
   postDealsAndTrack([newProduct], env, { isLowestPricePost: isLowest }).catch(e => console.error('TG post failed:', e.message));
+  if (isLowest) {
+    const b = newProduct.lowestPriceText || 'Lowest Price Deal';
+    notifyAdminPush(`🔥 Published: ${b}!`, `${newProduct.price ? newProduct.price + ' - ' : ''}${newProduct.title ? newProduct.title.slice(0, 90) : ''}`, env).catch(() => {});
+  }
 
   // Legacy: write card to index.html
   const params = new URLSearchParams({ title: product.title, cat: category, price: product.price, mrp: product.mrp, disc: product.disc, updated: today.slice(0,10), img: product.image, link: product.link, hl: (highlights||[]).join('|') });
