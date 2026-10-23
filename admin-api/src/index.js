@@ -2715,6 +2715,11 @@ async function syncAndPostAjioCuratedDeal(env, options = {}) {
 
   // Publish to site only (products.json) — normal 5-min TG cron picks qualifying deals naturally
   await publishProductToSite(newProduct, env);
+  // Pre-claim in DO / posted ledger so TG cron NEVER posts curated Ajio deals to Telegram
+  try {
+    const items = [{ id: newProduct.id, asin: null }];
+    await pendingApprovalsDO(env, '/posted/claim', { items, force: true });
+  } catch (e) {}
 
   // Update KV ledger & last post timestamp & advance page if appropriate
   ledger[String(selected.code)] = now;
@@ -4944,16 +4949,27 @@ function getProductRating(p) {
   return null;
 }
 
+function isAjioDeal(deal) {
+  if (!deal) return false;
+  if (deal.store === 'ajio') return true;
+  const link = (deal.link || '').toLowerCase();
+  const title = (deal.title || '').toLowerCase();
+  if (link.includes('ajio.com') || link.includes('ajiio.in') || link.includes('ajiio.co') || link.includes('ajiio') || title.includes('ajio')) return true;
+  return false;
+}
+
 function isNonAmazonDeal(p) {
+  if (isAjioDeal(p)) return false; // Per user rule: Ajio deals are site/app only, never auto-posted to Telegram channel
   if (p.asin && p.asin.length === 10) return false;
   const link = (p.link || '').toLowerCase();
   if (link.includes('amazon.in') || link.includes('amzn.to') || link.includes('link.amazon') || link.includes('amazon.com')) return false;
   // Per user request: no CueLinks allowed, only EarnKaro
   if (link.includes('linksredirect.com') || link.includes('cuelinks.com')) return false;
-  return /(?:ekaro|earnkaro|fktr\.in|fkrt\.(?:co|cc)|ajiio\.(?:in|co)|myntr\.(?:it|in))/i.test(link);
+  return /(?:ekaro|earnkaro|fktr\.in|fkrt\.(?:co|cc)|myntr\.(?:it|in))/i.test(link);
 }
 
 function meetsAutoPostPlusCriteria(p) {
+  if (isAjioDeal(p)) return false; // Ajio deals are site/app only
   // Condition 3: all non-Amazon deals posted to site correctly
   if (isNonAmazonDeal(p)) return true;
 
@@ -5678,6 +5694,7 @@ async function postDealsAndTrack(products, env, { isLowestPricePost = false } = 
   const list = (products || []).filter(Boolean).filter(p => {
     if (isZeroPrice(p)) { console.log(`Skipping TG post (₹0/no price): ${p.title || p.id}`); return false; }
     if (p.priceIncreased) { console.log(`Skipping TG post (price increased >15%/25%): ${p.title || p.id}`); return false; }
+    if (isAjioDeal(p)) { console.log(`Skipping TG post (Ajio deal — app/site only): ${p.title || p.id}`); return false; }
     return true;
   });
   if (!list.length) return;
@@ -6184,6 +6201,7 @@ async function getUnpostedTgFresh(env, mode) {
     const topCandidates = products.filter(p => {
       if (p.hidden || p.outOfStock || isZeroPrice(p) || p.priceIncreased) return false;
       if (hasUptoOffInTitle(p.title)) return false;
+      if (isAjioDeal(p)) return false; // Ajio deals are site/app only, never post to TG channel
       if (cutoffMs !== null && Date.parse(p.addedAt) < cutoffMs) return false;
       return true;
     }).slice(0, 100);
@@ -6203,7 +6221,7 @@ async function getUnpostedTgFresh(env, mode) {
   const MAX_TG_POST_AGE_MS = 12 * 60 * 60 * 1000;
   const unposted = products.filter(p => {
     const isUpto = hasUptoOffInTitle(p.title);
-    if ((p.hidden && !isUpto) || p.outOfStock || isZeroPrice(p) || isAlreadyPosted(p, postedIds)) return false;
+    if ((p.hidden && !isUpto) || p.outOfStock || isZeroPrice(p) || isAlreadyPosted(p, postedIds) || isAjioDeal(p)) return false;
     if (cutoffMs !== null && Date.parse(p.addedAt) < cutoffMs) return false;
     const addedTime = Date.parse(p.addedAt || 0);
     if (!addedTime || (now - addedTime) > MAX_TG_POST_AGE_MS) return false;
@@ -6376,14 +6394,7 @@ function getStoreNameFromTitleOrUrl(title, url) {
   return 'Non-Amazon';
 }
 
-function isAjioDeal(deal) {
-  if (!deal) return false;
-  const store = getStoreNameFromTitleOrUrl(deal.title, deal.link);
-  if (store === 'Ajio') return true;
-  const link = (deal.link || '').toLowerCase();
-  const title = (deal.title || '').toLowerCase();
-  return link.includes('ajio.com') || link.includes('ajiio.in') || link.includes('ajiio') || title.includes('ajio');
-}
+// duplicate isAjioDeal removed
 
 async function sendNonAmazonDealPromptToAdmin(deal, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
