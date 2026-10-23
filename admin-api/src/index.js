@@ -3557,11 +3557,12 @@ async function checkAndCleanDeals(env, options = {}) {
     return !hasCoupon;
   });
   const sorted = [...checkable].sort((a, b) => (a.lastChecked || 0) - (b.lastChecked || 0));
-  const checkLimit = options.limit || 150;
+  const checkLimit = options.all ? sorted.length : (options.limit || 150);
   const toCheck = sorted.slice(0, checkLimit);
 
   const productMap = new Map(products.map(p => [p.id, { ...p }]));
   let priceDrops = 0;
+  let upgradedImages = 0;
   let changed = false;
 
   const CHUNK = 10;
@@ -3577,7 +3578,7 @@ async function checkAndCleanDeals(env, options = {}) {
         body: JSON.stringify({
           itemIds: asins, itemIdType: 'ASIN', marketplace: 'www.amazon.in',
           partnerTag: env.PA_PARTNER_TAG || 'dealbuster002-21',
-          resources: ['itemInfo.title','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.dealDetails'],
+          resources: ['itemInfo.title','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.dealDetails','images.primary.large'],
         }),
       });
       if (!resp.ok) {
@@ -3610,6 +3611,16 @@ async function checkAndCleanDeals(env, options = {}) {
         } else if (updated.lowStock) {
           delete updated.lowStock;
           changed = true;
+        }
+
+        // Auto-upgrade image to official high-resolution Amazon image if available
+        const amImg = item?.images?.primary?.large?.url;
+        if (amImg && (!updated.image || updated.image.includes('_SL150_') || updated.image.includes('_AC_US40_') || updated.image.includes('_SX150_') || updated.image.includes('_SL75_') || updated.image.includes('media-amazon.com/images/I/'))) {
+          if (updated.image !== amImg) {
+            updated.image = amImg;
+            upgradedImages++;
+            changed = true;
+          }
         }
 
         if (isOOS) {
@@ -3706,6 +3717,9 @@ async function checkAndCleanDeals(env, options = {}) {
     } catch (err) {
       console.error(`Chunk ${i} error:`, err.message);
     }
+    if (options.all && i + CHUNK < toCheck.length) {
+      await new Promise(r => setTimeout(r, 1100)); // Respect 1 TPS strictly during deep sweep
+    }
   }
 
   // Keep OOS products pinned to the bottom every cycle (same rule as the
@@ -3742,13 +3756,13 @@ async function checkAndCleanDeals(env, options = {}) {
   }
 
   const reordered = finalOrder.map((p, i) => ({ ...p, order: i }));
-  const msg = `Price sync: ${priceDrops} price drops (in place), ${oos.length} OOS at bottom, ${newlyDead} newly tombstoned`;
+  const msg = `Price sync: ${priceDrops} price drops, ${oos.length} OOS at bottom, ${upgradedImages} images upgraded, ${newlyDead} tombstoned`;
   await saveProductsFile(reordered, sha, msg, env);
 
   return {
-    success: true, priceDrops, oosAtBottom: oos.length, newlyTombstoned: newlyDead,
+    success: true, checkedCount: toCheck.length, priceDrops, upgradedImages, oosAtBottom: oos.length, newlyTombstoned: newlyDead,
     oosCount: [...productMap.values()].filter(p => p.outOfStock).length,
-    message: `Price sync done. ${priceDrops} price drops updated in place, ${oos.length} OOS at bottom, ${newlyDead} newly tombstoned.`,
+    message: `Price sync done: checked ${toCheck.length} deals. ${priceDrops} price drops, ${upgradedImages} images upgraded, ${oos.length} OOS at bottom, ${newlyDead} newly tombstoned.`,
   };
 }
 
@@ -7934,10 +7948,11 @@ export default {
         });
       }
 
-      // ── /clean-deals ─────────────────────────────────────────────────────────
-      if (url.pathname === '/clean-deals' && (request.method === 'GET' || request.method === 'POST')) {
+      // ── /clean-deals & /sweep-all-deals ──────────────────────────────────────
+      if ((url.pathname === '/clean-deals' || url.pathname === '/sweep-all-deals') && (request.method === 'GET' || request.method === 'POST')) {
+        const isAll = url.searchParams.get('all') === 'true' || url.pathname === '/sweep-all-deals';
         const limitParam = parseInt(url.searchParams.get('limit') || '150', 10);
-        try { return json(await checkAndCleanDeals(env, { limit: limitParam })); } catch (e) { return json({ error: e.message }, 502); }
+        try { return json(await checkAndCleanDeals(env, { all: isAll, limit: limitParam })); } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /repair-nan-prices ────────────────────────────────────────────────────
@@ -8471,10 +8486,18 @@ export default {
       );
     }
 
-    // 8 AM & 6 PM IST (2:31 & 12:31 UTC) — Amazon deals sweep, merged into one trigger slot
-    if (event.cron === '31 2,12 * * *') {
+    // 8 AM, 1 PM, 6 PM, 10 PM IST (2:30, 7:30, 12:30, 16:30 UTC) — Deep sweep (All Deals) & Amazon deals
+    if (event.cron === '30 2,7,12,16 * * *' || event.cron === '31 2,12 * * *') {
       ctx.waitUntil(
-        (async () => {
+        withCronLock('cron_deep_sweep', 600, env, async () => {
+          try {
+            console.log('Deep Sweep (All Deals) start');
+            const r = await checkAndCleanDeals(env, { all: true });
+            console.log('Deep Sweep:', r.message);
+          } catch (e) {
+            console.error('Deep Sweep error:', e.message);
+            await saveSyncError('DeepSweep', e.message, env);
+          }
           try {
             console.log('Amazon Deals check start');
             const r = await checkAmazonDeals(env);
@@ -8488,7 +8511,7 @@ export default {
           } catch (e) {
             console.error('CueLinks campaign access check error:', e.message);
           }
-        })()
+        })
       );
     }
 

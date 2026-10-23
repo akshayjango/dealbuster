@@ -1180,6 +1180,7 @@
             <button class="btn btn-outline btn-sm" onclick="syncOffertag()" id="syncOffertagBtn">Sync OfferTag</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
             <button class="btn btn-outline btn-sm" onclick="runPriceAndOOSCheck()" id="runPriceCheckBtn" style="border-color:#3b82f6;color:#2563eb;">⚡ Check OOS &amp; Prices</button>
+            <button class="btn btn-outline btn-sm" onclick="runFullDeepSweep()" id="runFullSweepBtn" style="border-color:#8b5cf6;color:#7c3aed;" title="Sweep and verify every Amazon deal on the site (~2.8 minutes)">🚀 Full Sweep (All Deals)</button>
             <button class="btn btn-outline btn-sm" onclick="checkLowestPriceBadges()" id="checkBadgesBtn" style="border-color:#10b981;color:#059669;">🏷 Check Lowest Price Badges</button>
             <button class="btn btn-outline btn-sm" onclick="repairNaNPrices()" id="repairNaNBtn" style="border-color:#ef4444;color:#ef4444;">🔧 Fix NaN Prices</button>
             <button class="btn btn-outline btn-sm" onclick="clearCronLock()" title="Clear stuck cron lock" style="border-color:#6b7280;color:#6b7280;">🔓 Unlock Cron</button>
@@ -5154,6 +5155,26 @@ async function syncAmazonDeals() {
     await loadProducts();
   } catch (e) {
     alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function runFullDeepSweep() {
+  const btn = document.getElementById('runFullSweepBtn');
+  const originalText = btn.textContent;
+  if (!confirm('Run full deep sweep across all Amazon deals? This takes ~2.8 minutes to verify stock, prices, and upgrade images for every deal on the site.')) return;
+  btn.disabled = true;
+  btn.textContent = 'Sweeping All Deals (~2.8m)…';
+  try {
+    const resp = await apiFetch('/sweep-all-deals', { method: 'POST' });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Full deep sweep complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Full sweep failed: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;
