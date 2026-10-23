@@ -4499,9 +4499,12 @@ async function handlePublish(body, env) {
   const cleanTitleStr = sanitizeTitle(product.title || '');
   let finalLink = product.link || '';
   if (hasUptoOffInTitle(cleanTitleStr)) {
-    if (!finalLink.includes('linksredirect.com')) {
-      const rawUrl = product.asin ? `https://www.amazon.in/dp/${product.asin}` : getOriginalUrl(finalLink);
+    const isAmz = product.asin || (finalLink && /amazon\.(?:in|com)|amzn\.(?:to|in)|link\.amazon|a\.co/i.test(finalLink));
+    if (!isAmz && !finalLink.includes('linksredirect.com')) {
+      const rawUrl = getOriginalUrl(finalLink);
       if (rawUrl) finalLink = buildManualCueLink(rawUrl, env);
+    } else if (isAmz) {
+      finalLink = tagAmazonUrl(finalLink, env.PA_PARTNER_TAG || 'dealbuster002-21');
     }
   }
 
@@ -4644,18 +4647,14 @@ function trimTitle(raw) {
 }
 
 function dealLink(product, tag, env = {}) {
-  if (hasUptoOffInTitle(product?.title)) {
-    if (product.link && product.link.includes('linksredirect.com')) {
-      return product.link;
+  const isAmz = product?.store === 'amazon' || product?.asin || (product?.link && /amazon\.(?:in|com)|amzn\.(?:to|in)|link\.amazon|a\.co/i.test(product.link));
+  if (isAmz) {
+    if (product.asin) {
+      return `https://www.amazon.in/dp/${product.asin}?tag=${tag}`;
     }
-    const rawAmz = product.asin
-      ? `https://www.amazon.in/dp/${product.asin}`
-      : getOriginalUrl(product.link || '');
-    return rawAmz ? buildManualCueLink(rawAmz, env) : product.link || '';
+    return tagAmazonUrl(product.link || '', tag);
   }
-  return product.asin
-    ? `https://www.amazon.in/dp/${product.asin}?tag=${tag}`
-    : product.link || '';
+  return product.link || '';
 }
 
 function formatDealMsg(product, tag, isLowest = false, env = {}) {
@@ -4671,7 +4670,8 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
   const detailsBlock = [lowestRow, couponRow, priceRow, mrpRow, discRow].filter(Boolean).join('\n');
   const isAmazon = product?.store === 'amazon' || /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(link);
-  const linkHtml = (isAmazon && link.length > 75) ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
+  const isSearchOrCategory = /\/s\?|\/b\?|\/gp\/browse/i.test(link) || hasUptoOffInTitle(product?.title);
+  const linkHtml = (isAmazon && isSearchOrCategory) ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
   return detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
 }
 
@@ -5387,9 +5387,12 @@ async function publishProductToSite(product, env) {
   const cleanTitleStr = sanitizeTitle(product.title || '');
   let finalLink = product.link || '';
   if (hasUptoOffInTitle(cleanTitleStr)) {
-    if (!finalLink.includes('linksredirect.com')) {
-      const rawUrl = product.asin ? `https://www.amazon.in/dp/${product.asin}` : getOriginalUrl(finalLink);
+    const isAmz = product.asin || (finalLink && /amazon\.(?:in|com)|amzn\.(?:to|in)|link\.amazon|a\.co/i.test(finalLink));
+    if (!isAmz && !finalLink.includes('linksredirect.com')) {
+      const rawUrl = getOriginalUrl(finalLink);
       if (rawUrl) finalLink = buildManualCueLink(rawUrl, env);
+    } else if (isAmz) {
+      finalLink = tagAmazonUrl(finalLink, env.PA_PARTNER_TAG || 'dealbuster002-21');
     }
   }
 
@@ -6747,17 +6750,126 @@ async function handleTelegramWebhook(request, env) {
     return new Response('ok');
   }
 
-  // ── 2. Unified Deal Treatment & Preview (Amazon + Non-Amazon) ───────────────
+  // ── 2. Unified Deal Treatment (Multi-Link Auto-Post & Single-Link Preview) ───
   const allUrls = extractAllDealUrls(text, msg);
   if (!allUrls.length) {
     await tgSend(token, chatId, escTg('❓ Send me any Amazon or non-Amazon deal link, or forward a deal message.'));
     return new Response('ok');
   }
 
+  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const photoId = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1].file_id : null;
+  const isAmzUrlPattern = (u) => /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(u);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // A) MULTI-LINK DEALS (allUrls.length > 1)
+  // Non-Amazon: convert all via EarnKaro & post to TG channel directly (no buttons)
+  // Amazon: convert all with dealbuster tag & embed in "👉 Check Now" & post to TG channel directly (no buttons)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (allUrls.length > 1) {
+    let amzCount = 0;
+    for (const u of allUrls) {
+      if (isAmzUrlPattern(u)) amzCount++;
+    }
+    const isMultiAmazon = amzCount >= Math.ceil(allUrls.length / 2);
+
+    let processedText = text;
+    // Strip competitor Telegram links & mentions
+    processedText = processedText.replace(/https?:\/\/(?:t\.me|telegram\.me)\/(?!dealbusterindia\b)[a-zA-Z0-9_+/]+/gi, '');
+    processedText = processedText.replace(/(^|\s)@(?!dealbusterindia\b)[a-zA-Z0-9_]+/gi, '$1');
+    processedText = processedText.replace(/^.*\b(?:join|subscribe|follow)\b.*@\w+.*\bdeals?\b.*$/gim, '');
+    processedText = processedText.replace(/^.*\b(?:posted by|credit:|credits:|shared via)\b.*$/gim, '');
+
+    const placeholders = [];
+
+    if (isMultiAmazon) {
+      // Amazon multi-link: convert all with DealBuster tag and embed in 👉 Check Now
+      for (let i = 0; i < allUrls.length; i++) {
+        const rawUrl = allUrls[i];
+        let taggedUrl = '';
+        const { asinM, finalUrl } = await resolveAmazonAsin(rawUrl);
+        if (asinM) {
+          taggedUrl = `https://www.amazon.in/dp/${asinM[1].toUpperCase()}?tag=${TAG}`;
+        } else if (finalUrl && (finalUrl.includes('amazon.') || finalUrl.includes('amzn.'))) {
+          taggedUrl = tagAmazonUrl(finalUrl, TAG);
+        } else {
+          taggedUrl = tagAmazonUrl(rawUrl, TAG);
+        }
+
+        const placeholder = `%%DBAMZLINK${i}%%`;
+        const urlIdx = processedText.indexOf(rawUrl);
+        if (urlIdx > 0) {
+          const prefix = processedText.slice(Math.max(0, urlIdx - 6), urlIdx);
+          const decorMatch = prefix.match(/(?:🔗|👉|👇|☝️|👆|🛍️|🛒)\s*$/);
+          if (decorMatch) {
+            processedText = processedText.slice(0, urlIdx - decorMatch[0].length) + placeholder + processedText.slice(urlIdx + rawUrl.length);
+            placeholders.push({ placeholder, replacement: `<a href="${escHtml(taggedUrl)}">👉 Check Now</a>` });
+            continue;
+          }
+        }
+        processedText = processedText.split(rawUrl).join(placeholder);
+        placeholders.push({ placeholder, replacement: `<a href="${escHtml(taggedUrl)}">👉 Check Now</a>` });
+      }
+    } else {
+      // Non-Amazon multi-link: convert all via EarnKaro
+      for (let i = 0; i < allUrls.length; i++) {
+        const rawUrl = allUrls[i];
+        let ekUrl = await convertToEarnKaroLink(rawUrl, env);
+        if (!ekUrl) {
+          const canonical = await resolveCanonicalProductUrl(rawUrl);
+          ekUrl = await convertToEarnKaroLink(canonical, env);
+        }
+        if (!ekUrl) {
+          ekUrl = buildManualCueLink(rawUrl, env);
+        }
+        const placeholder = `%%DBNONAMZLINK${i}%%`;
+        processedText = processedText.split(rawUrl).join(placeholder);
+        placeholders.push({ placeholder, replacement: escHtml(ekUrl || rawUrl) });
+      }
+    }
+
+    let finalHtml = escHtml(processedText);
+    placeholders.forEach(({ placeholder, replacement }) => {
+      finalHtml = finalHtml.split(placeholder).join(replacement);
+    });
+
+    finalHtml = finalHtml.trim() + '\n\n📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!';
+
+    for (const ch of TG_CHANNELS) {
+      if (photoId) {
+        await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: ch, photo: photoId, caption: finalHtml, parse_mode: 'HTML', disable_notification: true }),
+        });
+      } else {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: ch, text: finalHtml, parse_mode: 'HTML', disable_notification: true, disable_web_page_preview: true, link_preview_options: { is_disabled: true } }),
+        });
+      }
+    }
+
+    const reportType = isMultiAmazon ? 'Amazon (tagged & embedded in 👉 Check Now)' : 'non-Amazon (EarnKaro)';
+    await tgSend(token, chatId, escTg(`✅ Auto-forwarded multi-link deal (${allUrls.length} links converted via ${reportType}) directly to Telegram channel!`));
+    return new Response('ok');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // B) SINGLE-LINK DEALS (allUrls.length === 1) -> Ask Site / Channel / Both
+  // ═══════════════════════════════════════════════════════════════════════════
   try {
-    const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
     const rawUrl = allUrls[0];
-    const isAmz = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(rawUrl);
+    let isAmz = isAmzUrlPattern(rawUrl);
+    let canonicalUrl = rawUrl;
+
+    if (!isAmz) {
+      canonicalUrl = await resolveCanonicalProductUrl(rawUrl);
+      if (isAmzUrlPattern(canonicalUrl)) {
+        isAmz = true;
+      }
+    }
 
     let finalAffiliateUrl = '';
     let store = 'other';
@@ -6767,21 +6879,28 @@ async function handleTelegramWebhook(request, env) {
     if (isAmz) {
       store = 'amazon';
       storeName = 'Amazon';
-      const { asinM, finalUrl } = await resolveAmazonAsin(rawUrl);
+      let { asinM, finalUrl } = await resolveAmazonAsin(rawUrl);
+      if (!asinM && canonicalUrl !== rawUrl) {
+        const res2 = await resolveAmazonAsin(canonicalUrl);
+        if (res2.asinM) {
+          asinM = res2.asinM;
+          finalUrl = res2.finalUrl;
+        }
+      }
+
       if (asinM) {
         asin = asinM[1].toUpperCase();
         finalAffiliateUrl = `https://www.amazon.in/dp/${asin}?tag=${TAG}`;
-      } else if (finalUrl.includes('amazon.') || finalUrl.includes('amzn.') || finalUrl.includes('link.amazon') || finalUrl.includes('a.co')) {
+      } else if (finalUrl && (finalUrl.includes('amazon.') || finalUrl.includes('amzn.') || finalUrl.includes('link.amazon') || finalUrl.includes('a.co'))) {
         finalAffiliateUrl = tagAmazonUrl(finalUrl, TAG);
       } else {
-        finalAffiliateUrl = buildManualCueLink(finalUrl, env);
+        finalAffiliateUrl = tagAmazonUrl(canonicalUrl || rawUrl, TAG);
       }
+      // Never use CueLinks for Amazon deals!
     } else {
-      const canonicalUrl = await resolveCanonicalProductUrl(rawUrl);
       store = detectStoreFromUrl(canonicalUrl);
       storeName = formatStoreName(store);
 
-      // Primary: Convert via EarnKaro API
       try {
         const ekLink = await convertToEarnKaroLink(canonicalUrl, env);
         if (ekLink) finalAffiliateUrl = ekLink;
@@ -6796,7 +6915,6 @@ async function handleTelegramWebhook(request, env) {
         } catch {}
       }
 
-      // Secondary fallback (e.g. for Meesho or if EarnKaro is down)
       if (!finalAffiliateUrl) {
         finalAffiliateUrl = buildManualCueLink(canonicalUrl, env);
       }
@@ -6805,12 +6923,8 @@ async function handleTelegramWebhook(request, env) {
     // Extract details from forwarded text
     let { dealPrice, mrp, discount } = extractDealDetailsFromText(text);
     let title = extractDealTitleFromText(text);
-    const photoId = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1].file_id : null;
     let imageUrl = '';
 
-    // Fallback: fetch metadata if missing title, price, or image
-    // NOTE: NEVER use Telegram getFile URLs for product.image — they embed the secret bot token
-    // (triggering GitHub secret scanning alerts) and expire in ~1h anyway. photoId is preserved for Telegram.
     if (!title || !dealPrice || !imageUrl) {
       try {
         const meta = await fetchMetadataForDeal(asin, rawUrl, env);
@@ -6835,17 +6949,20 @@ async function handleTelegramWebhook(request, env) {
       }
     }
 
-    // Format channel message (DealBuster channel style)
     const cleanTitle = escHtml(trimTitle(title));
     const priceRow = dealPrice ? `✅Deal Price: <b>${escHtml(dealPrice)}</b>` : '';
     const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
     const discRow = discount ? `Discount: <b>${escHtml(discount)}</b>` : '';
     const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-    const isLong = finalAffiliateUrl.length > 70;
-    const linkHtml = isLong ? `<a href="${escHtml(finalAffiliateUrl)}">👉 Check Now</a>` : `👉 ${escHtml(finalAffiliateUrl)}`;
+
+    // Normal conversion method for single Amazon deals:
+    // If Amazon search/category page or variable % off, embed in 👉 Check Now; otherwise normal direct 👉 link
+    const isSearchOrCategory = /\/s\?|\/b\?|\/gp\/browse/i.test(finalAffiliateUrl) || hasUptoOffInTitle(title);
+    const linkHtml = (isAmz && isSearchOrCategory)
+      ? `<a href="${escHtml(finalAffiliateUrl)}">👉 Check Now</a>`
+      : `👉 ${finalAffiliateUrl}`;
     const channelText = detailsBlock ? `${cleanTitle}\n${detailsBlock}\n\n${linkHtml}` : `${cleanTitle}\n\n${linkHtml}`;
 
-    // Format admin preview card
     const previewLines = [
       `📦 <b>${cleanTitle}</b>`,
       dealPrice ? `✅ Deal Price: <b>${escHtml(dealPrice)}</b>` : '',
@@ -6854,7 +6971,6 @@ async function handleTelegramWebhook(request, env) {
       `\n🔗 ${escHtml(finalAffiliateUrl)}`
     ].filter(Boolean).join('\n');
 
-    // Store in KV with 1-day TTL
     const key = `fwddeal_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const pendingData = {
       product: {
@@ -6875,7 +6991,6 @@ async function handleTelegramWebhook(request, env) {
       await env.KV.put(key, JSON.stringify(pendingData), { expirationTtl: 86400 });
     }
 
-    // 4 Action Buttons
     const keyboard = {
       inline_keyboard: [
         [

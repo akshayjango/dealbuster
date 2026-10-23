@@ -635,13 +635,18 @@ export async function processMessageText(text, options = {}) {
     convertedLinks.push(result);
   }
 
-    // Replace raw URLs with converted affiliate URLs, embedding links that wrap > 4 lines (length > 75) into "👉 Check Now" buttons
+    // Replace raw URLs with converted affiliate URLs:
+    // Multi-link messages or Amazon search/category links become "👉 Check Now" buttons;
+    // single Amazon product deals use normal direct links per user rules.
     const placeholders = [];
     convertedLinks.forEach((l, idx) => {
       const rawUrl = l.originalUrl;
       const affUrl = l.convertedUrl;
       const isAmazon = (l.store === 'amazon') || isAmazonUrl(affUrl) || isAmazonUrl(rawUrl);
-      const isLongLink = Boolean(affUrl && (affUrl.length > 60 || (isAmazon && (convertedLinks.length > 1 || /\/s\?|\/b\?|\/gp\/browse/i.test(affUrl)))));
+      const isSearchOrCategory = /\/s\?|\/b\?|\/gp\/browse/i.test(affUrl || '') || /\/s\?|\/b\?|\/gp\/browse/i.test(rawUrl || '');
+      const isLongLink = isAmazon
+        ? Boolean(convertedLinks.length > 1 || isSearchOrCategory)
+        : Boolean(affUrl && affUrl.length > 75);
       const placeholder = `%%DBLINK${idx}%%`;
 
       // If the link is long and preceded by a decorative hand/link emoji (e.g. 🔗, 👉, 👇, 🛍️),
