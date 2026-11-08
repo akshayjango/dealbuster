@@ -773,6 +773,7 @@ async function main() {
         footer: config.custom_footer,
         removeCompetitorMentions: config.remove_competitor_mentions !== false,
         entities: msg.entities,
+        emojiIndex: dedupCache.emoji_index || 0,
       };
 
       const result = await processMessageText(rawText, conversionOptions);
@@ -885,6 +886,9 @@ async function main() {
       }
       if (claimedAsinKey) {
         dedupCache[claimedAsinKey] = Date.now();
+      }
+      if (typeof result.nextEmojiIndex === 'number') {
+        dedupCache.emoji_index = result.nextEmojiIndex;
       }
       saveDedupCache(dedupCache);
 

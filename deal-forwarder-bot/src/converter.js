@@ -609,6 +609,48 @@ export function escHtml(str) {
 }
 
 
+export const CHANNEL_ROTATING_EMOJIS = ['🔥', '⚡', '💥'];
+let forwarderEmojiIndex = 0;
+
+export function stripLeadingEmojis(str) {
+  if (!str) return '';
+  return str.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s•\-:–|]+/u, '').trim();
+}
+
+export function detectDealLeadEmoji(text, options = {}) {
+  if (options.forcedLeadEmoji) {
+    return { leadEmoji: options.forcedLeadEmoji, nextEmojiIndex: options.emojiIndex ?? forwarderEmojiIndex };
+  }
+  // 1. Coupon deals
+  if (/\bcoupons?\b|apply\s+(?:\d+%|₹?\s*\d+)\s*coupon|🎟️/i.test(text)) {
+    return { leadEmoji: '🏷️', nextEmojiIndex: options.emojiIndex ?? forwarderEmojiIndex };
+  }
+  // 2. Lowest price deals
+  if (/\blowest\b|\ball[\s-]time[\s-]low\b|\batl\b/i.test(text)) {
+    return { leadEmoji: '🚨', nextEmojiIndex: options.emojiIndex ?? forwarderEmojiIndex };
+  }
+  // 3. Rotating emoji across 🔥 -> ⚡ -> 💥
+  let currentIdx = typeof options.emojiIndex === 'number' ? options.emojiIndex : forwarderEmojiIndex;
+  const emoji = CHANNEL_ROTATING_EMOJIS[currentIdx % CHANNEL_ROTATING_EMOJIS.length];
+  const nextIdx = (currentIdx + 1) % CHANNEL_ROTATING_EMOJIS.length;
+  forwarderEmojiIndex = nextIdx;
+  return { leadEmoji: emoji, nextEmojiIndex: nextIdx };
+}
+
+export function formatWithLeadEmoji(text, options = {}) {
+  if (!text) return { text: '', leadEmoji: '', nextEmojiIndex: 0 };
+  const { leadEmoji, nextEmojiIndex } = detectDealLeadEmoji(text, options);
+  const lines = text.split('\n');
+  const firstNonEmptyIdx = lines.findIndex(l => l.trim().length > 0);
+  if (firstNonEmptyIdx === -1) {
+    return { text: `${leadEmoji} ${text}`, leadEmoji, nextEmojiIndex };
+  }
+
+  const cleanFirstLine = stripLeadingEmojis(lines[firstNonEmptyIdx]);
+  lines[firstNonEmptyIdx] = `${leadEmoji} ${cleanFirstLine}`;
+  return { text: lines.join('\n'), leadEmoji, nextEmojiIndex };
+}
+
 /**
  * Clean and rebrand message text:
  * - Replace all original URLs with converted affiliate URLs
@@ -712,14 +754,19 @@ export async function processMessageText(text, options = {}) {
       processed = processed.split(placeholder).join(rendered);
     });
 
-  // Trim trailing whitespace and append our custom footer if provided
+  // Trim trailing whitespace and format with lead emoji
   processed = processed.trim();
+  const leadRes = formatWithLeadEmoji(processed, options);
+  processed = leadRes.text;
+
   if (footer && footer.trim()) {
     processed += `\n\n${escHtml(footer.trim())}`;
   }
 
   return {
     text: processed,
-    convertedLinks
+    convertedLinks,
+    leadEmoji: leadRes.leadEmoji,
+    nextEmojiIndex: leadRes.nextEmojiIndex
   };
 }

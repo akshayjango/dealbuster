@@ -28,6 +28,36 @@ function escHtml(str) {
     .replace(/>/g, '&gt;');
 }
 
+const CHANNEL_ROTATING_EMOJIS = ['🔥', '⚡', '💥'];
+let channelEmojiIndex = Math.floor(Date.now() / 60000) % 3;
+
+function stripLeadingEmojis(str) {
+  if (!str) return '';
+  return str.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s•\-:–|]+/u, '').trim();
+}
+
+function getChannelLeadEmoji(productOrText, isLowest = false) {
+  const isObj = typeof productOrText === 'object' && productOrText !== null;
+  const couponText = isObj ? (productOrText.couponText || productOrText.coupon || '') : '';
+  const title = isObj ? (productOrText.title || '') : String(productOrText || '');
+  const lowestText = isObj ? (productOrText.lowestPriceText || '') : '';
+
+  // 1. Coupon deals start with 🏷️
+  if (couponText || /\bcoupons?\b|apply\s+(?:\d+%|₹?\s*\d+)\s*coupon|🎟️/i.test(title)) {
+    return '🏷️';
+  }
+
+  // 2. Lowest price deals start with 🚨
+  if (isLowest || lowestText || /\blowest\b|\ball[\s-]time[\s-]low\b|\batl\b/i.test(title)) {
+    return '🚨';
+  }
+
+  // 3. Otherwise sequential rotation: 🔥 -> ⚡ -> 💥
+  const emoji = CHANNEL_ROTATING_EMOJIS[channelEmojiIndex % CHANNEL_ROTATING_EMOJIS.length];
+  channelEmojiIndex = (channelEmojiIndex + 1) % CHANNEL_ROTATING_EMOJIS.length;
+  return emoji;
+}
+
 function extractUrls(text, entities = []) {
   const urls = new Set();
   for (const ent of entities) {
@@ -269,7 +299,8 @@ export default {
 
           // ── 2. Post to Channel ──
           if (action === 'chan' || action === 'both') {
-            const textToSend = channelText || `${title}\n${price}  ~~${mrp}~~  ${disc}\n\n👉 ${product.link}`;
+            const leadEmoji = getChannelLeadEmoji(product);
+            const textToSend = channelText || `${leadEmoji} ${escHtml(product.title || title)}\n${price}  ~~${mrp}~~  ${disc}\n\n👉 ${product.link}`;
             if (photoId) {
               await tg(token, 'sendPhoto', {
                 chat_id: TG_CHANNEL,
@@ -416,14 +447,18 @@ export default {
       }
     }
 
-    const cleanTitle = escHtml(title.slice(0, 90));
+    const cleanRawTitle = stripLeadingEmojis(title.slice(0, 90));
+    const isCouponDeal = Boolean(/\bcoupons?\b|apply\s+(?:\d+%|₹?\s*\d+)\s*coupon|🎟️/i.test(title || ''));
+    const isLowestDeal = Boolean(/\blowest\b|\ball[\s-]time[\s-]low\b|\batl\b/i.test(title || ''));
+    const leadEmoji = getChannelLeadEmoji({ coupon: isCouponDeal }, isLowestDeal);
+    const channelTitle = `${leadEmoji} ${escHtml(cleanRawTitle)}`;
     const priceRow = dealPrice ? `✅Deal Price: <b>${escHtml(dealPrice)}</b>` : '';
     const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
     const discRow = discount ? `Discount: <b>${escHtml(discount)}</b>` : '';
     const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
     const isLong = finalAffiliateUrl.length > 70;
     const linkHtml = isLong ? `<a href="${escHtml(finalAffiliateUrl)}">👉 Check Now</a>` : `👉 ${escHtml(finalAffiliateUrl)}`;
-    const channelText = detailsBlock ? `${cleanTitle}\n${detailsBlock}\n\n${linkHtml}` : `${cleanTitle}\n\n${linkHtml}`;
+    const channelText = detailsBlock ? `${channelTitle}\n${detailsBlock}\n\n${linkHtml}` : `${channelTitle}\n\n${linkHtml}`;
 
     const previewLines = [
       `📦 <b>${cleanTitle}</b>`,
@@ -438,7 +473,7 @@ export default {
       product: {
         id: Date.now().toString(),
         asin,
-        title,
+        title: cleanRawTitle,
         price: dealPrice || '',
         mrp: mrp || '',
         disc: discount || '0%',

@@ -4662,9 +4662,55 @@ function dealLink(product, tag, env = {}) {
   return product.link || '';
 }
 
+const CHANNEL_ROTATING_EMOJIS = ['🔥', '⚡', '💥'];
+let channelEmojiIndex = Math.floor(Date.now() / 60000) % 3;
+
+function stripLeadingEmojis(str) {
+  if (!str) return '';
+  return str.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s•\-:–|]+/u, '').trim();
+}
+
+function getChannelLeadEmoji(productOrText, isLowest = false) {
+  const isObj = typeof productOrText === 'object' && productOrText !== null;
+  const couponText = isObj ? (productOrText.couponText || productOrText.coupon || '') : '';
+  const title = isObj ? (productOrText.title || '') : String(productOrText || '');
+  const lowestText = isObj ? (productOrText.lowestPriceText || '') : '';
+
+  // 1. Coupon deals start with 🏷️
+  if (couponText || /\bcoupons?\b|apply\s+(?:\d+%|₹?\s*\d+)\s*coupon|🎟️/i.test(title)) {
+    return '🏷️';
+  }
+
+  // 2. Lowest price deals start with 🚨
+  if (isLowest || lowestText || /\blowest\b|\ball[\s-]time[\s-]low\b|\batl\b/i.test(title)) {
+    return '🚨';
+  }
+
+  // 3. Otherwise sequential rotation: 🔥 -> ⚡ -> 💥
+  const emoji = CHANNEL_ROTATING_EMOJIS[channelEmojiIndex % CHANNEL_ROTATING_EMOJIS.length];
+  channelEmojiIndex = (channelEmojiIndex + 1) % CHANNEL_ROTATING_EMOJIS.length;
+  return emoji;
+}
+
+function formatWithLeadEmoji(text, leadEmoji) {
+  if (!text) return '';
+  const emoji = leadEmoji || getChannelLeadEmoji(text);
+  const lines = text.split('\n');
+  const firstNonEmptyIdx = lines.findIndex(l => l.trim().length > 0);
+  if (firstNonEmptyIdx === -1) return `${emoji} ${text}`;
+
+  const cleanFirstLine = stripLeadingEmojis(lines[firstNonEmptyIdx]);
+  lines[firstNonEmptyIdx] = `${emoji} ${cleanFirstLine}`;
+  return lines.join('\n');
+}
+
 function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const link = dealLink(product, tag, env);
-  const title = (isLowest ? 'Lowest ' : '') + escHtml(trimTitle(product.title));
+  const cleanRawTitle = stripLeadingEmojis(trimTitle(product.title));
+  const leadEmoji = getChannelLeadEmoji(product, isLowest);
+  const isLowestDeal = Boolean(isLowest || product.lowestPriceText);
+  const lowestPrefix = (isLowestDeal && !/^lowest\b/i.test(cleanRawTitle)) ? 'Lowest ' : '';
+  const title = `${leadEmoji} ${lowestPrefix}${escHtml(cleanRawTitle)}`;
   const price = product.price || '';
   const mrp = product.mrp || '';
   const disc = product.disc || '';
@@ -6496,6 +6542,7 @@ async function handleTelegramWebhook(request, env) {
         htmlText += `\n\n${btnHtml}`;
       }
 
+      htmlText = formatWithLeadEmoji(htmlText);
       for (const ch of TG_CHANNELS) {
         if (photoId) {
           await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
@@ -6536,7 +6583,9 @@ async function handleTelegramWebhook(request, env) {
         mrp: (replyText.match(/MRP:\s*(₹[\d,]+)/i) || [,''])[1].trim(),
       };
 
-      const title = escHtml(trimTitle(product.title));
+      const cleanRawTitle = stripLeadingEmojis(trimTitle(product.title));
+      const leadEmoji = getChannelLeadEmoji(product);
+      const title = `${leadEmoji} ${escHtml(cleanRawTitle)}`;
       const price = product.price || '';
       const mrp = product.mrp || '';
       const disc = product.disc || '';
@@ -6616,6 +6665,7 @@ async function handleTelegramWebhook(request, env) {
       const photoId = pending?.photoId || (msg.reply_to_message.photo ? msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id : null);
       let sendError = null;
 
+      htmlText = formatWithLeadEmoji(htmlText);
       for (const ch of TG_CHANNELS) {
         let r;
         if (photoId) {
@@ -6844,7 +6894,7 @@ async function handleTelegramWebhook(request, env) {
       finalHtml = finalHtml.split(placeholder).join(replacement);
     });
 
-    finalHtml = finalHtml.trim() + '\n\n📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!';
+    finalHtml = formatWithLeadEmoji(finalHtml.trim()) + '\n\n📣 Join <a href="https://t.me/dealbusterindia">Deal Buster</a> for more deals!';
 
     for (const ch of TG_CHANNELS) {
       if (photoId) {
@@ -6960,7 +7010,11 @@ async function handleTelegramWebhook(request, env) {
       }
     }
 
-    const cleanTitle = escHtml(trimTitle(title));
+    const cleanRawTitle = stripLeadingEmojis(trimTitle(title));
+    const isCouponDeal = Boolean(couponText || /\bcoupons?\b|apply\s+(?:\d+%|₹?\s*\d+)\s*coupon/i.test(title || ''));
+    const isLowestDeal = Boolean(/\blowest\b|\ball[\s-]time[\s-]low\b|\batl\b/i.test(title || ''));
+    const leadEmoji = getChannelLeadEmoji({ couponText: isCouponDeal ? 'coupon' : null }, isLowestDeal);
+    const channelTitle = `${leadEmoji} ${escHtml(cleanRawTitle)}`;
     const priceRow = dealPrice ? `✅Deal Price: <b>${escHtml(dealPrice)}</b>` : '';
     const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
     const discRow = discount ? `Discount: <b>${escHtml(discount)}</b>` : '';
@@ -6972,7 +7026,7 @@ async function handleTelegramWebhook(request, env) {
     const linkHtml = (isAmz && isSearchOrCategory)
       ? `<a href="${escHtml(finalAffiliateUrl)}">👉 Check Now</a>`
       : `👉 ${finalAffiliateUrl}`;
-    const channelText = detailsBlock ? `${cleanTitle}\n${detailsBlock}\n\n${linkHtml}` : `${cleanTitle}\n\n${linkHtml}`;
+    const channelText = detailsBlock ? `${channelTitle}\n${detailsBlock}\n\n${linkHtml}` : `${channelTitle}\n\n${linkHtml}`;
 
     const previewLines = [
       `📦 <b>${cleanTitle}</b>`,
@@ -6986,7 +7040,7 @@ async function handleTelegramWebhook(request, env) {
     const pendingData = {
       product: {
         asin: asin || '',
-        title: cleanTitle,
+        title: cleanRawTitle,
         price: dealPrice || '',
         mrp: mrp || '',
         disc: discount || '0%',
