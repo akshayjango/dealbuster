@@ -1091,14 +1091,6 @@
           <div class="scraper-count-val" id="statusDotdCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
           <div class="scraper-subtext" id="statusDotdSubtext" style="margin-top:6px;">Loading status…</div>
         </div>
-        <div class="stat-card scraper-card" id="cardDealsping" onclick="filterBySource('dealsping')" title="Click to filter products by DealsPing">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-            <div class="stat-label" style="margin-bottom:0;">DealsPing</div>
-            <div class="scraper-status-badge" id="statusDealspingBadge"><span class="status-dot green"></span><span id="statusDealspingText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
-          </div>
-          <div class="scraper-count-val" id="statusDealspingCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
-          <div class="scraper-subtext" id="statusDealspingSubtext" style="margin-top:6px;">Loading status…</div>
-        </div>
         <div class="stat-card scraper-card" id="cardDealsheaven" onclick="filterBySource('dealsheaven')" title="Click to filter products by DealsHeaven">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
             <div class="stat-label" style="margin-bottom:0;">DealsHeaven</div>
@@ -1136,7 +1128,7 @@
           <select id="dashSource" onchange="renderList()">
             <option value="">All Sources</option>
             <option value="manual">Manual</option>
-            <option value="dealsping">DealsPing</option>
+            <option value="dealsping">DealsPing (Retired)</option>
             <option value="dealsheaven">DealsHeaven</option>
             <option value="dealspy">DealSpy</option>
             <option value="dotd">DealOfTheDayIndia</option>
@@ -1173,7 +1165,6 @@
             <button class="btn btn-sm" id="pushOOSBottomBtn" onclick="pushAllOOSToBottom()" style="display:none;background:#dc2626;color:#fff;border-color:#dc2626;">⬇ Push OOS to Bottom</button>
             <button class="btn btn-outline btn-sm" onclick="pushZeroPriceToBottom()" id="pushZeroPriceBtn" style="border-color:#d97706;color:#d97706;">⬇ Push ₹0 to Bottom</button>
             <button class="btn btn-ghost btn-sm" onclick="loadProducts()" title="Refresh">↻</button>
-            <button class="btn btn-outline btn-sm" onclick="syncDealsping()" id="syncDealspingBtn">Sync DealsPing</button>
             <button class="btn btn-outline btn-sm" onclick="syncDealsheaven()" id="syncDealsheavenBtn">Sync DealsHeaven</button>
             <button class="btn btn-outline btn-sm" onclick="syncDotd()" id="syncDotdBtn">Sync DealOfTheDayIndia</button>
             <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIndiaFreeStuffBtn">Sync IndiaFreeStuff</button>
@@ -2801,8 +2792,7 @@ async function updateScraperStatuses() {
     const sources = [
       { key: 'indiafreestuff', errName: 'IndiaFreeStuff', prefix: 'ifs_', countId: 'statusIfsCount', badgeId: 'statusIfsBadge', subId: 'statusIfsSubtext' },
       { key: 'dealoftheday', errName: 'DealOfTheDayIndia', prefix: 'dotd_', countId: 'statusDotdCount', badgeId: 'statusDotdBadge', subId: 'statusDotdSubtext' },
-      { key: 'dealsping', errName: 'DealsPing', prefix: 'dp_', countId: 'statusDealspingCount', badgeId: 'statusDealspingBadge', subId: 'statusDealspingSubtext' },
-      { key: 'dealsheaven', errName: 'DealsHeaven', prefix: 'dh_', countId: 'statusDealsheavenCount', badgeId: 'statusDealsheavenBadge', subId: 'statusDealsheavenSubtext' },
+            { key: 'dealsheaven', errName: 'DealsHeaven', prefix: 'dh_', countId: 'statusDealsheavenCount', badgeId: 'statusDealsheavenBadge', subId: 'statusDealsheavenSubtext' },
       { key: 'dealspy', errName: 'DealsSpy', prefix: 'ds_', countId: 'statusDealspyCount', badgeId: 'statusDealspyBadge', subId: 'statusDealspySubtext' },
       { key: 'offertag', errName: 'OfferTag', prefix: 'ot_', countId: 'statusOffertagCount', badgeId: 'statusOffertagBadge', subId: 'statusOffertagSubtext' }
     ];
@@ -5007,25 +4997,6 @@ function copyAssociateLink() {
     linkEl.select();
     document.execCommand('copy');
   });
-}
-
-async function syncDealsping() {
-  const btn = document.getElementById('syncDealspingBtn');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Syncing…';
-  try {
-    const resp = await apiFetch('/sync-dealsping');
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    alert(data.message || 'DealsPing sync complete!');
-    await loadProducts();
-  } catch (e) {
-    alert('DealsPing sync failed: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
 }
 
 async function syncDealsheaven() {
