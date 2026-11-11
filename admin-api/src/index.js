@@ -474,8 +474,9 @@ async function clearSyncError(source, env) {
   if (!env.KV) return;
   try {
     const existing = await env.KV.get('syncErrors', 'json') || [];
-    if (!existing.some(e => e.source === source)) return; // nothing to clear, skip the write
-    await env.KV.put('syncErrors', JSON.stringify(existing.filter(e => e.source !== source)));
+    const target = (source || '').toLowerCase();
+    if (!existing.some(e => (e.source || '').toLowerCase() === target)) return;
+    await env.KV.put('syncErrors', JSON.stringify(existing.filter(e => (e.source || '').toLowerCase() !== target)));
   } catch (e) { console.error('Failed to clear sync error:', e.message); }
 }
 
@@ -498,6 +499,7 @@ async function recordScraperStatus(source, status, message, count, env) {
       status, // 'working' | 'error'
       message: message || '',
       lastSync: new Date().toISOString(),
+      timestamp: Date.now(),
       addedCount: count || 0
     };
     await env.KV.put(key, JSON.stringify(current));
@@ -847,7 +849,15 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   }
 }
 
-async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
+async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = {}) {
+  if (typeof timeoutMs === 'object' && timeoutMs !== null && (!env || Object.keys(env).length === 0)) {
+    env = timeoutMs;
+    timeoutMs = 20000;
+  }
+  if (!timeoutMs || typeof timeoutMs !== 'number') {
+    timeoutMs = 20000;
+  }
+  env = env || {};
   const bdKey = env.BRIGHTDATA_API_KEY || '';
   const bdZone = env.BRIGHTDATA_ZONE || '';
 
@@ -880,16 +890,34 @@ async function fetchWithProxy(targetUrl, options, timeoutMs, env) {
   if (targetUrl.includes('indiafreestuff.in') || targetUrl.includes('dealsheaven.in') || targetUrl.includes('dealsspy.in')) {
     try {
       const mergedHeaders = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Language': 'en-IN,en;q=0.9',
+        'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'none',
+        'sec-fetch-user': '?1',
+        'upgrade-insecure-requests': '1',
         'Cache-Control': 'no-cache',
         ...(options?.headers || {})
       };
-      const directRes = await fetchWithTimeout(targetUrl, {
+      let directRes = await fetchWithTimeout(targetUrl, {
         ...options,
         headers: mergedHeaders
       }, timeoutMs);
+
+      if (!directRes.ok && targetUrl.includes('dealsheaven.in')) {
+        const altUrl = targetUrl.includes('www.dealsheaven.in')
+          ? targetUrl.replace('www.dealsheaven.in', 'dealsheaven.in')
+          : targetUrl.replace('dealsheaven.in', 'www.dealsheaven.in');
+        try {
+          const altRes = await fetchWithTimeout(altUrl, { ...options, headers: mergedHeaders }, timeoutMs);
+          if (altRes.ok) directRes = altRes;
+        } catch (_) {}
+      }
 
       const isRedirect = directRes.status >= 300 && directRes.status < 400;
       if (options?.redirect === 'manual' && isRedirect) {
@@ -1326,6 +1354,24 @@ function parseDealsPingHtml(html) {
   }
 }
 
+function decodeBase64Safe(str) {
+  if (!str) return '';
+  try {
+    const normalized = decodeURIComponent(str)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    const pad = (4 - (normalized.length % 4)) % 4;
+    return atob(normalized + '='.repeat(pad));
+  } catch (e) {
+    try {
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(decodeURIComponent(str), 'base64').toString('utf8');
+      }
+    } catch (_) {}
+    return '';
+  }
+}
+
 function parseDealsHeavenHtml(html) {
   if (!html) return [];
   const dealCards = [...html.matchAll(/<article[^>]*class="[^"]*deal-card[^"]*"[^>]*>([\s\S]*?)<\/article>/gi)];
@@ -1339,7 +1385,7 @@ function parseDealsHeavenHtml(html) {
     const goMatch = card.match(/href="([^"]*\/go\/\?url=([^"&]+)[^"]*)"/i);
     if (goMatch) {
       try {
-        outboundLink = atob(decodeURIComponent(goMatch[2]));
+        outboundLink = decodeBase64Safe(goMatch[2]);
       } catch (e) {
         try { outboundLink = Buffer.from(decodeURIComponent(goMatch[2]), 'base64').toString('utf8'); } catch (_) {}
       }
@@ -1412,7 +1458,7 @@ function parseDealsSpyHtml(html) {
     const utmMatch = art.match(/utm_content=([A-Za-z0-9+/=]+)/i);
     if (utmMatch) {
       try {
-        destUrl = atob(utmMatch[1]);
+        destUrl = decodeBase64Safe(utmMatch[1]);
       } catch (e) {
         try { destUrl = Buffer.from(utmMatch[1], 'base64').toString('utf8'); } catch (_) {}
       }
