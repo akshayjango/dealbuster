@@ -200,7 +200,7 @@ export async function convertToEarnKaro(dealUrlOrText, token) {
 /**
  * Build Amazon Affiliate URL
  */
-export function buildAmazonUrl(asin, tag = 'dealbuster002-21') {
+export function buildAmazonUrl(asin, tag = 'dbitg-21') {
   return `https://www.amazon.in/dp/${asin}?tag=${tag}`;
 }
 
@@ -448,7 +448,7 @@ export function calculateTitleSimilarity(normA, normB) {
  */
 export async function convertDealUrl(rawUrl, options = {}) {
   const {
-    amazonTag = 'dealbuster002-21',
+    amazonTag = 'dbitg-21',
     earnkaroToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o',
   } = options;
 

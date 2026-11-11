@@ -1,6 +1,6 @@
 const ADMIN_API = 'https://dealbuster-admin-api.vakshay083.workers.dev';
 const TG_CHANNEL = '@dealbusterindia';
-const DEFAULT_AMZ_TAG = 'dealbuster002-21';
+const DEFAULT_AMZ_TAG = 'dbitg-21';
 const EARNKARO_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o';
 
 function tg(token, method, body) {

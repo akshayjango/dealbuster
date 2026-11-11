@@ -4219,8 +4219,8 @@ async function publishFromUrl() {
   if (!asinMatch && !isShort) { alert('Could not extract ASIN from URL.'); return; }
   const asin = asinMatch ? asinMatch[1].toUpperCase() : (fetchedAsin || '');
   const link = (urlVal.includes('link.amazon') && asin)
-    ? `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21`
-    : (isShort ? urlVal.trim() : (asin ? `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21` : urlVal.trim()));
+    ? `https://www.amazon.in/dp/${asin}?tag=dbiwb-21`
+    : (isShort ? urlVal.trim() : (asin ? `https://www.amazon.in/dp/${asin}?tag=dbiwb-21` : urlVal.trim()));
 
   const price = parseInt(priceRaw);
   const mrp = parseInt(mrpRaw);
@@ -4308,7 +4308,7 @@ async function autoConvertOthersUrl(urlVal) {
         
         // Construct affiliate link using Amazon tag or CueLink returned from backend
         const affiliateLink = isAmazon
-          ? `https://www.amazon.in/dp/${data.asin}?tag=dealbuster002-21`
+          ? `https://www.amazon.in/dp/${data.asin}?tag=dbiwb-21`
           : (data.link || trimmed);
         convertedInput.value = affiliateLink;
         convertedContainer.style.display = 'block';
@@ -5048,7 +5048,7 @@ async function goToProduct(id) {
 }
 
 function copyAssocLink(asin) {
-  const link = `https://www.amazon.in/dp/${asin}?tag=dealbuster002-21`;
+  const link = `https://www.amazon.in/dp/${asin}?tag=dbiwb-21`;
   navigator.clipboard.writeText(link).then(() => {
     alert('Associate link copied!');
   }).catch(() => {

@@ -133,7 +133,7 @@ async function runTests() {
     console.log(tc.name);
     console.log(`----------------------------------------`);
     const result = await processMessageText(tc.text, {
-      amazonTag: 'dealbuster002-21',
+      amazonTag: 'dbitg-21',
       myChannel: '@dealbusterindia',
       footer: '\n\n⚡ Join @dealbusterindia',
     });

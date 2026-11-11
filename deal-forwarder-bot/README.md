@@ -53,7 +53,7 @@ Open `config.json` and configure:
     "@LootOffersChannel2"
   ],
   "target_channel": "@dealbusterindia",
-  "amazon_tag": "dealbuster002-21",
+  "amazon_tag": "dbitg-21",
   "earnkaro_api_token": "YOUR_EARNKARO_API_TOKEN",
   "custom_footer": "\n\n⚡ Join @dealbusterindia for verified deals!",
   "remove_competitor_mentions": true,
@@ -70,7 +70,7 @@ Open `config.json` and configure:
 
 - **`source_channels`**: List of channel usernames (e.g. `@channel_name`) or numeric IDs you want to monitor. (Make sure your account has joined these channels).
 - **`target_channel`**: Your channel username or ID (make sure your account has permission to post).
-- **`amazon_tag`**: Your Amazon Associates tag (`dealbuster002-21`).
+- **`amazon_tag`**: Your Amazon Associates tag (`dbitg-21`).
 - **`earnkaro_api_token`**: Your EarnKaro Converter API Token for Flipkart, Myntra, Ajio, Shopsy, etc. (already pre-filled).
 - **`custom_footer`**: Message added at the bottom of every deal.
 - **`remove_competitor_mentions`**: Automatically removes competitor `@username` mentions, invite links, and promo lines.
@@ -88,7 +88,7 @@ Whenever any of your source channels post a new deal:
 1. The bot catches the post in real-time.
 2. Checks keywords (skips expired/blacklist keywords).
 3. Unrolls shortlinks (`amzn.to`, `bit.ly`, `fktr.in`, etc.).
-4. Replaces Amazon tags with `dealbuster002-21`.
+4. Replaces Amazon tags with `dbitg-21`.
 5. Converts Flipkart/Myntra/Ajio links via CueLinks.
 6. Strips competitor mentions and watermark lines.
 7. Checks deduplication (skips if already posted within 24h).

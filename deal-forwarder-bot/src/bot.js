@@ -767,7 +767,7 @@ async function main() {
 
       // 3. Process text and convert links
       const conversionOptions = {
-        amazonTag: config.amazon_tag || 'dealbuster002-21',
+        amazonTag: config.amazon_tag || 'dbitg-21',
         earnkaroToken: process.env.EARNKARO_API_TOKEN || config.earnkaro_api_token,
         myChannel: config.target_channel || '@dealbusterindia',
         footer: config.custom_footer,

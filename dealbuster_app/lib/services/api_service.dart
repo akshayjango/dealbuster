@@ -11,7 +11,7 @@ import '../models/product.dart';
 
 class ApiService {
   static const String _productsUrl =
-      'https://dealbuster-admin-api.vakshay083.workers.dev/public/products.json';
+      'https://dealbuster-admin-api.vakshay083.workers.dev/public/products.json?source=app';
   static const String _cacheKey = 'db_products_cache_v1';
   static const String _offersUrl =
       'https://dealbuster-admin-api.vakshay083.workers.dev/public/offers';

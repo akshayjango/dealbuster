@@ -28,6 +28,30 @@ function json(data, status = 200) {
   });
 }
 
+// ── Amazon Associates Tracking IDs ──────────────────────────────────────────
+// dbiwb-21: Website (dealbuster.in)
+// dbitg-21: Telegram Channel (@dealbusterindia)
+// dbiap-21: Mobile App (Play Store / Android)
+const TAG_WEB = 'dbiwb-21';
+const TAG_TG = 'dbitg-21';
+const TAG_APP = 'dbiap-21';
+
+function getWebTag(env) {
+  if (env?.WEB_PARTNER_TAG) return env.WEB_PARTNER_TAG;
+  if (env?.PA_PARTNER_TAG && env.PA_PARTNER_TAG !== 'dealbuster002-21') return env.PA_PARTNER_TAG;
+  return TAG_WEB;
+}
+
+function getTgTag(env) {
+  if (env?.TG_PARTNER_TAG) return env.TG_PARTNER_TAG;
+  return TAG_TG;
+}
+
+function getAppTag(env) {
+  if (env?.APP_PARTNER_TAG) return env.APP_PARTNER_TAG;
+  return TAG_APP;
+}
+
 // ── OAuth token ───────────────────────────────────────────────────────────────
 
 const tokenCache = new Map();
@@ -1752,7 +1776,7 @@ async function scrapeAndSyncDealsHeaven(env, limit = 25) {
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
   const seenThisRun = new Set();
 
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const TAG = getWebTag(env);
   const added = [];
   const updated = [];
 
@@ -1886,7 +1910,7 @@ async function scrapeAndSyncDealsSpy(env, limit = 25) {
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
   const seenThisRun = new Set();
 
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const TAG = getWebTag(env);
   const added = [];
   const updated = [];
 
@@ -2958,7 +2982,7 @@ function extractAsin(str) {
   return null;
 }
 
-function tagAmazonUrl(rawUrl, tag = 'dealbuster002-21') {
+function tagAmazonUrl(rawUrl, tag = TAG_WEB) {
   if (!rawUrl || typeof rawUrl !== 'string') return rawUrl;
   try {
     const u = new URL(rawUrl);
@@ -3066,7 +3090,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const syncLimit = Math.min(candidates.length, limit || 20);
     const targetCandidates = candidates.slice(0, syncLimit);
 
-    const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+    const TAG = getWebTag(env);
     const added = [];
     const dbg = [];
 
@@ -3278,7 +3302,7 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
   console.log('DOTD debug: matchesMap=' + matchesMap.size + ' productsLoaded=' + products.length + ' asins=' + [...matchesMap.keys()].join(',') + ' | alreadyExisting=' + [...matchesMap.keys()].filter(a => existingByAsin.has(a)).join(',') + ' | deleted=' + [...matchesMap.keys()].filter(a => deletedSet.has(a)).join(','));
 
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const TAG = getWebTag(env);
   const added = [];
 
   for (const [asin, { title, image, price, mrp }] of matchesMap) {
@@ -3452,7 +3476,7 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
   const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
   const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
 
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const TAG = getWebTag(env);
   const added = [];
   const updated = [];
 
@@ -3625,7 +3649,7 @@ async function enrichAndVerifyNewAmazonDeals(newDeals, env) {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'x-marketplace': 'www.amazon.in' },
         body: JSON.stringify({
           itemIds: asins, itemIdType: 'ASIN', marketplace: 'www.amazon.in',
-          partnerTag: env.PA_PARTNER_TAG || 'dealbuster002-21',
+          partnerTag: getWebTag(env),
           resources: ['itemInfo.title','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.dealDetails','images.primary.large'],
         }),
       }, 7000);
@@ -3718,7 +3742,7 @@ async function checkAndCleanDeals(env, options = {}) {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'x-marketplace': 'www.amazon.in' },
         body: JSON.stringify({
           itemIds: asins, itemIdType: 'ASIN', marketplace: 'www.amazon.in',
-          partnerTag: env.PA_PARTNER_TAG || 'dealbuster002-21',
+          partnerTag: getWebTag(env),
           resources: ['itemInfo.title','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.dealDetails','images.primary.large'],
         }),
       });
@@ -4068,7 +4092,7 @@ async function checkLowestPriceBadges(env) {
 // and tries multiple paginated URLs to maximise coverage.
 
 async function checkAmazonDeals(env) {
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const TAG = getWebTag(env);
 
   // Paginated URL builder — amazon.in/deals uses base64-encoded widget params
   const pageUrls = [
@@ -4191,7 +4215,7 @@ async function checkAmazonDeals(env) {
 // Hourly cron: limitPerRun=1 (1 deal/hour = 24/day). Manual button: limitPerRun=24.
 
 async function syncAmazonDealsToProducts(env, limitPerRun = 1) {
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const TAG = getWebTag(env);
   const blockedBrands = await getBlockedBrands(env);
 
   // Load existing queue
@@ -4377,7 +4401,7 @@ async function handlePublish(body, env) {
       const rawUrl = getOriginalUrl(finalLink);
       if (rawUrl) finalLink = buildManualCueLink(rawUrl, env);
     } else if (isAmz) {
-      finalLink = tagAmazonUrl(finalLink, env.PA_PARTNER_TAG || 'dealbuster002-21');
+      finalLink = tagAmazonUrl(finalLink, getWebTag(env));
     }
   }
 
@@ -4978,7 +5002,7 @@ async function queueForApproval(products, env) {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) { console.error('Cannot queue for approval — TELEGRAM_BOT_TOKEN missing'); return; }
 
-  const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const tag = getTgTag(env);
   const now = Date.now();
 
   // Claim in the DO ledger BEFORE DMing — authoritative and serialized, so a
@@ -5322,7 +5346,7 @@ async function publishProductToSite(product, env) {
       const rawUrl = getOriginalUrl(finalLink);
       if (rawUrl) finalLink = buildManualCueLink(rawUrl, env);
     } else if (isAmz) {
-      finalLink = tagAmazonUrl(finalLink, env.PA_PARTNER_TAG || 'dealbuster002-21');
+      finalLink = tagAmazonUrl(finalLink, getWebTag(env));
     }
   }
 
@@ -5381,7 +5405,7 @@ async function handleApprovalCallback(cq, env) {
         await tgAnswerCallback(token, cq.id, 'Deal no longer in database');
         return new Response('ok');
       }
-      const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
+      const tag = getWebTag(env);
       const caption = formatFbCaption(p, tag, !!p.lowestPriceText, env);
       await tgSend(token, TG_ADMIN_ID, `<pre>${escHtml(caption)}</pre>`, { parse_mode: 'HTML' });
       await tgAnswerCallback(token, cq.id, '📘 Caption sent — tap it to copy');
@@ -5438,7 +5462,7 @@ async function handleApprovalCallback(cq, env) {
 
       // ── 2. Post to Telegram Channel ──
       if (action === 'chan' || action === 'both') {
-        const textToSend = channelText || formatDealMsg(product, env.PA_PARTNER_TAG || 'dealbuster002-21', false, env);
+        const textToSend = channelText || formatDealMsg(product, getTgTag(env), false, env);
         for (const ch of TG_CHANNELS) {
           if (photoId) {
             await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
@@ -6246,7 +6270,7 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
   if (!token) return;
   const noPrice = !product.price || product.price === '₹0' || product.price === '₹';
   if (noPrice) return;
-  const tag = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const tag = getTgTag(env);
   const msg = formatDealMsg(product, tag, !!product.lowestPriceText, env);
   for (const ch of TG_CHANNELS) {
     try {
@@ -6678,7 +6702,7 @@ async function handleTelegramWebhook(request, env) {
     return new Response('ok');
   }
 
-  const TAG = env.PA_PARTNER_TAG || 'dealbuster002-21';
+  const TAG = getWebTag(env);
   const photoId = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1].file_id : null;
   const isAmzUrlPattern = (u) => /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(u);
 
@@ -6970,7 +6994,32 @@ export default {
       try {
         const { products } = await getProductsFile(env);
         const visible = products.filter(p => !p.hidden && !isZeroPrice(p) && !hasUptoOffInTitle(p.title) && !p.isDealspyAjio);
-        return new Response(JSON.stringify(visible), {
+        // Detect client source: Mobile App (Flutter / Dart / OkHttp / source=app) vs Website (Browser)
+        const userAgent = request.headers.get('user-agent') || '';
+        const sourceParam = url0.searchParams.get('source');
+        const isApp = sourceParam === 'app' ||
+          (!sourceParam && (
+            /^Dart\//i.test(userAgent) ||
+            /dart:io/i.test(userAgent) ||
+            /okhttp/i.test(userAgent) ||
+            userAgent.toLowerCase().includes('dealbuster')
+          ));
+
+        const targetTag = isApp ? getAppTag(env) : getWebTag(env);
+
+        // Transform Amazon links dynamically to the client-specific tag (dbiap-21 for app, dbiwb-21 for web)
+        const taggedProducts = visible.map(p => {
+          const isAmz = p.store === 'amazon' || p.asin || (p.link && /amazon\.(?:in|com)|amzn\.(?:to|in)/i.test(p.link));
+          if (isAmz && p.link) {
+            const newLink = tagAmazonUrl(p.link, targetTag);
+            if (newLink !== p.link) {
+              return { ...p, link: newLink };
+            }
+          }
+          return p;
+        });
+
+        return new Response(JSON.stringify(taggedProducts), {
           headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         });
       } catch (e) {
