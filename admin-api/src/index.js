@@ -943,16 +943,39 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         return directRes;
       }
 
-      if (directRes.ok) {
+      let isOk = directRes.ok;
+      if (isOk) {
         const text = await directRes.clone().text().catch(() => '');
-        if (!text.includes('Just a moment...') && !text.includes('cf-browser-verification')) {
-          console.log(`Direct fetch for ${targetUrl} succeeded (${directRes.status})`);
-          return directRes;
+        if (text.includes('Just a moment...') || text.includes('cf-browser-verification')) {
+          isOk = false;
         }
-        console.log(`Direct fetch for ${targetUrl} hit Cloudflare WAF challenge, trying proxies...`);
-      } else {
-        console.log(`Direct fetch for ${targetUrl} returned ${directRes.status}, trying proxies...`);
       }
+
+      // Retry with mobile / Safari headers if blocked or challenged
+      if (!isOk) {
+        const fallbackHeaders = {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-IN,en;q=0.9',
+          'Cache-Control': 'no-cache'
+        };
+        try {
+          const retryRes = await fetchWithTimeout(targetUrl, { ...options, headers: fallbackHeaders }, timeoutMs);
+          if (retryRes.ok) {
+            const retryText = await retryRes.clone().text().catch(() => '');
+            if (!retryText.includes('Just a moment...') && !retryText.includes('cf-browser-verification')) {
+              directRes = retryRes;
+              isOk = true;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (isOk) {
+        console.log(`Direct fetch for ${targetUrl} succeeded (${directRes.status})`);
+        return directRes;
+      }
+      console.log(`Direct fetch for ${targetUrl} failed or hit Cloudflare challenge (${directRes.status}), trying proxies...`);
     } catch (e) {
       console.log(`Direct fetch for ${targetUrl} failed: ${e.message}, trying proxies...`);
     }
@@ -7291,7 +7314,9 @@ export default {
         const dh = await scrapeAndSyncDealsHeaven(env, limit);
         console.log(`trigger-sync-sample: syncing DealsSpy with limit ${limit}...`);
         const ds = await scrapeAndSyncDealsSpy(env, limit);
-        return json({ success: true, dealsheaven: dh, dealspy: ds });
+        console.log(`trigger-sync-sample: syncing OfferTag with limit ${limit}...`);
+        const ot = await scrapeAndSyncOfferTag(env, limit);
+        return json({ success: true, dealsheaven: dh, dealspy: ds, offertag: ot });
       } catch (e) {
         console.error('trigger-sync-sample error:', e.message);
         return json({ success: false, error: e.message }, 500);
