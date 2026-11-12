@@ -888,96 +888,81 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
 
   // For IndiaFreeStuff, DealsHeaven, DealsSpy, & OfferTag, try direct fetch first with browser headers
   if (targetUrl.includes('indiafreestuff.in') || targetUrl.includes('dealsheaven.in') || targetUrl.includes('dealsspy.in') || targetUrl.includes('offertag.in')) {
-    try {
-      const isOfferTag = targetUrl.includes('offertag.in');
-      const defaultUa = isOfferTag
-        ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
-        : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+    const isOfferTag = targetUrl.includes('offertag.in');
+    const isDealsHeaven = targetUrl.includes('dealsheaven.in');
 
-      const mergedHeaders = {
-        'User-Agent': defaultUa,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-IN,en;q=0.9',
-        'sec-ch-ua': isOfferTag ? '"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"' : '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': isOfferTag ? '"macOS"' : '"Windows"',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'none',
-        'sec-fetch-user': '?1',
-        'upgrade-insecure-requests': '1',
-        'Cache-Control': 'no-cache',
-        ...(options?.headers || {})
-      };
-      // OfferTag nginx server actively blocks Windows Chrome UAs with 403; force Mac/Safari UA
-      if (isOfferTag) {
-        mergedHeaders['User-Agent'] = defaultUa;
-      }
+    const uasToTry = isOfferTag
+      ? [
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15'
+        ]
+      : isDealsHeaven
+      ? [
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0'
+        ]
+      : [
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        ];
 
-      let directRes = await fetchWithTimeout(targetUrl, {
-        ...options,
-        headers: mergedHeaders
-      }, timeoutMs);
+    const urlsToTry = [targetUrl];
+    if (isDealsHeaven) {
+      const altUrl = targetUrl.includes('www.dealsheaven.in')
+        ? targetUrl.replace('www.dealsheaven.in', 'dealsheaven.in')
+        : targetUrl.replace('dealsheaven.in', 'www.dealsheaven.in');
+      urlsToTry.push(altUrl);
+    } else if (isOfferTag) {
+      const altUrl = targetUrl.includes('www.offertag.in')
+        ? targetUrl.replace('www.offertag.in', 'offertag.in')
+        : targetUrl.replace('offertag.in', 'www.offertag.in');
+      urlsToTry.push(altUrl);
+    }
 
-      if (!directRes.ok && targetUrl.includes('dealsheaven.in')) {
-        const altUrl = targetUrl.includes('www.dealsheaven.in')
-          ? targetUrl.replace('www.dealsheaven.in', 'dealsheaven.in')
-          : targetUrl.replace('dealsheaven.in', 'www.dealsheaven.in');
+    for (const fetchU of urlsToTry) {
+      for (const ua of uasToTry) {
         try {
-          const altRes = await fetchWithTimeout(altUrl, { ...options, headers: mergedHeaders }, timeoutMs);
-          if (altRes.ok) directRes = altRes;
-        } catch (_) {}
-      } else if (!directRes.ok && targetUrl.includes('offertag.in')) {
-        const altUrl = targetUrl.includes('www.offertag.in')
-          ? targetUrl.replace('www.offertag.in', 'offertag.in')
-          : targetUrl.replace('offertag.in', 'www.offertag.in');
-        try {
-          const altRes = await fetchWithTimeout(altUrl, { ...options, headers: mergedHeaders }, timeoutMs);
-          if (altRes.ok) directRes = altRes;
-        } catch (_) {}
-      }
+          const directHeaders = {
+            'User-Agent': ua,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-IN,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'sec-ch-ua': ua.includes('Safari') && !ua.includes('Chrome') ? undefined : '"Chromium";v="130", "Google Chrome";v="130", "Not-A.Brand";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': ua.includes('Mac') ? '"macOS"' : '"Windows"',
+            'sec-fetch-dest': 'document',
+            'sec-fetch-mode': 'navigate',
+            'sec-fetch-site': 'none',
+            'sec-fetch-user': '?1',
+            'upgrade-insecure-requests': '1',
+            'Cache-Control': 'no-cache',
+            ...(options?.headers || {})
+          };
+          if (isOfferTag || isDealsHeaven) {
+            directHeaders['User-Agent'] = ua; // Ensure chosen UA is preserved
+          }
 
-      const isRedirect = directRes.status >= 300 && directRes.status < 400;
-      if (options?.redirect === 'manual' && isRedirect) {
-        console.log(`Direct manual redirect for ${targetUrl} succeeded (${directRes.status})`);
-        return directRes;
-      }
+          const directRes = await fetchWithTimeout(fetchU, {
+            ...options,
+            headers: directHeaders
+          }, Math.min(timeoutMs, 12000));
 
-      let isOk = directRes.ok;
-      if (isOk) {
-        const text = await directRes.clone().text().catch(() => '');
-        if (text.includes('Just a moment...') || text.includes('cf-browser-verification')) {
-          isOk = false;
-        }
-      }
+          const isRedirect = directRes.status >= 300 && directRes.status < 400;
+          if (options?.redirect === 'manual' && isRedirect) {
+            return directRes;
+          }
 
-      // Retry with mobile / Safari headers if blocked or challenged
-      if (!isOk) {
-        const fallbackHeaders = {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-IN,en;q=0.9',
-          'Cache-Control': 'no-cache'
-        };
-        try {
-          const retryRes = await fetchWithTimeout(targetUrl, { ...options, headers: fallbackHeaders }, timeoutMs);
-          if (retryRes.ok) {
-            const retryText = await retryRes.clone().text().catch(() => '');
-            if (!retryText.includes('Just a moment...') && !retryText.includes('cf-browser-verification')) {
-              directRes = retryRes;
-              isOk = true;
+          if (directRes.ok) {
+            const text = await directRes.clone().text().catch(() => '');
+            if (!text.includes('Just a moment...') && !text.includes('cf-browser-verification') && text.length > 500) {
+              console.log(`Direct fetch for ${fetchU} succeeded with UA ${ua.slice(0, 30)} (${directRes.status})`);
+              return directRes;
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          console.log(`Direct fetch attempt for ${fetchU} with UA ${ua.slice(0, 30)} failed: ${e.message}`);
+        }
       }
-
-      if (isOk) {
-        console.log(`Direct fetch for ${targetUrl} succeeded (${directRes.status})`);
-        return directRes;
-      }
-      console.log(`Direct fetch for ${targetUrl} failed or hit Cloudflare challenge (${directRes.status}), trying proxies...`);
-    } catch (e) {
-      console.log(`Direct fetch for ${targetUrl} failed: ${e.message}, trying proxies...`);
     }
   }
 
