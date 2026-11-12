@@ -886,16 +886,21 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
     }
   }
 
-  // For IndiaFreeStuff, DealsHeaven, & DealsSpy, try direct fetch first with browser headers
-  if (targetUrl.includes('indiafreestuff.in') || targetUrl.includes('dealsheaven.in') || targetUrl.includes('dealsspy.in')) {
+  // For IndiaFreeStuff, DealsHeaven, DealsSpy, & OfferTag, try direct fetch first with browser headers
+  if (targetUrl.includes('indiafreestuff.in') || targetUrl.includes('dealsheaven.in') || targetUrl.includes('dealsspy.in') || targetUrl.includes('offertag.in')) {
     try {
+      const isOfferTag = targetUrl.includes('offertag.in');
+      const defaultUa = isOfferTag
+        ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+        : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
       const mergedHeaders = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'User-Agent': defaultUa,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-IN,en;q=0.9',
-        'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'sec-ch-ua': isOfferTag ? '"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"' : '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
         'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
+        'sec-ch-ua-platform': isOfferTag ? '"macOS"' : '"Windows"',
         'sec-fetch-dest': 'document',
         'sec-fetch-mode': 'navigate',
         'sec-fetch-site': 'none',
@@ -904,6 +909,11 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         'Cache-Control': 'no-cache',
         ...(options?.headers || {})
       };
+      // OfferTag nginx server actively blocks Windows Chrome UAs with 403; force Mac/Safari UA
+      if (isOfferTag) {
+        mergedHeaders['User-Agent'] = defaultUa;
+      }
+
       let directRes = await fetchWithTimeout(targetUrl, {
         ...options,
         headers: mergedHeaders
@@ -913,6 +923,14 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         const altUrl = targetUrl.includes('www.dealsheaven.in')
           ? targetUrl.replace('www.dealsheaven.in', 'dealsheaven.in')
           : targetUrl.replace('dealsheaven.in', 'www.dealsheaven.in');
+        try {
+          const altRes = await fetchWithTimeout(altUrl, { ...options, headers: mergedHeaders }, timeoutMs);
+          if (altRes.ok) directRes = altRes;
+        } catch (_) {}
+      } else if (!directRes.ok && targetUrl.includes('offertag.in')) {
+        const altUrl = targetUrl.includes('www.offertag.in')
+          ? targetUrl.replace('www.offertag.in', 'offertag.in')
+          : targetUrl.replace('offertag.in', 'www.offertag.in');
         try {
           const altRes = await fetchWithTimeout(altUrl, { ...options, headers: mergedHeaders }, timeoutMs);
           if (altRes.ok) directRes = altRes;
@@ -1665,10 +1683,20 @@ async function scrapeOfferTagNonAmazonDeals(env) {
     'https://www.offertag.in/top-deals?_cb=' + Date.now(),
   ];
 
+  const otHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9',
+    'Cache-Control': 'no-cache'
+  };
+
   const results = await Promise.allSettled(
     otPages.map(async pageUrl => {
       try {
-        const r = await fetchWithTimeout(pageUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 15000);
+        let r = await fetchWithTimeout(pageUrl, { headers: otHeaders }, 15000);
+        if (!r.ok) {
+          r = await fetchWithProxy(pageUrl, { headers: otHeaders }, 15000, env);
+        }
         if (!r.ok) return [];
         const html = await r.text();
         return parseOfferTagHtml(html);
@@ -3477,9 +3505,19 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
   const matchesMap = new Map(); // asin -> { title, image, price, mrp, category }
   let lastError = null;
 
+  const otHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9',
+    'Cache-Control': 'no-cache'
+  };
+
   for (const fetchUrl of urlsToTry) {
     try {
-      const r = await fetchWithTimeout(fetchUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 15000);
+      let r = await fetchWithTimeout(fetchUrl, { headers: otHeaders }, 15000);
+      if (!r.ok) {
+        r = await fetchWithProxy(fetchUrl, { headers: otHeaders }, 15000, env);
+      }
       if (!r.ok) continue;
 
       const pageHtml = await r.text();
