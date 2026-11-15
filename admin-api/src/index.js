@@ -966,7 +966,36 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
     }
   }
 
-  // 2. ScrapingAnt Proxy (with key rotation and auto-retry on 403 / 429 / Quota / Cloudflare WAF)
+  // 2. ZenRows Proxy (with key rotation and auto js_render for redirect URLs)
+  const zrKeysStr = env.ZENROWS_API_KEYS || env.ZENROWS_API_KEY || '';
+  const zrKeys = zrKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+
+  if (zrKeys.length > 0) {
+    for (let idx = 0; idx < zrKeys.length; idx++) {
+      const key = zrKeys[idx];
+      const isRedirectUrl = targetUrl.includes('?rto=') || targetUrl.includes('/amz/') || targetUrl.includes('/go/');
+      const jsParam = isRedirectUrl ? '&js_render=true' : '';
+      const proxyUrl = `https://api.zenrows.com/v1/?apikey=${key}&url=${encodeURIComponent(targetUrl)}${jsParam}`;
+      try {
+        console.log(`Trying ZenRows proxy with key index ${idx} (js_render=${isRedirectUrl})...`);
+        const res = await fetchWithTimeout(proxyUrl, options, Math.max(timeoutMs, 25000));
+        
+        const isQuotaErr = res.status === 403 || res.status === 429;
+        if (isQuotaErr) {
+          console.log(`ZenRows key index ${idx} quota/rate limit reached. Rotating to next key...`);
+          continue;
+        }
+
+        if (res.ok) {
+          return res;
+        }
+      } catch (err) {
+        console.log(`ZenRows proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
+      }
+    }
+  }
+
+  // 3. ScrapingAnt Proxy (with key rotation and auto-retry on 403 / 429 / Quota / Cloudflare WAF)
   const saKeysStr = env.SCRAPINGANT_API_KEYS || '';
   const saKeys = saKeysStr.split(',').map(k => k.trim()).filter(Boolean);
 
@@ -1610,7 +1639,7 @@ async function scrapeIfsNonAmazonDeals(env) {
       const r = await fetchWithProxy(targetUrl, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 20000, env);
       if (!r.ok) continue;
       const html = await r.text();
-      const blocks = html.split(/<div class="product-item">/g);
+      const blocks = html.split(/<div class="product-item/g);
       
       for (let i = 1; i < blocks.length; i++) {
         const block = blocks[i];
@@ -1668,7 +1697,7 @@ async function scrapeIfsNonAmazonDeals(env) {
           redirect: 'manual',
           headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
         }, 15000, env);
-        resolvedUrl = red.headers.get('location') || red.url || '';
+        resolvedUrl = red ? (red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('location') || red.url || '') : '';
       } catch (err) {}
       return { ...item, link: resolvedUrl };
     }));
@@ -3080,9 +3109,9 @@ function tagAmazonUrl(rawUrl, tag = TAG_WEB) {
 }
 
 async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
-  if (!env.SCRAPER_API_URL) {
-    console.log('IndiaFreeStuff sync skipped: SCRAPER_API_URL not configured.');
-    return { success: true, count: 0, message: 'IndiaFreeStuff: sync skipped (SCRAPER_API_URL not configured)' };
+  if (!env.ZENROWS_API_KEYS && !env.ZENROWS_API_KEY && !env.SCRAPER_API_KEYS && !env.SCRAPER_API_URL && !env.SCRAPINGANT_API_KEYS && !env.BRIGHTDATA_API_KEY) {
+    console.log('IndiaFreeStuff sync skipped: No proxy API configured.');
+    return { success: true, count: 0, message: 'IndiaFreeStuff: sync skipped (no proxy API configured)' };
   }
 
   try {
@@ -3193,7 +3222,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
             headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
           }, 15000, env);
           
-          const loc = redManual ? (redManual.headers.get('location') || '') : '';
+          const loc = redManual ? (redManual.headers.get('zr-final-url') || redManual.headers.get('sa-final-url') || redManual.headers.get('location') || '') : '';
           targetUrl = loc;
           // Extract ASIN strictly from the URL location (never from HTML body, which causes bogus ASIN tokens)
           asin = extractAsin(loc) || '';
@@ -3203,7 +3232,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
             const redFollow = await fetchWithProxy(redirTarget, {
               headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
             }, 15000, env);
-            const finalUrl = redFollow ? (redFollow.url || '') : '';
+            const finalUrl = redFollow ? (redFollow.headers.get('zr-final-url') || redFollow.headers.get('sa-final-url') || redFollow.url || '') : '';
             asin = extractAsin(finalUrl) || '';
             targetUrl = finalUrl;
           }
