@@ -461,8 +461,7 @@ async function saveSyncError(source, message, env) {
 async function getSyncErrors(env) {
   if (!env.KV) return [];
   try {
-    const list = await env.KV.get('syncErrors', 'json') || [];
-    return list.filter(e => e.source !== 'DealsPing' && e.source !== 'dealsping');
+    return await env.KV.get('syncErrors', 'json') || [];
   }
   catch { return []; }
 }
@@ -1345,8 +1344,13 @@ function parseDealsPingHtml(html) {
     payload = html;
   }
 
-  const marker = '"initialDeals":';
-  const idx = payload.indexOf(marker);
+  // Support both "latest": and legacy "initialDeals":
+  let marker = '"latest":';
+  let idx = payload.indexOf(marker);
+  if (idx === -1) {
+    marker = '"initialDeals":';
+    idx = payload.indexOf(marker);
+  }
   if (idx === -1) return [];
 
   const start = idx + marker.length;
@@ -1842,8 +1846,143 @@ async function scrapeDealsSpyNonAmazonDeals(env) {
 }
 
 async function scrapeAndSyncDealsPing(env, limit = 25) {
+  let html;
+  try {
+    const targetUrl = 'https://dealsping.in/';
+    const r = await fetchWithProxy(targetUrl, {
+      headers: {
+        'User-Agent': AMZ_HEADERS['User-Agent'],
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    }, 20000, env);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    html = await r.text();
+  } catch (e) {
+    const msg = `DealsPing fetch failed: ${e.message}`;
+    console.error(msg);
+    await saveSyncError('DealsPing', msg, env);
+    await recordScraperStatus('dealsping', 'error', msg, 0, env);
+    return { success: false, count: 0, message: msg };
+  }
+
+  let allDeals = [];
+  try {
+    allDeals = parseDealsPingHtml(html);
+  } catch (e) {
+    const msg = `DealsPing parse failed: ${e.message}`;
+    await saveSyncError('DealsPing', msg, env);
+    await recordScraperStatus('dealsping', 'error', msg, 0, env);
+    return { success: false, count: 0, message: msg };
+  }
+
+  const amazonDeals = allDeals.filter(d => (d.store === 'amazon' || /amazon\.in|amzn\.to/i.test(d.link)) && d.asin);
+
+  const { products, sha } = await getProductsFile(env);
+  let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
+  const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
+  const blockedBrands = await getBlockedBrands(env);
+
+  const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
+  const seenThisRun = new Set();
+
+  const TAG = getWebTag(env);
+  const added = [];
+  const updated = [];
+
+  for (const deal of amazonDeals) {
+    const asin = deal.asin;
+    if (!asin) continue;
+    const asinUpper = asin.toUpperCase();
+    if (deletedSet.has(asinUpper)) continue;
+    if (seenThisRun.has(asinUpper)) continue;
+    seenThisRun.add(asinUpper);
+    if (isBrandBlocked(deal.title, blockedBrands)) continue;
+
+    const parsedPriceVal = parsePrice(deal.price);
+    const price = parsedPriceVal || 0;
+    if (price <= 0) continue;
+
+    const parsedMrpVal = parsePrice(deal.mrp);
+    const mrp = parsedMrpVal || price;
+    if (!isValidDealPrice(price, mrp)) continue;
+    const discNum = mrp > price ? Math.round((1 - price / mrp) * 100) : 0;
+    if (discNum >= 100) continue;
+    const priceStr = '₹' + price.toLocaleString('en-IN');
+    const mrpStr = '₹' + mrp.toLocaleString('en-IN');
+    const discStr = discNum > 0 ? `-${discNum}%` : '0%';
+    const baseLink = `https://www.amazon.in/dp/${asin}`;
+    const link = `${baseLink}?tag=${TAG}`;
+
+    const category = detectCategoryFromTitle(deal.title);
+
+    if (existingByAsin.has(asinUpper)) {
+      const existing = existingByAsin.get(asinUpper);
+      if (isDead(existing)) continue;
+      const existingPrice = parsePrice(existing.price);
+      const newPrice = parsePrice(priceStr);
+
+      if (isValidPriceDrop(existingPrice, newPrice)) {
+        const priceHistory = appendPriceHistory(existing, priceStr);
+        const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
+        const origPrice = parsePrice(existing.originalPrice || existing.price);
+        if (origPrice && newPrice && shouldDemote(origPrice, newPrice)) {
+          updatedProduct.priceIncreased = true;
+        } else {
+          delete updatedProduct.priceIncreased;
+        }
+        updated.push(updatedProduct);
+      }
+    } else {
+      if (added.length >= limit) continue;
+      const image = deal.image || asinImage(asin);
+      const lowestText = extractLowestPriceText(deal.title) || null;
+
+      added.push({
+        id: `dp_${Date.now()}_${added.length}`,
+        asin: asinUpper,
+        title: deal.title,
+        price: priceStr,
+        mrp: mrpStr,
+        disc: discStr,
+        image,
+        link,
+        category,
+        highlights: deal.highlights && deal.highlights.length ? deal.highlights : ['Great deal on Amazon'],
+        lowestPriceText: lowestText,
+        featured: false,
+        outOfStock: false,
+        order: 0,
+        addedAt: new Date().toISOString(),
+        originalPrice: priceStr,
+        source: 'dealsping'
+      });
+    }
+  }
+
+  if (added.length === 0 && updated.length === 0) {
+    await clearSyncError('DealsPing', env);
+    await recordScraperStatus('dealsping', 'working', 'No new deals', 0, env);
+    return { success: true, count: 0, message: 'No new or updated DealsPing deals.' };
+  }
+
+  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
+
+  const updatedAsinSet = new Set(updated.map(u => u.asin));
+  const merged = products.map(p => updatedAsinSet.has(p.asin) ? updated.find(u => u.asin === p.asin) : p);
+  const final = await capLiveAndBury([...added, ...merged], env);
+
+  const msg = `DealsPing sync: +${added.length} new, ${updated.length} updated`;
+  await saveProductsFile(final, sha, msg, env);
   await clearSyncError('DealsPing', env);
-  return { success: true, count: 0, message: 'DealsPing scraper has been retired.' };
+  await recordScraperStatus('dealsping', 'working', msg, added.length, env);
+
+  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+  if (lowestDeals.length > 0) {
+    postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
+      .catch(e => console.error('TG lowest price DealsPing post failed:', e.message));
+  }
+
+  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
 async function scrapeAndSyncDealsHeaven(env, limit = 25) {
@@ -6321,6 +6460,14 @@ async function postNewDealsToTelegram(env) {
 async function runDealScrapersLocked(env) {
   return withCronLock('cron_radar_dotd', 180, env, async () => {
     try {
+      console.log('DealsPing sync start');
+      const r = await scrapeAndSyncDealsPing(env, 25);
+      console.log('DealsPing sync:', r.message);
+    } catch (e) {
+      console.error('DealsPing sync error:', e.message);
+      await saveSyncError('DealsPing', e.message, env);
+    }
+    try {
       console.log('DealsHeaven sync start');
       const r = await scrapeAndSyncDealsHeaven(env, 25);
       console.log('DealsHeaven sync:', r.message);
@@ -7324,13 +7471,15 @@ export default {
     if (url0.pathname === '/trigger-sync-sample' && request.method === 'GET') {
       try {
         const limit = parseInt(url0.searchParams.get('limit') || '5', 10);
+        console.log(`trigger-sync-sample: syncing DealsPing with limit ${limit}...`);
+        const dp = await scrapeAndSyncDealsPing(env, limit);
         console.log(`trigger-sync-sample: syncing DealsHeaven with limit ${limit}...`);
         const dh = await scrapeAndSyncDealsHeaven(env, limit);
         console.log(`trigger-sync-sample: syncing DealsSpy with limit ${limit}...`);
         const ds = await scrapeAndSyncDealsSpy(env, limit);
         console.log(`trigger-sync-sample: syncing OfferTag with limit ${limit}...`);
         const ot = await scrapeAndSyncOfferTag(env, limit);
-        return json({ success: true, dealsheaven: dh, dealspy: ds, offertag: ot });
+        return json({ success: true, dealsping: dp, dealsheaven: dh, dealspy: ds, offertag: ot });
       } catch (e) {
         console.error('trigger-sync-sample error:', e.message);
         return json({ success: false, error: e.message }, 500);
@@ -8260,7 +8409,11 @@ export default {
       // ── /sync-dealsping ──────────────────────────────────────────────────────
       if (url.pathname === '/sync-dealsping' && request.method === 'GET') {
         try {
-          return json({ success: false, message: 'DealsPing scraper has been retired.' });
+          const r = await scrapeAndSyncDealsPing(env, 30);
+          if (r.addedProducts?.length) {
+            await postDealsAndTrack(r.addedProducts.slice(0, 5), env).catch(e => console.error('TG post DealsPing manual:', e.message));
+          }
+          return json(r);
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
