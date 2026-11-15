@@ -2897,14 +2897,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     }
   }
 
-  // Scrape Non-Amazon deals from DealsHeaven, IndiaFreeStuff, and OfferTag (DealsPing is Amazon-only)
-  let dhDeals = [];
-  try {
-    dhDeals = await scrapeDealsHeavenNonAmazonDeals(env);
-  } catch (e) {
-    console.error('Non-Amazon DealsHeaven cron fetch failed:', e.message);
-  }
-
+  // Scrape Non-Amazon deals from IndiaFreeStuff and OfferTag (DealsPing is Amazon-only)
   let ifsDeals = [];
   try {
     ifsDeals = await scrapeIfsNonAmazonDeals(env).catch(() => []);
@@ -2921,14 +2914,7 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     console.error('Non-Amazon OfferTag cron fetch failed:', e.message);
   }
 
-  let dsDeals = [];
-  try {
-    dsDeals = await scrapeDealsSpyNonAmazonDeals(env);
-  } catch (e) {
-    console.error('Non-Amazon DealsSpy cron fetch failed:', e.message);
-  }
-
-  const scrapedDeals = [...dhDeals, ...dsDeals, ...ifsDeals, ...otDeals];
+  const scrapedDeals = [...ifsDeals, ...otDeals];
   if (!scrapedDeals.length) return;
 
   const { products, sha } = await getProductsFile(env);
@@ -3258,9 +3244,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const blockedBrands = await getBlockedBrands(env);
 
     const targetUrls = [
-      'https://www.indiafreestuff.in/deals',
-      'https://www.indiafreestuff.in/trending',
-      'https://www.indiafreestuff.in/stores/amazon',
+      'https://www.indiafreestuff.in/deals'
     ];
 
     for (const targetUrl of targetUrls) {
@@ -6468,20 +6452,12 @@ async function runDealScrapersLocked(env) {
       await saveSyncError('DealsPing', e.message, env);
     }
     try {
-      console.log('DealsHeaven sync start');
-      const r = await scrapeAndSyncDealsHeaven(env, 25);
-      console.log('DealsHeaven sync:', r.message);
+      console.log('IndiaFreeStuff sync start');
+      const r = await scrapeAndSyncIndiaFreeStuff(env, 15);
+      console.log('IndiaFreeStuff sync:', r.message);
     } catch (e) {
-      console.error('DealsHeaven sync error:', e.message);
-      await saveSyncError('DealsHeaven', e.message, env);
-    }
-    try {
-      console.log('DealsSpy sync start');
-      const r = await scrapeAndSyncDealsSpy(env, 25);
-      console.log('DealsSpy sync:', r.message);
-    } catch (e) {
-      console.error('DealsSpy sync error:', e.message);
-      await saveSyncError('DealsSpy', e.message, env);
+      console.error('IndiaFreeStuff sync error:', e.message);
+      await saveSyncError('IndiaFreeStuff', e.message, env);
     }
     try {
       console.log('DealOfTheDayIndia sync start');
@@ -7467,19 +7443,19 @@ export default {
       }
     }
 
-    // ── /trigger-sync-sample (sync new deals from DealsPing and DealsHeaven) ──
+    // ── /trigger-sync-sample (sync new deals from DealsPing, IFS, DOTD, OfferTag) ──
     if (url0.pathname === '/trigger-sync-sample' && request.method === 'GET') {
       try {
         const limit = parseInt(url0.searchParams.get('limit') || '5', 10);
         console.log(`trigger-sync-sample: syncing DealsPing with limit ${limit}...`);
         const dp = await scrapeAndSyncDealsPing(env, limit);
-        console.log(`trigger-sync-sample: syncing DealsHeaven with limit ${limit}...`);
-        const dh = await scrapeAndSyncDealsHeaven(env, limit);
-        console.log(`trigger-sync-sample: syncing DealsSpy with limit ${limit}...`);
-        const ds = await scrapeAndSyncDealsSpy(env, limit);
+        console.log(`trigger-sync-sample: syncing IndiaFreeStuff with limit ${limit}...`);
+        const ifs = await scrapeAndSyncIndiaFreeStuff(env, limit);
+        console.log(`trigger-sync-sample: syncing DealOfTheDayIndia with limit ${limit}...`);
+        const dotd = await scrapeAndSyncDealOfTheDayIndia(env, limit);
         console.log(`trigger-sync-sample: syncing OfferTag with limit ${limit}...`);
         const ot = await scrapeAndSyncOfferTag(env, limit);
-        return json({ success: true, dealsping: dp, dealsheaven: dh, dealspy: ds, offertag: ot });
+        return json({ success: true, dealsping: dp, indiafreestuff: ifs, dealoftheday: dotd, offertag: ot });
       } catch (e) {
         console.error('trigger-sync-sample error:', e.message);
         return json({ success: false, error: e.message }, 500);
@@ -8420,11 +8396,7 @@ export default {
       // ── /sync-dealsheaven ────────────────────────────────────────────────────
       if (url.pathname === '/sync-dealsheaven' && request.method === 'GET') {
         try {
-          const r = await scrapeAndSyncDealsHeaven(env, 30);
-          if (r.addedProducts?.length) {
-            await postDealsAndTrack(r.addedProducts.slice(0, 5), env).catch(e => console.error('TG post DealsHeaven manual:', e.message));
-          }
-          return json(r);
+          return json({ success: false, message: 'DealsHeaven scraper has been retired.' });
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
@@ -9086,27 +9058,6 @@ export default {
   async scheduled(event, env, ctx) {
     // Helper to check if current time is within sleep hours (2:00 AM - 7:00 AM IST)
     const getIstHour = () => new Date(Date.now() + 5.5 * 60 * 60 * 1000).getUTCHours();
-
-    // Every 30 min (at :14,:44): sync IndiaFreeStuff
-    if (event.cron === '14,44 * * * *') {
-      if (getIstHour() >= 2 && getIstHour() < 7) {
-        console.log('Skipping IndiaFreeStuff sync during sleep hours (2am-7am IST)');
-        return;
-      }
-      ctx.waitUntil(
-        withCronLock('cron_ifs', 180, env, async () => {
-          try {
-            console.log('IndiaFreeStuff sync start');
-            const r = await scrapeAndSyncIndiaFreeStuff(env, 30);
-            console.log('IndiaFreeStuff sync:', r.message);
-          } catch (e) {
-            console.error('IndiaFreeStuff sync error:', e.message);
-            await saveSyncError('IndiaFreeStuff', e.message, env);
-            await recordScraperStatus('indiafreestuff', 'error', e.message, 0, env);
-          }
-        })
-      );
-    }
 
     // Every 10 min at :02,:12,:22,:32,:42,:52 — never overlaps with 5,35 cron
     if (event.cron === '2,12,22,32,42,52 * * * *') {
