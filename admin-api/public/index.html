@@ -5009,24 +5009,6 @@ async function syncDealsping() {
   }
 }
 
-async function syncDealsheaven() {
-  const btn = document.getElementById('syncDealsheavenBtn');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Syncing…';
-  try {
-    const resp = await apiFetch('/sync-dealsheaven');
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    alert(data.message || 'DealsHeaven sync complete!');
-    await loadProducts();
-  } catch (e) {
-    alert('DealsHeaven sync failed: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
-}
 
 async function goToProduct(id) {
   document.getElementById('notificationDropdown').style.display = 'none';

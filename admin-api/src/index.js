@@ -8392,9 +8392,9 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
-      // ── /sync-dealsradar (Legacy alias to DealsPing) ─────────────────────────
+      // ── /sync-dealsradar (Legacy alias) ────────────────────────────────────
       if (url.pathname === '/sync-dealsradar' && request.method === 'GET') {
-        try { return json({ success: false, message: 'DealsRadar / DealsPing scraper has been retired.' }); } catch (e) { return json({ error: e.message }, 502); }
+        try { return json({ success: false, message: 'DealsRadar scraper has been retired. Use /sync-dealsping instead.' }); } catch (e) { return json({ error: e.message }, 502); }
       }
 
       // ── /telegram-post-now ───────────────────────────────────────────────────
@@ -8579,7 +8579,7 @@ export default {
       // ── /sync-all ────────────────────────────────────────────────────────────
       if (url.pathname === '/sync-all' && request.method === 'GET') {
         const results = await Promise.allSettled([
-          scrapeAndSyncDealsHeaven(env, 25),
+          scrapeAndSyncDealsPing(env, 25),
           scrapeAndSyncIndiaFreeStuff(env, 30),
           scrapeAndSyncDealOfTheDayIndia(env, 10),
           scrapeAndSyncOfferTag(env, 20)
@@ -8587,7 +8587,7 @@ export default {
         return json({
           success: true,
           results: results.map((r,i) => ({
-            site: ['DealsHeaven','IndiaFreeStuff','DealOfTheDayIndia','OfferTag'][i],
+            site: ['DealsPing','IndiaFreeStuff','DealOfTheDayIndia','OfferTag'][i],
             status: r.status,
             result: r.status==='fulfilled'?r.value:{error:r.reason.message}
           }))
