@@ -1123,7 +1123,17 @@ function isGenericOrLogoTitle(title) {
 function isGenericOrLogoImage(url) {
   if (!url || typeof url !== 'string') return true;
   const u = url.trim().toLowerCase();
-  if (u.includes('amazon-icon1') || u.includes('amazon_logo') || u.includes('amazon-logo') || u.includes('nav-logo') || u.includes('gno/images') || u.includes('user_action_prompt') || u.includes('transparent-pixel') || u.includes('nav-sprite')) return true;
+  if (u.includes('amazon-icon1') || u.includes('amazon_logo') || u.includes('amazon-logo') || u.includes('nav-logo') || u.includes('gno/images') || u.includes('user_action_prompt') || u.includes('transparent-pixel') || u.includes('nav-sprite') || u.includes('prime_logo') || u.includes('pixel') || u.includes('placeholder')) return true;
+  return false;
+}
+
+function isStaleOrBadAmazonImage(url) {
+  if (!url || typeof url !== 'string') return true;
+  if (isGenericOrLogoImage(url)) return true;
+  const u = url.trim().toLowerCase();
+  if (u.includes('.webp')) return true;
+  if (u.includes('dealsspy') || u.includes('dealsheaven')) return true;
+  if (u.includes('/images/p/') || u.includes('.01._sl500_.jpg')) return true;
   return false;
 }
 
@@ -1150,22 +1160,58 @@ async function fetchAmazonPageData(asin) {
     }
 
     let image = null;
-    const dynImgM = html.match(/data-a-dynamic-image=["']([^"']+)["']/i);
-    if (dynImgM) {
+
+    // 1. landingImage data-a-dynamic-image (JSON mapping url -> [w, h])
+    const landingDynM = html.match(/id="landingImage"[^>]*data-a-dynamic-image=["']([^"']+)["']/i) ||
+                        html.match(/data-a-dynamic-image=["']([^"']+)["'][^>]*id="landingImage"/i);
+    if (landingDynM) {
       try {
-        const imgs = JSON.parse(dynImgM[1].replace(/&quot;/g, '"'));
+        const imgs = JSON.parse(landingDynM[1].replace(/&quot;/g, '"'));
         const keys = Object.keys(imgs);
-        if (keys.length > 0 && !isGenericOrLogoImage(keys[0])) image = keys[0];
+        for (const k of keys.reverse()) {
+          if (k && !isGenericOrLogoImage(k)) { image = k; break; }
+        }
       } catch (e) {}
     }
+
+    // 2. data-old-hires
+    if (!image || isGenericOrLogoImage(image)) {
+      const hiresM = html.match(/id="landingImage"[^>]*data-old-hires=["']([^"']+)["']/i) ||
+                     html.match(/data-old-hires=["']([^"']+)["']/i);
+      if (hiresM && hiresM[1] && !isGenericOrLogoImage(hiresM[1])) image = hiresM[1];
+    }
+
+    // 3. landingImage or imgBlkFront src
+    if (!image || isGenericOrLogoImage(image)) {
+      const mainImgM = html.match(/<img[^>]+id="landingImage"[^>]+src=["']([^"']+)["']/i) ||
+                       html.match(/<img[^>]+src=["']([^"']+)["'][^>]+id="landingImage"/i) ||
+                       html.match(/<img[^>]+id="imgBlkFront"[^>]+src=["']([^"']+)["']/i) ||
+                       html.match(/<img[^>]+src=["']([^"']+)["'][^>]+id="imgBlkFront"/i) ||
+                       html.match(/id="(?:landingImage|imgBlkFront|main-image)"[^>]*src=["']([^"']+)["']/i);
+      if (mainImgM && mainImgM[1] && !isGenericOrLogoImage(mainImgM[1])) image = mainImgM[1];
+    }
+
+    // 4. Any data-a-dynamic-image containing valid Amazon product images
+    if (!image || isGenericOrLogoImage(image)) {
+      for (const m of html.matchAll(/data-a-dynamic-image=["']([^"']+)["']/gi)) {
+        try {
+          const imgs = JSON.parse(m[1].replace(/&quot;/g, '"'));
+          const keys = Object.keys(imgs);
+          for (const k of keys.reverse()) {
+            if (k && !isGenericOrLogoImage(k) && k.includes('/images/I/')) {
+              image = k;
+              break;
+            }
+          }
+          if (image) break;
+        } catch (e) {}
+      }
+    }
+
+    // 5. Schema.org image
     if (!image || isGenericOrLogoImage(image)) {
       const schemaImgM = html.match(/"image"\s*:\s*\[?\s*"([^"]+)"/i);
-      if (schemaImgM && !isGenericOrLogoImage(schemaImgM[1])) image = schemaImgM[1];
-    }
-    if (!image || isGenericOrLogoImage(image)) {
-      const mainImgM = html.match(/id="(?:landingImage|imgBlkFront|main-image)"[^>]*src=["']([^"']+)["']/i) ||
-                       html.match(/data-old-hires=["']([^"']+)["']/i);
-      if (mainImgM && !isGenericOrLogoImage(mainImgM[1])) image = mainImgM[1];
+      if (schemaImgM && schemaImgM[1] && !isGenericOrLogoImage(schemaImgM[1])) image = schemaImgM[1];
     }
 
     const badgeM = html.match(/(Lowest\s+price\s+(?:in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?|ever)|Best\s+price\s+in\s+(?:the\s+|last\s+|past\s+)?\d+\s+days?)/i);
@@ -4137,8 +4183,9 @@ async function checkLowestPriceBadges(env) {
 
       const { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title: pageTitle, image: pageImage, couponText } = await fetchAmazonPageData(p.asin);
 
-      // Auto-heal logo or generic titles/images for existing products!
-      if (isGenericOrLogoTitle(updated.title) || isGenericOrLogoImage(updated.image)) {
+      // Auto-heal logo, generic, webp, or stale images for existing products!
+      const needsImageHeal = isStaleOrBadAmazonImage(updated.image);
+      if (isGenericOrLogoTitle(updated.title) || needsImageHeal) {
         if (pageTitle && !isGenericOrLogoTitle(pageTitle)) {
           updated.title = pageTitle;
           updated.category = category || detectCategoryFromTitle(pageTitle);
@@ -4150,7 +4197,7 @@ async function checkLowestPriceBadges(env) {
             changed = true;
           }
         }
-        if (pageImage && !isGenericOrLogoImage(pageImage) && (isGenericOrLogoImage(updated.image) || updated.image !== pageImage)) {
+        if (pageImage && !isGenericOrLogoImage(pageImage) && (needsImageHeal || updated.image !== pageImage)) {
           updated.image = pageImage;
           changed = true;
         }
@@ -4692,6 +4739,90 @@ async function tgSendPhoto(token, chatId, photo, caption, opts = {}) {
   });
 }
 
+async function tgSendPhotoUpload(token, chatId, imageBuffer, caption, opts = {}, filename = 'deal.jpg', mimeType = 'image/jpeg') {
+  const isChannel = typeof chatId === 'string' && (chatId.startsWith('@') || chatId.startsWith('-100'));
+  const disableNotif = isChannel ? { disable_notification: true } : {};
+  const formData = new FormData();
+  formData.append('chat_id', chatId);
+  formData.append('photo', new Blob([imageBuffer], { type: mimeType }), filename);
+  if (caption) formData.append('caption', caption);
+  for (const [k, v] of Object.entries(opts)) {
+    if (k === 'caption' || k === 'photo' || k === 'chat_id') continue;
+    if (typeof v === 'object') formData.append(k, JSON.stringify(v));
+    else formData.append(k, String(v));
+  }
+  if (disableNotif.disable_notification) formData.append('disable_notification', 'true');
+  return fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+async function tgSendDealWithPhoto(token, chatId, product, text, opts = {}, env = {}) {
+  const isAmz = product?.store === 'amazon' || product?.asin || (product?.link && /amazon\.(?:in|com)|amzn\.(?:to|in)/i.test(product.link));
+  
+  // 1. If Amazon deal and image is missing, .webp, dealsspy, or placeholder, pre-heal from Amazon page
+  if (isAmz && product.asin && isStaleOrBadAmazonImage(product.image)) {
+    try {
+      const pageData = await fetchAmazonPageData(product.asin);
+      if (pageData?.image && !isGenericOrLogoImage(pageData.image)) {
+        product.image = pageData.image;
+      }
+    } catch (e) {
+      console.warn('Failed to pre-heal Amazon image before posting:', e.message);
+    }
+  }
+
+  // 2. Try sending photo via URL if image exists and is not .webp (Telegram sendPhoto via URL rejects webp)
+  if (product.image && !product.image.includes('.webp')) {
+    try {
+      const r = await tgSendPhoto(token, chatId, product.image, text, opts);
+      if (r.ok) return r;
+      const errText = await r.text().catch(() => '');
+      console.warn(`Telegram photo post by URL failed for ${chatId} (${r.status}): ${errText}`);
+    } catch (e) {
+      console.warn(`tgSendPhoto exception for ${chatId}:`, e.message);
+    }
+  }
+
+  // 3. If photo failed or wasn't tried because of .webp / invalid:
+  // For Amazon deals, try fetchAmazonPageData to get the official Amazon JPG if not already fetched
+  if (isAmz && product.asin) {
+    try {
+      const pageData = await fetchAmazonPageData(product.asin);
+      if (pageData?.image && pageData.image !== product.image && !pageData.image.includes('.webp')) {
+        product.image = pageData.image;
+        const r2 = await tgSendPhoto(token, chatId, product.image, text, opts);
+        if (r2.ok) return r2;
+      }
+    } catch (e) {}
+  }
+
+  // 4. Download image bytes in Cloudflare Worker and upload directly to Telegram
+  if (product.image) {
+    try {
+      const imgRes = await fetchWithTimeout(product.image, { headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] } }, 5000);
+      if (imgRes.ok) {
+        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        if (!contentType.includes('webp') && !product.image.includes('.webp')) {
+          const imgBuf = await imgRes.arrayBuffer();
+          if (imgBuf.byteLength > 100) { // Skip dummy 43-byte GIFs
+            const rUpload = await tgSendPhotoUpload(token, chatId, imgBuf, text, opts, 'deal.jpg', contentType);
+            if (rUpload.ok) return rUpload;
+            console.warn(`Telegram photo upload failed: ${rUpload.status}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('tgSendPhotoUpload error:', e.message);
+    }
+  }
+
+  // 5. Final fallback: text-only if all photo methods fail
+  console.warn(`All photo attempts failed for ${chatId}, falling back to text-only`);
+  return tgSend(token, chatId, text, opts);
+}
+
 function escTg(text) {
   return (text || '').replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
 }
@@ -5227,21 +5358,9 @@ async function queueForApproval(products, env) {
       fbCaptionRow(p),
     ] };
     try {
-      let messageId = null;
-      if (p.image) {
-        const r = await tgSendPhoto(token, TG_ADMIN_ID, p.image, text, { parse_mode: 'HTML', reply_markup: keyboard });
-        const data = await r.json().catch(() => null);
-        messageId = data?.result?.message_id ?? null;
-        if (!r.ok) {
-          const r2 = await tgSend(token, TG_ADMIN_ID, text, { parse_mode: 'HTML', reply_markup: keyboard });
-          const d2 = await r2.json().catch(() => null);
-          messageId = d2?.result?.message_id ?? null;
-        }
-      } else {
-        const r = await tgSend(token, TG_ADMIN_ID, text, { parse_mode: 'HTML', reply_markup: keyboard });
-        const data = await r.json().catch(() => null);
-        messageId = data?.result?.message_id ?? null;
-      }
+      const r = await tgSendDealWithPhoto(token, TG_ADMIN_ID, p, text, { parse_mode: 'HTML', reply_markup: keyboard }, env);
+      const data = await r.json().catch(() => null);
+      const messageId = data?.result?.message_id ?? null;
       entries.push({ product: p, queuedAt: now, messageId });
     } catch (e) {
       console.error('Failed to queue deal for approval:', e.message);
@@ -6447,21 +6566,9 @@ async function postDealToChannels(product, env, { companionDm = true } = {}) {
   const msg = formatDealMsg(product, tag, !!product.lowestPriceText, env);
   for (const ch of TG_CHANNELS) {
     try {
-      if (product.image) {
-        const r = await tgSendPhoto(token, ch, product.image, msg, { parse_mode: 'HTML' });
-        if (!r.ok) {
-          const errText = await r.text().catch(() => '');
-          console.warn(`Telegram photo post failed for ${ch} (${r.status}): ${errText}, retrying text-only`);
-          const r2 = await tgSend(token, ch, msg, { parse_mode: 'HTML' });
-          if (!r2.ok) {
-            console.error(`Telegram text post also failed for ${ch} (${r2.status}): ${await r2.text().catch(() => '')}`);
-          }
-        }
-      } else {
-        const r = await tgSend(token, ch, msg, { parse_mode: 'HTML' });
-        if (!r.ok) {
-          console.error(`Telegram post failed for ${ch} (${r.status}): ${await r.text().catch(() => '')}`);
-        }
+      const r = await tgSendDealWithPhoto(token, ch, product, msg, { parse_mode: 'HTML' }, env);
+      if (!r.ok) {
+        console.error(`Telegram post failed for ${ch} (${r.status}): ${await r.text().catch(() => '')}`);
       }
     } catch (e) {
       console.error('Telegram post failed for', ch, e.message);
