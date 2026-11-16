@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'products.json'
+      - 'deleted_asins.json'
+      - '**.md'
 
 concurrency:
   group: deploy-cloudflare
