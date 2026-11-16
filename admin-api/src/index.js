@@ -1686,7 +1686,7 @@ async function scrapeIfsNonAmazonDeals(env) {
   const targetCandidates = candidates.slice(0, syncLimit);
 
   const resolved = [];
-  const chunkSize = 5;
+  const chunkSize = 2;
   for (let i = 0; i < targetCandidates.length; i += chunkSize) {
     const chunk = targetCandidates.slice(i, i + chunkSize);
     const chunkResolved = await Promise.all(chunk.map(async (item) => {
@@ -3329,7 +3329,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
 
     // Resolve redirects in batches of 5
     const resolved = [];
-    const chunkSize = 5;
+    const chunkSize = 2;
     for (let i = 0; i < targetCandidates.length; i += chunkSize) {
       const chunk = targetCandidates.slice(i, i + chunkSize);
       const chunkResolved = await Promise.all(chunk.map(async (item) => {
@@ -8786,7 +8786,21 @@ export default {
 
       // ── DELETE /sync-errors ──────────────────────────────────────────────────
       if (url.pathname === '/sync-errors' && request.method === 'DELETE') {
-        if (env.KV) await env.KV.put('syncErrors', JSON.stringify([]));
+        if (env.KV) {
+          await env.KV.put('syncErrors', JSON.stringify([]));
+          try {
+            const current = await env.KV.get('scraper_status', 'json') || {};
+            let changed = false;
+            for (const k of Object.keys(current)) {
+              if (current[k]?.status === 'error') {
+                current[k].status = 'working';
+                current[k].message = 'Error cleared by admin';
+                changed = true;
+              }
+            }
+            if (changed) await env.KV.put('scraper_status', JSON.stringify(current));
+          } catch {}
+        }
         return json({ success: true });
       }
 
