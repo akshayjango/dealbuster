@@ -966,7 +966,10 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
   const zrKeys = zrKeysStr.split(',').map(k => k.trim()).filter(Boolean);
 
   if (zrKeys.length > 0) {
-    for (let idx = 0; idx < zrKeys.length; idx++) {
+    // Distribute load evenly across all keys (rotating/random start so one key isn't drained first)
+    const startIdx = Math.floor(Math.random() * zrKeys.length);
+    for (let i = 0; i < zrKeys.length; i++) {
+      const idx = (startIdx + i) % zrKeys.length;
       const key = zrKeys[idx];
       const isRedirectUrl = targetUrl.includes('?rto=') || targetUrl.includes('/amz/') || targetUrl.includes('/go/');
       const jsParam = isRedirectUrl ? '&js_render=true' : '';
