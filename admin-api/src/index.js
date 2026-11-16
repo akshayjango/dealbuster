@@ -1627,14 +1627,8 @@ function parseDealsSpyHtml(html) {
 
 async function scrapeIfsNonAmazonDeals(env) {
   const targetUrls = [
-    'https://www.indiafreestuff.in/trending',
-    'https://www.indiafreestuff.in/stores/flipkart',
-    'https://www.indiafreestuff.in/stores/myntra',
-    'https://www.indiafreestuff.in/stores/ajio',
-    'https://www.indiafreestuff.in/stores/meesho',
-    'https://www.indiafreestuff.in/stores/nykaa',
-    'https://www.indiafreestuff.in/stores/tatacliq',
-    'https://www.indiafreestuff.in/stores/shopsy',
+    'https://www.indiafreestuff.in/deals',
+    'https://www.indiafreestuff.in/trending'
   ];
 
   const candidateMap = new Map();
@@ -2897,11 +2891,15 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
     }
   }
 
-  // Scrape Non-Amazon deals from IndiaFreeStuff and OfferTag (DealsPing is Amazon-only)
+  // Scrape Non-Amazon deals from IndiaFreeStuff (10-min interval) and OfferTag (5-min)
   let ifsDeals = [];
   try {
-    ifsDeals = await scrapeIfsNonAmazonDeals(env).catch(() => []);
-    ifsDeals.forEach(d => { d.source = 'indiafreestuff'; });
+    const lastIfsNonAmz = parseInt(await env.KV?.get('ifs_non_amz_last_sync') || '0', 10);
+    if (Date.now() - lastIfsNonAmz >= 9 * 60 * 1000) {
+      if (env.KV) await env.KV.put('ifs_non_amz_last_sync', Date.now().toString());
+      ifsDeals = await scrapeIfsNonAmazonDeals(env).catch(() => []);
+      ifsDeals.forEach(d => { d.source = 'indiafreestuff'; });
+    }
   } catch (e) {
     console.error('Non-Amazon IFS cron fetch failed:', e.message);
   }
@@ -6452,9 +6450,16 @@ async function runDealScrapersLocked(env) {
       await saveSyncError('DealsPing', e.message, env);
     }
     try {
-      console.log('IndiaFreeStuff sync start');
-      const r = await scrapeAndSyncIndiaFreeStuff(env, 15);
-      console.log('IndiaFreeStuff sync:', r.message);
+      // IndiaFreeStuff runs every 10 minutes to conserve ZenRows proxy credits
+      const lastIfsSync = parseInt(await env.KV?.get('ifs_last_sync_at') || '0', 10);
+      if (Date.now() - lastIfsSync >= 9 * 60 * 1000) {
+        if (env.KV) await env.KV.put('ifs_last_sync_at', Date.now().toString());
+        console.log('IndiaFreeStuff sync start (10-min interval)');
+        const r = await scrapeAndSyncIndiaFreeStuff(env, 15);
+        console.log('IndiaFreeStuff sync:', r.message);
+      } else {
+        console.log('IndiaFreeStuff: 10-min throttle active, skipping this tick');
+      }
     } catch (e) {
       console.error('IndiaFreeStuff sync error:', e.message);
       await saveSyncError('IndiaFreeStuff', e.message, env);
