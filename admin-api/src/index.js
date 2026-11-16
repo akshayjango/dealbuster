@@ -975,9 +975,11 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
       const isRedirectUrl = targetUrl.includes('?rto=') || targetUrl.includes('/amz/') || targetUrl.includes('/go/');
       const jsParam = isRedirectUrl ? '&js_render=true' : '';
       const proxyUrl = `https://api.zenrows.com/v1/?apikey=${key}&url=${encodeURIComponent(targetUrl)}${jsParam}`;
+      const zrOptions = { ...(options || {}) };
+      delete zrOptions.redirect;
       try {
         console.log(`Trying ZenRows proxy with key index ${idx} (js_render=${isRedirectUrl})...`);
-        const res = await fetchWithTimeout(proxyUrl, options, Math.max(timeoutMs, 25000));
+        const res = await fetchWithTimeout(proxyUrl, zrOptions, Math.max(timeoutMs, 25000));
         
         const isQuotaErr = res.status === 403 || res.status === 429;
         if (isQuotaErr) {
@@ -1692,9 +1694,8 @@ async function scrapeIfsNonAmazonDeals(env) {
       try {
         const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
         const red = await fetchWithProxy(redirTarget, {
-          redirect: 'manual',
           headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
-        }, 15000, env);
+        }, 20000, env);
         resolvedUrl = red ? (red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('location') || red.url || '') : '';
       } catch (err) {}
       return { ...item, link: resolvedUrl };
@@ -3336,28 +3337,14 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
         let targetUrl = '';
         try {
           const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
-
-          // 1. Try manual redirect first to get location header quickly
-          const redManual = await fetchWithProxy(redirTarget, {
-            redirect: 'manual',
+          const red = await fetchWithProxy(redirTarget, {
             headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
-          }, 15000, env);
-          
-          const loc = redManual ? (redManual.headers.get('zr-final-url') || redManual.headers.get('sa-final-url') || redManual.headers.get('location') || '') : '';
-          targetUrl = loc;
-          // Extract ASIN strictly from the URL location (never from HTML body, which causes bogus ASIN tokens)
-          asin = extractAsin(loc) || '';
+          }, 20000, env);
 
-          if (!asin && (!targetUrl || targetUrl.includes('indiafreestuff.in'))) {
-            // 3. Follow redirect to final target URL
-            const redFollow = await fetchWithProxy(redirTarget, {
-              headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
-            }, 15000, env);
-            const finalUrl = redFollow ? (redFollow.headers.get('zr-final-url') || redFollow.headers.get('sa-final-url') || redFollow.url || '') : '';
-            asin = extractAsin(finalUrl) || '';
-            targetUrl = finalUrl;
-          }
-          if (dbg.length < 8) dbg.push(asin ? `amz:${asin}` : (targetUrl ? 'non-amz' : `miss:${redManual ? redManual.status : 'err'}`));
+          targetUrl = red ? (red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('location') || red.url || '') : '';
+          asin = extractAsin(targetUrl) || '';
+
+          if (dbg.length < 8) dbg.push(asin ? `amz:${asin}` : (targetUrl ? 'resolved' : `miss:${red ? red.status : 'err'}`));
         } catch (err) {
           if (dbg.length < 8) dbg.push(`err:${err.message}`);
         }
