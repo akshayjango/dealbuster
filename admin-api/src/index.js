@@ -435,6 +435,9 @@ function isBrandBlocked(title, blockedBrands) {
 // ── KV-based sync error notifications ────────────────────────────────────────
 
 async function saveSyncError(source, message, env) {
+  const src = (source || '').toLowerCase();
+  if (src === 'dealsheaven' || src === 'dealspy') return;
+
   if (env.KV) {
     try {
       const existing = await env.KV.get('syncErrors', 'json') || [];
@@ -885,33 +888,21 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
     }
   }
 
-  // For IndiaFreeStuff, DealsHeaven, DealsSpy, & OfferTag, try direct fetch first with browser headers
-  if (targetUrl.includes('indiafreestuff.in') || targetUrl.includes('dealsheaven.in') || targetUrl.includes('dealsspy.in') || targetUrl.includes('offertag.in')) {
+  // For OfferTag & IndiaFreeStuff, try direct fetch first with browser headers
+  if (targetUrl.includes('offertag.in') || targetUrl.includes('indiafreestuff.in')) {
     const isOfferTag = targetUrl.includes('offertag.in');
-    const isDealsHeaven = targetUrl.includes('dealsheaven.in');
 
     const uasToTry = isOfferTag
       ? [
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15'
         ]
-      : isDealsHeaven
-      ? [
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15',
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0'
-        ]
       : [
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
         ];
 
     const urlsToTry = [targetUrl];
-    if (isDealsHeaven) {
-      const altUrl = targetUrl.includes('www.dealsheaven.in')
-        ? targetUrl.replace('www.dealsheaven.in', 'dealsheaven.in')
-        : targetUrl.replace('dealsheaven.in', 'www.dealsheaven.in');
-      urlsToTry.push(altUrl);
-    } else if (isOfferTag) {
+    if (isOfferTag) {
       const altUrl = targetUrl.includes('www.offertag.in')
         ? targetUrl.replace('www.offertag.in', 'offertag.in')
         : targetUrl.replace('offertag.in', 'www.offertag.in');
@@ -937,7 +928,7 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
             'Cache-Control': 'no-cache',
             ...(options?.headers || {})
           };
-          if (isOfferTag || isDealsHeaven) {
+          if (isOfferTag) {
             directHeaders['User-Agent'] = ua; // Ensure chosen UA is preserved
           }
 
@@ -953,7 +944,12 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
 
           if (directRes.ok) {
             const text = await directRes.clone().text().catch(() => '');
-            if (!text.includes('Just a moment...') && !text.includes('cf-browser-verification') && text.length > 500) {
+            const isCfChallenge = text.includes('Just a moment...') ||
+                                  text.includes('cf-browser-verification') ||
+                                  text.includes('challenge-platform') ||
+                                  text.includes('Attention Required');
+            const hasExpectedContent = targetUrl.includes('indiafreestuff.in/deals') ? text.includes('product-item') : true;
+            if (!isCfChallenge && hasExpectedContent && text.length > 500) {
               console.log(`Direct fetch for ${fetchU} succeeded with UA ${ua.slice(0, 30)} (${directRes.status})`);
               return directRes;
             }
@@ -1785,59 +1781,11 @@ async function scrapeOfferTagNonAmazonDeals(env) {
 // Note: DealsPing is used exclusively for Amazon deals. Non-Amazon deals from DealsPing are omitted.
 
 async function scrapeDealsHeavenNonAmazonDeals(env) {
-  try {
-    const r = await fetchWithProxy('https://www.dealsheaven.in/', {
-      headers: {
-        'User-Agent': AMZ_HEADERS['User-Agent'],
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    }, 15000, env);
-    if (!r.ok) return [];
-    const html = await r.text();
-    const deals = parseDealsHeavenHtml(html);
-    return deals
-      .filter(d => !d.isAmazon && !d.asin && d.link && !/amazon\.in|amzn\.to/i.test(d.link))
-      .map(d => ({
-        title: d.title,
-        link: d.link,
-        image: d.image || 'images/dealbuster_icon.png',
-        price: d.price > 0 ? '₹' + d.price.toLocaleString('en-IN') : '',
-        mrp: d.mrp > 0 ? '₹' + d.mrp.toLocaleString('en-IN') : (d.price > 0 ? '₹' + d.price.toLocaleString('en-IN') : ''),
-        category: detectCategoryFromTitle(d.title),
-        source: 'dealsheaven'
-      }));
-  } catch (e) {
-    console.error('Non-Amazon DealsHeaven scrape failed:', e.message);
-    return [];
-  }
+  return [];
 }
 
 async function scrapeDealsSpyNonAmazonDeals(env) {
-  try {
-    const r = await fetchWithProxy('https://www.dealsspy.in/', {
-      headers: {
-        'User-Agent': AMZ_HEADERS['User-Agent'],
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    }, 15000, env);
-    if (!r.ok) return [];
-    const html = await r.text();
-    const deals = parseDealsSpyHtml(html);
-    return deals
-      .filter(d => !d.isAmazon && !d.asin && d.link && !/amazon\.in|amzn\.to/i.test(d.link))
-      .map(d => ({
-        title: d.title,
-        link: d.link,
-        image: d.image || 'images/dealbuster_icon.png',
-        price: d.price > 0 ? '₹' + d.price.toLocaleString('en-IN') : '',
-        mrp: d.mrp > 0 ? '₹' + d.mrp.toLocaleString('en-IN') : (d.price > 0 ? '₹' + d.price.toLocaleString('en-IN') : ''),
-        category: detectCategoryFromTitle(d.title),
-        source: 'dealspy'
-      }));
-  } catch (e) {
-    console.error('Non-Amazon DealsSpy scrape failed:', e.message);
-    return [];
-  }
+  return [];
 }
 
 async function scrapeAndSyncDealsPing(env, limit = 25) {
@@ -1981,22 +1929,16 @@ async function scrapeAndSyncDealsPing(env, limit = 25) {
 }
 
 async function scrapeAndSyncDealsHeaven(env, limit = 25) {
+  return { success: true, count: 0, message: 'DealsHeaven scraper has been retired.' };
+}
+
+async function _deprecated_scrapeAndSyncDealsHeaven(env, limit = 25) {
   let html;
   try {
-    const targetUrl = 'https://www.dealsheaven.in/';
-    const r = await fetchWithProxy(targetUrl, {
-      headers: {
-        'User-Agent': AMZ_HEADERS['User-Agent'],
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    }, 20000, env);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    html = await r.text();
+    return { success: true, count: 0 };
   } catch (e) {
     const msg = `DealsHeaven fetch failed: ${e.message}`;
     console.error(msg);
-    await saveSyncError('DealsHeaven', msg, env);
-    await recordScraperStatus('dealsheaven', 'error', msg, 0, env);
     return { success: false, count: 0, message: msg };
   }
 
@@ -2117,21 +2059,16 @@ async function scrapeAndSyncDealsHeaven(env, limit = 25) {
 }
 
 async function scrapeAndSyncDealsSpy(env, limit = 25) {
+  return { success: true, count: 0, message: 'DealSpy scraper has been retired.' };
+}
+
+async function _deprecated_scrapeAndSyncDealsSpy(env, limit = 25) {
   let html = '';
   try {
-    const r = await fetchWithProxy('https://www.dealsspy.in/', {
-      headers: {
-        'User-Agent': AMZ_HEADERS['User-Agent'],
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    }, 20000, env);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    html = await r.text();
+    return { success: true, count: 0 };
   } catch (e) {
     const msg = `DealsSpy fetch failed: ${e.message}`;
     console.error(msg);
-    await saveSyncError('DealsSpy', msg, env);
-    await recordScraperStatus('dealspy', 'error', msg, 0, env);
     return { success: false, count: 0, message: msg };
   }
 
