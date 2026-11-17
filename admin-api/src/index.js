@@ -7902,7 +7902,7 @@ export default {
       }
     }
 
-    // ── /trigger-sync-sample (sync new deals from DealsPing, IFS, DOTD, OfferTag) ──
+    // ── /trigger-sync-sample (sync new deals from all scrapers) ──
     if (url0.pathname === '/trigger-sync-sample' && request.method === 'GET') {
       try {
         const limit = parseInt(url0.searchParams.get('limit') || '5', 10);
@@ -7914,7 +7914,11 @@ export default {
         const dotd = await scrapeAndSyncDealOfTheDayIndia(env, limit);
         console.log(`trigger-sync-sample: syncing OfferTag with limit ${limit}...`);
         const ot = await scrapeAndSyncOfferTag(env, limit);
-        return json({ success: true, dealsping: dp, indiafreestuff: ifs, dealoftheday: dotd, offertag: ot });
+        console.log(`trigger-sync-sample: syncing DesiDime with limit ${limit}...`);
+        const dd = await scrapeAndSyncDesiDime(env, limit);
+        console.log(`trigger-sync-sample: syncing FreeKaaMaal with limit ${limit}...`);
+        const fkm = await scrapeAndSyncFreeKaaMaal(env, limit);
+        return json({ success: true, dealsping: dp, indiafreestuff: ifs, dealoftheday: dotd, offertag: ot, desidime: dd, freekaamaal: fkm });
       } catch (e) {
         console.error('trigger-sync-sample error:', e.message);
         return json({ success: false, error: e.message }, 500);
