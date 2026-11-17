@@ -3294,7 +3294,6 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     let lastError = null;
 
     const targetUrls = [
-      'https://www.indiafreestuff.in/',
       'https://www.indiafreestuff.in/deals'
     ];
 
@@ -6555,23 +6554,30 @@ async function postNewDealsToTelegram(env) {
 async function runDealScrapersLocked(env) {
   return withCronLock('cron_radar_dotd', 180, env, async () => {
     try {
-      console.log('DealsPing sync start');
-      const r = await scrapeAndSyncDealsPing(env, 25);
-      console.log('DealsPing sync:', r.message);
+      // DealsPing runs every 10 minutes to conserve proxy credits
+      const lastDpSync = parseInt(await env.KV?.get('dp_last_sync_at') || '0', 10);
+      if (Date.now() - lastDpSync >= 9 * 60 * 1000) {
+        if (env.KV) await env.KV.put('dp_last_sync_at', Date.now().toString());
+        console.log('DealsPing sync start (10-min interval)');
+        const r = await scrapeAndSyncDealsPing(env, 25);
+        console.log('DealsPing sync:', r.message);
+      } else {
+        console.log('DealsPing: 10-min throttle active, skipping this tick');
+      }
     } catch (e) {
       console.error('DealsPing sync error:', e.message);
       await saveSyncError('DealsPing', e.message, env);
     }
     try {
-      // IndiaFreeStuff runs every 10 minutes to conserve ZenRows proxy credits
+      // IndiaFreeStuff runs every 15 minutes to conserve proxy credits
       const lastIfsSync = parseInt(await env.KV?.get('ifs_last_sync_at') || '0', 10);
-      if (Date.now() - lastIfsSync >= 9 * 60 * 1000) {
+      if (Date.now() - lastIfsSync >= 14 * 60 * 1000) {
         if (env.KV) await env.KV.put('ifs_last_sync_at', Date.now().toString());
-        console.log('IndiaFreeStuff sync start (10-min interval)');
+        console.log('IndiaFreeStuff sync start (15-min interval)');
         const r = await scrapeAndSyncIndiaFreeStuff(env, 15);
         console.log('IndiaFreeStuff sync:', r.message);
       } else {
-        console.log('IndiaFreeStuff: 10-min throttle active, skipping this tick');
+        console.log('IndiaFreeStuff: 15-min throttle active, skipping this tick');
       }
     } catch (e) {
       console.error('IndiaFreeStuff sync error:', e.message);
