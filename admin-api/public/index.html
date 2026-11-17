@@ -1107,6 +1107,22 @@
           <div class="scraper-count-val" id="statusOffertagCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
           <div class="scraper-subtext" id="statusOffertagSubtext" style="margin-top:6px;">Loading status…</div>
         </div>
+        <div class="stat-card scraper-card" id="cardDesidime" onclick="filterBySource('desidime')" title="Click to filter products by DesiDime">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="stat-label" style="margin-bottom:0;">DesiDime</div>
+            <div class="scraper-status-badge" id="statusDesidimeBadge"><span class="status-dot green"></span><span id="statusDesidimeText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
+          </div>
+          <div class="scraper-count-val" id="statusDesidimeCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
+          <div class="scraper-subtext" id="statusDesidimeSubtext" style="margin-top:6px;">Loading status…</div>
+        </div>
+        <div class="stat-card scraper-card" id="cardFkm" onclick="filterBySource('freekaamaal')" title="Click to filter products by FreeKaaMaal">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="stat-label" style="margin-bottom:0;">FreeKaaMaal</div>
+            <div class="scraper-status-badge" id="statusFkmBadge"><span class="status-dot green"></span><span id="statusFkmText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
+          </div>
+          <div class="scraper-count-val" id="statusFkmCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
+          <div class="scraper-subtext" id="statusFkmSubtext" style="margin-top:6px;">Loading status…</div>
+        </div>
       </div>
 
       <!-- Toolbar -->
@@ -1124,6 +1140,8 @@
             <option value="dotd">DealOfTheDayIndia</option>
             <option value="indiafree">IndiaFreeStuff</option>
             <option value="offertag">OfferTag</option>
+            <option value="desidime">DesiDime</option>
+            <option value="freekaamaal">FreeKaaMaal</option>
             <option value="dealsradar">DealsRadar (Legacy)</option>
           </select>
           <select id="dashStore" onchange="renderList()">
@@ -1159,6 +1177,8 @@
             <button class="btn btn-outline btn-sm" onclick="syncIndiaFreeStuff()" id="syncIndiaFreeStuffBtn">Sync IndiaFreeStuff</button>
             <button class="btn btn-outline btn-sm" onclick="syncDotd()" id="syncDotdBtn">Sync DealOfTheDayIndia</button>
             <button class="btn btn-outline btn-sm" onclick="syncOffertag()" id="syncOffertagBtn">Sync OfferTag</button>
+            <button class="btn btn-outline btn-sm" onclick="syncDesidime()" id="syncDesidimeBtn">Sync DesiDime</button>
+            <button class="btn btn-outline btn-sm" onclick="syncFreekaamaal()" id="syncFreekaamaalBtn">Sync FreeKaaMaal</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
             <button class="btn btn-outline btn-sm" onclick="runPriceAndOOSCheck()" id="runPriceCheckBtn" style="border-color:#3b82f6;color:#2563eb;">⚡ Check OOS &amp; Prices</button>
             <button class="btn btn-outline btn-sm" onclick="runFullDeepSweep()" id="runFullSweepBtn" style="border-color:#8b5cf6;color:#7c3aed;" title="Sweep and verify every Amazon deal on the site (~2.8 minutes)">🚀 Full Sweep (All Deals)</button>
@@ -2783,7 +2803,9 @@ async function updateScraperStatuses() {
       { key: 'indiafreestuff', errName: 'IndiaFreeStuff', prefix: 'ifs_', countId: 'statusIfsCount', badgeId: 'statusIfsBadge', subId: 'statusIfsSubtext' },
       { key: 'dealsping', errName: 'DealsPing', prefix: 'dp_', countId: 'statusDealspingCount', badgeId: 'statusDealspingBadge', subId: 'statusDealspingSubtext' },
       { key: 'dealoftheday', errName: 'DealOfTheDayIndia', prefix: 'dotd_', countId: 'statusDotdCount', badgeId: 'statusDotdBadge', subId: 'statusDotdSubtext' },
-      { key: 'offertag', errName: 'OfferTag', prefix: 'ot_', countId: 'statusOffertagCount', badgeId: 'statusOffertagBadge', subId: 'statusOffertagSubtext' }
+      { key: 'offertag', errName: 'OfferTag', prefix: 'ot_', countId: 'statusOffertagCount', badgeId: 'statusOffertagBadge', subId: 'statusOffertagSubtext' },
+      { key: 'desidime', errName: 'DesiDime', prefix: 'dd_', countId: 'statusDesidimeCount', badgeId: 'statusDesidimeBadge', subId: 'statusDesidimeSubtext' },
+      { key: 'freekaamaal', errName: 'FreeKaaMaal', prefix: 'fkm_', countId: 'statusFkmCount', badgeId: 'statusFkmBadge', subId: 'statusFkmSubtext' }
     ];
 
     for (const src of sources) {
@@ -3144,7 +3166,9 @@ function renderList(resetScroll = false) {
       src === 'dotd' ? (p.id || '').startsWith('dotd_') :
       src === 'indiafree' ? (p.id || '').startsWith('ifs_') :
       src === 'offertag' ? (p.id || '').startsWith('ot_') :
-      src === 'manual' ? (!(p.id || '').startsWith('dp_') && !(p.id || '').startsWith('dh_') && !(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ds_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('dotd_') && !(p.id || '').startsWith('ot_') && !(p.id || '').startsWith('amzdeal_')) :
+      src === 'desidime' ? (p.id || '').startsWith('dd_') :
+      src === 'freekaamaal' ? (p.id || '').startsWith('fkm_') :
+      src === 'manual' ? (!(p.id || '').startsWith('dp_') && !(p.id || '').startsWith('dh_') && !(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ds_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('dotd_') && !(p.id || '').startsWith('ot_') && !(p.id || '').startsWith('dd_') && !(p.id || '').startsWith('fkm_') && !(p.id || '').startsWith('amzdeal_')) :
       true);
     const matchStore = !store || getStoreName(p) === store;
     const matchOOS = !oosFilterActive || p.outOfStock;
@@ -5093,6 +5117,44 @@ async function syncOffertag() {
   btn.textContent = 'Syncing…';
   try {
     const resp = await apiFetch('/sync-offertag');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Sync complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function syncDesidime() {
+  const btn = document.getElementById('syncDesidimeBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const resp = await apiFetch('/sync-desidime');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'Sync complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function syncFreekaamaal() {
+  const btn = document.getElementById('syncFreekaamaalBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const resp = await apiFetch('/sync-freekaamaal');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     alert(data.message || 'Sync complete!');
