@@ -961,7 +961,71 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
     }
   }
 
-  // 2. ZenRows Proxy (with key rotation and auto js_render for redirect URLs)
+  // 2. Scrape.do Proxy (with key rotation and auto-redirect resolution)
+  const sdKeysStr = env.SCRAPEDO_API_KEYS || env.SCRAPEDO_API_KEY || '';
+  const sdKeys = sdKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+
+  if (sdKeys.length > 0) {
+    const startIdx = Math.floor(Math.random() * sdKeys.length);
+    for (let i = 0; i < sdKeys.length; i++) {
+      const idx = (startIdx + i) % sdKeys.length;
+      const key = sdKeys[idx];
+      const proxyUrl = `http://api.scrape.do/?token=${key}&url=${encodeURIComponent(targetUrl)}`;
+      const sdOptions = { ...(options || {}) };
+      delete sdOptions.redirect;
+      try {
+        console.log(`Trying Scrape.do proxy with key index ${idx}...`);
+        const res = await fetchWithTimeout(proxyUrl, sdOptions, Math.max(timeoutMs, 25000));
+        
+        const isQuotaErr = res.status === 401 || res.status === 403 || res.status === 429;
+        if (isQuotaErr) {
+          console.log(`Scrape.do key index ${idx} quota/auth status ${res.status}. Rotating to next key...`);
+          continue;
+        }
+
+        if (res.ok) {
+          return res;
+        }
+      } catch (err) {
+        console.log(`Scrape.do proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
+      }
+    }
+  }
+
+  // 3. Crawlbase Proxy (with key rotation and auto JS rendering for redirects)
+  const cbKeysStr = env.CRAWLBASE_API_KEYS || env.CRAWLBASE_API_KEY || '';
+  const cbKeys = cbKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+
+  if (cbKeys.length > 0) {
+    const startIdx = Math.floor(Math.random() * cbKeys.length);
+    for (let i = 0; i < cbKeys.length; i++) {
+      const idx = (startIdx + i) % cbKeys.length;
+      const key = cbKeys[idx];
+      const isRedirectUrl = targetUrl.includes('?rto=') || targetUrl.includes('/amz/') || targetUrl.includes('/go/');
+      const jsParam = isRedirectUrl ? '&javascript=true' : '';
+      const proxyUrl = `https://api.crawlbase.com/?token=${key}&url=${encodeURIComponent(targetUrl)}${jsParam}`;
+      const cbOptions = { ...(options || {}) };
+      delete cbOptions.redirect;
+      try {
+        console.log(`Trying Crawlbase proxy with key index ${idx}...`);
+        const res = await fetchWithTimeout(proxyUrl, cbOptions, Math.max(timeoutMs, 25000));
+        
+        const isQuotaErr = res.status === 401 || res.status === 403 || res.status === 429 || res.status === 503;
+        if (isQuotaErr) {
+          console.log(`Crawlbase key index ${idx} quota/status ${res.status}. Rotating to next key...`);
+          continue;
+        }
+
+        if (res.ok) {
+          return res;
+        }
+      } catch (err) {
+        console.log(`Crawlbase proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
+      }
+    }
+  }
+
+  // 4. ZenRows Proxy (with key rotation and auto js_render for redirect URLs)
   const zrKeysStr = env.ZENROWS_API_KEYS || env.ZENROWS_API_KEY || '';
   const zrKeys = zrKeysStr.split(',').map(k => k.trim()).filter(Boolean);
 
@@ -1741,7 +1805,7 @@ async function scrapeIfsNonAmazonDeals(env) {
         const red = await fetchWithProxy(redirTarget, {
           headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
         }, 20000, env);
-        resolvedUrl = red ? (red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('location') || red.url || '') : '';
+        resolvedUrl = red ? (red.headers.get('scrape.do-resolved-url') || red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('cb_url') || red.headers.get('location') || red.url || '') : '';
       } catch (err) {}
       return { ...item, link: resolvedUrl };
     }));
@@ -3219,7 +3283,7 @@ function tagAmazonUrl(rawUrl, tag = TAG_WEB) {
 }
 
 async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
-  if (!env.ZENROWS_API_KEYS && !env.ZENROWS_API_KEY && !env.SCRAPER_API_KEYS && !env.SCRAPER_API_URL && !env.SCRAPINGANT_API_KEYS && !env.BRIGHTDATA_API_KEY) {
+  if (!env.SCRAPEDO_API_KEYS && !env.SCRAPEDO_API_KEY && !env.CRAWLBASE_API_KEYS && !env.CRAWLBASE_API_KEY && !env.ZENROWS_API_KEYS && !env.ZENROWS_API_KEY && !env.SCRAPER_API_KEYS && !env.SCRAPER_API_URL && !env.SCRAPINGANT_API_KEYS && !env.BRIGHTDATA_API_KEY) {
     console.log('IndiaFreeStuff sync skipped: No proxy API configured.');
     return { success: true, count: 0, message: 'IndiaFreeStuff: sync skipped (no proxy API configured)' };
   }
@@ -3227,6 +3291,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
   try {
     const matchesMap = new Map();
     const blockedBrands = await getBlockedBrands(env);
+    let lastError = null;
 
     const targetUrls = [
       'https://www.indiafreestuff.in/',
@@ -3279,12 +3344,13 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
           }
         }
       } catch (e) {
+        lastError = e;
         console.error(`IFS fetch failed for ${targetUrl}:`, e.message);
       }
     }
 
     if (matchesMap.size === 0) {
-      const msg = 'IndiaFreeStuff: no deals found (structure may have changed)';
+      const msg = lastError ? `IndiaFreeStuff fetch failed: ${lastError.message}` : 'IndiaFreeStuff: no deals found (structure may have changed)';
       await saveSyncError('IndiaFreeStuff', msg, env);
       await recordScraperStatus('indiafreestuff', 'error', msg, 0, env);
       return { success: false, count: 0, message: msg };
@@ -3328,7 +3394,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
             headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
           }, 20000, env);
 
-          targetUrl = red ? (red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('location') || red.url || '') : '';
+          targetUrl = red ? (red.headers.get('scrape.do-resolved-url') || red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('cb_url') || red.headers.get('location') || red.url || '') : '';
           asin = extractAsin(targetUrl) || '';
 
           if (dbg.length < 8) dbg.push(asin ? `amz:${asin}` : (targetUrl ? 'resolved' : `miss:${red ? red.status : 'err'}`));
