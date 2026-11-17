@@ -4036,44 +4036,122 @@ async function scrapeAndSyncFreeKaaMaal(env, limit = 25) {
   const matchesMap = new Map(); // asin -> { title, image, price, mrp }
   let lastError = null;
 
+  // 1. Homepage "Live Deals" feed (freshest live deals)
   try {
-    const res = await fetchWithTimeout('https://www.freekaamaal.com/amazon-offers-today', {
+    const res = await fetchWithTimeout('https://freekaamaal.com/', {
       headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] }
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
+    if (res.ok) {
+      const html = await res.text();
+      const feedIdx = html.indexOf('id="deal-feed"');
+      if (feedIdx !== -1) {
+        const feedHtml = html.slice(feedIdx, feedIdx + 60000);
+        const cardRegex = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+        let m;
+        const candidateCards = [];
 
-    const cardRegex = /<a[^>]+href="([^"]*amazon\.in\/(?:dp|gp\/product)\/([A-Z0-9]{10})[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-    let m;
+        while ((m = cardRegex.exec(feedHtml)) !== null) {
+          const rawHref = m[1];
+          const cardHtml = m[2];
 
-    while ((m = cardRegex.exec(html)) !== null) {
-      const asin = m[2].toUpperCase();
-      if (matchesMap.has(asin)) continue;
-      const cardHtml = m[3];
+          if (rawHref.startsWith('/') || rawHref.includes('how-cashback-works')) continue;
 
-      const priceM = cardHtml.match(/class="[^"]*price[^"]*"[^>]*>₹?\s*([\d,]+)/i) || cardHtml.match(/₹\s*([\d,]+)/);
-      const delM = cardHtml.match(/<del[^>]*>[\s\S]*?₹\s*([\d,]+)/i);
-      const titleM = cardHtml.match(/<h3[^>]*>([^<]+)<\/h3>/i) || cardHtml.match(/alt="([^"]{5,})"/i);
-      const imgM = cardHtml.match(/src="([^"]+)"/);
+          const storeM = cardHtml.match(/class="[^"]*metaStore[^"]*"[^>]*>([^<]+)<\/span>/i);
+          const storeName = storeM ? storeM[1].trim() : '';
+          if (!storeName.toLowerCase().includes('amazon') && !rawHref.includes('amazon.in')) continue;
 
-      const price = priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : 0;
-      const mrp = delM ? parseInt(delM[1].replace(/,/g, ''), 10) : price;
-      if (!(price > 0)) continue;
+          const titleM = cardHtml.match(/<h3[^>]*>([^<]+)<\/h3>/i) || cardHtml.match(/alt="([^"]{5,})"/i);
+          const rawTitle = titleM ? titleM[1].trim() : '';
+          const title = decodeHtmlEntities(rawTitle.replace(/\s+/g, ' ').trim());
+          if (!title || title.length < 5) continue;
+          if (isBrandBlocked(title, blockedBrands)) continue;
 
-      const rawTitle = titleM ? titleM[1].trim() : '';
-      const title = decodeHtmlEntities(rawTitle.replace(/\s+/g, ' ').trim());
-      if (!title || title.length < 5) continue;
-      if (isBrandBlocked(title, blockedBrands)) continue;
+          const priceM = cardHtml.match(/class="[^"]*price[^"]*"[^>]*>₹?\s*([\d,]+)/i) || cardHtml.match(/₹\s*([\d,]+)/);
+          const delM = cardHtml.match(/<del[^>]*>[\s\S]*?₹\s*([\d,]+)/i);
+          const price = priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : 0;
+          const mrp = delM ? parseInt(delM[1].replace(/,/g, ''), 10) : price;
+          if (!(price > 0)) continue;
 
-      let image = imgM ? imgM[1] : null;
-      if (!image || image.includes('fkmlogo') || image.includes('.svg')) {
-        image = asinImage(asin);
+          const imgM = cardHtml.match(/src="([^"]+)"/);
+          let image = imgM ? imgM[1] : null;
+
+          candidateCards.push({ rawHref, title, price, mrp, image });
+        }
+
+        for (const card of candidateCards) {
+          if (matchesMap.size >= limit) break;
+          let asin = null;
+          const amzM = card.rawHref.match(/amazon\.in\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+          if (amzM) {
+            asin = amzM[1].toUpperCase();
+          } else if (card.rawHref.includes('fkm.asia/')) {
+            try {
+              const r = await fetchWithTimeout(card.rawHref, {
+                method: 'GET',
+                redirect: 'manual',
+                headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] }
+              });
+              const loc = r.headers.get('location') || '';
+              const locM = loc.match(/amazon\.in\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+              if (locM) asin = locM[1].toUpperCase();
+            } catch {}
+          }
+
+          if (asin && !matchesMap.has(asin)) {
+            const finalImage = (!card.image || card.image.includes('fkmlogo') || card.image.includes('.svg'))
+              ? asinImage(asin)
+              : card.image;
+            matchesMap.set(asin, { title: card.title, image: finalImage, price: card.price, mrp: card.mrp });
+          }
+        }
       }
-
-      matchesMap.set(asin, { title, image, price, mrp });
     }
   } catch (e) {
     lastError = e;
+  }
+
+  // 2. Fallback to /amazon-offers-today if more deals needed to reach limit
+  if (matchesMap.size < limit) {
+    try {
+      const res = await fetchWithTimeout('https://www.freekaamaal.com/amazon-offers-today', {
+        headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] }
+      });
+      if (res.ok) {
+        const html = await res.text();
+        const cardRegex = /<a[^>]+href="([^"]*amazon\.in\/(?:dp|gp\/product)\/([A-Z0-9]{10})[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+        let m;
+
+        while ((m = cardRegex.exec(html)) !== null) {
+          if (matchesMap.size >= limit) break;
+          const asin = m[2].toUpperCase();
+          if (matchesMap.has(asin)) continue;
+          const cardHtml = m[3];
+
+          const priceM = cardHtml.match(/class="[^"]*price[^"]*"[^>]*>₹?\s*([\d,]+)/i) || cardHtml.match(/₹\s*([\d,]+)/);
+          const delM = cardHtml.match(/<del[^>]*>[\s\S]*?₹\s*([\d,]+)/i);
+          const titleM = cardHtml.match(/<h3[^>]*>([^<]+)<\/h3>/i) || cardHtml.match(/alt="([^"]{5,})"/i);
+          const imgM = cardHtml.match(/src="([^"]+)"/);
+
+          const price = priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : 0;
+          const mrp = delM ? parseInt(delM[1].replace(/,/g, ''), 10) : price;
+          if (!(price > 0)) continue;
+
+          const rawTitle = titleM ? titleM[1].trim() : '';
+          const title = decodeHtmlEntities(rawTitle.replace(/\s+/g, ' ').trim());
+          if (!title || title.length < 5) continue;
+          if (isBrandBlocked(title, blockedBrands)) continue;
+
+          let image = imgM ? imgM[1] : null;
+          if (!image || image.includes('fkmlogo') || image.includes('.svg')) {
+            image = asinImage(asin);
+          }
+
+          matchesMap.set(asin, { title, image, price, mrp });
+        }
+      }
+    } catch (e) {
+      if (!lastError) lastError = e;
+    }
   }
 
   if (matchesMap.size === 0) {
