@@ -3229,6 +3229,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const blockedBrands = await getBlockedBrands(env);
 
     const targetUrls = [
+      'https://www.indiafreestuff.in/',
       'https://www.indiafreestuff.in/deals'
     ];
 
@@ -3313,9 +3314,9 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const added = [];
     const dbg = [];
 
-    // Resolve redirects in batches of 5
+    // Resolve redirects in batches
     const resolved = [];
-    const chunkSize = 2;
+    const chunkSize = 3;
     for (let i = 0; i < targetCandidates.length; i += chunkSize) {
       const chunk = targetCandidates.slice(i, i + chunkSize);
       const chunkResolved = await Promise.all(chunk.map(async (item) => {
