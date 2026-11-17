@@ -783,9 +783,12 @@ async function main() {
         if (!['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy', 'meesho'].includes(l.store)) return false;
         if (!l.convertedUrl || /dealsping\.in|t\.me|telegram\.me/i.test(l.convertedUrl)) return false;
 
-        // Verify Amazon has our affiliate tag
+        // Verify Amazon has our affiliate tag (dbitg-21 or configured tag)
         if (l.store === 'amazon') {
-          return l.convertedUrl.includes('tag=dealbuster');
+          const expectedTag = conversionOptions.amazonTag || 'dbitg-21';
+          return l.convertedUrl.includes(`tag=${expectedTag}`) ||
+                 l.convertedUrl.includes('tag=dbitg-21') ||
+                 l.convertedUrl.includes('tag=dealbuster');
         }
         // For Flipkart, Myntra, Ajio, Shopsy: STRICTLY REQUIRE EarnKaro shortlink (fktr.in, fkrt.cc, fkrt.co, bitli.in, ekaro.in, myntr.it, myntr.in, ajiio.in, ajiio.co)
         if (['flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store)) {
