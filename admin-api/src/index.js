@@ -980,9 +980,9 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         console.log(`Trying ZenRows proxy with key index ${idx} (js_render=${isRedirectUrl})...`);
         const res = await fetchWithTimeout(proxyUrl, zrOptions, Math.max(timeoutMs, 25000));
         
-        const isQuotaErr = res.status === 403 || res.status === 429;
+        const isQuotaErr = res.status === 403 || res.status === 429 || res.status === 422;
         if (isQuotaErr) {
-          console.log(`ZenRows key index ${idx} quota/rate limit reached. Rotating to next key...`);
+          console.log(`ZenRows key index ${idx} quota/concurrency/challenge status ${res.status}. Rotating to next key...`);
           continue;
         }
 

@@ -2799,8 +2799,13 @@ async function updateScraperStatuses() {
       const totalDeals = matchedProds.length;
       const liveCount = matchedProds.filter(p => !p.hidden).length;
 
+      const activeErr = syncErrors.find(e => e.source === src.errName || e.source === src.key);
+      const statusObj = backendStatuses[src.key];
+
       let lastScrapedStr = 'N/A';
-      if (matchedProds.length > 0) {
+      if (statusObj && statusObj.lastSync) {
+        lastScrapedStr = timeAgo(statusObj.lastSync);
+      } else if (matchedProds.length > 0) {
         const sorted = matchedProds.slice().sort((a,b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
         if (sorted[0] && sorted[0].addedAt) {
           lastScrapedStr = timeAgo(sorted[0].addedAt);
@@ -2808,9 +2813,6 @@ async function updateScraperStatuses() {
       }
 
       countEl.textContent = `${totalDeals.toLocaleString('en-IN')} Deals`;
-
-      const activeErr = syncErrors.find(e => e.source === src.errName || e.source === src.key);
-      const statusObj = backendStatuses[src.key];
 
       // Stale error check: if backend status was updated to 'working' after the error was recorded
       const isErrStale = activeErr && statusObj && statusObj.status === 'working' && activeErr.time && (
