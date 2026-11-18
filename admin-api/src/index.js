@@ -4158,8 +4158,8 @@ function isSuspiciousFakePrice(title, price, mrp) {
     return true;
   }
 
-  // Actual Laptops under ₹15,000 (exclude all laptop accessories)
-  const isAccessory = /(?:bag|backpack|sleeve|cover|skin|stand|adapter|cable|mouse|pad|cooler|cooling|battery|charger|keyboard|headset|headphone|case|cabinet|hub|dock|mount|cleaner|screen|protector|light|fan|valve|ram|ssd)/i.test(lower);
+  // Actual Laptops under ₹15,000 (exclude laptop accessories)
+  const isAccessory = /\b(?:bag|backpack|sleeve|cover|skin|stand|adapter|cable|mouse|mousepad|deskpad|cooling pad|cooler|battery|charger|headset|headphone|case|cabinet|hub|dock|mount|cleaner|screen protector)\b/i.test(lower);
   if (lower.includes('laptop') && !isAccessory && p < 15000) {
     return true;
   }
