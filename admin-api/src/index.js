@@ -961,7 +961,7 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
     }
   }
 
-  // 2. Scrape.do Proxy (with key rotation and auto-redirect resolution)
+  // 2. Scrape.do Proxy (Exclusive proxy mode: with key rotation and auto-redirect resolution)
   const sdKeysStr = env.SCRAPEDO_API_KEYS || env.SCRAPEDO_API_KEY || '';
   const sdKeys = sdKeysStr.split(',').map(k => k.trim()).filter(Boolean);
 
@@ -990,6 +990,8 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         console.log(`Scrape.do proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
       }
     }
+    // Exclusively use Scrape.do: do not fall back to other proxies so Scrape.do lifespan can be measured accurately
+    throw new Error('All configured Scrape.do keys were exhausted or blocked');
   }
 
   // 3. Crawlbase Proxy (with key rotation and auto JS rendering for redirects)
