@@ -1440,8 +1440,23 @@ async function fetchAmazonPageData(asin) {
       }
     }
 
-    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title, image, couponText };
-  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false, title: null, image: null, couponText: null }; }
+    // Extract live price & MRP from product page
+    let livePrice = null;
+    const priceM = html.match(/class="[^"]*a-price-whole[^"]*"[^>]*>([\d,]+)/i);
+    if (priceM) {
+      livePrice = parseInt(priceM[1].replace(/,/g, ''), 10);
+    }
+
+    let liveMrp = null;
+    const mrpTagM = html.match(/class="[^"]*a-text-price[^"]*"[^>]*>[\s\S]*?class="a-offscreen"[^>]*>₹\s*([\d,]+)/i) ||
+                    html.match(/class="[^"]*a-text-price[^"]*"[^>]*>[\s\S]*?₹\s*([\d,]+)/i) ||
+                    html.match(/M\.R\.P\.[^₹\n]{0,40}₹\s*([\d,]+)/i);
+    if (mrpTagM) {
+      liveMrp = parseInt(mrpTagM[1].replace(/,/g, ''), 10);
+    }
+
+    return { badge, highlights, category, rating, reviewCount, lowStock, undeliverable, isOOS, title, image, couponText, price: livePrice, mrp: liveMrp };
+  } catch { return { badge: null, highlights: [], category: null, rating: null, reviewCount: null, lowStock: false, undeliverable: false, isOOS: false, title: null, image: null, couponText: null, price: null, mrp: null }; }
 }
 
 // ── DealsPing & DealsHeaven Parsers ──────────────────────────────────────────
@@ -3602,9 +3617,9 @@ async function scrapeAndSyncDealOfTheDayIndia(env, limit = 10) {
       }
     }
 
-    if (!isValidDealPrice(price, mrp)) continue;
+    if (!isValidDealPrice(price, mrp) || isSuspiciousFakePrice(finalTitle, price, mrp)) continue;
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
-    if (discNum >= 100) continue;
+    if (discNum < 15 || discNum >= 100) continue;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
@@ -3786,9 +3801,9 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
       }
     }
 
-    if (!isValidDealPrice(price, mrp)) continue;
+    if (!isValidDealPrice(price, mrp) || isSuspiciousFakePrice(finalTitle, price, mrp)) continue;
     const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
-    if (discNum >= 100) continue;
+    if (discNum < 15 || discNum >= 100) continue;
     const priceStr = '₹' + price.toLocaleString('en-IN');
     const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
@@ -4003,27 +4018,52 @@ async function scrapeAndSyncFreeKaaMaal(env, limit = 25) {
     let finalTitle = title;
     let finalImage = image;
 
-    if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
-      const pageData = await fetchAmazonPageData(asin);
-      if (pageData.title && !isGenericOrLogoTitle(pageData.title)) finalTitle = pageData.title;
-      if (pageData.image && !isGenericOrLogoImage(pageData.image)) finalImage = pageData.image;
+    // Fetch live Amazon page data to verify price, MRP, title, image, and stock
+    const pageData = await fetchAmazonPageData(asin);
+    if (pageData.title && !isGenericOrLogoTitle(pageData.title)) finalTitle = pageData.title;
+    if (pageData.image && !isGenericOrLogoImage(pageData.image)) finalImage = pageData.image;
 
-      if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
-        console.log(`Skipping FreeKaaMaal deal for ${asin}: generic logo title or image could not be resolved.`);
-        continue;
-      }
+    if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
+      console.log(`Skipping FreeKaaMaal deal for ${asin}: generic logo title or image could not be resolved.`);
+      continue;
     }
 
-    if (!isValidDealPrice(price, mrp)) continue;
-    const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
-    if (discNum >= 100) continue;
-    const priceStr = '₹' + price.toLocaleString('en-IN');
-    const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
+    if (pageData.isOOS || pageData.undeliverable) {
+      console.log(`Skipping FreeKaaMaal deal for ${asin}: out of stock or undeliverable on Amazon.`);
+      continue;
+    }
+
+    // Determine authoritative deal price & MRP:
+    // If Amazon returns a live price, use Amazon's verified live price!
+    let verifiedPrice = price;
+    let verifiedMrp = mrp;
+
+    if (pageData.price && pageData.price > 0) {
+      verifiedPrice = pageData.price;
+      verifiedMrp = (pageData.mrp && pageData.mrp > pageData.price) ? pageData.mrp : (mrp > pageData.price ? mrp : pageData.price);
+    }
+
+    if (!isValidDealPrice(verifiedPrice, verifiedMrp)) continue;
+    const discNum = verifiedMrp > verifiedPrice && verifiedPrice > 0 ? Math.round((1 - verifiedPrice / verifiedMrp) * 100) : 0;
+    // Discard any deal with no real discount (< 15% off) or 0% discount
+    if (discNum < 15 || discNum >= 100) {
+      console.log(`Skipping FreeKaaMaal deal for ${asin}: discount ${discNum}% is below threshold (${verifiedPrice}/${verifiedMrp}).`);
+      continue;
+    }
+
+    // Sanity check for fake seller prices
+    if (isSuspiciousFakePrice(finalTitle, verifiedPrice, verifiedMrp)) {
+      console.log(`Skipping suspicious deal for ${asin}: ₹${verifiedPrice} / MRP ₹${verifiedMrp} - ${finalTitle}`);
+      continue;
+    }
+
+    const priceStr = '₹' + verifiedPrice.toLocaleString('en-IN');
+    const mrpStr = verifiedMrp > 0 ? '₹' + verifiedMrp.toLocaleString('en-IN') : priceStr;
     const discStr = discNum > 0 ? `-${discNum}%` : '0%';
     const baseLink = `https://www.amazon.in/dp/${asin}`;
     const isUpto = hasUptoOffInTitle(finalTitle);
     const link = `${baseLink}?tag=${TAG}`;
-    const category = detectCategoryFromTitle(finalTitle);
+    const category = pageData.category || detectCategoryFromTitle(finalTitle);
 
     if (existingByAsin.has(asin)) {
       const existing = existingByAsin.get(asin);
@@ -4031,7 +4071,8 @@ async function scrapeAndSyncFreeKaaMaal(env, limit = 25) {
       const existingPrice = parsePrice(existing.price);
       const newPrice = parsePrice(priceStr);
 
-      if (isValidPriceDrop(existingPrice, newPrice)) {
+      // Only allow price drop if verified on Amazon
+      if (pageData.price && pageData.price === verifiedPrice && isValidPriceDrop(existingPrice, newPrice)) {
         const priceHistory = appendPriceHistory(existing, priceStr);
         const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
         const origPrice = parsePrice(existing.originalPrice || existing.price);
@@ -4044,11 +4085,12 @@ async function scrapeAndSyncFreeKaaMaal(env, limit = 25) {
       }
     } else {
       if (added.length >= limit) break;
-      const lowestText = extractLowestPriceText(finalTitle) || null;
+      const lowestText = pageData.badge || extractLowestPriceText(finalTitle) || null;
       added.push({
         id: `fkm_${Date.now()}_${added.length}`,
         asin, title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
-        image: finalImage, link, category, highlights: ['Great deal on Amazon'],
+        image: finalImage, link, category,
+        highlights: (pageData.highlights && pageData.highlights.length) ? pageData.highlights : ['Great deal on Amazon'],
         lowestPriceText: lowestText, featured: false,
         hidden: isUpto ? true : false,
         isUptoDeal: isUpto ? true : undefined,
@@ -4089,14 +4131,48 @@ function isValidDealPrice(price, mrp) {
   if (!p || p < 10) return false;
   const m = parsePrice(mrp);
   if (m && m > 0) {
-    if (m < p) return false;
+    if (m <= p) return false; // Must have genuine discount (mrp > price)
     const disc = Math.round((1 - p / m) * 100);
-    if (disc >= 100) return false;
+    if (disc < 10 || disc >= 100) return false;
     if (m >= 500 && p < 20) return false;
     if (m >= 5000 && p < 100) return false;
     if (m >= 50000 && p < 1000) return false;
   }
   return true;
+}
+
+function isSuspiciousFakePrice(title, price, mrp) {
+  const p = parsePrice(price);
+  const m = parsePrice(mrp);
+  if (!p) return true;
+  if (m && m <= p) return true; // 0% discount
+  const lower = (title || '').toLowerCase();
+
+  // Branded shoes (Adidas, Puma, Reebok, Nike, Asics, Fila) under ₹400 or MRP < ₹1,500
+  if ((lower.includes('adidas') || lower.includes('puma') || lower.includes('reebok') || lower.includes('nike') || lower.includes('asics') || lower.includes('fila')) && (lower.includes('shoe') || lower.includes('sneaker'))) {
+    if (p < 400 || (m && m < 1500)) return true;
+  }
+
+  // Water heaters / geysers under ₹1,000 or MRP < ₹2,500 (exclude rods / immersion heaters)
+  if ((lower.includes('water heater') || lower.includes('geyser')) && !lower.includes('rod') && !lower.includes('immersion') && (p < 1000 || (m && m < 2500))) {
+    return true;
+  }
+
+  // Actual Laptops under ₹15,000 (exclude all laptop accessories)
+  const isAccessory = /(?:bag|backpack|sleeve|cover|skin|stand|adapter|cable|mouse|pad|cooler|cooling|battery|charger|keyboard|headset|headphone|case|cabinet|hub|dock|mount|cleaner|screen|protector|light|fan|valve|ram|ssd)/i.test(lower);
+  if (lower.includes('laptop') && !isAccessory && p < 15000) {
+    return true;
+  }
+
+  // Electric chopper under ₹350
+  if (lower.includes('chopper') && lower.includes('electric') && p < 350) return true;
+
+  // Branded shirts/t-shirts under ₹100
+  if ((lower.includes('spykar') || lower.includes('arrow') || lower.includes('levis') || lower.includes("levi's")) && (lower.includes('shirt') || lower.includes('jeans')) && p < 100) {
+    return true;
+  }
+
+  return false;
 }
 
 function isValidPriceDrop(existingPrice, newPrice) {
