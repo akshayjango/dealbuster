@@ -448,13 +448,18 @@ async function saveSyncError(source, message, env) {
 
   await notifyAdminPush(`Sync error: ${source}`, message.slice(0, 180), env).catch(() => {});
 
-  // Send Telegram Admin Alert on EVERY error / block
+  // Send Telegram Admin Alert with cooldown (max 1 alert per source every 45 min)
   try {
     const token = env.TELEGRAM_BOT_TOKEN;
     const adminId = env.TELEGRAM_ADMIN_ID || TG_ADMIN_ID;
-    if (token && adminId) {
-      const text = `🚨 <b>Sync Alert [${escHtml(source)}]</b>\n\n<code>${escHtml(message.slice(0, 500))}</code>`;
-      await tgSend(token, adminId, text, { parse_mode: 'HTML' }).catch(() => {});
+    if (token && adminId && env.KV) {
+      const alertKey = `tg_err_alert_${src}`;
+      const lastAlert = parseInt(await env.KV.get(alertKey) || '0', 10);
+      if (Date.now() - lastAlert > 45 * 60 * 1000) {
+        await env.KV.put(alertKey, Date.now().toString(), { expirationTtl: 3600 });
+        const text = `🚨 <b>Sync Alert [${escHtml(source)}]</b>\n\n<code>${escHtml(message.slice(0, 500))}</code>`;
+        await tgSend(token, adminId, text, { parse_mode: 'HTML' }).catch(() => {});
+      }
     }
   } catch (e) {
     console.error('Failed to send Telegram sync error notification:', e.message);
@@ -477,6 +482,7 @@ async function clearSyncError(source, env) {
   try {
     const existing = await env.KV.get('syncErrors', 'json') || [];
     const target = (source || '').toLowerCase();
+    await env.KV.delete(`tg_err_alert_${target}`).catch(() => {});
     if (!existing.some(e => (e.source || '').toLowerCase() === target)) return;
     await env.KV.put('syncErrors', JSON.stringify(existing.filter(e => (e.source || '').toLowerCase() !== target)));
   } catch (e) { console.error('Failed to clear sync error:', e.message); }
