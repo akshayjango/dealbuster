@@ -436,7 +436,7 @@ function isBrandBlocked(title, blockedBrands) {
 
 async function saveSyncError(source, message, env) {
   const src = (source || '').toLowerCase();
-  if (src === 'dealsheaven' || src === 'dealspy') return;
+  if (src === 'dealsheaven' || src === 'dealspy' || src === 'desidime') return;
 
   if (env.KV) {
     try {
@@ -3855,224 +3855,6 @@ async function scrapeAndSyncOfferTag(env, limit = 20) {
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
-// ── DesiDime Scraper ──────────────────────────────────────────────────────────
-
-async function scrapeAndSyncDesiDime(env, limit = 20) {
-  const blockedBrands = await getBlockedBrands(env);
-  const matchesMap = new Map(); // asin -> { title, image, price, mrp }
-  let lastError = null;
-
-  try {
-    const res = await fetchWithTimeout('https://www.desidime.com/new', {
-      headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] }
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
-
-    const rawDeals = [];
-    const seenIds = new Set();
-
-    // 1. Parse main feed article cards: <article ... deal-card ...>
-    const articles = html.split('<article').slice(1);
-    for (const art of articles) {
-      const dealIdM = art.match(/data-gtm-deal-id="(\d+)"/i) || art.match(/\/deals\/[^"\/]*-(\d+)/i);
-      if (!dealIdM) continue;
-      const dealId = dealIdM[1];
-      if (seenIds.has(dealId)) continue;
-
-      const storeM = art.match(/data-gtm-store="([^"]+)"/i) || art.match(/gtm_store_visit_homepage"[^>]*>([^<]+)<\/a>/i);
-      const store = storeM ? storeM[1].trim() : '';
-
-      const titleM = art.match(/class="custom-card-title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i) ||
-                     art.match(/alt="([^"]{5,})"/i);
-      const rawTitle = titleM ? titleM[1].replace(/<[^>]+>/g, '').trim() : '';
-      const title = decodeHtmlEntities(rawTitle);
-
-      const priceM = art.match(/text-primary mr-2">\s*₹\s*([\d,]+)/i) || art.match(/₹\s*([\d,]+)/);
-      const price = priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : 0;
-
-      const mrpM = art.match(/line-through[^>]*>\s*₹\s*([\d,]+)/i);
-      const mrp = mrpM ? parseInt(mrpM[1].replace(/,/g, ''), 10) : price;
-
-      const imgM = art.match(/src="([^"]+)"/i);
-      const image = imgM ? imgM[1] : '';
-
-      if (dealId && title && price > 0) {
-        seenIds.add(dealId);
-        rawDeals.push({ dealId, store, title, price, mrp, image });
-      }
-    }
-
-    // 2. Also parse swiper cards (if any)
-    const swiperRegex = /<a[^>]+href="(\/deals\/([^"?]+)-(\d+))(?:\?[^"]*)?"[^>]*>([\s\S]*?)<\/a>/gi;
-    let sm;
-    while ((sm = swiperRegex.exec(html)) !== null) {
-      const dealId = sm[3];
-      if (seenIds.has(dealId) || sm[2].includes('new')) continue;
-
-      const cardHtml = sm[4];
-      const altMatch = cardHtml.match(/alt="([^"]+)"/);
-      const spanMatch = cardHtml.match(/<span class="font-medium">([^<]+)<\/span>/);
-      const rawTitle = altMatch ? altMatch[1].trim() : (spanMatch ? spanMatch[1].trim() : '');
-      const title = decodeHtmlEntities(rawTitle);
-
-      const priceM = cardHtml.match(/₹\s*([\d,]+)/);
-      const price = priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : 0;
-      const imgMatch = cardHtml.match(/src="([^"]+)"/);
-      const image = imgMatch ? imgMatch[1] : '';
-
-      if (dealId && title && price > 0) {
-        seenIds.add(dealId);
-        rawDeals.push({ dealId, store: '', title, price, mrp: price, image });
-      }
-    }
-
-    for (const deal of rawDeals) {
-      if (matchesMap.size >= limit) break;
-
-      // Quick filter: if store is explicitly marked as non-Amazon (Flipkart, Myntra, etc.), skip redirect check for Amazon sync
-      if (deal.store && !deal.store.toLowerCase().includes('amazon') && deal.store !== '') continue;
-
-      try {
-        const vRes = await fetchWithTimeout(`https://visit.desidime.com/visit/deals-1/${deal.dealId}`, {
-          method: 'GET',
-          redirect: 'manual',
-          headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] }
-        });
-        const loc = vRes.headers.get('location') || '';
-        let targetUrl = loc;
-        if (loc.includes('url=')) {
-          const uMatch = loc.match(/[?&]url=([^&]+)/);
-          if (uMatch) targetUrl = decodeURIComponent(uMatch[1]);
-        }
-
-        // Only Amazon deals for now
-        if (targetUrl.includes('amazon.in')) {
-          const asinMatch = targetUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-          if (asinMatch) {
-            const asin = asinMatch[1].toUpperCase();
-            if (matchesMap.has(asin)) continue;
-
-            const title = decodeHtmlEntities(deal.title.replace(/\s+/g, ' ').trim());
-            if (!title || title.length < 5) continue;
-            if (isBrandBlocked(title, blockedBrands)) continue;
-
-            const image = deal.image || asinImage(asin);
-            const price = deal.price;
-            const mrp = deal.mrp > price ? deal.mrp : price;
-
-            matchesMap.set(asin, { title, image, price, mrp });
-          }
-        }
-      } catch (err) {
-        // Individual redirect failure should not abort scraper
-      }
-    }
-  } catch (e) {
-    lastError = e;
-  }
-
-  if (matchesMap.size === 0) {
-    const msg = lastError ? `DesiDime fetch failed: ${lastError.message}` : 'DesiDime: no new Amazon deals found (structure may have changed)';
-    await saveSyncError('DesiDime', msg, env);
-    await recordScraperStatus('desidime', 'error', msg, 0, env);
-    return { success: false, count: 0, message: msg };
-  }
-
-  const { products, sha } = await getProductsFile(env);
-  let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
-  const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
-  const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
-
-  const TAG = getWebTag(env);
-  const added = [];
-  const updated = [];
-
-  for (const [asin, { title, image, price, mrp }] of matchesMap) {
-    if (deletedSet.has(asin)) continue;
-
-    let finalTitle = title;
-    let finalImage = image;
-
-    if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
-      const pageData = await fetchAmazonPageData(asin);
-      if (pageData.title && !isGenericOrLogoTitle(pageData.title)) finalTitle = pageData.title;
-      if (pageData.image && !isGenericOrLogoImage(pageData.image)) finalImage = pageData.image;
-
-      if (isGenericOrLogoTitle(finalTitle) || isGenericOrLogoImage(finalImage)) {
-        console.log(`Skipping DesiDime deal for ${asin}: generic logo title or image could not be resolved.`);
-        continue;
-      }
-    }
-
-    if (!isValidDealPrice(price, mrp)) continue;
-    const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : 0;
-    if (discNum >= 100) continue;
-    const priceStr = '₹' + price.toLocaleString('en-IN');
-    const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
-    const discStr = discNum > 0 ? `-${discNum}%` : '0%';
-    const baseLink = `https://www.amazon.in/dp/${asin}`;
-    const isUpto = hasUptoOffInTitle(finalTitle);
-    const link = `${baseLink}?tag=${TAG}`;
-    const category = detectCategoryFromTitle(finalTitle);
-
-    if (existingByAsin.has(asin)) {
-      const existing = existingByAsin.get(asin);
-      if (isDead(existing)) continue;
-      const existingPrice = parsePrice(existing.price);
-      const newPrice = parsePrice(priceStr);
-
-      if (isValidPriceDrop(existingPrice, newPrice)) {
-        const priceHistory = appendPriceHistory(existing, priceStr);
-        const updatedProduct = { ...existing, price: priceStr, mrp: mrpStr, disc: discStr, link, outOfStock: false, priceHistory };
-        const origPrice = parsePrice(existing.originalPrice || existing.price);
-        if (origPrice && newPrice && shouldDemote(origPrice, newPrice)) {
-          updatedProduct.priceIncreased = true;
-        } else {
-          delete updatedProduct.priceIncreased;
-        }
-        updated.push(updatedProduct);
-      }
-    } else {
-      if (added.length >= limit) break;
-      const lowestText = extractLowestPriceText(finalTitle) || null;
-      added.push({
-        id: `dd_${Date.now()}_${added.length}`,
-        asin, title: finalTitle, price: priceStr, mrp: mrpStr, disc: discStr,
-        image: finalImage, link, category, highlights: ['Great deal on Amazon'],
-        lowestPriceText: lowestText, featured: false,
-        hidden: isUpto ? true : false,
-        isUptoDeal: isUpto ? true : undefined,
-        outOfStock: false,
-        order: 0, addedAt: new Date().toISOString(), originalPrice: priceStr,
-      });
-    }
-  }
-
-  if (added.length === 0 && updated.length === 0) {
-    await clearSyncError('DesiDime', env);
-    await recordScraperStatus('desidime', 'working', 'No new deals', 0, env);
-    return { success: true, count: 0, message: 'DesiDime: no new Amazon deals.' };
-  }
-
-  const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
-  const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
-
-  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
-  const final = await capLiveAndBury([...added, ...base], env);
-  const msg = `DesiDime sync: +${added.length} new, ${updated.length} updated`;
-  await saveProductsFile(final, sha, msg, env);
-  await clearSyncError('DesiDime', env);
-  await recordScraperStatus('desidime', 'working', msg, added.length, env);
-
-  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
-  if (lowestDeals.length > 0) {
-    postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
-      .catch(e => console.error('TG lowest price DesiDime post failed:', e.message));
-  }
-
-  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
-}
 
 // ── FreeKaaMaal Scraper ───────────────────────────────────────────────────────
 
@@ -7054,14 +6836,6 @@ async function runDealScrapersLocked(env) {
       await saveSyncError('OfferTag', e.message, env);
     }
     try {
-      console.log('DesiDime sync start');
-      const r = await scrapeAndSyncDesiDime(env, 20);
-      console.log('DesiDime sync:', r.message);
-    } catch (e) {
-      console.error('DesiDime sync error:', e.message);
-      await saveSyncError('DesiDime', e.message, env);
-    }
-    try {
       console.log('FreeKaaMaal sync start');
       const r = await scrapeAndSyncFreeKaaMaal(env, 25);
       console.log('FreeKaaMaal sync:', r.message);
@@ -8037,11 +7811,9 @@ export default {
         const dotd = await scrapeAndSyncDealOfTheDayIndia(env, limit);
         console.log(`trigger-sync-sample: syncing OfferTag with limit ${limit}...`);
         const ot = await scrapeAndSyncOfferTag(env, limit);
-        console.log(`trigger-sync-sample: syncing DesiDime with limit ${limit}...`);
-        const dd = await scrapeAndSyncDesiDime(env, limit);
         console.log(`trigger-sync-sample: syncing FreeKaaMaal with limit ${limit}...`);
         const fkm = await scrapeAndSyncFreeKaaMaal(env, limit);
-        return json({ success: true, dealsping: dp, indiafreestuff: ifs, dealoftheday: dotd, offertag: ot, desidime: dd, freekaamaal: fkm });
+        return json({ success: true, dealsping: dp, indiafreestuff: ifs, dealoftheday: dotd, offertag: ot, freekaamaal: fkm });
       } catch (e) {
         console.error('trigger-sync-sample error:', e.message);
         return json({ success: false, error: e.message }, 500);
@@ -9170,17 +8942,6 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
-      // ── /sync-desidime ────────────────────────────────────────────────────────
-      if (url.pathname === '/sync-desidime' && request.method === 'GET') {
-        try {
-          const r = await scrapeAndSyncDesiDime(env, 20);
-          if (r.addedProducts?.length) {
-            await postDealsAndTrack(r.addedProducts.slice(0, 5), env).catch(e => console.error('TG post DesiDime manual:', e.message));
-          }
-          return json(r);
-        } catch (e) { return json({ error: e.message }, 502); }
-      }
-
       // ── /sync-freekaamaal ─────────────────────────────────────────────────────
       if (url.pathname === '/sync-freekaamaal' && request.method === 'GET') {
         try {
@@ -9199,13 +8960,12 @@ export default {
           scrapeAndSyncIndiaFreeStuff(env, 30),
           scrapeAndSyncDealOfTheDayIndia(env, 10),
           scrapeAndSyncOfferTag(env, 20),
-          scrapeAndSyncDesiDime(env, 20),
           scrapeAndSyncFreeKaaMaal(env, 25)
         ]);
         return json({
           success: true,
           results: results.map((r,i) => ({
-            site: ['DealsPing','IndiaFreeStuff','DealOfTheDayIndia','OfferTag','DesiDime','FreeKaaMaal'][i],
+            site: ['DealsPing','IndiaFreeStuff','DealOfTheDayIndia','OfferTag','FreeKaaMaal'][i],
             status: r.status,
             result: r.status==='fulfilled'?r.value:{error:r.reason.message}
           }))
