@@ -3863,33 +3863,70 @@ async function scrapeAndSyncDesiDime(env, limit = 20) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const html = await res.text();
 
-    const regex = /<a[^>]+href="(\/deals\/([^"?]+)-(\d+))(?:\?[^"]*)?"[^>]*>([\s\S]*?)<\/a>/gi;
-    let m;
     const rawDeals = [];
     const seenIds = new Set();
 
-    while ((m = regex.exec(html)) !== null) {
-      const slug = m[2];
-      const dealId = m[3];
-      const innerHtml = m[4];
-      if (seenIds.has(dealId) || slug.includes('new')) continue;
-      seenIds.add(dealId);
+    // 1. Parse main feed article cards: <article ... deal-card ...>
+    const articles = html.split('<article').slice(1);
+    for (const art of articles) {
+      const dealIdM = art.match(/data-gtm-deal-id="(\d+)"/i) || art.match(/\/deals\/[^"\/]*-(\d+)/i);
+      if (!dealIdM) continue;
+      const dealId = dealIdM[1];
+      if (seenIds.has(dealId)) continue;
 
-      const altMatch = innerHtml.match(/alt="([^"]+)"/);
-      const spanMatch = innerHtml.match(/<span class="font-medium">([^<]+)<\/span>/);
-      const title = altMatch ? altMatch[1].trim() : (spanMatch ? spanMatch[1].trim() : null);
-      const priceMatch = innerHtml.match(/₹\s*([\d,]+)/);
-      const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ''), 10) : null;
-      const imgMatch = innerHtml.match(/src="([^"]+)"/);
-      const image = imgMatch ? imgMatch[1] : null;
+      const storeM = art.match(/data-gtm-store="([^"]+)"/i) || art.match(/gtm_store_visit_homepage"[^>]*>([^<]+)<\/a>/i);
+      const store = storeM ? storeM[1].trim() : '';
 
-      if (title && price > 0) {
-        rawDeals.push({ dealId, slug, title, price, image });
+      const titleM = art.match(/class="custom-card-title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i) ||
+                     art.match(/alt="([^"]{5,})"/i);
+      const rawTitle = titleM ? titleM[1].replace(/<[^>]+>/g, '').trim() : '';
+      const title = decodeHtmlEntities(rawTitle);
+
+      const priceM = art.match(/text-primary mr-2">\s*₹\s*([\d,]+)/i) || art.match(/₹\s*([\d,]+)/);
+      const price = priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : 0;
+
+      const mrpM = art.match(/line-through[^>]*>\s*₹\s*([\d,]+)/i);
+      const mrp = mrpM ? parseInt(mrpM[1].replace(/,/g, ''), 10) : price;
+
+      const imgM = art.match(/src="([^"]+)"/i);
+      const image = imgM ? imgM[1] : '';
+
+      if (dealId && title && price > 0) {
+        seenIds.add(dealId);
+        rawDeals.push({ dealId, store, title, price, mrp, image });
       }
     }
 
-    for (const deal of rawDeals.slice(0, 25)) {
+    // 2. Also parse swiper cards (if any)
+    const swiperRegex = /<a[^>]+href="(\/deals\/([^"?]+)-(\d+))(?:\?[^"]*)?"[^>]*>([\s\S]*?)<\/a>/gi;
+    let sm;
+    while ((sm = swiperRegex.exec(html)) !== null) {
+      const dealId = sm[3];
+      if (seenIds.has(dealId) || sm[2].includes('new')) continue;
+
+      const cardHtml = sm[4];
+      const altMatch = cardHtml.match(/alt="([^"]+)"/);
+      const spanMatch = cardHtml.match(/<span class="font-medium">([^<]+)<\/span>/);
+      const rawTitle = altMatch ? altMatch[1].trim() : (spanMatch ? spanMatch[1].trim() : '');
+      const title = decodeHtmlEntities(rawTitle);
+
+      const priceM = cardHtml.match(/₹\s*([\d,]+)/);
+      const price = priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : 0;
+      const imgMatch = cardHtml.match(/src="([^"]+)"/);
+      const image = imgMatch ? imgMatch[1] : '';
+
+      if (dealId && title && price > 0) {
+        seenIds.add(dealId);
+        rawDeals.push({ dealId, store: '', title, price, mrp: price, image });
+      }
+    }
+
+    for (const deal of rawDeals) {
       if (matchesMap.size >= limit) break;
+
+      // Quick filter: if store is explicitly marked as non-Amazon (Flipkart, Myntra, etc.), skip redirect check for Amazon sync
+      if (deal.store && !deal.store.toLowerCase().includes('amazon') && deal.store !== '') continue;
+
       try {
         const vRes = await fetchWithTimeout(`https://visit.desidime.com/visit/deals-1/${deal.dealId}`, {
           method: 'GET',
@@ -3916,7 +3953,7 @@ async function scrapeAndSyncDesiDime(env, limit = 20) {
 
             const image = deal.image || asinImage(asin);
             const price = deal.price;
-            const mrp = price;
+            const mrp = deal.mrp > price ? deal.mrp : price;
 
             matchesMap.set(asin, { title, image, price, mrp });
           }
