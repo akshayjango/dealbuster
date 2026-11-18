@@ -1357,9 +1357,11 @@
 
             <!-- Converted Link Display -->
             <div class="field" id="othersConvertedContainer" style="display:none;margin-top:16px;">
-              <label>Your Converted Tracking Link (CueLinks / Amazon Tag)</label>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <label style="margin-bottom:0;">Tracking Link <span style="text-transform:none;font-weight:400;color:var(--muted);font-size:11px;">(Editable)</span></label>
+              </div>
               <div style="display:flex;gap:10px;align-items:center;">
-                <input type="text" id="othersConvertedLink" readonly style="flex:1;font-size:.85rem;background:#fff;color:var(--text);"/>
+                <input type="text" id="othersConvertedLink" placeholder="https://..." style="flex:1;font-size:.85rem;background:#fff;color:var(--text);"/>
                 <button type="button" class="btn-icon" onclick="copyOthersAssociateLink()" id="copyOthersLinkBtn" title="Copy Link" style="border:1.5px solid var(--border);padding:8px;display:inline-flex;align-items:center;justify-content:center;background:#fff;border-radius:10px;color:var(--muted);width:38px;height:38px;flex-shrink:0;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -1367,6 +1369,7 @@
                   </svg>
                 </button>
               </div>
+              <small style="display:block;font-size:11px;color:var(--muted);margin-top:4px;">CueLinks / Amazon tag / custom affiliate link. You can edit or replace this before publishing.</small>
             </div>
           </div>
 
@@ -1423,11 +1426,11 @@
             <!-- Converted Link Display -->
             <div class="field" id="earnkaroConvertedContainer" style="display:none;margin-top:16px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <label style="margin-bottom:0;">Your Converted EarnKaro Affiliate Link</label>
+                <label style="margin-bottom:0;">Affiliate Link <span style="text-transform:none;font-weight:400;color:var(--muted);font-size:11px;">(Editable)</span></label>
                 <span id="earnkaroStoreBadge" style="font-size:11px;font-weight:700;color:var(--primary);background:rgba(99,102,241,0.1);padding:2px 8px;border-radius:6px;"></span>
               </div>
               <div style="display:flex;gap:10px;align-items:center;">
-                <input type="text" id="earnkaroConvertedLink" readonly style="flex:1;font-size:.85rem;background:#fff;color:var(--text);"/>
+                <input type="text" id="earnkaroConvertedLink" placeholder="https://..." oninput="updateEarnkaroStoreBadge(this.value)" style="flex:1;font-size:.85rem;background:#fff;color:var(--text);"/>
                 <button type="button" class="btn-icon" onclick="copyEarnkaroLink()" id="copyEarnkaroLinkBtn" title="Copy Link" style="border:1.5px solid var(--border);padding:8px;display:inline-flex;align-items:center;justify-content:center;background:#fff;border-radius:10px;color:var(--muted);width:38px;height:38px;flex-shrink:0;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -1435,6 +1438,7 @@
                   </svg>
                 </button>
               </div>
+              <small style="display:block;font-size:11px;color:var(--muted);margin-top:4px;">Generated affiliate link. You can edit or replace this with your direct Flipkart/store affiliate link before publishing.</small>
             </div>
           </div>
 
@@ -4250,6 +4254,8 @@ let othersLowestPriceText = null;
 
 function clearOthersForm() {
   document.getElementById('othersUrl').value = '';
+  const converted = document.getElementById('othersConvertedLink');
+  if (converted) converted.value = '';
   document.getElementById('othersPrice').value = '';
   document.getElementById('othersMrp').value = '';
   document.getElementById('othersTitle').value = '';
@@ -4466,8 +4472,27 @@ function updateEarnkaroDiscountBadge() {
   if (badge) badge.style.display = 'none';
 }
 
+function updateEarnkaroStoreBadge(url) {
+  const badgeEl = document.getElementById('earnkaroStoreBadge');
+  if (!badgeEl) return;
+  const storeLower = (url || '').toLowerCase();
+  let storeName = '';
+  if (storeLower.includes('flipkart') || storeLower.includes('fkrt') || storeLower.includes('fktr')) storeName = 'Flipkart';
+  else if (storeLower.includes('myntra') || storeLower.includes('myntr')) storeName = 'Myntra';
+  else if (storeLower.includes('ajio') || storeLower.includes('ajiio')) storeName = 'Ajio';
+  else if (storeLower.includes('shopsy')) storeName = 'Shopsy';
+  else if (storeLower.includes('meesho')) storeName = 'Meesho';
+  else if (storeLower.includes('nykaa')) storeName = 'Nykaa';
+  else if (storeLower.includes('tatacliq')) storeName = 'TataCliq';
+  else if (storeLower.includes('amazon') || storeLower.includes('amzn')) storeName = 'Amazon';
+  if (storeName) {
+    badgeEl.textContent = storeName;
+    badgeEl.style.display = 'inline-block';
+  }
+}
+
 function clearEarnkaroForm() {
-  ['earnkaroUrl','earnkaroTitle','earnkaroPrice','earnkaroMrp','earnkaroImage'].forEach(id => {
+  ['earnkaroUrl','earnkaroConvertedLink','earnkaroTitle','earnkaroPrice','earnkaroMrp','earnkaroImage'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -4545,6 +4570,7 @@ async function autoConvertEarnkaroUrl(urlVal) {
       convertedInput.value = affiliateLink;
       convertedContainer.style.display = 'block';
       publishCard.style.display = 'block';
+      updateEarnkaroStoreBadge(affiliateLink || trimmed);
 
       if (data.title) {
         document.getElementById('earnkaroTitle').value = data.title;
@@ -4708,7 +4734,7 @@ async function publishFromEarnkaro() {
   const convertedLink = document.getElementById('earnkaroConvertedLink').value.trim();
 
   if (!title || !priceRaw || !imgPath || !convertedLink) {
-    alert('Please fill in title, price, image, and ensure the EarnKaro link is generated.');
+    alert('Please fill in title, price, image, and ensure an affiliate link is provided.');
     return;
   }
 
