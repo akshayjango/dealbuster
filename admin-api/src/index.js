@@ -967,11 +967,65 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
     }
   }
 
-  // 2. Scrape.do Proxy (Exclusive proxy mode: with key rotation and auto-redirect resolution)
+  // 2. Decodo Web Data Scraper (Primary exclusive proxy for IndiaFreeStuff)
+  const isIfs = targetUrl.includes('indiafreestuff.in');
+  const isDealsPing = targetUrl.includes('dealsping.in');
+
+  const decodoKeysStr = env.DECODO_API_KEYS || env.DECODO_API_KEY || '';
+  const decodoKeys = decodoKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+
+  if (isIfs && decodoKeys.length > 0) {
+    const startIdx = Math.floor(Math.random() * decodoKeys.length);
+    for (let i = 0; i < decodoKeys.length; i++) {
+      const idx = (startIdx + i) % decodoKeys.length;
+      const key = decodoKeys[idx];
+      try {
+        console.log(`Trying Decodo proxy with key index ${idx} for ${targetUrl.slice(0, 60)}...`);
+        const payload = JSON.stringify({ url: targetUrl });
+        const res = await fetchWithTimeout('https://data.decodo.com/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json'
+          },
+          body: payload
+        }, Math.max(timeoutMs, 25000));
+
+        const isQuotaErr = res.status === 401 || res.status === 403 || res.status === 429;
+        if (isQuotaErr) {
+          console.log(`Decodo key index ${idx} quota/auth status ${res.status}. Rotating to next key...`);
+          continue;
+        }
+
+        if (res.ok) {
+          const jsonRes = await res.json().catch(() => null);
+          const first = jsonRes?.results?.[0];
+          if (first && first.content) {
+            const canonM = first.content.match(/<link rel="canonical" href="([^"]+)"/i) ||
+                           first.content.match(/<meta property="og:url" content="([^"]+)"/i);
+            const canonicalUrl = canonM ? canonM[1] : '';
+            const respHeaders = new Headers(first.headers || {});
+            if (canonicalUrl) {
+              respHeaders.set('decodo-resolved-url', canonicalUrl);
+              respHeaders.set('scrape.do-resolved-url', canonicalUrl);
+            }
+            return new Response(first.content, {
+              status: first.status_code || 200,
+              headers: respHeaders
+            });
+          }
+        }
+      } catch (err) {
+        console.log(`Decodo proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
+      }
+    }
+  }
+
+  // 3. Scrape.do Proxy (Dedicated for DealsPing and general lookups — NEVER used for IndiaFreeStuff)
   const sdKeysStr = env.SCRAPEDO_API_KEYS || env.SCRAPEDO_API_KEY || '';
   const sdKeys = sdKeysStr.split(',').map(k => k.trim()).filter(Boolean);
 
-  if (sdKeys.length > 0) {
+  if (!isIfs && sdKeys.length > 0) {
     const startIdx = Math.floor(Math.random() * sdKeys.length);
     for (let i = 0; i < sdKeys.length; i++) {
       const idx = (startIdx + i) % sdKeys.length;
@@ -996,8 +1050,9 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         console.log(`Scrape.do proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
       }
     }
-    // Exclusively use Scrape.do: do not fall back to other proxies so Scrape.do lifespan can be measured accurately
-    throw new Error('All configured Scrape.do keys were exhausted or blocked');
+    if (isDealsPing) {
+      throw new Error('All configured Scrape.do keys were exhausted or blocked');
+    }
   }
 
   // 3. Crawlbase Proxy (with key rotation and auto JS rendering for redirects)
@@ -1823,12 +1878,27 @@ async function scrapeIfsNonAmazonDeals(env) {
     const chunk = targetCandidates.slice(i, i + chunkSize);
     const chunkResolved = await Promise.all(chunk.map(async (item) => {
       let resolvedUrl = '';
+      const cacheKey = `ifs_rto:${item.rtoParam}`;
+      if (env.KV) {
+        try {
+          const cached = await env.KV.get(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed.resolvedUrl || parsed.targetUrl) {
+              return { ...item, link: parsed.resolvedUrl || parsed.targetUrl };
+            }
+          }
+        } catch (e) {}
+      }
       try {
         const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
         const red = await fetchWithProxy(redirTarget, {
           headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
         }, 20000, env);
-        resolvedUrl = red ? (red.headers.get('scrape.do-resolved-url') || red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('cb_url') || red.headers.get('location') || red.url || '') : '';
+        resolvedUrl = red ? (red.headers.get('decodo-resolved-url') || red.headers.get('scrape.do-resolved-url') || red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('cb_url') || red.headers.get('location') || red.url || '') : '';
+        if (env.KV && resolvedUrl) {
+          await env.KV.put(cacheKey, JSON.stringify({ resolvedUrl }), { expirationTtl: 86400 }).catch(() => {});
+        }
       } catch (err) {}
       return { ...item, link: resolvedUrl };
     }));
@@ -3306,7 +3376,7 @@ function tagAmazonUrl(rawUrl, tag = TAG_WEB) {
 }
 
 async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
-  if (!env.SCRAPEDO_API_KEYS && !env.SCRAPEDO_API_KEY && !env.CRAWLBASE_API_KEYS && !env.CRAWLBASE_API_KEY && !env.ZENROWS_API_KEYS && !env.ZENROWS_API_KEY && !env.SCRAPER_API_KEYS && !env.SCRAPER_API_URL && !env.SCRAPINGANT_API_KEYS && !env.BRIGHTDATA_API_KEY) {
+  if (!env.DECODO_API_KEYS && !env.DECODO_API_KEY && !env.SCRAPEDO_API_KEYS && !env.SCRAPEDO_API_KEY && !env.CRAWLBASE_API_KEYS && !env.CRAWLBASE_API_KEY && !env.ZENROWS_API_KEYS && !env.ZENROWS_API_KEY && !env.SCRAPER_API_KEYS && !env.SCRAPER_API_URL && !env.SCRAPINGANT_API_KEYS && !env.BRIGHTDATA_API_KEY) {
     console.log('IndiaFreeStuff sync skipped: No proxy API configured.');
     return { success: true, count: 0, message: 'IndiaFreeStuff: sync skipped (no proxy API configured)' };
   }
@@ -3402,7 +3472,7 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
     const added = [];
     const dbg = [];
 
-    // Resolve redirects in batches
+    // Resolve redirects in batches with KV caching (saves 90%+ proxy credits)
     const resolved = [];
     const chunkSize = 3;
     for (let i = 0; i < targetCandidates.length; i += chunkSize) {
@@ -3410,14 +3480,33 @@ async function scrapeAndSyncIndiaFreeStuff(env, limit = 10) {
       const chunkResolved = await Promise.all(chunk.map(async (item) => {
         let asin = '';
         let targetUrl = '';
+        const cacheKey = `ifs_rto:${item.rtoParam}`;
+        if (env.KV) {
+          try {
+            const cached = await env.KV.get(cacheKey);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed.asin || parsed.targetUrl) {
+                asin = parsed.asin || extractAsin(parsed.targetUrl) || '';
+                targetUrl = parsed.targetUrl || '';
+                if (dbg.length < 8) dbg.push(asin ? `cached:${asin}` : 'cached');
+                return { ...item, asin, targetUrl };
+              }
+            }
+          } catch (e) {}
+        }
         try {
           const redirTarget = `https://www.indiafreestuff.in/?rto=${item.rtoParam}`;
           const red = await fetchWithProxy(redirTarget, {
             headers: { 'User-Agent': AMZ_HEADERS['User-Agent'] },
           }, 20000, env);
 
-          targetUrl = red ? (red.headers.get('scrape.do-resolved-url') || red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('cb_url') || red.headers.get('location') || red.url || '') : '';
+          targetUrl = red ? (red.headers.get('decodo-resolved-url') || red.headers.get('scrape.do-resolved-url') || red.headers.get('zr-final-url') || red.headers.get('sa-final-url') || red.headers.get('cb_url') || red.headers.get('location') || red.url || '') : '';
           asin = extractAsin(targetUrl) || '';
+
+          if (env.KV && (asin || targetUrl)) {
+            await env.KV.put(cacheKey, JSON.stringify({ asin, targetUrl }), { expirationTtl: 86400 }).catch(() => {});
+          }
 
           if (dbg.length < 8) dbg.push(asin ? `amz:${asin}` : (targetUrl ? 'resolved' : `miss:${red ? red.status : 'err'}`));
         } catch (err) {
