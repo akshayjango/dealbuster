@@ -458,7 +458,10 @@ export default {
     const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
     const discRow = discount ? `Discount: <b>${escHtml(discount)}</b>` : '';
     const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-    const isLong = finalAffiliateUrl.length > 70;
+    const isLong = finalAffiliateUrl.length > 70 ||
+                   /dealbuster\.in\/open\?url=/i.test(finalAffiliateUrl) ||
+                   /\/(?:s\?|b\?|gp\/(?:browse|goldbox)|stores?\/)/i.test(finalAffiliateUrl) ||
+                   /%2F(?:s%3F|b%3F|gp%2Fbrowse)/i.test(finalAffiliateUrl);
     const linkHtml = isLong ? `<a href="${escHtml(finalAffiliateUrl)}">👉 Check Now</a>` : `👉 ${escHtml(finalAffiliateUrl)}`;
     const channelText = detailsBlock ? `${channelTitle}\n${detailsBlock}\n\n${linkHtml}` : `${channelTitle}\n\n${linkHtml}`;
 

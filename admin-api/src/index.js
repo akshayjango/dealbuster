@@ -5330,6 +5330,19 @@ function dealLink(product, tag, env = {}) {
   return product.link || '';
 }
 
+function isAmazonSearchOrCategoryUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (/dealbuster\.in\/open\?url=/i.test(url)) return true;
+  let decoded = url;
+  try {
+    decoded = decodeURIComponent(url);
+  } catch {}
+  return /\/(?:s\?|b\?|gp\/(?:browse|goldbox)|stores?\/)/i.test(decoded) ||
+         /[?&](?:k|node|rh|keywords|hidden-keywords)=/i.test(decoded) ||
+         /%2F(?:s%3F|b%3F|gp%2Fbrowse)/i.test(url) ||
+         /%26(?:k|node|rh|keywords|hidden-keywords)%3D/i.test(url);
+}
+
 const CHANNEL_ROTATING_EMOJIS = ['🔥', '⚡', '💥'];
 let channelEmojiIndex = Math.floor(Date.now() / 60000) % 3;
 
@@ -5389,8 +5402,9 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
   const detailsBlock = [lowestRow, couponRow, priceRow, mrpRow, discRow].filter(Boolean).join('\n');
   const isAmazon = product?.store === 'amazon' || /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co|dealbuster\.in\/open/i.test(link);
-  const isSearchOrCategory = /\/s\?|\/b\?|\/gp\/browse/i.test(link) || hasUptoOffInTitle(product?.title);
-  const linkHtml = (isAmazon && isSearchOrCategory) ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
+  const isSearchOrCategory = isAmazonSearchOrCategoryUrl(link) || hasUptoOffInTitle(product?.title);
+  const isLongLink = Boolean(isSearchOrCategory || (link && link.length > 75));
+  const linkHtml = isLongLink ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
   return detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
 }
 
@@ -7251,8 +7265,8 @@ async function handleTelegramWebhook(request, env) {
       const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
       const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
       const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-      const isAmazon = /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co/i.test(userLink);
-      const linkHtml = (isAmazon && userLink.length > 75) ? `<a href="${escHtml(userLink)}">👉 Check Now</a>` : `👉 ${userLink}`;
+      const isLongLink = Boolean(userLink.length > 75 || isAmazonSearchOrCategoryUrl(userLink));
+      const linkHtml = isLongLink ? `<a href="${escHtml(userLink)}">👉 Check Now</a>` : `👉 ${userLink}`;
       const channelMsg = detailsBlock ? `${title}\n${detailsBlock}\n\n${linkHtml}` : `${title}\n\n${linkHtml}`;
 
       const photo = product.image || (msg.reply_to_message.photo ? msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1].file_id : null);
@@ -7678,10 +7692,11 @@ async function handleTelegramWebhook(request, env) {
     const discRow = discount ? `Discount: <b>${escHtml(discount)}</b>` : '';
     const detailsBlock = [priceRow, mrpRow, discRow].filter(Boolean).join('\n');
 
-    // Normal conversion method for single Amazon deals:
-    // If Amazon search/category page or variable % off, embed in 👉 Check Now; otherwise normal direct 👉 link
-    const isSearchOrCategory = /\/s\?|\/b\?|\/gp\/browse/i.test(finalAffiliateUrl) || hasUptoOffInTitle(title);
-    const linkHtml = (isAmz && isSearchOrCategory)
+    // Normal conversion method for deals:
+    // If Amazon search/category page, variable % off, or lengthy link (>75 chars), embed in 👉 Check Now; otherwise normal direct 👉 link
+    const isSearchOrCategory = isAmazonSearchOrCategoryUrl(finalAffiliateUrl) || hasUptoOffInTitle(title);
+    const isLongLink = Boolean(isSearchOrCategory || (finalAffiliateUrl && finalAffiliateUrl.length > 75));
+    const linkHtml = isLongLink
       ? `<a href="${escHtml(finalAffiliateUrl)}">👉 Check Now</a>`
       : `👉 ${finalAffiliateUrl}`;
     const channelText = detailsBlock ? `${channelTitle}\n${detailsBlock}\n\n${linkHtml}` : `${channelTitle}\n\n${linkHtml}`;

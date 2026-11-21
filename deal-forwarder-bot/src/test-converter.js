@@ -126,6 +126,14 @@ async function runTests() {
       name: 'Case 16: Multi-deal post with deep Flipkart links (MUST CONVERT TO FKTR.IN SHORT LINKS, NO CUELINKS)',
       text: 'Flipkart : Best deals on Fashion\n\nRare Rabbit Min 65% off\nhttps://dl.flipkart.com/dl/clothing-and-accessories/~cs-qsfyuh83gz/pr?sid=clo&collection-tab-name=RR+SMU&sort=popularity&src=ot&pwsvid=3DPW1791401370760S8ilHHIRVSq3sP4V&src=ot\n\nThe Bear House Under 599\nhttps://dl.flipkart.com/dl/clothing-and-accessories/topwear/shirts/~cs-qb7w8tg765/pr?sid=clo',
     },
+    {
+      name: 'Case 17: Red Chief Shoes with lengthy search link (MUST BE EMBEDDED WITH 👉 Check Now)',
+      text: '💥 Upto 74% Off On Red Chief Shoes.\n\nhttps://dealbuster.in/open?url=https%3A%2F%2Fwww.amazon.in%2Fs%3Fk%3DRed%2BChief%26i%3Dshoes%26rh%3Dn%253A1983396031%252Cp_123%253A439253%252Cp_n_pct-off-with-tax%253A68-%26btn_type%3Dss%26btn_ref%3Dsrctok-172fdbe8c978895c%26tag%3Ddbitg-21&tag=dbitg-21',
+    },
+    {
+      name: 'Case 18: ATTRO Lunch Box with lengthy search link (MUST BE EMBEDDED WITH 👉 Check Now)',
+      text: '💥 ATTRO Lunch Box Starts .\n\nhttps://dealbuster.in/open?url=https%3A%2F%2Fwww.amazon.in%2Fs%3Fk%3DATTRO%26i%3Dkitchen%26rh%3Dn%253A1379997031%252Cp_123%253A570939%252Cp_6%253AAXOGFIT0PZZ7G%26s%3Dprice-asc-rank%26dc%3D%26qid%3D1795285981%26rnid%3D1318474031%26ds%3Dv1%253A17Lou7MMLb%252BZ6WWLrfmAqLq33YMbamaN54TMf1SadWc%26tag%3Ddbitg-21&tag=dbitg-21',
+    },
   ];
 
   for (const tc of testCases) {

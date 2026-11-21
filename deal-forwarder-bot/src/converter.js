@@ -215,6 +215,22 @@ export function isAmazonUptoDeal(text) {
          /\b\d+%\s*off\s*(?:from|onwards|starting)\b/i.test(text);
 }
 
+/**
+ * Detects whether an Amazon URL (or smart app opener URL) is a search, browse, category, or promotional landing URL
+ */
+export function isAmazonSearchOrCategoryUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (/dealbuster\.in\/open\?url=/i.test(url)) return true;
+  let decoded = url;
+  try {
+    decoded = decodeURIComponent(url);
+  } catch {}
+  return /\/(?:s\?|b\?|gp\/(?:browse|goldbox)|stores?\/)/i.test(decoded) ||
+         /[?&](?:k|node|rh|keywords|hidden-keywords)=/i.test(decoded) ||
+         /%2F(?:s%3F|b%3F|gp%2Fbrowse)/i.test(url) ||
+         /%26(?:k|node|rh|keywords|hidden-keywords)%3D/i.test(url);
+}
+
 export const ALLOWED_STORES = ['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy', 'meesho'];
 
 /**
@@ -678,25 +694,29 @@ export async function processMessageText(text, options = {}) {
   }
 
     // Replace raw URLs with converted affiliate URLs:
-    // Multi-link messages or Amazon search/category links become "👉 Check Now" buttons;
+    // Multi-link messages, search/category links, or lengthy links (>75 chars) become "👉 Check Now" buttons;
     // single Amazon product deals use normal direct links per user rules.
     const placeholders = [];
     convertedLinks.forEach((l, idx) => {
       const rawUrl = l.originalUrl;
       const affUrl = l.convertedUrl;
-      const isAmazon = (l.store === 'amazon') || isAmazonUrl(affUrl) || isAmazonUrl(rawUrl);
-      const isSearchOrCategory = /\/s\?|\/b\?|\/gp\/browse/i.test(affUrl || '') || /\/s\?|\/b\?|\/gp\/browse/i.test(rawUrl || '');
-      const isLongLink = isAmazon
-        ? Boolean(convertedLinks.length > 1 || isSearchOrCategory)
-        : Boolean(affUrl && affUrl.length > 75);
+      const isSearchOrCategory = isAmazonSearchOrCategoryUrl(affUrl) ||
+                                 isAmazonSearchOrCategoryUrl(rawUrl) ||
+                                 isAmazonSearchOrCategoryUrl(l.resolvedUrl) ||
+                                 (!l.asin && (isAmazonUptoDeal(text) || isAmazonUptoDeal(processed)));
+      const isLongLink = Boolean(
+        convertedLinks.length > 1 ||
+        isSearchOrCategory ||
+        (affUrl && affUrl.length > 75)
+      );
       const placeholder = `%%DBLINK${idx}%%`;
 
-      // If the link is long and preceded by a decorative hand/link emoji (e.g. 🔗, 👉, 👇, 🛍️),
-      // absorb that emoji into the placeholder so we don't end up with "🔗 👉 Check Now"
+      // If the link is long and preceded by a decorative hand/link emoji (e.g. 🔗, 👉, 👇, 🛍️) or link label,
+      // absorb that into the placeholder so we don't end up with "🔗 👉 Check Now" or "Link: 👉 Check Now"
       const urlIndex = processed.indexOf(rawUrl);
-      if (isLongLink && urlIndex > 0) {
-        const prefix = processed.slice(Math.max(0, urlIndex - 6), urlIndex);
-        const decorMatch = prefix.match(/(?:🔗|👉|👇|☝️|👆|🛍️|🛒)\s*$/);
+      if (isLongLink && urlIndex >= 0) {
+        const prefix = processed.slice(Math.max(0, urlIndex - 25), urlIndex);
+        const decorMatch = prefix.match(/(?:(?:🔗|👉|👇|☝️|👆|🛍️|🛒)\s*(?:link\s*)?:?|(?:🔗|👉|👇|☝️|👆|🛍️|🛒))\s*$/i);
         if (decorMatch) {
           processed = processed.slice(0, urlIndex - decorMatch[0].length) + placeholder + processed.slice(urlIndex + rawUrl.length);
           placeholders.push({ placeholder, affUrl, isLongLink });
