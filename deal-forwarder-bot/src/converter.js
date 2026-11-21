@@ -137,7 +137,7 @@ export async function resolveUrl(url, maxHops = 4) {
  */
 export function isAmazonUrl(url) {
   if (!url) return false;
-  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.(?:to|in)|amzn-to\.(?:co|[a-z]+)|amzn-to|amazn\.lt|link\.amazon|a\.co|(?:amzn\.)?urlgeni\.us)(?:[/?#:]|$)/i.test(url);
+  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.(?:to|in)|amzn-to\.(?:co|[a-z]+)|amzn-to|amazn\.lt|link\.amazon|a\.co|(?:amzn\.)?urlgeni\.us|dealbuster\.in\/open)(?:[/?#:]|$)/i.test(url);
 }
 
 /**
@@ -201,7 +201,7 @@ export async function convertToEarnKaro(dealUrlOrText, token) {
  * Build Amazon Affiliate URL
  */
 export function buildAmazonUrl(asin, tag = 'dbitg-21') {
-  return `https://www.amazon.in/dp/${asin}?tag=${tag}`;
+  return `https://dealbuster.in/open?asin=${asin}&tag=${tag}`;
 }
 
 /**
@@ -513,7 +513,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
         return {
           originalUrl: rawUrl,
           resolvedUrl: finalResolved,
-          convertedUrl: converted,
+          convertedUrl: `https://dealbuster.in/open?url=${encodeURIComponent(converted)}&tag=${amazonTag}`,
           store: 'amazon',
           id: promoId
         };
