@@ -7717,7 +7717,7 @@ async function handleTelegramWebhook(request, env) {
     }
 
     const cleanRawTitle = stripLeadingEmojis(trimTitle(title));
-    const isCouponDeal = Boolean(couponText || /\bcoupons?\b|apply\s+(?:\d+%|₹?\s*\d+)\s*coupon/i.test(title || ''));
+    const isCouponDeal = Boolean(/\bcoupons?\b|apply\s+(?:\d+%|₹?\s*\d+)\s*coupon|🎟️/i.test(title || '') || /\bcoupons?\b|apply\s+(?:\d+%|₹?\s*\d+)\s*coupon|🎟️/i.test(text || ''));
     const isLowestDeal = Boolean(/\blowest\b|\ball[\s-]time[\s-]low\b|\batl\b/i.test(title || ''));
     const leadEmoji = getChannelLeadEmoji({ couponText: isCouponDeal ? 'coupon' : null }, isLowestDeal);
     const channelTitle = `${leadEmoji} ${escHtml(cleanRawTitle)}`;
@@ -7736,7 +7736,7 @@ async function handleTelegramWebhook(request, env) {
     const channelText = detailsBlock ? `${channelTitle}\n${detailsBlock}\n\n${linkHtml}` : `${channelTitle}\n\n${linkHtml}`;
 
     const previewLines = [
-      `📦 <b>${cleanTitle}</b>`,
+      `📦 <b>${escHtml(cleanRawTitle)}</b>`,
       dealPrice ? `✅ Deal Price: <b>${escHtml(dealPrice)}</b>` : '',
       mrp ? `❌ MRP: <s>${escHtml(mrp)}</s>${discount ? ` (<b>${escHtml(discount)}</b>)` : ''}` : '',
       `🛒 Store: <b>${escHtml(storeName)}</b>`,

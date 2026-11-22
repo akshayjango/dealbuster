@@ -466,7 +466,7 @@ export default {
     const channelText = detailsBlock ? `${channelTitle}\n${detailsBlock}\n\n${linkHtml}` : `${channelTitle}\n\n${linkHtml}`;
 
     const previewLines = [
-      `📦 <b>${cleanTitle}</b>`,
+      `📦 <b>${escHtml(cleanRawTitle)}</b>`,
       dealPrice ? `✅ Deal Price: <b>${escHtml(dealPrice)}</b>` : '',
       mrp ? `❌ MRP: <s>${escHtml(mrp)}</s>${discount ? ` (<b>${escHtml(discount)}</b>)` : ''}` : '',
       `🛒 Store: <b>${escHtml(storeName)}</b>`,
