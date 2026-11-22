@@ -1066,14 +1066,19 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         try {
           console.log(`Trying ScraperAPI fallback proxy with key index ${idx} for DealsPing...`);
           const res = await fetchWithTimeout(proxyUrl, options, timeoutMs);
-          const text = await res.clone().text().catch(() => '');
-          const isBlockedOrExhausted = res.status === 403 || res.status === 429 || text.includes('limit') || text.includes('suspended') || text.includes('billing') || text.includes('Just a moment...');
-          if (isBlockedOrExhausted) {
-            console.log(`ScraperAPI key index ${idx} exhausted/blocked (${res.status}). Rotating to next key...`);
+          const isQuotaErr = res.status === 401 || res.status === 403 || res.status === 429;
+          if (isQuotaErr) {
+            console.log(`ScraperAPI key index ${idx} quota status ${res.status}. Rotating to next key...`);
             continue;
           }
+
           if (res.ok) {
-            return res;
+            const text = await res.clone().text().catch(() => '');
+            if (!text.includes('Just a moment...') && !text.includes('cf-browser-verification')) {
+              return res;
+            }
+            console.log(`ScraperAPI key index ${idx} returned Cloudflare WAF challenge. Rotating to next key...`);
+            continue;
           }
         } catch (err) {
           console.log(`ScraperAPI proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
@@ -1220,17 +1225,19 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
     try {
       console.log(`Trying ScraperAPI proxy with key index ${idx}...`);
       const res = await fetchWithTimeout(proxyUrl, options, timeoutMs);
-      const text = await res.clone().text().catch(() => '');
-      
-      const isBlockedOrExhausted = res.status === 403 || res.status === 429 || text.includes('limit') || text.includes('suspended') || text.includes('billing') || text.includes('Just a moment...');
-      
-      if (isBlockedOrExhausted) {
-        console.log(`ScraperAPI proxy key index ${idx} exhausted/blocked (${res.status}). Trying next key...`);
+      const isQuotaErr = res.status === 401 || res.status === 403 || res.status === 429;
+      if (isQuotaErr) {
+        console.log(`ScraperAPI proxy key index ${idx} quota status ${res.status}. Trying next key...`);
         continue;
       }
-      
+
       if (res.ok) {
-        return res;
+        const text = await res.clone().text().catch(() => '');
+        if (!text.includes('Just a moment...') && !text.includes('cf-browser-verification')) {
+          return res;
+        }
+        console.log(`ScraperAPI proxy key index ${idx} returned Cloudflare WAF challenge. Trying next key...`);
+        continue;
       }
     } catch (err) {
       console.log(`ScraperAPI proxy key index ${idx} failed with error: ${err.message}. Trying next key...`);
