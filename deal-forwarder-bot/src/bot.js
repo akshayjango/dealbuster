@@ -769,6 +769,8 @@ async function main() {
       const conversionOptions = {
         amazonTag: config.amazon_tag || 'dbitg-21',
         earnkaroToken: process.env.EARNKARO_API_TOKEN || config.earnkaro_api_token,
+        cuelinksPubId: config.cuelinks_pub_id || '312552',
+        cuelinksApiKey: config.cuelinks_api_key || process.env.CUELINKS_API_KEY,
         myChannel: config.target_channel || '@dealbusterindia',
         footer: config.custom_footer,
         removeCompetitorMentions: config.remove_competitor_mentions !== false,
@@ -790,12 +792,16 @@ async function main() {
                  l.convertedUrl.includes('tag=dbitg-21') ||
                  l.convertedUrl.includes('tag=dealbuster');
         }
-        // For Flipkart, Myntra, Ajio, Shopsy: STRICTLY REQUIRE EarnKaro shortlink (fktr.in, fkrt.cc, fkrt.co, bitli.in, ekaro.in, myntr.it, myntr.in, ajiio.in, ajiio.co)
-        if (['flipkart', 'myntra', 'ajio', 'shopsy'].includes(l.store)) {
+        // For Shopsy: CueLinks is the default converter (clnk.in, linksredirect.com) with EarnKaro/bitli fallback
+        if (l.store === 'shopsy') {
+          return /(?:clnk\.in|linksredirect\.com|linkredirect\.in|bitli\.in|ekaro\.in|fktr\.in|fkrt\.(?:cc|co))/i.test(l.convertedUrl);
+        }
+        // For Flipkart, Myntra, Ajio: STRICTLY REQUIRE EarnKaro shortlink
+        if (['flipkart', 'myntra', 'ajio'].includes(l.store)) {
           return /(?:ekaro\.in|fktr\.in|fkrt\.(?:cc|co)|bitli\.in|myntr\.(?:it|in)|ajiio\.(?:in|co))/i.test(l.convertedUrl);
         }
         // For other stores (e.g. Meesho where EarnKaro is unavailable), accept CueLinks
-        return /(?:ekaro\.in|fktr\.in|fkrt\.(?:cc|co)|bitli\.in|myntr\.(?:it|in)|ajiio\.(?:in|co)|linksredirect\.com|linkredirect\.in|clnk\.in)/i.test(l.convertedUrl);
+        return /(?:clnk\.in|linksredirect\.com|linkredirect\.in|ekaro\.in)/i.test(l.convertedUrl);
       });
 
       if (validDeals.length === 0) {

@@ -242,6 +242,56 @@ export function buildCueLinksUrl(url, pubId = '312552') {
 }
 
 /**
+ * Convert URL via CueLinks API (generating clnk.in short link) or fallback to manual wrap
+ */
+export async function convertToCueLinks(dealUrl, options = {}) {
+  if (!dealUrl) return null;
+  const apiKey = (options.cuelinksApiKey || process.env.CUELINKS_API_KEY || '').trim();
+  const pubId = options.cuelinksPubId || process.env.CUELINKS_PUB_ID || '312552';
+
+  // 1. Direct CueLinks API call if apiKey configured
+  if (apiKey) {
+    try {
+      const res = await fetch('https://developers.cuelinks.com/pub_api/v3/links/convert', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: dealUrl,
+          subid: options.subid || 'dealbuster',
+          shorten: true
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (res.ok) {
+        const body = await res.json();
+        const shortUrl = body?.data?.short_url || body?.data?.tracking_url;
+        if (shortUrl) return shortUrl;
+      }
+    } catch (e) {
+      console.error('CueLinks API convert error:', e.message);
+    }
+  }
+
+  // 2. Call admin-api /convert-cuelink endpoint
+  try {
+    const adminApi = options.adminApiUrl || 'https://dealbuster-admin-api.vakshay083.workers.dev';
+    const res = await fetch(`${adminApi}/convert-cuelink?url=${encodeURIComponent(dealUrl)}`, {
+      signal: AbortSignal.timeout(8000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.link) return data.link;
+    }
+  } catch (e) {}
+
+  // 3. Fallback to manual CueLinks wrap
+  return buildCueLinksUrl(dealUrl, pubId);
+}
+
+/**
  * Extract canonical store and product identifier across stores (Amazon ASIN, Flipkart PID, collections, etc.)
  */
 export function extractCanonicalDealId(url) {
@@ -262,9 +312,31 @@ export function extractCanonicalDealId(url) {
     return { store: 'amazon', asin: asin.toUpperCase(), id: `amazon_${asin.toUpperCase()}` };
   }
 
-  // 2. Flipkart / Shopsy:
-  if (/flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)|shopsy\.in|bitli\.in/i.test(targetUrl) ||
-      /flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)|shopsy\.in|bitli\.in/i.test(url)) {
+  // 2. Shopsy:
+  if (/shopsy\.in|bitli\.in/i.test(targetUrl) || /shopsy\.in|bitli\.in/i.test(url)) {
+    const pidMatch = targetUrl.match(/[?&]pid=([A-Z0-9]{16})/i) ||
+                     url.match(/[?&]pid=([A-Z0-9]{16})/i) ||
+                     targetUrl.match(/\/p\/itm([a-z0-9]{10,16})/i) ||
+                     url.match(/\/p\/itm([a-z0-9]{10,16})/i) ||
+                     targetUrl.match(/\/p\/([a-z0-9]{16})/i) ||
+                     url.match(/\/p\/([a-z0-9]{16})/i);
+    if (pidMatch) {
+      const pid = pidMatch[1].toUpperCase();
+      return { store: 'shopsy', pid, id: `shopsy_${pid}` };
+    }
+    const qMatch = targetUrl.match(/[?&]q=([^&]+)/i) || url.match(/[?&]q=([^&]+)/i);
+    if (qMatch) {
+      const q = decodeURIComponent(qMatch[1]).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (q.length >= 3) {
+        return { store: 'shopsy', q, id: `shopsy_search_${q}` };
+      }
+    }
+    return { store: 'shopsy', id: `shopsy_${targetUrl}` };
+  }
+
+  // 3. Flipkart:
+  if (/flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)/i.test(targetUrl) ||
+      /flipkart\.com|dl\.flipkart\.com|fktr\.in|fkrt\.(?:co|cc)/i.test(url)) {
     const pidMatch = targetUrl.match(/[?&]pid=([A-Z0-9]{16})/i) ||
                      url.match(/[?&]pid=([A-Z0-9]{16})/i) ||
                      targetUrl.match(/\/p\/itm([a-z0-9]{10,16})/i) ||
@@ -592,19 +664,42 @@ export async function convertDealUrl(rawUrl, options = {}) {
   // Always use canonical ID if found; fallback to cleaned store URL
   const canonicalId = canonical?.id || `${store}_${cleanUrl}`;
 
-  // 5. Convert via EarnKaro API (primary)
-  let ekaroLink = await convertToEarnKaro(cleanUrl, earnkaroToken);
-  if (!ekaroLink && cleanWebUrl !== cleanUrl) {
-    ekaroLink = await convertToEarnKaro(cleanWebUrl, earnkaroToken);
-  }
-  if (!ekaroLink && cleanUrl !== rawUrl) {
-    ekaroLink = await convertToEarnKaro(rawUrl, earnkaroToken);
+  // 5. Convert link: CueLinks is default converter for Shopsy; EarnKaro for Flipkart/Myntra/Ajio
+  const cuelinksPubId = options.cuelinksPubId || '312552';
+  let cuelink = null;
+  let ekaroLink = null;
+
+  if (store === 'shopsy') {
+    // Shopsy: CueLinks is the default converter (generates clnk.in short link)
+    cuelink = await convertToCueLinks(cleanUrl, options);
+    if (!cuelink && cleanUrl !== rawUrl) {
+      cuelink = await convertToCueLinks(rawUrl, options);
+    }
+    // Fallback to EarnKaro if CueLinks fails
+    if (!cuelink) {
+      ekaroLink = await convertToEarnKaro(cleanUrl, earnkaroToken);
+      if (!ekaroLink && cleanUrl !== rawUrl) {
+        ekaroLink = await convertToEarnKaro(rawUrl, earnkaroToken);
+      }
+    }
+  } else if (store === 'meesho') {
+    cuelink = await convertToCueLinks(cleanUrl, options) || buildCueLinksUrl(cleanUrl, cuelinksPubId);
+  } else {
+    // Flipkart, Myntra, Ajio (until user switches them to CueLinks)
+    ekaroLink = await convertToEarnKaro(cleanUrl, earnkaroToken);
+    if (!ekaroLink && cleanWebUrl !== cleanUrl) {
+      ekaroLink = await convertToEarnKaro(cleanWebUrl, earnkaroToken);
+    }
+    if (!ekaroLink && cleanUrl !== rawUrl) {
+      ekaroLink = await convertToEarnKaro(rawUrl, earnkaroToken);
+    }
   }
 
-  // CueLinks is ONLY permitted for stores EarnKaro does not support (e.g. Meesho).
-  // For Flipkart, Myntra, Ajio, and Shopsy, ONLY EarnKaro shortlinks are allowed per user rules.
-  const cuelinksPubId = options.cuelinksPubId || '312552';
-  const finalAffiliateUrl = ekaroLink || (store === 'meesho' ? buildCueLinksUrl(cleanUrl, cuelinksPubId) : null);
+  const finalAffiliateUrl = (store === 'shopsy')
+    ? (cuelink || ekaroLink || buildCueLinksUrl(cleanUrl, cuelinksPubId))
+    : (store === 'meesho'
+      ? (cuelink || buildCueLinksUrl(cleanUrl, cuelinksPubId))
+      : ekaroLink);
 
   return {
     originalUrl: rawUrl,

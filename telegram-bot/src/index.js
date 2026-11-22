@@ -403,18 +403,39 @@ export default {
       store = detectStore(canonical);
       storeName = formatStoreName(store);
 
-      try {
-        finalAffiliateUrl = await convertToEarnKaro(canonical, env.EARNKARO_API_TOKEN || EARNKARO_TOKEN);
-      } catch {}
-
-      if (!finalAffiliateUrl && text.length > rawUrl.length) {
+      if (store === 'shopsy') {
+        // CueLinks is default converter for Shopsy links
         try {
-          finalAffiliateUrl = await convertToEarnKaro(rawUrl, env.EARNKARO_API_TOKEN || EARNKARO_TOKEN);
+          const res = await fetch(`${ADMIN_API}/convert-cuelink?url=${encodeURIComponent(canonical)}`, {
+            headers: { 'X-Admin-Password': env.ADMIN_PASSWORD || '' }
+          });
+          const data = await res.json();
+          if (data && data.link) finalAffiliateUrl = data.link;
         } catch {}
-      }
 
-      if (!finalAffiliateUrl) {
-        finalAffiliateUrl = buildCueLinks(canonical);
+        if (!finalAffiliateUrl) {
+          try {
+            finalAffiliateUrl = await convertToEarnKaro(canonical, env.EARNKARO_API_TOKEN || EARNKARO_TOKEN);
+          } catch {}
+        }
+
+        if (!finalAffiliateUrl) {
+          finalAffiliateUrl = buildCueLinks(canonical);
+        }
+      } else {
+        try {
+          finalAffiliateUrl = await convertToEarnKaro(canonical, env.EARNKARO_API_TOKEN || EARNKARO_TOKEN);
+        } catch {}
+
+        if (!finalAffiliateUrl && text.length > rawUrl.length) {
+          try {
+            finalAffiliateUrl = await convertToEarnKaro(rawUrl, env.EARNKARO_API_TOKEN || EARNKARO_TOKEN);
+          } catch {}
+        }
+
+        if (!finalAffiliateUrl) {
+          finalAffiliateUrl = buildCueLinks(canonical);
+        }
       }
     }
 

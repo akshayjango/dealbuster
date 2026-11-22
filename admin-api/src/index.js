@@ -2499,7 +2499,7 @@ function extractAnyUrls(text, msg = {}) {
 // real API call fails/errors (network issue, outage). Strictly no worse than
 // what this function did before the real API integration existed.
 function buildManualCueLink(url, env = {}) {
-  const pubId = (env && env.CUELINKS_PUB_ID) || '268568';
+  const pubId = (env && env.CUELINKS_PUB_ID) || '312552';
   return `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(url)}`;
 }
 
@@ -2639,12 +2639,12 @@ async function convertToEarnKaroLink(url, env) {
   return null;
 }
 
-async function convertToCueLink(url, title, env, inputDescription, channelId) {
+async function convertToCueLink(url, title, env, inputDescription, channelId, options = {}) {
   const apiKey = (env.CUELINKS_API_KEY || '').trim();
-  if (!apiKey) return { link: buildManualCueLink(url), title, affiliated: null };
+  if (!apiKey) return { link: buildManualCueLink(url, env), title, affiliated: null };
 
   try {
-    const reqBody = { url, title, rewrite_using_ai: true, subid: 'dealbuster' };
+    const reqBody = { url, title, rewrite_using_ai: true, subid: 'dealbuster', shorten: true };
     if (inputDescription) reqBody.description = inputDescription;
     if (channelId) reqBody.channel_id = Number(channelId);
     const res = await fetchWithTimeout('https://developers.cuelinks.com/pub_api/v3/links/monetize', {
@@ -2663,26 +2663,66 @@ async function convertToCueLink(url, title, env, inputDescription, channelId) {
     if (!res.ok) {
       const errBody = await res.text().catch(() => '');
       console.log(`CueLinks monetize API returned ${res.status} for ${url} — falling back to manual wrap. Body: ${errBody.slice(0, 300)}`);
-      return { link: buildManualCueLink(url), title, affiliated: null, debugError: `HTTP ${res.status}: ${errBody.slice(0, 300)}` };
+      return { link: buildManualCueLink(url, env), title, affiliated: null, debugError: `HTTP ${res.status}: ${errBody.slice(0, 300)}` };
     }
 
     const body = await res.json();
     const data = body?.data;
     // Keep original normal title for deals per user request (do not overwrite with CueLinks AI title)
     const responseDescription = data?.description || null;
+    const effectiveLink = data?.short_url || data?.tracking_url;
 
-    if (data?.affiliated === true && data.tracking_url) {
-      return { link: data.tracking_url, title, affiliated: true, description: responseDescription };
+    if (data?.affiliated === true && effectiveLink) {
+      return { link: effectiveLink, title, affiliated: true, description: responseDescription };
     }
     // Not trusted as a real "dead link" signal yet — see comment above. Publish
     // using the manual wrap (same as always) so a channel/access mismatch on
     // CueLinks' side can't silently stop deal publishing.
     console.log(`CueLinks reports affiliated:false for ${url} — publishing via manual wrap anyway (see convertToCueLink comment).`);
-    return { link: buildManualCueLink(url), title, affiliated: false, description: responseDescription };
+    return { link: effectiveLink || buildManualCueLink(url, env), title, affiliated: false, description: responseDescription };
   } catch (e) {
     console.log(`CueLinks monetize API call failed for ${url}: ${e.message} — falling back to manual wrap.`);
-    return { link: buildManualCueLink(url), title, affiliated: null, debugError: e.message };
+    return { link: buildManualCueLink(url, env), title, affiliated: null, debugError: e.message };
   }
+}
+
+/**
+ * Fast direct URL converter via CueLinks API that returns a clnk.in short link
+ */
+async function shortenWithCueLinks(url, env, options = {}) {
+  const apiKey = (env.CUELINKS_API_KEY || '').trim();
+  if (!apiKey) return buildManualCueLink(url, env);
+
+  try {
+    const reqBody = {
+      url,
+      subid: options.subid || 'dealbuster',
+      shorten: true
+    };
+    if (options.channel_id) reqBody.channel_id = Number(options.channel_id);
+
+    const res = await fetchWithTimeout('https://developers.cuelinks.com/pub_api/v3/links/convert', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(reqBody),
+    }, 15000);
+
+    if (res.ok) {
+      const body = await res.json();
+      const shortUrl = body?.data?.short_url || body?.data?.tracking_url;
+      if (shortUrl) return shortUrl;
+    } else {
+      const errBody = await res.text().catch(() => '');
+      console.log(`CueLinks convert API returned ${res.status} for ${url}. Body: ${errBody.slice(0, 300)}`);
+    }
+  } catch (e) {
+    console.log(`CueLinks convert API failed for ${url}: ${e.message}`);
+  }
+
+  return buildManualCueLink(url, env);
 }
 
 // CueLinks' AI descriptions come back as several sentences run together with
@@ -3166,12 +3206,30 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
         continue;
       }
 
-      // Convert link using official EarnKaro Converter API (falls back to CueLinks if unresolvable)
-      const ekaroLink = await convertToEarnKaroLink(deal.link, env);
-      const { link: cueLink, title: cleanedTitle, description: cleanedDescription } =
-        await convertToCueLink(deal.link, deal.title || '', env, deal.title || '');
+      // Convert link: CueLinks is default for Shopsy (clnk.in short link); EarnKaro is default for other stores
+      const isShopsy = isShopsyDeal(deal) || /shopsy\.in|bitli\.in/i.test(deal.link || '');
+      let finalAffiliateLink = null;
+      let cleanedTitle = deal.title || '';
+      let cleanedDescription = null;
 
-      const finalAffiliateLink = ekaroLink || cueLink;
+      if (isShopsy) {
+        const cueRes = await convertToCueLink(deal.link, deal.title || '', env, deal.title || '', null, { shorten: true });
+        if (cueRes && cueRes.link) {
+          finalAffiliateLink = cueRes.link;
+          if (cueRes.description) cleanedDescription = cueRes.description;
+        } else {
+          finalAffiliateLink = await convertToEarnKaroLink(deal.link, env);
+        }
+        if (!finalAffiliateLink) {
+          finalAffiliateLink = buildManualCueLink(deal.link, env);
+        }
+      } else {
+        const ekaroLink = await convertToEarnKaroLink(deal.link, env);
+        const { link: cueLink, title: cTitle, description: cDesc } =
+          await convertToCueLink(deal.link, deal.title || '', env, deal.title || '');
+        finalAffiliateLink = ekaroLink || cueLink;
+        if (cDesc) cleanedDescription = cDesc;
+      }
 
       // Exclude DealsSpy Ajio deals from site; route to Telegram bot prompt with converted link
       const isDealspyAjio = deal.source === 'dealspy' && isAjioDeal(deal);
@@ -3195,9 +3253,11 @@ async function cronSyncAndPublishNonAmazonDeals(env, force = false) {
 
       if (newProducts.length >= 10) continue;
 
+      const storeName = isShopsy ? 'shopsy' : (isAjioDeal(deal) ? 'ajio' : 'flipkart');
       const newProduct = {
-        id: 'fk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        id: (isShopsy ? 'shopsy_' : 'fk_') + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
         asin: '',
+        store: storeName,
         title: deal.title || cleanedTitle || '',
         price: deal.price || '',
         mrp: deal.mrp || '',
@@ -5720,13 +5780,28 @@ function isAjioDeal(deal) {
   return false;
 }
 
+function isShopsyDeal(deal) {
+  if (!deal) return false;
+  if (deal.store === 'shopsy') return true;
+  const link = (deal.link || '').toLowerCase();
+  const title = (deal.title || '').toLowerCase();
+  if (link.includes('shopsy.in') || link.includes('bitli.in') || title.includes('shopsy')) return true;
+  return false;
+}
+
 function isNonAmazonDeal(p) {
   if (isAjioDeal(p)) return false; // Per user rule: Ajio deals are site/app only, never auto-posted to Telegram channel
   if (p.asin && p.asin.length === 10) return false;
   const link = (p.link || '').toLowerCase();
   if (link.includes('amazon.in') || link.includes('amzn.to') || link.includes('link.amazon') || link.includes('amazon.com')) return false;
-  // Per user request: no CueLinks allowed, only EarnKaro
-  if (link.includes('linksredirect.com') || link.includes('cuelinks.com')) return false;
+
+  // Shopsy deals converted via CueLinks (clnk.in, linksredirect.com) or bitli/ekaro are fully supported for Auto-Post+
+  if (isShopsyDeal(p)) {
+    return /(?:clnk\.in|linksredirect\.com|cuelinks\.com|linkredirect\.in|ekaro|earnkaro|bitli\.in|fktr\.in|fkrt\.(?:co|cc))/i.test(link);
+  }
+
+  // Other non-Amazon stores: exclude CueLinks until approved
+  if (link.includes('linksredirect.com') || link.includes('cuelinks.com') || link.includes('clnk.in')) return false;
   return /(?:ekaro|earnkaro|fktr\.in|fkrt\.(?:co|cc)|myntr\.(?:it|in))/i.test(link);
 }
 
@@ -7578,20 +7653,29 @@ async function handleTelegramWebhook(request, env) {
         placeholders.push({ placeholder, replacement: `<a href="${escHtml(taggedUrl)}">👉 Check Now</a>` });
       }
     } else {
-      // Non-Amazon multi-link: convert all via EarnKaro
+      // Non-Amazon multi-link: convert all (CueLinks default for Shopsy, EarnKaro for others)
       for (let i = 0; i < allUrls.length; i++) {
         const rawUrl = allUrls[i];
-        let ekUrl = await convertToEarnKaroLink(rawUrl, env);
-        if (!ekUrl) {
-          const canonical = await resolveCanonicalProductUrl(rawUrl);
-          ekUrl = await convertToEarnKaroLink(canonical, env);
+        let convertedUrl = null;
+        const isShopsy = /shopsy\.in|bitli\.in/i.test(rawUrl);
+        if (isShopsy) {
+          convertedUrl = await shortenWithCueLinks(rawUrl, env);
+          if (!convertedUrl || convertedUrl === rawUrl) {
+            convertedUrl = await convertToEarnKaroLink(rawUrl, env);
+          }
+        } else {
+          convertedUrl = await convertToEarnKaroLink(rawUrl, env);
+          if (!convertedUrl) {
+            const canonical = await resolveCanonicalProductUrl(rawUrl);
+            convertedUrl = await convertToEarnKaroLink(canonical, env);
+          }
         }
-        if (!ekUrl) {
-          ekUrl = buildManualCueLink(rawUrl, env);
+        if (!convertedUrl) {
+          convertedUrl = buildManualCueLink(rawUrl, env);
         }
         const placeholder = `%%DBNONAMZLINK${i}%%`;
         processedText = processedText.split(rawUrl).join(placeholder);
-        placeholders.push({ placeholder, replacement: escHtml(ekUrl || rawUrl) });
+        placeholders.push({ placeholder, replacement: escHtml(convertedUrl || rawUrl) });
       }
     }
 
@@ -7668,22 +7752,42 @@ async function handleTelegramWebhook(request, env) {
       store = detectStoreFromUrl(canonicalUrl);
       storeName = formatStoreName(store);
 
-      try {
-        const ekLink = await convertToEarnKaroLink(canonicalUrl, env);
-        if (ekLink) finalAffiliateUrl = ekLink;
-      } catch (e) {
-        console.error('EarnKaro conversion failed in bot:', e.message);
-      }
-
-      if (!finalAffiliateUrl && text.length > rawUrl.length) {
+      if (store === 'shopsy') {
+        // CueLinks is default converter for Shopsy links (returns clnk.in short link)
         try {
-          const ekText = await convertToEarnKaro(rawUrl, env);
-          if (ekText && ekText.startsWith('http')) finalAffiliateUrl = ekText;
-        } catch {}
-      }
+          finalAffiliateUrl = await shortenWithCueLinks(canonicalUrl, env);
+        } catch (e) {
+          console.error('CueLinks shortening failed in bot:', e.message);
+        }
 
-      if (!finalAffiliateUrl) {
-        finalAffiliateUrl = buildManualCueLink(canonicalUrl, env);
+        if (!finalAffiliateUrl) {
+          try {
+            const ekLink = await convertToEarnKaroLink(canonicalUrl, env);
+            if (ekLink) finalAffiliateUrl = ekLink;
+          } catch {}
+        }
+
+        if (!finalAffiliateUrl) {
+          finalAffiliateUrl = buildManualCueLink(canonicalUrl, env);
+        }
+      } else {
+        try {
+          const ekLink = await convertToEarnKaroLink(canonicalUrl, env);
+          if (ekLink) finalAffiliateUrl = ekLink;
+        } catch (e) {
+          console.error('EarnKaro conversion failed in bot:', e.message);
+        }
+
+        if (!finalAffiliateUrl && text.length > rawUrl.length) {
+          try {
+            const ekText = await convertToEarnKaro(rawUrl, env);
+            if (ekText && ekText.startsWith('http')) finalAffiliateUrl = ekText;
+          } catch {}
+        }
+
+        if (!finalAffiliateUrl) {
+          finalAffiliateUrl = buildManualCueLink(canonicalUrl, env);
+        }
       }
     }
 
@@ -8194,8 +8298,19 @@ export default {
             finalUrl = await resolveCanonicalProductUrl(finalUrl || shortUrl);
             let scrapeUrl = finalUrl;
 
+            const isShopsy = /shopsy\.in|bitli\.in/i.test(finalUrl || shortUrl);
             let ekaroLink = null;
-            if (converter === 'earnkaro') {
+            let cuelink = null;
+
+            if (isShopsy || converter === 'cuelinks') {
+              try {
+                cuelink = await shortenWithCueLinks(finalUrl, env);
+              } catch (e) {
+                console.error('CueLinks link conversion failed in /fetchtitle:', e.message);
+              }
+            }
+
+            if (!cuelink || converter === 'earnkaro') {
               try {
                 ekaroLink = await convertToEarnKaroLink(finalUrl, env);
               } catch (e) {
@@ -8212,7 +8327,8 @@ export default {
             }
 
             if (!resp || !resp.ok) {
-              if (converter === 'earnkaro' && ekaroLink) {
+              const convertedLink = (isShopsy ? cuelink : ekaroLink) || cuelink || ekaroLink;
+              if (convertedLink) {
                 return json({
                   title: '',
                   price: null,
@@ -8220,10 +8336,10 @@ export default {
                   image: '',
                   category: '',
                   highlights: [],
-                  link: ekaroLink,
-                  ekaroLink: ekaroLink,
+                  link: convertedLink,
+                  ekaroLink: convertedLink,
                   asin: '',
-                  fetchWarning: `Proxy fetch returned HTTP ${resp ? resp.status : 'timeout/error'}. EarnKaro link converted successfully — please enter product details and upload image manually.`
+                  fetchWarning: `Proxy fetch returned HTTP ${resp ? resp.status : 'timeout/error'}. Affiliate link converted successfully (${isShopsy ? 'CueLinks' : 'EarnKaro'}) — please enter product details and upload image manually.`
                 });
               }
               return json({ error: `Proxy fetch failed for external link (HTTP ${resp ? resp.status : 'unknown'})` }, 502);
@@ -8469,9 +8585,17 @@ export default {
             }
 
             // Affiliate link generation via EarnKaro or CueLinks
-            const pubId = env.CUELINKS_PUB_ID || '268568';
-            const cueLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(finalUrl)}`;
-            const affiliateUrl = (converter === 'earnkaro' && ekaroLink) ? ekaroLink : cueLink;
+            const pubId = env.CUELINKS_PUB_ID || '312552';
+            const fallbackCue = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(finalUrl)}`;
+            const finalCue = cuelink || fallbackCue;
+            let affiliateUrl = '';
+            if (isShopsy) {
+              affiliateUrl = finalCue;
+            } else if (converter === 'earnkaro' && ekaroLink) {
+              affiliateUrl = ekaroLink;
+            } else {
+              affiliateUrl = finalCue;
+            }
 
             return json({
               title,
@@ -8480,7 +8604,7 @@ export default {
               image,
               category,
               link: affiliateUrl,
-              ekaroLink: ekaroLink || null,
+              ekaroLink: isShopsy ? finalCue : (ekaroLink || null),
               asin: "",
               rating,
               reviewCount,
@@ -8610,6 +8734,20 @@ export default {
           targetUrl = b.url || '';
         }
         if (!targetUrl) return json({ error: 'Missing url parameter' }, 400);
+
+        const isShopsy = /shopsy\.in|bitli\.in/i.test(targetUrl);
+        if (isShopsy) {
+          try {
+            const cleanForCue = await resolveCanonicalProductUrl(targetUrl);
+            const cueLink = await shortenWithCueLinks(cleanForCue || targetUrl, env);
+            if (cueLink) {
+              return json({ success: true, link: cueLink, store: 'shopsy', cueLink: true });
+            }
+          } catch (e) {
+            console.error('convert-cuelink for shopsy failed in convert-earnkaro:', e.message);
+          }
+        }
+
         try {
           const ekaroLink = await convertToEarnKaroLink(targetUrl, env);
           if (ekaroLink) {
@@ -8618,9 +8756,33 @@ export default {
         } catch (e) {
           console.error('convert-earnkaro failed:', e.message);
         }
-        const pubId = env.CUELINKS_PUB_ID || '268568';
+        const pubId = env.CUELINKS_PUB_ID || '312552';
         const cleanForCue = await resolveCanonicalProductUrl(targetUrl);
         const fallbackLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(cleanForCue)}`;
+        return json({ success: true, link: fallbackLink, fallback: true });
+      }
+
+      // ── /convert-cuelink ────────────────────────────────────────────────────
+      if (url.pathname === '/convert-cuelink' && (request.method === 'POST' || request.method === 'GET')) {
+        let targetUrl = '';
+        if (request.method === 'GET') {
+          targetUrl = url.searchParams.get('url') || '';
+        } else {
+          const b = await request.json().catch(() => ({}));
+          targetUrl = b.url || '';
+        }
+        if (!targetUrl) return json({ error: 'Missing url parameter' }, 400);
+        try {
+          const cleanForCue = await resolveCanonicalProductUrl(targetUrl);
+          const cueLink = await shortenWithCueLinks(cleanForCue || targetUrl, env);
+          if (cueLink) {
+            return json({ success: true, link: cueLink });
+          }
+        } catch (e) {
+          console.error('convert-cuelink failed:', e.message);
+        }
+        const pubId = env.CUELINKS_PUB_ID || '312552';
+        const fallbackLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(targetUrl)}`;
         return json({ success: true, link: fallbackLink, fallback: true });
       }
 
