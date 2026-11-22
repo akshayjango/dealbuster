@@ -1051,9 +1051,36 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         console.log(`Scrape.do proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
       }
     }
-    if (isDealsPing) {
-      throw new Error('All configured Scrape.do keys were exhausted or blocked');
+  }
+
+  // Fallback for DealsPing to ScraperAPI when Scrape.do is exhausted
+  if (isDealsPing) {
+    const saKeysStr = env.SCRAPER_API_KEYS || '';
+    const saKeys = saKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+    if (saKeys.length > 0) {
+      const startIdx = Math.floor(Math.random() * saKeys.length);
+      for (let i = 0; i < saKeys.length; i++) {
+        const idx = (startIdx + i) % saKeys.length;
+        const key = saKeys[idx];
+        const proxyUrl = `http://api.scraperapi.com/?api_key=${key}&url=${encodeURIComponent(targetUrl)}`;
+        try {
+          console.log(`Trying ScraperAPI fallback proxy with key index ${idx} for DealsPing...`);
+          const res = await fetchWithTimeout(proxyUrl, options, timeoutMs);
+          const text = await res.clone().text().catch(() => '');
+          const isBlockedOrExhausted = res.status === 403 || res.status === 429 || text.includes('limit') || text.includes('suspended') || text.includes('billing') || text.includes('Just a moment...');
+          if (isBlockedOrExhausted) {
+            console.log(`ScraperAPI key index ${idx} exhausted/blocked (${res.status}). Rotating to next key...`);
+            continue;
+          }
+          if (res.ok) {
+            return res;
+          }
+        } catch (err) {
+          console.log(`ScraperAPI proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
+        }
+      }
     }
+    throw new Error('All configured Scrape.do and ScraperAPI keys were exhausted or blocked for DealsPing');
   }
 
   // 3. Crawlbase Proxy (with key rotation and auto JS rendering for redirects)
