@@ -769,7 +769,7 @@ async function main() {
       const conversionOptions = {
         amazonTag: config.amazon_tag || 'dbitg-21',
         earnkaroToken: process.env.EARNKARO_API_TOKEN || config.earnkaro_api_token,
-        cuelinksPubId: config.cuelinks_pub_id || '312552',
+        cuelinksPubId: config.cuelinks_pub_id || '268568',
         cuelinksApiKey: config.cuelinks_api_key || process.env.CUELINKS_API_KEY,
         myChannel: config.target_channel || '@dealbusterindia',
         footer: config.custom_footer,

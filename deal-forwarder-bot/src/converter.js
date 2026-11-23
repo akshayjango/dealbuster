@@ -234,9 +234,9 @@ export function isAmazonSearchOrCategoryUrl(url) {
 export const ALLOWED_STORES = ['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy', 'meesho'];
 
 /**
- * Build CueLinks Affiliate URL (DealBuster pub_id 312552)
+ * Build CueLinks Affiliate URL (DealBuster pub_id 268568)
  */
-export function buildCueLinksUrl(url, pubId = '312552') {
+export function buildCueLinksUrl(url, pubId = '268568') {
   if (!url) return null;
   return `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(url)}`;
 }
@@ -247,7 +247,7 @@ export function buildCueLinksUrl(url, pubId = '312552') {
 export async function convertToCueLinks(dealUrl, options = {}) {
   if (!dealUrl) return null;
   const apiKey = (options.cuelinksApiKey || process.env.CUELINKS_API_KEY || '').trim();
-  const pubId = options.cuelinksPubId || process.env.CUELINKS_PUB_ID || '312552';
+  const pubId = options.cuelinksPubId || process.env.CUELINKS_PUB_ID || '268568';
 
   // 1. Direct CueLinks API call if apiKey configured
   if (apiKey) {
@@ -665,7 +665,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
   const canonicalId = canonical?.id || `${store}_${cleanUrl}`;
 
   // 5. Convert link: CueLinks is default converter for Shopsy; EarnKaro for Flipkart/Myntra/Ajio
-  const cuelinksPubId = options.cuelinksPubId || '312552';
+  const cuelinksPubId = options.cuelinksPubId || '268568';
   let cuelink = null;
   let ekaroLink = null;
 

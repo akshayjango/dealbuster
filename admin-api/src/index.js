@@ -2499,7 +2499,7 @@ function extractAnyUrls(text, msg = {}) {
 // real API call fails/errors (network issue, outage). Strictly no worse than
 // what this function did before the real API integration existed.
 function buildManualCueLink(url, env = {}) {
-  const pubId = (env && env.CUELINKS_PUB_ID) || '312552';
+  const pubId = (env && env.CUELINKS_PUB_ID) || '268568';
   return `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(url)}`;
 }
 
@@ -8244,6 +8244,30 @@ export default {
       });
     }
 
+    // ── /convert-cuelink (public affiliate URL generator for forwarder bots and integrations) ──
+    if (url0.pathname === '/convert-cuelink' && (request.method === 'POST' || request.method === 'GET')) {
+      let targetUrl = '';
+      if (request.method === 'GET') {
+        targetUrl = url0.searchParams.get('url') || '';
+      } else {
+        const b = await request.json().catch(() => ({}));
+        targetUrl = b.url || '';
+      }
+      if (!targetUrl) return json({ error: 'Missing url parameter' }, 400);
+      try {
+        const cleanForCue = await resolveCanonicalProductUrl(targetUrl);
+        const cueLink = await shortenWithCueLinks(cleanForCue || targetUrl, env);
+        if (cueLink) {
+          return json({ success: true, link: cueLink });
+        }
+      } catch (e) {
+        console.error('convert-cuelink failed:', e.message);
+      }
+      const pubId = env.CUELINKS_PUB_ID || '268568';
+      const fallbackLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(targetUrl)}`;
+      return json({ success: true, link: fallbackLink, fallback: true });
+    }
+
     const password = request.headers.get('X-Admin-Password');
     if (password !== env.ADMIN_PASSWORD) return json({ error: 'Unauthorized' }, 401);
 
@@ -8585,7 +8609,7 @@ export default {
             }
 
             // Affiliate link generation via EarnKaro or CueLinks
-            const pubId = env.CUELINKS_PUB_ID || '312552';
+            const pubId = env.CUELINKS_PUB_ID || '268568';
             const fallbackCue = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(finalUrl)}`;
             const finalCue = cuelink || fallbackCue;
             let affiliateUrl = '';
@@ -8756,33 +8780,9 @@ export default {
         } catch (e) {
           console.error('convert-earnkaro failed:', e.message);
         }
-        const pubId = env.CUELINKS_PUB_ID || '312552';
+        const pubId = env.CUELINKS_PUB_ID || '268568';
         const cleanForCue = await resolveCanonicalProductUrl(targetUrl);
         const fallbackLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(cleanForCue)}`;
-        return json({ success: true, link: fallbackLink, fallback: true });
-      }
-
-      // ── /convert-cuelink ────────────────────────────────────────────────────
-      if (url.pathname === '/convert-cuelink' && (request.method === 'POST' || request.method === 'GET')) {
-        let targetUrl = '';
-        if (request.method === 'GET') {
-          targetUrl = url.searchParams.get('url') || '';
-        } else {
-          const b = await request.json().catch(() => ({}));
-          targetUrl = b.url || '';
-        }
-        if (!targetUrl) return json({ error: 'Missing url parameter' }, 400);
-        try {
-          const cleanForCue = await resolveCanonicalProductUrl(targetUrl);
-          const cueLink = await shortenWithCueLinks(cleanForCue || targetUrl, env);
-          if (cueLink) {
-            return json({ success: true, link: cueLink });
-          }
-        } catch (e) {
-          console.error('convert-cuelink failed:', e.message);
-        }
-        const pubId = env.CUELINKS_PUB_ID || '312552';
-        const fallbackLink = `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(targetUrl)}`;
         return json({ success: true, link: fallbackLink, fallback: true });
       }
 

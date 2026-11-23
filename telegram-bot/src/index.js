@@ -139,7 +139,7 @@ function formatStoreName(store) {
   return map[store] || 'Online';
 }
 
-function buildCueLinks(url, pubId = '312552') {
+function buildCueLinks(url, pubId = '268568') {
   return `https://linksredirect.com/?pub_id=${pubId}&subid=dealbuster&url=${encodeURIComponent(url)}`;
 }
 
