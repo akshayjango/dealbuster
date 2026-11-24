@@ -48,8 +48,8 @@
     }
     .loader-wrap {
       position: relative;
-      width: 80px;
-      height: 80px;
+      width: 88px;
+      height: 88px;
       margin: 0 auto 24px;
       display: flex;
       align-items: center;
@@ -59,8 +59,8 @@
       position: absolute;
       width: 100%;
       height: 100%;
-      border: 3px solid rgba(209, 255, 0, 0.15);
-      border-top-color: #d1ff00;
+      border: 3px solid rgba(255, 153, 0, 0.16);
+      border-top-color: #ff9900;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
@@ -68,17 +68,20 @@
       to { transform: rotate(360deg); }
     }
     .amz-icon {
-      width: 44px;
-      height: 44px;
-      background: #ff9900;
-      border-radius: 12px;
+      width: 52px;
+      height: 52px;
+      background: #ffffff;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 900;
-      color: #111;
-      font-size: 24px;
-      box-shadow: 0 4px 12px rgba(255, 153, 0, 0.4);
+      padding: 8px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
+    .amz-icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
     h1 {
       font-size: 20px;
@@ -90,12 +93,16 @@
       font-size: 14px;
       color: #94a3b8;
       line-height: 1.5;
-      margin-bottom: 24px;
+      margin-bottom: 0;
     }
     .btn-group {
-      display: flex;
+      display: none;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .btn-group.visible {
+      display: flex;
     }
     .btn {
       display: block;
@@ -141,15 +148,21 @@
 
     <div class="loader-wrap">
       <div class="spinner"></div>
-      <div class="amz-icon">a</div>
+      <div class="amz-icon" aria-hidden="true">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+          <path d="M77.4 72.8c-1.1 1-2.7 1.1-3.9.4-5.5-4.6-6.5-6.7-9.5-11.1-9.1 9.3-15.5 12-27.3 12-13.9 0-24.8-8.6-24.8-25.8 0-13.4 7.3-22.6 17.7-27.1 9-4 21.6-4.7 31.2-5.8v-2.2c0-4 .3-8.7-2-12.2-2.1-3.1-6-4.4-9.5-4.4-6.4 0-12.2 3.3-13.6 10.2-.3 1.5-1.4 3-2.9 3.1l-16.1-1.7c-1.4-.3-2.9-1.4-2.5-3.5C17.9 7.1 35.7 2 51.6 2c8.3 0 19.2 2.2 25.8 8.5 8.3 7.8 7.5 18.2 7.5 29.5v26.7c0 8 3.3 11.5 6.5 15.9 1.1 1.5 1.3 3.4-.1 4.6l-13.9 12.1zm-16.6-32v-5.7c-13.5 0-27.7 2.9-27.7 18.8 0 8.1 4.2 13.6 11.4 13.6 5.3 0 10-3.3 13-8.5 3.6-6.3 3.3-12.2 3.3-18.2z" fill="#111111" transform="translate(8, 6) scale(0.95)"/>
+          <path d="M101.6 92.4c-11.6 8.6-28.5 13.2-43 13.2-20.3 0-38.6-7.5-52.4-20-.9-.8-.1-1.9 1-1.3 14.9 8.7 33.4 13.9 52.5 13.9 12.9 0 27.1-2.7 40.1-8.2 2-.9 3.6 1.2 1.8 2.4z" fill="#FF9900"/>
+          <path d="M106.4 86.9c-1.5-1.9-9.8-.9-13.6-.5-1.1.1-1.3-.9-.3-1.6 6.6-4.7 17.5-3.3 18.8-1.8 1.3 1.6-.3 12.6-6.6 17.8-1 .8-1.9.4-1.5-.7 1.4-3.5 4.7-11.4 3.2-13.2z" fill="#FF9900"/>
+        </svg>
+      </div>
     </div>
 
     <h1 id="statusTitle">Opening in Amazon App...</h1>
-    <p id="statusMsg">Redirecting you directly to the Amazon app for 1-click deals & best discounts.</p>
+    <p id="statusMsg">Taking you straight to the deal on Amazon.</p>
 
-    <div class="btn-group">
-      <a id="btnApp" href="#" class="btn btn-primary">🚀 Open in Amazon App</a>
-      <a id="btnWeb" href="#" class="btn btn-secondary">🌐 Continue in Browser</a>
+    <div id="btnGroup" class="btn-group">
+      <a id="btnApp" href="#" class="btn btn-primary">Open in Amazon App</a>
+      <a id="btnWeb" href="#" class="btn btn-secondary">Continue in Browser</a>
     </div>
 
     <div class="footer-note">
@@ -258,10 +271,12 @@
         window.location.replace(webUrl);
       }
 
-      // If user is still on page after 2.5s, update text to indicate manual option
+      // If user is still on page after 2.5s, reveal fallback buttons
       setTimeout(function() {
-        if (statusTitle) statusTitle.innerText = 'Click Below to Continue';
-        if (statusMsg) statusMsg.innerText = 'If Amazon app did not open automatically, tap the button below.';
+        var btnGroup = document.getElementById('btnGroup');
+        if (btnGroup) btnGroup.classList.add('visible');
+        if (statusTitle) statusTitle.innerText = 'Tap Below to Continue';
+        if (statusMsg) statusMsg.innerText = 'If Amazon did not open automatically, tap below.';
       }, 2500);
     })();
   </script>
