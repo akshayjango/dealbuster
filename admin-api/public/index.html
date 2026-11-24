@@ -1123,6 +1123,14 @@
           <div class="scraper-count-val" id="statusDndCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
           <div class="scraper-subtext" id="statusDndSubtext" style="margin-top:6px;">Loading status…</div>
         </div>
+        <div class="stat-card scraper-card" id="cardDpx" onclick="filterBySource('dealprix')" title="Click to filter products by DealPrix">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+            <div class="stat-label" style="margin-bottom:0;">DealPrix</div>
+            <div class="scraper-status-badge" id="statusDpxBadge"><span class="status-dot green"></span><span id="statusDpxText" style="font-size:0.85rem; font-weight:700; color:#10b981;">Working</span></div>
+          </div>
+          <div class="scraper-count-val" id="statusDpxCount" style="font-size:1.4rem; font-weight:800; color:var(--text); line-height:1.2;">—</div>
+          <div class="scraper-subtext" id="statusDpxSubtext" style="margin-top:6px;">Loading status…</div>
+        </div>
       </div>
 
       <!-- Toolbar -->
@@ -1142,6 +1150,7 @@
             <option value="offertag">OfferTag</option>
             <option value="freekaamaal">FreeKaaMaal</option>
             <option value="dealsanddeals">DealsAndDeals</option>
+            <option value="dealprix">DealPrix</option>
             <option value="dealsradar">DealsRadar (Legacy)</option>
           </select>
           <select id="dashStore" onchange="renderList()">
@@ -1179,6 +1188,7 @@
             <button class="btn btn-outline btn-sm" onclick="syncOffertag()" id="syncOffertagBtn">Sync OfferTag</button>
             <button class="btn btn-outline btn-sm" onclick="syncFreekaamaal()" id="syncFreekaamaalBtn">Sync FreeKaaMaal</button>
             <button class="btn btn-outline btn-sm" onclick="syncDealsAndDeals()" id="syncDndBtn">Sync DealsAndDeals</button>
+            <button class="btn btn-outline btn-sm" onclick="syncDealprix()" id="syncDpxBtn">Sync DealPrix</button>
             <button class="btn btn-outline btn-sm" onclick="syncAmazonDeals()" id="syncAmazonDealsBtn" style="border-color:#f59e0b;color:#d97706;">⚡ Sync Amazon Deals</button>
             <button class="btn btn-outline btn-sm" onclick="runPriceAndOOSCheck()" id="runPriceCheckBtn" style="border-color:#3b82f6;color:#2563eb;">⚡ Check OOS &amp; Prices</button>
             <button class="btn btn-outline btn-sm" onclick="runFullDeepSweep()" id="runFullSweepBtn" style="border-color:#8b5cf6;color:#7c3aed;" title="Sweep and verify every Amazon deal on the site (~2.8 minutes)">🚀 Full Sweep (All Deals)</button>
@@ -2809,7 +2819,8 @@ async function updateScraperStatuses() {
       { key: 'dealoftheday', errName: 'DealOfTheDayIndia', prefix: 'dotd_', countId: 'statusDotdCount', badgeId: 'statusDotdBadge', subId: 'statusDotdSubtext' },
       { key: 'offertag', errName: 'OfferTag', prefix: 'ot_', countId: 'statusOffertagCount', badgeId: 'statusOffertagBadge', subId: 'statusOffertagSubtext' },
       { key: 'freekaamaal', errName: 'FreeKaaMaal', prefix: 'fkm_', countId: 'statusFkmCount', badgeId: 'statusFkmBadge', subId: 'statusFkmSubtext' },
-      { key: 'dealsanddeals', errName: 'DealsAndDeals', prefix: 'dnd_', countId: 'statusDndCount', badgeId: 'statusDndBadge', subId: 'statusDndSubtext' }
+      { key: 'dealsanddeals', errName: 'DealsAndDeals', prefix: 'dnd_', countId: 'statusDndCount', badgeId: 'statusDndBadge', subId: 'statusDndSubtext' },
+      { key: 'dealprix', errName: 'DealPrix', prefix: 'dpx_', countId: 'statusDpxCount', badgeId: 'statusDpxBadge', subId: 'statusDpxSubtext' }
     ];
 
     for (const src of sources) {
@@ -3172,7 +3183,8 @@ function renderList(resetScroll = false) {
       src === 'offertag' ? (p.id || '').startsWith('ot_') :
       src === 'freekaamaal' ? (p.id || '').startsWith('fkm_') :
       src === 'dealsanddeals' ? ((p.id || '').startsWith('dnd_') || p.source === 'dealsanddeals') :
-      src === 'manual' ? (!(p.id || '').startsWith('dp_') && !(p.id || '').startsWith('dh_') && !(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ds_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('dotd_') && !(p.id || '').startsWith('ot_') && !(p.id || '').startsWith('fkm_') && !(p.id || '').startsWith('dnd_') && !(p.id || '').startsWith('amzdeal_')) :
+      src === 'dealprix' ? ((p.id || '').startsWith('dpx_') || p.source === 'dealprix') :
+      src === 'manual' ? (!(p.id || '').startsWith('dp_') && !(p.id || '').startsWith('dh_') && !(p.id || '').startsWith('dr_') && !(p.id || '').startsWith('ds_') && !(p.id || '').startsWith('ifs_') && !(p.id || '').startsWith('dotd_') && !(p.id || '').startsWith('ot_') && !(p.id || '').startsWith('fkm_') && !(p.id || '').startsWith('dnd_') && !(p.id || '').startsWith('dpx_') && !(p.id || '').startsWith('amzdeal_')) :
       true);
     const matchStore = !store || getStoreName(p) === store;
     const matchOOS = !oosFilterActive || p.outOfStock;
@@ -5187,6 +5199,25 @@ async function syncDealsAndDeals() {
     await loadProducts();
   } catch (e) {
     alert('DealsAndDeals sync failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function syncDealprix() {
+  const btn = document.getElementById('syncDpxBtn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const resp = await apiFetch('/sync-dealprix');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    alert(data.message || 'DealPrix sync complete!');
+    await loadProducts();
+  } catch (e) {
+    alert('DealPrix sync failed: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;

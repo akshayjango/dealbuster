@@ -1689,6 +1689,45 @@ function parseDealsAndDealsHtml(html) {
   }
 }
 
+function parseDealPrixHtml(html) {
+  if (!html) return [];
+  const cards = html.split(/<div\s+class="deal-card\s*"/i).slice(1);
+  const parsed = [];
+  for (const card of cards) {
+    const endIdx = card.indexOf('</div>\n        </div>');
+    const snippet = endIdx !== -1 ? card.slice(0, endIdx + 20) : card.slice(0, 3000);
+
+    const storeM = snippet.match(/class="deal-store-tag[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
+    const store = storeM ? storeM[1].replace(/<[^>]+>/g, '').trim() : '';
+
+    const linkM = snippet.match(/<a[^>]+href="([^"]+)"[^>]*rel="nofollow noopener sponsored"/i) ||
+                  snippet.match(/<h3\s+class="deal-title"[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"/i);
+    const link = linkM ? decodeHtmlEntities(linkM[1].trim()) : '';
+
+    const titleM = snippet.match(/<h3\s+class="deal-title"[^>]*title="([^"]+)"/i) ||
+                   snippet.match(/<h3\s+class="deal-title"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
+    const title = titleM ? decodeHtmlEntities(titleM[1].replace(/<[^>]+>/g, '').trim()) : '';
+
+    const priceM = snippet.match(/class="deal-current-price">₹?([\d,]+)/i);
+    const price = priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : 0;
+
+    const mrpM = snippet.match(/class="deal-mrp-price">₹?([\d,]+)/i);
+    const mrp = mrpM ? parseInt(mrpM[1].replace(/,/g, ''), 10) : price;
+
+    const imgM = snippet.match(/<img[^>]+src="([^"]+)"/i);
+    const image = imgM ? imgM[1].trim() : '';
+
+    let asin = '';
+    const asinM = link.match(/(?:dp|gp\/product|\/d)\/([A-Z0-9]{10})/i);
+    if (asinM) asin = asinM[1].toUpperCase();
+
+    if (title && (price > 0 || asin)) {
+      parsed.push({ title, price, mrp, link, asin, store, image });
+    }
+  }
+  return parsed;
+}
+
 function decodeBase64Safe(str) {
   if (!str) return '';
   try {
@@ -4543,6 +4582,182 @@ async function scrapeAndSyncDealsAndDeals(env, limit = 25) {
   return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
 }
 
+// ── DealPrix Scraper (Direct fetch — 0 proxy credits) ─────────────────────────
+
+async function scrapeAndSyncDealPrix(env, limit = 25) {
+  let allDeals = [];
+  let fetchError = null;
+
+  // 1. Try fetching the 500-deal JSON feed directly
+  try {
+    const jsonUrl = `https://dealprix.in/data/deals_live.json?v=${Math.floor(Date.now() / 300000)}`;
+    const r = await fetchWithTimeout(jsonUrl, {
+      headers: {
+        'User-Agent': AMZ_HEADERS['User-Agent'],
+        'Accept': 'application/json,text/plain,*/*'
+      }
+    }, 15000);
+    if (r.ok) {
+      const parsedJson = await r.json();
+      if (Array.isArray(parsedJson) && parsedJson.length > 0) {
+        allDeals = parsedJson;
+      }
+    }
+  } catch (e) {
+    fetchError = e;
+    console.log(`DealPrix JSON fetch failed (${e.message}), trying HTML fallback...`);
+  }
+
+  // 2. Fallback to scraping deals.html if JSON feed failed
+  if (allDeals.length === 0) {
+    try {
+      const htmlUrl = 'https://dealprix.in/deals.html';
+      const r = await fetchWithTimeout(htmlUrl, {
+        headers: {
+          'User-Agent': AMZ_HEADERS['User-Agent'],
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        }
+      }, 15000);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const html = await r.text();
+      allDeals = parseDealPrixHtml(html);
+    } catch (e) {
+      const msg = `DealPrix fetch failed: ${fetchError ? fetchError.message + ' | ' : ''}${e.message}`;
+      console.error(msg);
+      await saveSyncError('DealPrix', msg, env);
+      await recordScraperStatus('dealprix', 'error', msg, 0, env);
+      return { success: false, count: 0, message: msg };
+    }
+  }
+
+  if (allDeals.length === 0) {
+    const msg = 'DealPrix: no deals found in feed or HTML';
+    await saveSyncError('DealPrix', msg, env);
+    await recordScraperStatus('dealprix', 'error', msg, 0, env);
+    return { success: false, count: 0, message: msg };
+  }
+
+  const { products, sha } = await getProductsFile(env);
+  let { asins: deletedAsins } = await getDeletedAsins(env).catch(() => ({ asins: [] }));
+  const deletedSet = new Set(deletedAsins.map(a => a.toUpperCase()));
+  const blockedBrands = await getBlockedBrands(env);
+
+  const existingByAsin = new Map(products.filter(p => p.asin).map(p => [p.asin.toUpperCase(), p]));
+  const seenThisRun = new Set();
+
+  const TAG = getWebTag(env);
+  const added = [];
+  const updated = [];
+
+  for (const deal of allDeals) {
+    const rawLink = deal.url || deal.affiliateUrl || deal.link || '';
+    const asinM = rawLink.match(/(?:dp|gp\/product|\/d)\/([A-Z0-9]{10})/i);
+    if (!asinM) continue;
+    const asin = asinM[1].toUpperCase();
+
+    if (deletedSet.has(asin)) continue;
+    if (seenThisRun.has(asin)) continue;
+    seenThisRun.add(asin);
+
+    const title = (deal.title || '').trim();
+    if (!title || title.length < 5) continue;
+    if (isBrandBlocked(title, blockedBrands)) continue;
+
+    const price = Math.round(deal.price);
+    const mrp = Math.round(deal.mrp > 0 ? deal.mrp : price);
+    if (!(price > 0)) continue;
+
+    if (!isValidDealPrice(price, mrp) || isSuspiciousFakePrice(title, price, mrp)) continue;
+    const discNum = mrp > price && price > 0 ? Math.round((1 - price / mrp) * 100) : (deal.discount || 0);
+    if (discNum < 15 || discNum >= 100) continue;
+
+    const priceStr = '₹' + price.toLocaleString('en-IN');
+    const mrpStr = mrp > 0 ? '₹' + mrp.toLocaleString('en-IN') : priceStr;
+    const discStr = discNum > 0 ? `-${discNum}%` : '0%';
+    const baseLink = `https://www.amazon.in/dp/${asin}`;
+    const isUpto = hasUptoOffInTitle(title);
+    const link = `${baseLink}?tag=${TAG}`;
+    const category = detectCategoryFromTitle(title) || deal.category || 'Other';
+    const image = (deal.image && !deal.image.includes('unsplash.com')) ? deal.image : asinImage(asin);
+
+    if (existingByAsin.has(asin)) {
+      const existing = existingByAsin.get(asin);
+      if (isDead(existing)) continue;
+      const existingPrice = parsePrice(existing.price);
+      const newPrice = parsePrice(priceStr);
+
+      if (isValidPriceDrop(existingPrice, newPrice)) {
+        const priceHistory = appendPriceHistory(existing, priceStr);
+        const updatedProduct = {
+          ...existing,
+          price: priceStr,
+          mrp: mrpStr,
+          disc: discStr,
+          link,
+          outOfStock: false,
+          priceHistory
+        };
+        const origPrice = parsePrice(existing.originalPrice || existing.price);
+        if (origPrice && newPrice && shouldDemote(origPrice, newPrice)) {
+          updatedProduct.priceIncreased = true;
+        } else {
+          delete updatedProduct.priceIncreased;
+        }
+        updated.push(updatedProduct);
+      }
+    } else {
+      if (added.length >= limit) break;
+      const lowestText = extractLowestPriceText(title) || (deal.badge && /lowest|all-time/i.test(deal.badge) ? deal.badge : null);
+      added.push({
+        id: `dpx_${Date.now()}_${added.length}`,
+        asin,
+        title,
+        price: priceStr,
+        mrp: mrpStr,
+        disc: discStr,
+        image,
+        link,
+        category,
+        highlights: ['Great deal on Amazon'],
+        lowestPriceText: lowestText,
+        featured: false,
+        hidden: isUpto ? true : false,
+        isUptoDeal: isUpto ? true : undefined,
+        outOfStock: false,
+        order: 0,
+        addedAt: new Date().toISOString(),
+        originalPrice: priceStr,
+        source: 'dealprix'
+      });
+    }
+  }
+
+  if (added.length === 0 && updated.length === 0) {
+    await clearSyncError('DealPrix', env);
+    await recordScraperStatus('dealprix', 'working', 'No new deals', 0, env);
+    return { success: true, count: 0, message: 'No new or updated DealPrix deals.' };
+  }
+
+  const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
+  const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
+
+  if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
+  const final = await capLiveAndBury([...added, ...base], env);
+
+  const msg = `DealPrix sync: +${added.length} new, ${updated.length} updated`;
+  await saveProductsFile(final, sha, msg, env);
+  await clearSyncError('DealPrix', env);
+  await recordScraperStatus('dealprix', 'working', msg, added.length, env);
+
+  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+  if (lowestDeals.length > 0) {
+    postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
+      .catch(e => console.error('TG lowest price DealPrix post failed:', e.message));
+  }
+
+  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
+}
+
 // ── Price check + OOS detection (Creators API) ────────────────────────────────
 function isValidDealPrice(price, mrp) {
   const p = parsePrice(price);
@@ -7382,6 +7597,14 @@ async function runDealScrapersLocked(env) {
       console.error('DealsAndDeals sync error:', e.message);
       await saveSyncError('DealsAndDeals', e.message, env);
     }
+    try {
+      console.log('DealPrix sync start');
+      const r = await scrapeAndSyncDealPrix(env, 25);
+      console.log('DealPrix sync:', r.message);
+    } catch (e) {
+      console.error('DealPrix sync error:', e.message);
+      await saveSyncError('DealPrix', e.message, env);
+    }
   });
 }
 
@@ -8384,7 +8607,9 @@ export default {
         const fkm = await scrapeAndSyncFreeKaaMaal(env, limit);
         console.log(`trigger-sync-sample: syncing DealsAndDeals with limit ${limit}...`);
         const dnd = await scrapeAndSyncDealsAndDeals(env, limit);
-        return json({ success: true, dealsping: dp, indiafreestuff: ifs, dealoftheday: dotd, offertag: ot, freekaamaal: fkm, dealsanddeals: dnd });
+        console.log(`trigger-sync-sample: syncing DealPrix with limit ${limit}...`);
+        const dpx = await scrapeAndSyncDealPrix(env, limit);
+        return json({ success: true, dealsping: dp, indiafreestuff: ifs, dealoftheday: dotd, offertag: ot, freekaamaal: fkm, dealsanddeals: dnd, dealprix: dpx });
       } catch (e) {
         console.error('trigger-sync-sample error:', e.message);
         return json({ success: false, error: e.message }, 500);
@@ -9603,6 +9828,17 @@ export default {
         } catch (e) { return json({ error: e.message }, 502); }
       }
 
+      // ── /sync-dealprix ───────────────────────────────────────────────────────
+      if (url.pathname === '/sync-dealprix' && request.method === 'GET') {
+        try {
+          const r = await scrapeAndSyncDealPrix(env, 25);
+          if (r.addedProducts?.length) {
+            await postDealsAndTrack(r.addedProducts.slice(0, 5), env).catch(e => console.error('TG post DealPrix manual:', e.message));
+          }
+          return json(r);
+        } catch (e) { return json({ error: e.message }, 502); }
+      }
+
       // ── /sync-all ────────────────────────────────────────────────────────────
       if (url.pathname === '/sync-all' && request.method === 'GET') {
         const results = await Promise.allSettled([
@@ -9611,12 +9847,13 @@ export default {
           scrapeAndSyncDealOfTheDayIndia(env, 10),
           scrapeAndSyncOfferTag(env, 20),
           scrapeAndSyncFreeKaaMaal(env, 25),
-          scrapeAndSyncDealsAndDeals(env, 25)
+          scrapeAndSyncDealsAndDeals(env, 25),
+          scrapeAndSyncDealPrix(env, 25)
         ]);
         return json({
           success: true,
           results: results.map((r,i) => ({
-            site: ['DealsPing','IndiaFreeStuff','DealOfTheDayIndia','OfferTag','FreeKaaMaal','DealsAndDeals'][i],
+            site: ['DealsPing','IndiaFreeStuff','DealOfTheDayIndia','OfferTag','FreeKaaMaal','DealsAndDeals','DealPrix'][i],
             status: r.status,
             result: r.status==='fulfilled'?r.value:{error:r.reason.message}
           }))
