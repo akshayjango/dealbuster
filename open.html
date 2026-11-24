@@ -220,24 +220,38 @@
 
       if (btnWeb) btnWeb.href = webUrl;
 
+      var didHide = false;
+      function markHidden() {
+        if (document.hidden) didHide = true;
+      }
+      document.addEventListener('visibilitychange', markHidden);
+      window.addEventListener('pagehide', function() { didHide = true; });
+      window.addEventListener('blur', function() { didHide = true; });
+
       if (isAndroid) {
         if (btnApp) btnApp.href = androidIntent;
         // Immediate forceful launch on Android
         try {
           window.location.href = androidIntent;
         } catch(e) {}
+        // Fallback to web URL if WebView blocks intent:// or app did not open
+        setTimeout(function() {
+          if (!didHide && !document.hidden) {
+            window.location.replace(webUrl);
+          }
+        }, 900);
       } else if (isIOS) {
         if (btnApp) btnApp.href = iosScheme;
         // Trigger iOS custom scheme
         try {
           window.location.href = iosScheme;
         } catch(e) {}
-        // Fallback to web URL after 1.8s if app did not open
+        // Fallback to web URL after 1.2s if app did not open
         setTimeout(function() {
-          if (!document.hidden) {
+          if (!didHide && !document.hidden) {
             window.location.replace(webUrl);
           }
-        }, 1800);
+        }, 1200);
       } else {
         // Desktop / Laptop: redirect directly to web URL
         if (btnApp) btnApp.href = webUrl;
