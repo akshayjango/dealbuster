@@ -168,10 +168,16 @@
 
   <script>
     (function() {
-      var params = new URLSearchParams(window.location.search);
+      var search = window.location.search || '';
+      var params = new URLSearchParams(search);
       var asin = params.get('asin');
       var rawUrl = params.get('url');
       var tag = params.get('tag') || 'dbitg-21';
+
+      if (!asin && !rawUrl && search) {
+        var bareM = search.match(/^\?([A-Z0-9]{10})(?:&|$)/i);
+        if (bareM) asin = bareM[1].toUpperCase();
+      }
 
       var targetAsin = asin;
       var targetUrl = rawUrl;

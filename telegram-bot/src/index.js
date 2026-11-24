@@ -396,8 +396,8 @@ export default {
       const asinM = canonical.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || rawUrl.match(/link\.amazon\/([A-Z0-9]{10})/i);
       asin = asinM ? asinM[1].toUpperCase() : '';
       finalAffiliateUrl = asin
-        ? `https://dealbuster.in/open?asin=${asin}&tag=${DEFAULT_AMZ_TAG}`
-        : `https://dealbuster.in/open?url=${encodeURIComponent(canonical)}&tag=${DEFAULT_AMZ_TAG}`;
+        ? `https://dealbuster.in/go?${asin}`
+        : `https://dealbuster.in/go?url=${encodeURIComponent(canonical)}&tag=${DEFAULT_AMZ_TAG}`;
     } else {
       const canonical = await resolveCanonicalUrl(rawUrl);
       store = detectStore(canonical);

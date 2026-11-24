@@ -5855,15 +5855,17 @@ function trimTitle(raw) {
 }
 
 function dealLink(product, tag, env = {}) {
-  const isAmz = product?.store === 'amazon' || product?.asin || (product?.link && /amazon\.(?:in|com)|amzn\.(?:to|in)|link\.amazon|a\.co|dealbuster\.in\/open/i.test(product.link));
+  const isAmz = product?.store === 'amazon' || product?.asin || (product?.link && /amazon\.(?:in|com)|amzn\.(?:to|in)|link\.amazon|a\.co|dealbuster\.in\/(?:open|go)/i.test(product.link));
   if (isAmz) {
     const isTg = tag === TAG_TG || (env && typeof getTgTag === 'function' && tag === getTgTag(env));
     if (isTg) {
       if (product.asin) {
-        return `https://dealbuster.in/open?asin=${product.asin}&tag=${tag}`;
+        return tag === 'dbitg-21'
+          ? `https://dealbuster.in/go?${product.asin}`
+          : `https://dealbuster.in/go?asin=${product.asin}&tag=${tag}`;
       }
       const rawAmz = tagAmazonUrl(product.link || '', tag);
-      return `https://dealbuster.in/open?url=${encodeURIComponent(rawAmz)}&tag=${tag}`;
+      return `https://dealbuster.in/go?url=${encodeURIComponent(rawAmz)}&tag=${tag}`;
     }
     if (product.asin) {
       return `https://www.amazon.in/dp/${product.asin}?tag=${tag}`;
@@ -5875,7 +5877,7 @@ function dealLink(product, tag, env = {}) {
 
 function isAmazonSearchOrCategoryUrl(url) {
   if (!url || typeof url !== 'string') return false;
-  if (/dealbuster\.in\/open\?url=/i.test(url)) return true;
+  if (/dealbuster\.in\/(?:open|go)\?url=/i.test(url)) return true;
   let decoded = url;
   try {
     decoded = decodeURIComponent(url);
@@ -5944,7 +5946,7 @@ function formatDealMsg(product, tag, isLowest = false, env = {}) {
   const mrpRow = mrp ? `❌MRP: ${escHtml(mrp)}` : '';
   const discRow = disc ? `Discount: <b>${escHtml(disc)}</b>` : '';
   const detailsBlock = [lowestRow, couponRow, priceRow, mrpRow, discRow].filter(Boolean).join('\n');
-  const isAmazon = product?.store === 'amazon' || /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co|dealbuster\.in\/open/i.test(link);
+  const isAmazon = product?.store === 'amazon' || /amazon\.(?:in|com)|amzn\.(?:to|in)|amazn\.lt|link\.amazon|a\.co|dealbuster\.in\/(?:open|go)/i.test(link);
   const isSearchOrCategory = isAmazonSearchOrCategoryUrl(link) || hasUptoOffInTitle(product?.title);
   const isLongLink = Boolean(isSearchOrCategory || (link && link.length > 75));
   const linkHtml = isLongLink ? `<a href="${escHtml(link)}">👉 Check Now</a>` : `👉 ${link}`;
@@ -8681,7 +8683,7 @@ export default {
     }
 
     // ── Public: static assets (dashboard HTML, smart opener HTML, service worker) ───────────
-    if ((url0.pathname === '/open' || url0.pathname === '/open.html') && (request.method === 'GET' || request.method === 'HEAD')) {
+    if ((url0.pathname === '/open' || url0.pathname === '/open.html' || url0.pathname === '/go' || url0.pathname === '/go.html') && (request.method === 'GET' || request.method === 'HEAD')) {
       return new Response(request.method === 'HEAD' ? null : openHtml, {
         status: 200,
         headers: {

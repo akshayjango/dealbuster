@@ -137,7 +137,7 @@ export async function resolveUrl(url, maxHops = 4) {
  */
 export function isAmazonUrl(url) {
   if (!url) return false;
-  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.(?:to|in)|amzn-to\.(?:co|[a-z]+)|amzn-to|amazn\.lt|link\.amazon|a\.co|(?:amzn\.)?urlgeni\.us|dealbuster\.in\/open)(?:[/?#:]|$)/i.test(url);
+  return /(?:^|https?:\/\/|[.\/])(?:amazon\.(?:in|com)|amzn\.(?:to|in)|amzn-to\.(?:co|[a-z]+)|amzn-to|amazn\.lt|link\.amazon|a\.co|(?:amzn\.)?urlgeni\.us|dealbuster\.in\/(?:open|go))(?:[/?#:]|$)/i.test(url);
 }
 
 /**
@@ -147,6 +147,7 @@ export function extractAmazonAsin(url) {
   if (!url) return null;
   const m = url.match(/\/(?:dp|gp\/product|ASIN|gp\/aw\/d)\/([A-Z0-9]{10})/i) ||
             url.match(/[?&]asin=([A-Z0-9]{10})/i) ||
+            url.match(/dealbuster\.in\/(?:open|go)\?([A-Z0-9]{10})(?:&|$)/i) ||
             url.match(/link\.amazon\/([A-Z0-9]{10})/i) ||
             url.match(/-(B0[A-Z0-9]{8,9})(?:[/?#]|$)/i) ||
             url.match(/(?:urlgeni\.us|amzn-to\.co)[^\s]*\/([A-Z0-9]{10})/i);
@@ -201,7 +202,9 @@ export async function convertToEarnKaro(dealUrlOrText, token) {
  * Build Amazon Affiliate URL
  */
 export function buildAmazonUrl(asin, tag = 'dbitg-21') {
-  return `https://dealbuster.in/open?asin=${asin}&tag=${tag}`;
+  return tag === 'dbitg-21'
+    ? `https://dealbuster.in/go?${asin}`
+    : `https://dealbuster.in/go?asin=${asin}&tag=${tag}`;
 }
 
 /**
@@ -601,7 +604,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
         return {
           originalUrl: rawUrl,
           resolvedUrl: finalResolved,
-          convertedUrl: `https://dealbuster.in/open?url=${encodeURIComponent(converted)}&tag=${amazonTag}`,
+          convertedUrl: `https://dealbuster.in/go?url=${encodeURIComponent(converted)}&tag=${amazonTag}`,
           store: 'amazon',
           id: promoId
         };
