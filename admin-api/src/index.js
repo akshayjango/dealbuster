@@ -4739,7 +4739,9 @@ async function scrapeAndSyncDealPrix(env, limit = 25) {
   }
 
   // DealPrix feed prices frequently reflect stale/bank-offer prices rather than live Amazon checkout prices.
-  // Require live Amazon Creators API verification before publishing new DealPrix deals or applying price drops.
+  // Require live Amazon Creators API verification before saving new DealPrix deals or applying price drops.
+  // Keep non-lowest-price DealPrix deals hidden by default; checkLowestPriceBadges will auto-unhide them
+  // if Amazon's product page has a genuine lowest-price badge.
   if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
   const verifiedAdded = [];
   for (const p of added) {
@@ -4748,6 +4750,10 @@ async function scrapeAndSyncDealPrix(env, limit = 25) {
     if (!verified || p.outOfStock) continue;
     const discPct = parseInt(String(p.disc || '').replace(/[^0-9]/g, ''), 10) || 0;
     if (discPct < 15) continue;
+    if (!p.isUptoDeal && !p.lowestPriceText) {
+      p.hidden = true;
+      p.dealprixAutoHidden = true;
+    }
     verifiedAdded.push(p);
   }
 
@@ -5301,6 +5307,10 @@ async function checkLowestPriceBadges(env) {
         updated.lowestPriceText = badge;
         changed = true;
         badgeCount++;
+        if (updated.dealprixAutoHidden && !updated.isUptoDeal && !isDead(updated) && !(updated.rating != null && updated.rating < 3.6)) {
+          updated.hidden = false;
+          delete updated.dealprixAutoHidden;
+        }
         const isFreshToday = updated.addedAt && (Date.now() - Date.parse(updated.addedAt) <= 24 * 60 * 60 * 1000);
         if (isFreshToday && !updated.outOfStock && !updated.hidden && !isZeroPrice(updated) && !updated.priceIncreased) {
           newlyDetectedLowest.push({ ...updated });
