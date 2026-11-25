@@ -793,6 +793,187 @@
       margin: 0 auto;
       padding: 0 20px 60px;
     }
+
+    /* ── GIFT CARDS SECTION ── */
+    .giftcards-section {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 4px 20px 60px;
+    }
+    .gc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .gc-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .gc-title-wrap h2 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .gc-count-pill {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-soft);
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .gc-powered {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .gc-cats {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 6px;
+      margin-bottom: 18px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .gc-cats::-webkit-scrollbar { display: none; }
+    .gc-cat-pill {
+      flex: 0 0 auto;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border-c);
+      background: #fff;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s ease;
+      white-space: nowrap;
+    }
+    .gc-cat-pill:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .gc-cat-pill.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .gc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 16px;
+    }
+    .gc-card {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 1px solid var(--border-c);
+      border-radius: 16px;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 2px 10px rgba(26, 26, 46, 0.04);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    @media (hover: hover) {
+      .gc-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 24px rgba(108, 71, 255, 0.12);
+        border-color: rgba(108, 71, 255, 0.35);
+      }
+    }
+    .gc-card-art {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .gc-card-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .gc-disc-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: #16a34a;
+      color: #fff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 4px 9px;
+      border-radius: 999px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+      letter-spacing: 0.01em;
+    }
+    .gc-card-body {
+      padding: 12px 12px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      justify-content: space-between;
+    }
+    .gc-card-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .gc-card-cta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 2px;
+    }
+    .gc-empty, .gc-loading {
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    @media (max-width: 640px) {
+      .giftcards-section {
+        padding: 8px 12px 48px;
+      }
+      .gc-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .gc-card {
+        border-radius: 14px;
+      }
+      .gc-card-body {
+        padding: 9px 10px 10px;
+      }
+      .gc-card-title {
+        font-size: 0.84rem;
+      }
+      .gc-disc-badge {
+        top: 7px;
+        left: 7px;
+        font-size: 0.68rem;
+        padding: 3px 7px;
+      }
+    }
     /* Mobile banner — hidden on desktop, full-width on mobile */
     .mobile-banner-wrap { display: none; }
     @media(max-width: 768px) {
@@ -2449,6 +2630,17 @@
       <span class="tab-label">All</span>
     </button>
 
+    <button class="tab-btn" data-tab="giftcards">
+      <span class="tab-icon"><svg viewBox="0 0 64 64" width="34" height="34" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="8" y="18" width="48" height="32" rx="6" fill="#1a1a2e" transform="translate(3 3)"/>
+  <rect x="8" y="18" width="48" height="32" rx="6" fill="#ffd000" stroke="#1a1a2e" stroke-width="2.5"/>
+  <rect x="8" y="29" width="48" height="8" fill="#6c47ff" stroke="#1a1a2e" stroke-width="2"/>
+  <rect x="28" y="18" width="8" height="32" fill="#ff6242" stroke="#1a1a2e" stroke-width="2"/>
+  <path d="M32 18c-3.5 0-8-2.5-8-6s4.5-4.5 8 1c3.5-5.5 8-4.5 8-1s-4.5 6-8 6z" fill="#ff6242" stroke="#1a1a2e" stroke-width="2" stroke-linejoin="round"/>
+</svg></span>
+      <span class="tab-label">Gift Cards</span>
+    </button>
+
     <button class="tab-btn" data-tab="beauty">
       <span class="tab-icon"><svg viewBox="0 0 512 512" width="32" height="32" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- bottle body shadow + stroke -->
@@ -3490,6 +3682,20 @@
   <button id="loadMoreBtn" onclick="loadMore()">Load more crazy deals!</button>
 </div>
 
+<!-- GIFT CARDS (HUBBLE) -->
+<section class="giftcards-section" id="giftCardsSection" style="display:none;" aria-label="Brand Gift Cards">
+  <div class="gc-header">
+    <div class="gc-title-wrap">
+      <h2>🎁 Brand Gift Cards</h2>
+      <span class="gc-count-pill" id="gcCountPill" style="display:none;">0 Brands</span>
+    </div>
+    <span class="gc-powered">Instant Vouchers • Powered by Hubble</span>
+  </div>
+  <div class="gc-cats" id="gcCats"></div>
+  <div class="gc-grid" id="gcGrid"></div>
+  <div class="gc-loading" id="gcStatus">Loading gift cards…</div>
+</section>
+
 <!-- BLOGS -->
 <section class="blogs-section">
   <div class="section-title">
@@ -3788,6 +3994,22 @@
   }
 
   function applyFilters() {
+    const productsSec = document.querySelector('.products-section');
+    const giftCardsSec = document.getElementById('giftCardsSection');
+    const chipsEl = document.querySelector('.chips');
+    if (activeTab === 'giftcards') {
+      if (productsSec) productsSec.style.display = 'none';
+      if (loadMoreWrap) loadMoreWrap.style.display = 'none';
+      if (chipsEl) chipsEl.style.display = 'none';
+      if (giftCardsSec) giftCardsSec.style.display = 'block';
+      if (window.loadGiftCards) window.loadGiftCards();
+      if (window.renderGiftCards) window.renderGiftCards();
+      return;
+    }
+    if (productsSec) productsSec.style.display = '';
+    if (chipsEl) chipsEl.style.display = '';
+    if (giftCardsSec) giftCardsSec.style.display = 'none';
+
     const rawQuery = searchInput.value.trim();
     const query = normalizeSearchText(rawQuery);
     filteredCards = [];
@@ -4881,6 +5103,188 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  // ── Gift Cards (Hubble) ─────────────────────────────────────────────────
+  (() => {
+    const GC_API_URL = 'https://dealbuster-admin-api.vakshay083.workers.dev/public/gift-cards';
+    const GC_CACHE_KEY = 'db_giftcards_v1';
+    const GC_CACHE_TTL = 15 * 60 * 1000;
+    const gcGrid = document.getElementById('gcGrid');
+    const gcCats = document.getElementById('gcCats');
+    const gcStatus = document.getElementById('gcStatus');
+    const gcCountPill = document.getElementById('gcCountPill');
+    const searchInputEl = document.querySelector('.search-box input');
+
+    let allGiftCards = [];
+    let activeGcCat = 'ALL';
+    let gcLoaded = false;
+    let gcLoading = false;
+
+    const CAT_LABELS = {
+      ALL: 'All Brands',
+      FOOD: 'Food & Dining',
+      FASHION: 'Fashion',
+      GROCERY: 'Grocery',
+      TRAVEL_AND_TRANSPORT: 'Travel',
+      ENTERTAINMENT: 'Entertainment',
+      OTT: 'OTT',
+      ELECTRONICS: 'Electronics',
+      BEAUTY: 'Beauty',
+      LUXURY: 'Luxury',
+      GAMING: 'Gaming',
+      JEWELLERY: 'Jewellery',
+      HOTELS: 'Hotels',
+      FITNESS: 'Fitness',
+      PHARMACY: 'Pharmacy',
+      HOME_DECOR: 'Home Decor',
+      KIDS: 'Kids'
+    };
+
+    function formatCatLabel(cat) {
+      if (CAT_LABELS[cat]) return CAT_LABELS[cat];
+      return String(cat || '')
+        .toLowerCase()
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function escapeGcHtml(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderCategoryPills() {
+      if (!gcCats) return;
+      const counts = new Map();
+      for (const c of allGiftCards) {
+        if (!c.category) continue;
+        counts.set(c.category, (counts.get(c.category) || 0) + 1);
+      }
+      const topCats = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 12)
+        .map(([cat]) => cat);
+
+      const pills = ['ALL', ...topCats];
+      gcCats.innerHTML = pills.map(cat =>
+        `<button type="button" class="gc-cat-pill${activeGcCat === cat ? ' active' : ''}" data-gccat="${escapeGcHtml(cat)}">${escapeGcHtml(formatCatLabel(cat))}</button>`
+      ).join('');
+    }
+
+    if (gcCats) {
+      gcCats.addEventListener('click', e => {
+        const pill = e.target.closest('.gc-cat-pill');
+        if (!pill) return;
+        activeGcCat = pill.dataset.gccat || 'ALL';
+        renderCategoryPills();
+        renderGiftCards();
+      });
+    }
+
+    function renderGiftCards() {
+      if (!gcGrid || !gcStatus) return;
+      if (!gcLoaded && gcLoading) {
+        gcStatus.textContent = 'Loading gift cards…';
+        gcStatus.style.display = 'block';
+        return;
+      }
+
+      const q = (searchInputEl ? searchInputEl.value : '').trim().toLowerCase();
+      const filtered = allGiftCards.filter(c => {
+        if (activeGcCat !== 'ALL' && c.category !== activeGcCat) return false;
+        if (q) {
+          const hay = `${c.title} ${c.category} ${(c.tags || []).join(' ')}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      if (gcCountPill) {
+        gcCountPill.textContent = `${filtered.length} Brand${filtered.length === 1 ? '' : 's'}`;
+        gcCountPill.style.display = 'inline-block';
+      }
+
+      if (!filtered.length) {
+        gcGrid.innerHTML = '';
+        gcStatus.textContent = gcLoaded ? 'No matching gift cards found.' : 'Could not load gift cards right now.';
+        gcStatus.style.display = 'block';
+        return;
+      }
+
+      gcStatus.style.display = 'none';
+      gcGrid.innerHTML = filtered.map(c => {
+        const discText = c.discount > 0 ? `Flat ${Number.isInteger(c.discount) ? c.discount : c.discount.toFixed(1)}% OFF` : '';
+        const imgSrc = escapeGcHtml(c.image || c.logo);
+        const bg = escapeGcHtml(c.bg || '#1a1a2e');
+        const title = escapeGcHtml(c.title);
+        const url = escapeGcHtml(c.url);
+        return `<a class="gc-card" href="${url}" target="_blank" rel="noopener noreferrer" data-no-cuelink>
+          <div class="gc-card-art" style="background:${bg};">
+            ${imgSrc ? `<img src="${imgSrc}" alt="${title} Gift Card" loading="lazy">` : ''}
+            ${discText ? `<span class="gc-disc-badge">${discText}</span>` : ''}
+          </div>
+          <div class="gc-card-body">
+            <div class="gc-card-title">${title}</div>
+            <div class="gc-card-cta">
+              <span>${c.discount > 0 ? `Save ${Number.isInteger(c.discount) ? c.discount : c.discount.toFixed(1)}%` : 'View Voucher'}</span>
+              <span>Buy Now →</span>
+            </div>
+          </div>
+        </a>`;
+      }).join('');
+    }
+
+    async function loadGiftCards() {
+      if (gcLoaded || gcLoading) return;
+      gcLoading = true;
+
+      try {
+        const raw = localStorage.getItem(GC_CACHE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.giftCards) && parsed.giftCards.length && (Date.now() - (parsed.ts || 0) < GC_CACHE_TTL)) {
+            allGiftCards = parsed.giftCards;
+            gcLoaded = true;
+            renderCategoryPills();
+            renderGiftCards();
+          }
+        }
+      } catch (_) {}
+
+      try {
+        const res = await fetch(GC_API_URL, { method: 'GET' });
+        const data = await res.json();
+        if (data && Array.isArray(data.giftCards) && data.giftCards.length) {
+          allGiftCards = data.giftCards;
+          gcLoaded = true;
+          try {
+            localStorage.setItem(GC_CACHE_KEY, JSON.stringify({ ts: Date.now(), giftCards: allGiftCards }));
+          } catch (_) {}
+          renderCategoryPills();
+          renderGiftCards();
+        } else if (!gcLoaded) {
+          gcLoaded = true;
+          renderGiftCards();
+        }
+      } catch (_) {
+        if (!gcLoaded) {
+          gcLoaded = true;
+          renderGiftCards();
+        }
+      } finally {
+        gcLoading = false;
+      }
+    }
+
+    window.loadGiftCards = loadGiftCards;
+    window.renderGiftCards = renderGiftCards;
+
+    // Deep link support: ?tab=giftcards
+    const initialTab = new URLSearchParams(location.search).get('tab');
+    if (initialTab === 'giftcards') {
+      const btn = document.querySelector('.tab-btn[data-tab="giftcards"]');
+      if (btn) btn.click();
+    }
+  })();
 
 </script>
 

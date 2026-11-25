@@ -8523,6 +8523,72 @@ export default {
       }
     }
 
+    // ── Public: Hubble Gift Cards feed (no auth, edge-cached 30 min, 0 KV writes) ──
+    if (url0.pathname === '/public/gift-cards' && request.method === 'GET') {
+      try {
+        const cache = caches.default;
+        const cacheKey = new Request(`${url0.origin}/public/gift-cards`, { method: 'GET' });
+        const cached = await cache.match(cacheKey);
+        if (cached) return cached;
+
+        const all = [];
+        const seen = new Set();
+        for (let pageNo = 1; pageNo <= 8; pageNo++) {
+          const apiUrl = `https://api.myhubble.money/v3/store/products/search?q=&limit=100&pageNo=${pageNo}`;
+          const res = await fetchWithTimeout(apiUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'application/json',
+              'Origin': 'https://offers.myhubble.money',
+              'Referer': 'https://offers.myhubble.money/',
+            },
+          }, 8000);
+          if (!res.ok) break;
+          const data = await res.json().catch(() => null);
+          const products = data?.data?.[0]?.products || [];
+          for (const p of products) {
+            const vp = p?.voucherProduct;
+            if (!p?.brandKey || !vp || vp.status !== 'ACTIVE') continue;
+            if (seen.has(p.brandKey)) continue;
+            seen.add(p.brandKey);
+            all.push({
+              id: p.id || p.brandKey,
+              brandKey: p.brandKey,
+              title: String(vp.title || '').trim(),
+              discount: Number(vp.discountPercentage) || 0,
+              image: vp.iconImageUrl || vp.logoUrl || vp.sqLogoUrl || '',
+              logo: vp.logoUrl || vp.sqLogoUrl || vp.plainLogoUrl || '',
+              bg: vp.cardBackgroundColor || '#1a1a2e',
+              category: p.category || '',
+              tags: Array.isArray(p.displayTags) ? p.displayTags : [],
+              url: `https://offers.myhubble.money/buy-gift-card/${encodeURIComponent(p.brandKey)}`,
+            });
+          }
+          if (!data?.nextCursor || products.length === 0) break;
+        }
+
+        const resp = new Response(JSON.stringify({
+          success: true,
+          count: all.length,
+          updatedAt: new Date().toISOString(),
+          giftCards: all,
+        }), {
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=1800',
+          },
+        });
+        if (all.length > 0) ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+        return resp;
+      } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: e.message, giftCards: [] }), {
+          status: 502,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // ── Public CueLinks Offers endpoint for Mobile App ─────────────────────────
     if (url0.pathname === '/public/offers' && request.method === 'GET') {
       const apiKey = (env.CUELINKS_API_KEY || '').trim();
