@@ -4738,24 +4738,54 @@ async function scrapeAndSyncDealPrix(env, limit = 25) {
     return { success: true, count: 0, message: 'No new or updated DealPrix deals.' };
   }
 
-  const updatedByAsin = new Map(updated.map(p => [p.asin.toUpperCase(), p]));
-  const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
-
+  // DealPrix feed prices frequently reflect stale/bank-offer prices rather than live Amazon checkout prices.
+  // Require live Amazon Creators API verification before publishing new DealPrix deals or applying price drops.
   if (added.length > 0) await enrichAndVerifyNewAmazonDeals(added, env);
-  const final = await capLiveAndBury([...added, ...base], env);
+  const verifiedAdded = [];
+  for (const p of added) {
+    const verified = p._verifiedByAmazon === true;
+    delete p._verifiedByAmazon;
+    if (!verified || p.outOfStock) continue;
+    const discPct = parseInt(String(p.disc || '').replace(/[^0-9]/g, ''), 10) || 0;
+    if (discPct < 15) continue;
+    verifiedAdded.push(p);
+  }
 
-  const msg = `DealPrix sync: +${added.length} new, ${updated.length} updated`;
+  if (updated.length > 0) await enrichAndVerifyNewAmazonDeals(updated, env);
+  const verifiedUpdated = [];
+  for (const p of updated) {
+    const verified = p._verifiedByAmazon === true;
+    delete p._verifiedByAmazon;
+    if (!verified || p.outOfStock) continue;
+    const existing = existingByAsin.get(p.asin.toUpperCase());
+    const existingPrice = existing ? parsePrice(existing.price) : null;
+    const verifiedPrice = parsePrice(p.price);
+    if (!isValidPriceDrop(existingPrice, verifiedPrice)) continue;
+    verifiedUpdated.push(p);
+  }
+
+  if (verifiedAdded.length === 0 && verifiedUpdated.length === 0) {
+    await clearSyncError('DealPrix', env);
+    await recordScraperStatus('dealprix', 'working', 'No verified deals', 0, env);
+    return { success: true, count: 0, message: 'No verified DealPrix deals or price drops.' };
+  }
+
+  const updatedByAsin = new Map(verifiedUpdated.map(p => [p.asin.toUpperCase(), p]));
+  const base = products.map(p => (p.asin && updatedByAsin.get(p.asin.toUpperCase())) || p);
+  const final = await capLiveAndBury([...verifiedAdded, ...base], env);
+
+  const msg = `DealPrix sync: +${verifiedAdded.length} new, ${verifiedUpdated.length} updated`;
   await saveProductsFile(final, sha, msg, env);
   await clearSyncError('DealPrix', env);
-  await recordScraperStatus('dealprix', 'working', msg, added.length, env);
+  await recordScraperStatus('dealprix', 'working', msg, verifiedAdded.length, env);
 
-  const lowestDeals = added.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
+  const lowestDeals = verifiedAdded.filter(p => p.lowestPriceText && !p.hidden && !p.outOfStock && !isZeroPrice(p));
   if (lowestDeals.length > 0) {
     postDealsAndTrack(lowestDeals, env, { isLowestPricePost: true })
       .catch(e => console.error('TG lowest price DealPrix post failed:', e.message));
   }
 
-  return { success: true, added: added.length, updated: updated.length, message: msg, addedProducts: added };
+  return { success: true, added: verifiedAdded.length, updated: verifiedUpdated.length, message: msg, addedProducts: verifiedAdded };
 }
 
 // ── Price check + OOS detection (Creators API) ────────────────────────────────
@@ -4868,27 +4898,37 @@ async function enrichAndVerifyNewAmazonDeals(newDeals, env) {
     const token = await getAccessToken(accessKey, secretKey);
     const CHUNK = 10;
     for (let i = 0; i < amzDeals.length; i += CHUNK) {
+      if (i > 0) await new Promise(r => setTimeout(r, 1100)); // Respect 1 TPS Creators API limit
       const chunk = amzDeals.slice(i, i + CHUNK);
       const asins = chunk.map(p => p.asin.trim().toUpperCase());
-      const resp = await fetchWithTimeout('https://creatorsapi.amazon/catalog/v1/getItems', {
+      const reqBody = JSON.stringify({
+        itemIds: asins, itemIdType: 'ASIN', marketplace: 'www.amazon.in',
+        partnerTag: getWebTag(env),
+        resources: ['itemInfo.title','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.dealDetails','images.primary.large'],
+      });
+      const reqInit = {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'x-marketplace': 'www.amazon.in' },
-        body: JSON.stringify({
-          itemIds: asins, itemIdType: 'ASIN', marketplace: 'www.amazon.in',
-          partnerTag: getWebTag(env),
-          resources: ['itemInfo.title','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.dealDetails','images.primary.large'],
-        }),
-      }, 7000);
+        body: reqBody,
+      };
+      let resp = await fetchWithTimeout('https://creatorsapi.amazon/catalog/v1/getItems', reqInit, 7000);
+      if (resp.status === 429 || resp.status === 503) {
+        await new Promise(r => setTimeout(r, 1500));
+        resp = await fetchWithTimeout('https://creatorsapi.amazon/catalog/v1/getItems', reqInit, 7000);
+      }
 
-      if (!resp.ok) continue;
+      if (!resp.ok) {
+        console.warn(`enrichAndVerifyNewAmazonDeals chunk ${i} HTTP ${resp.status}`);
+        continue;
+      }
       const data = await resp.json();
       const items = data.itemsResult?.items || [];
       const now = Date.now();
 
       for (const p of chunk) {
-        p.lastChecked = now;
         const item = items.find(it => it.asin?.toUpperCase() === p.asin?.toUpperCase());
         if (!item) continue;
+        p.lastChecked = now;
 
         // Stock check: mark OOS if unavailable or no active seller listings
         const listing = item?.offersV2?.listings?.[0];
@@ -4900,6 +4940,7 @@ async function enrichAndVerifyNewAmazonDeals(newDeals, env) {
 
         if (isOOS) {
           p.outOfStock = true;
+          p._verifiedByAmazon = true;
           console.log(`[New Deal Ingest OOS] ${p.asin} is out of stock on Amazon, marked OOS`);
           continue;
         }
@@ -4913,8 +4954,11 @@ async function enrichAndVerifyNewAmazonDeals(newDeals, env) {
         // Live price verify: ensure live checkout price matches aggregator price
         const amPrice = listing?.price?.amount;
         if (amPrice && amPrice > 0) {
+          p._verifiedByAmazon = true;
           const dbPrice = parsePrice(p.price);
-          let amMrp = listing?.dealDetails?.originalPrice?.amount || listing?.price?.amount || dbPrice || amPrice;
+          const dbMrp = parsePrice(p.mrp);
+          let amMrp = listing?.dealDetails?.originalPrice?.amount || listing?.price?.savingBasis?.amount || dbMrp || dbPrice || amPrice;
+          if (amMrp < amPrice) amMrp = amPrice;
           if (isValidDealPrice(amPrice, amMrp)) {
             const newDisc = amPrice && amMrp && amMrp > amPrice ? Math.round((1 - amPrice / amMrp) * 100) : 0;
             p.price = '₹' + Math.round(amPrice).toLocaleString('en-IN');
