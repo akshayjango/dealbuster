@@ -1022,7 +1022,51 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
     }
   }
 
-  // 3. Scrape.do Proxy (Dedicated for DealsPing and general lookups — NEVER used for IndiaFreeStuff)
+  // 2b. AlterLab Scraper (Primary proxy for DealsPing — bypasses Cloudflare with raw HTML)
+  const alterlabKeysStr = env.ALTERLAB_API_KEYS || env.ALTERLAB_API_KEY || '';
+  const alterlabKeys = alterlabKeysStr.split(',').map(k => k.trim()).filter(Boolean);
+
+  if (isDealsPing && alterlabKeys.length > 0) {
+    const startIdx = Math.floor(Math.random() * alterlabKeys.length);
+    for (let i = 0; i < alterlabKeys.length; i++) {
+      const idx = (startIdx + i) % alterlabKeys.length;
+      const key = alterlabKeys[idx];
+      try {
+        console.log(`Trying AlterLab proxy with key index ${idx} for DealsPing...`);
+        const res = await fetchWithTimeout('https://api.alterlab.io/api/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'X-API-Key': key,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url: targetUrl, formats: ['html'] })
+        }, Math.max(timeoutMs, 25000));
+
+        const isQuotaErr = res.status === 401 || res.status === 402 || res.status === 403 || res.status === 429;
+        if (isQuotaErr) {
+          console.log(`AlterLab key index ${idx} quota/auth status ${res.status}. Rotating to next key...`);
+          continue;
+        }
+
+        if (res.ok) {
+          const jsonRes = await res.json().catch(() => null);
+          const html = jsonRes?.content?.html || jsonRes?.data?.html || jsonRes?.html || jsonRes?.raw_html || '';
+          const statusCode = jsonRes?.status_code || 200;
+          if (html && statusCode < 400 && !html.includes('Just a moment...') && !html.includes('cf-browser-verification')) {
+            return new Response(html, {
+              status: statusCode,
+              headers: { 'Content-Type': 'text/html; charset=utf-8' }
+            });
+          }
+          console.log(`AlterLab key index ${idx} returned empty/blocked HTML (status_code=${statusCode}). Rotating to next key...`);
+        }
+      } catch (err) {
+        console.log(`AlterLab proxy key index ${idx} failed with error: ${err.message}. Rotating to next key...`);
+      }
+    }
+  }
+
+  // 3. Scrape.do Proxy (Dedicated for DealsPing fallback and general lookups — NEVER used for IndiaFreeStuff)
   const sdKeysStr = env.SCRAPEDO_API_KEYS || env.SCRAPEDO_API_KEY || '';
   const sdKeys = sdKeysStr.split(',').map(k => k.trim()).filter(Boolean);
 
@@ -1085,7 +1129,7 @@ async function fetchWithProxy(targetUrl, options = {}, timeoutMs = 20000, env = 
         }
       }
     }
-    throw new Error('All configured Scrape.do and ScraperAPI keys were exhausted or blocked for DealsPing');
+    throw new Error('All configured AlterLab, Scrape.do, and ScraperAPI keys were exhausted or blocked for DealsPing');
   }
 
   // 3. Crawlbase Proxy (with key rotation and auto JS rendering for redirects)
