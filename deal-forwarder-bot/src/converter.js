@@ -201,10 +201,8 @@ export async function convertToEarnKaro(dealUrlOrText, token) {
 /**
  * Build Amazon Affiliate URL
  */
-export function buildAmazonUrl(asin, tag = 'dbitg-21') {
-  return tag === 'dbitg-21'
-    ? `https://dealbuster.in/go?${asin}`
-    : `https://dealbuster.in/go?asin=${asin}&tag=${tag}`;
+export function buildAmazonUrl(asin, tag = 'tgamzn-21') {
+  return `https://www.amazon.in/dp/${asin}?tag=${tag}`;
 }
 
 /**
@@ -539,7 +537,7 @@ export function calculateTitleSimilarity(normA, normB) {
  */
 export async function convertDealUrl(rawUrl, options = {}) {
   const {
-    amazonTag = 'dbitg-21',
+    amazonTag = 'tgamzn-21',
     earnkaroToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o',
   } = options;
 
@@ -604,7 +602,7 @@ export async function convertDealUrl(rawUrl, options = {}) {
         return {
           originalUrl: rawUrl,
           resolvedUrl: finalResolved,
-          convertedUrl: `https://dealbuster.in/go?url=${encodeURIComponent(converted)}&tag=${amazonTag}`,
+          convertedUrl: converted,
           store: 'amazon',
           id: promoId
         };

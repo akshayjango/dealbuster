@@ -1,6 +1,6 @@
 const ADMIN_API = 'https://dealbuster-admin-api.vakshay083.workers.dev';
 const TG_CHANNEL = '@dealbusterindia';
-const DEFAULT_AMZ_TAG = 'dbitg-21';
+const DEFAULT_AMZ_TAG = 'tgamzn-21';
 const EARNKARO_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2YTk0ZTM2Y2ZhNjMxOWMyMmVhMzkyMDkiLCJlYXJua2FybyI6IjEwMjk5MjIiLCJpYXQiOjE3ODgxODg1Mzl9.2XEPFAfOL8X9s7yoCu2aAMKB2-iBZF8g_BuDRXgoB_o';
 
 function tg(token, method, body) {
@@ -396,8 +396,10 @@ export default {
       const asinM = canonical.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || rawUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i) || rawUrl.match(/link\.amazon\/([A-Z0-9]{10})/i);
       asin = asinM ? asinM[1].toUpperCase() : '';
       finalAffiliateUrl = asin
-        ? `https://dealbuster.in/go?${asin}`
-        : `https://dealbuster.in/go?url=${encodeURIComponent(canonical)}&tag=${DEFAULT_AMZ_TAG}`;
+        ? `https://www.amazon.in/dp/${asin}?tag=${DEFAULT_AMZ_TAG}`
+        : (/[?&]tag=/i.test(canonical)
+            ? canonical.replace(/([?&])tag=[^&]+/i, `$1tag=${DEFAULT_AMZ_TAG}`)
+            : `${canonical}${canonical.includes('?') ? '&' : '?'}tag=${DEFAULT_AMZ_TAG}`);
     } else {
       const canonical = await resolveCanonicalUrl(rawUrl);
       store = detectStore(canonical);

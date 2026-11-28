@@ -583,8 +583,9 @@ async function main() {
     }
   }, 25 * 1000);
 
-  // Pre-seed dedupCache from products database & recent messages in @dealbusterindia to guarantee zero duplicate re-posts across restarts/crons
-  await seedDedupFromProducts();
+  // Pre-seed dedupCache from recent messages in @dealbusterindia to guarantee zero duplicate re-posts across restarts/crons.
+  // Note: Do NOT seed from products.json — website-only deals (e.g. Ajio curated, hidden, or unposted scraped deals)
+  // must not block deal-forwarder-bot from forwarding deals from other Telegram channels.
   await seedDedupFromTargetChannel(client, targetPeer);
 
   console.log('\n🚀 Auto-Forwarder is running! Waiting for new deals...\n');
@@ -730,12 +731,15 @@ async function main() {
         }
 
         // Fuzzy similarity check against recent posted titles buffer
-        const matchedRecent = checkRecentTitleMatch(normTitle);
-        if (matchedRecent) {
-          const hoursAgo = ((Date.now() - matchedRecent.time) / (1000 * 60 * 60)).toFixed(1);
-          console.log(`⏩ Skipped: Highly similar deal "${normTitle}" matches recent "${matchedRecent.title}" (${hoursAgo}h ago).`);
-          logEvent(`Skipped: Similar deal title (${hoursAgo}h ago)`, channelTitle, rawText);
-          return;
+        // Skip fuzzy title blocking when an explicit fresh ASIN was already verified
+        if (!detectedAsin) {
+          const matchedRecent = checkRecentTitleMatch(normTitle);
+          if (matchedRecent) {
+            const hoursAgo = ((Date.now() - matchedRecent.time) / (1000 * 60 * 60)).toFixed(1);
+            console.log(`⏩ Skipped: Highly similar deal "${normTitle}" matches recent "${matchedRecent.title}" (${hoursAgo}h ago).`);
+            logEvent(`Skipped: Similar deal title (${hoursAgo}h ago)`, channelTitle, rawText);
+            return;
+          }
         }
 
         inFlightClaims.add(titleKey);
@@ -767,7 +771,7 @@ async function main() {
 
       // 3. Process text and convert links
       const conversionOptions = {
-        amazonTag: config.amazon_tag || 'dbitg-21',
+        amazonTag: config.amazon_tag || 'tgamzn-21',
         earnkaroToken: process.env.EARNKARO_API_TOKEN || config.earnkaro_api_token,
         cuelinksPubId: config.cuelinks_pub_id || '268568',
         cuelinksApiKey: config.cuelinks_api_key || process.env.CUELINKS_API_KEY,
@@ -785,10 +789,11 @@ async function main() {
         if (!['amazon', 'flipkart', 'myntra', 'ajio', 'shopsy', 'meesho'].includes(l.store)) return false;
         if (!l.convertedUrl || /dealsping\.in|t\.me|telegram\.me/i.test(l.convertedUrl)) return false;
 
-        // Verify Amazon has our affiliate tag (dbitg-21 or configured tag)
+        // Verify Amazon has our affiliate tag (tgamzn-21 or configured tag)
         if (l.store === 'amazon') {
-          const expectedTag = conversionOptions.amazonTag || 'dbitg-21';
+          const expectedTag = conversionOptions.amazonTag || 'tgamzn-21';
           return l.convertedUrl.includes(`tag=${expectedTag}`) ||
+                 l.convertedUrl.includes('tag=tgamzn-21') ||
                  l.convertedUrl.includes('tag=dbitg-21') ||
                  l.convertedUrl.includes('tag=dealbuster');
         }

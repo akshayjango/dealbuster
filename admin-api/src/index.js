@@ -31,10 +31,10 @@ function json(data, status = 200) {
 
 // ── Amazon Associates Tracking IDs ──────────────────────────────────────────
 // dbiwb-21: Website (dealbuster.in)
-// dbitg-21: Telegram Channel (@dealbusterindia)
+// tgamzn-21: Telegram Channel (@dealbusterindia)
 // dbiap-21: Mobile App (Play Store / Android)
 const TAG_WEB = 'dbiwb-21';
-const TAG_TG = 'dbitg-21';
+const TAG_TG = 'tgamzn-21';
 const TAG_APP = 'dbiap-21';
 
 function getWebTag(env) {
@@ -5955,16 +5955,6 @@ function trimTitle(raw) {
 function dealLink(product, tag, env = {}) {
   const isAmz = product?.store === 'amazon' || product?.asin || (product?.link && /amazon\.(?:in|com)|amzn\.(?:to|in)|link\.amazon|a\.co|dealbuster\.in\/(?:open|go)/i.test(product.link));
   if (isAmz) {
-    const isTg = tag === TAG_TG || (env && typeof getTgTag === 'function' && tag === getTgTag(env));
-    if (isTg) {
-      if (product.asin) {
-        return tag === 'dbitg-21'
-          ? `https://dealbuster.in/go?${product.asin}`
-          : `https://dealbuster.in/go?asin=${product.asin}&tag=${tag}`;
-      }
-      const rawAmz = tagAmazonUrl(product.link || '', tag);
-      return `https://dealbuster.in/go?url=${encodeURIComponent(rawAmz)}&tag=${tag}`;
-    }
     if (product.asin) {
       return `https://www.amazon.in/dp/${product.asin}?tag=${tag}`;
     }
