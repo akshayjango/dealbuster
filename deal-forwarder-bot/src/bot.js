@@ -16,6 +16,7 @@ import {
   normalizeDealTitle,
   calculateTitleSimilarity,
 } from './converter.js';
+import { createReloginHandler } from './relogin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,12 +47,42 @@ function logEvent(action, channel, text) {
   if (botState.recentEvents.length > 30) botState.recentEvents.pop();
 }
 
-// ── Render / Cloud Web Service Health Check Server ───────────────────────────
+// ── Render / Cloud Web Service Health Check & Phone Re-Login Server ──────────
 const PORT = process.env.PORT || 8080;
-const server = http.createServer((req, res) => {
+let activeClient = null;
+let restartInProgress = false;
+
+const handleReloginRequest = createReloginHandler({
+  rootDir,
+  onNewSession: async () => {
+    if (restartInProgress) return;
+    restartInProgress = true;
+    try {
+      if (activeClient) {
+        try { await activeClient.disconnect(); } catch {}
+        activeClient = null;
+      }
+      botState.status = 'reconnecting';
+      botState.authError = null;
+      await main();
+    } finally {
+      restartInProgress = false;
+    }
+  },
+});
+
+const server = http.createServer(async (req, res) => {
+  try {
+    if (await handleReloginRequest(req, res)) return;
+  } catch (e) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: false, error: e.message }));
+    return;
+  }
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
     ...botState,
+    reloginUrl: '/relogin',
     uptime_seconds: Math.round(process.uptime()),
     time: new Date().toISOString()
   }, null, 2));
@@ -142,10 +173,11 @@ async function main() {
   const sessionString = process.env.TELEGRAM_SESSION;
 
   if (!apiId || !apiHash || !sessionString) {
-    console.error('❌ Missing credentials in .env!');
-    console.log('Please run the login script first:');
-    console.log('  npm run login\n');
-    process.exit(1);
+    console.error('❌ Missing credentials or TELEGRAM_SESSION! Open /relogin in your browser to log in from your phone.');
+    botState.status = 'needs_relogin';
+    botState.connected = false;
+    botState.authError = 'Missing TELEGRAM_SESSION — visit /relogin to authenticate';
+    return;
   }
 
   const config = loadConfig();
@@ -159,10 +191,13 @@ async function main() {
     apiHash,
     { connectionRetries: 5 }
   );
+  activeClient = client;
 
   await client.connect();
 
   const me = await client.getMe();
+  botState.status = 'ok';
+  botState.authError = null;
   console.log(`✅ Logged in as: ${me.firstName || ''} ${me.lastName || ''} (@${me.username || me.id})`);
 
   // Load all joined channels and chats into GramJS memory
@@ -1053,6 +1088,8 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error('❌ Fatal error:', err);
-  process.exit(1);
+  console.error('❌ Telegram connection/auth error:', err.message || err);
+  botState.status = 'needs_relogin';
+  botState.connected = false;
+  botState.authError = `${err.message || err} — open /relogin to authenticate from your phone`;
 });
